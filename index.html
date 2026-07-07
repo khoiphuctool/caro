@@ -703,6 +703,32 @@
     </div>
 
 <script>
+    // ===== API CONFIG =====
+    // Đổi thành URL server thật khi deploy, ví dụ: 'https://your-server.com'
+    // Để trống ('') nếu chỉ dùng localStorage (offline)
+    const API_URL = '';
+
+    async function apiGet(path) {
+        if (!API_URL) return null;
+        try { return await (await fetch(API_URL + path)).json(); }
+        catch(e) { console.warn('API offline:', e); return null; }
+    }
+    async function apiPost(path, body) {
+        if (!API_URL) return null;
+        try {
+            return await (await fetch(API_URL + path, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            })).json();
+        } catch(e) { console.warn('API offline:', e); return null; }
+    }
+    async function apiDelete(path) {
+        if (!API_URL) return null;
+        try { return await (await fetch(API_URL + path, { method: 'DELETE' })).json(); }
+        catch(e) { console.warn('API offline:', e); return null; }
+    }
+
     const themes = {
         'pure-white': `
             body { background: #f8fafc; color: #1e293b; }
@@ -819,7 +845,7 @@
     function recordMatch(result, winner) {
         const sizeVal = document.getElementById('board-size').value;
         const boardLabel = sizeVal === 'inf' ? '♾️ Vô Hạn' : `${sizeVal}×${sizeVal}`;
-        matchHistory.unshift({
+        const entry = {
             result,
             winner,
             mode: gameMode,
@@ -830,10 +856,13 @@
             humanPiece: humanPiece,
             botPiece: botPiece,
             time: new Date()
-        });
+        };
+        matchHistory.unshift(entry);
         if (matchHistory.length > MAX_HISTORY) matchHistory = matchHistory.slice(0, MAX_HISTORY);
         saveHistory(matchHistory);
         renderHistory();
+        // Sync lên server (fire-and-forget)
+        apiPost('/api/history', { ...entry, time: entry.time.toISOString() });
         const hp = document.getElementById('history-panel');
         if (hp) hp.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
@@ -886,6 +915,7 @@
         matchHistory = [];
         saveHistory([]);
         renderHistory();
+        apiDelete('/api/history');
     }
 
     function toggleHistory() {
@@ -1067,6 +1097,7 @@
         currentRankMode = null;
         currentRankTab  = null;
         renderRankPanel();
+        apiDelete('/api/rank');
     }
 
     function promptRankName(moves, mode, winCnt, boardLabel, winnerLabel) {
@@ -1083,14 +1114,14 @@
         const inp = document.getElementById('name-input');
         const name = (inp ? inp.value.trim() : '') || 'Ẩn Danh';
         if (!pendingRankEntry) { closeNameOverlay(); return; }
-        const { time, moves, mode, winCnt, boardLabel } = pendingRankEntry;
+        const { moves, mode, winCnt, boardLabel } = pendingRankEntry;
         const data = loadRank();
         const key = getRankKey(mode, winCnt, boardLabel);
         if (!data[key]) data[key] = [];
         const now = new Date();
         const dateStr = now.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'2-digit' });
         data[key].push({ name, moves, date: dateStr });
-        data[key].sort((a, b) => a.moves - b.moves); // ít nước nhất đứng đầu
+        data[key].sort((a, b) => a.moves - b.moves);
         data[key] = data[key].slice(0, 20);
         saveRank(data);
         currentRankMode = mode;
@@ -1098,6 +1129,8 @@
         pendingRankEntry = null;
         closeNameOverlay();
         renderRankPanel();
+        // Sync lên server
+        apiPost('/api/rank', { key, name, moves, date: dateStr });
         const rp = document.getElementById('rank-panel');
         if (rp) setTimeout(() => rp.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 200);
     }
@@ -2521,6 +2554,27 @@
     renderRankPanel();
     renderHistory();
     applyHistoryTheme(document.getElementById('theme-select').value);
+
+    // Load rank + history từ server (merge vào localStorage nếu có)
+    (async () => {
+        const serverRank = await apiGet('/api/rank');
+        if (serverRank && typeof serverRank === 'object') {
+            const local = loadRank();
+            // Merge: gộp rồi sort, giữ top 20
+            for (const [k, entries] of Object.entries(serverRank)) {
+                if (!local[k]) local[k] = [];
+                for (const e of entries) {
+                    if (!local[k].find(x => x.name === e.name && x.moves === e.moves)) {
+                        local[k].push(e);
+                    }
+                }
+                local[k].sort((a, b) => a.moves - b.moves);
+                local[k] = local[k].slice(0, 20);
+            }
+            saveRank(local);
+            renderRankPanel();
+        }
+    })();
 </script>
 </body>
 </html>
