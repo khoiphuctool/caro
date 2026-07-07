@@ -1,0 +1,2519 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caro BOT CỦA CHẦN</title>
+    
+    <style id="theme-styles"></style>
+    
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 15px;
+            box-sizing: border-box;
+            transition: background 0.3s, color 0.3s;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        h1 {
+            margin: 10px 0;
+            font-size: 2.2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-align: center;
+            font-weight: 800;
+        }
+
+        .control-wrapper {
+            width: 100%;
+            max-width: 800px;
+            position: relative;
+            z-index: 9999; 
+            margin-bottom: 20px;
+        }
+
+        .config-panel {
+            display: flex;
+            gap: 20px;
+            padding: 15px 25px;
+            border-radius: 15px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+
+        .config-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+        }
+
+        select {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            outline: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .status-panel {
+            font-size: 1.25rem;
+            margin-bottom: 15px;
+            font-weight: bold;
+            padding: 12px 30px;
+            border-radius: 8px;
+            text-align: center;
+            min-width: 350px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .main-layout {
+            display: flex;
+            gap: 25px;
+            align-items: flex-start;
+            justify-content: center;
+            width: 100%;
+            max-width: 1450px;
+        }
+
+        .side-panel {
+            width: 260px;
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .side-panel h3 {
+            margin-top: 0;
+            text-transform: uppercase;
+            font-size: 1.05rem;
+            text-align: center;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+        }
+
+        .game-container {
+            padding: 12px;
+            border-radius: 8px;
+            overflow: auto;
+            max-height: 75vh;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            cursor: grab;
+            user-select: none;
+        }
+        .game-container.inf-mode {
+            overflow: hidden;
+            cursor: default;
+            padding: 0;
+            display: inline-block;
+            line-height: 0;
+        }
+        .game-container.panning { cursor: grabbing; }
+
+        #inf-canvas {
+            display: block;
+            touch-action: none;
+            cursor: crosshair;
+        }
+
+        /* ===== RESIZE HANDLES CHO BÀN CỜ VÔ HẠN ===== */
+        #inf-resizable { display: inline-block; }
+        .rs-handle {
+            position: absolute;
+            background: rgba(99,102,241,0.55);
+            border-radius: 3px;
+            z-index: 20;
+            transition: background 0.15s;
+        }
+        .rs-handle:hover { background: rgba(99,102,241,0.95); }
+        /* Cạnh */
+        .rs-n  { top:-4px;    left:20px;  right:20px; height:8px; cursor:n-resize; }
+        .rs-s  { bottom:-4px; left:20px;  right:20px; height:8px; cursor:s-resize; }
+        .rs-w  { left:-4px;   top:20px;   bottom:20px; width:8px; cursor:w-resize; }
+        .rs-e  { right:-4px;  top:20px;   bottom:20px; width:8px; cursor:e-resize; }
+        /* Góc */
+        .rs-nw { top:-4px;    left:-4px;  width:14px; height:14px; cursor:nw-resize; border-radius:4px; }
+        .rs-ne { top:-4px;    right:-4px; width:14px; height:14px; cursor:ne-resize; border-radius:4px; }
+        .rs-sw { bottom:-4px; left:-4px;  width:14px; height:14px; cursor:sw-resize; border-radius:4px; }
+        .rs-se { bottom:-4px; right:-4px; width:14px; height:14px; cursor:se-resize; border-radius:4px; }
+
+        .board {
+            display: grid;
+            gap: 1px;
+            padding: 2px;
+        }
+
+        .cell {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            box-sizing: border-box;
+            font-weight: 900;
+            transition: background 0.1s, transform 0.1s;
+            position: relative;
+        }
+
+        /* ĐƯỜNG VIỀN NHẤP NHÁY CHO NƯỚC ĐI VỪA ĐÁNH */
+        .cell.last-move {
+            outline: 3px solid #f59e0b !important;
+            outline-offset: -3px;
+            animation: modernFlash 0.8s infinite alternate;
+            z-index: 10;
+        }
+
+        @keyframes modernFlash {
+            0% { filter: brightness(1); box-shadow: inset 0 0 4px rgba(245, 158, 11, 0.4); }
+            100% { filter: brightness(1.3); box-shadow: inset 0 0 12px rgba(245, 158, 11, 0.9); }
+        }
+
+        .cell.winning-cell {
+            animation: pulseEffect 0.5s infinite alternate;
+            z-index: 11;
+        }
+
+        @keyframes pulseEffect {
+            0% { transform: scale(1); filter: brightness(1.2); }
+            100% { transform: scale(1.05); filter: brightness(1.4); }
+        }
+
+        @keyframes dotPulse {
+            0%, 100% { opacity: 0.2; }
+            50%       { opacity: 1; }
+        }
+        .think-dots { animation: dotPulse 1s infinite; font-size: 1.1em; letter-spacing: 2px; }
+
+        .btn-restart {
+            margin-top: 20px;
+            padding: 12px 40px;
+            font-size: 1.05rem;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        @media (max-width: 900px) {
+            .main-layout { flex-direction: column; align-items: center; }
+            .side-panel { width: 90%; }
+            #history-panel, #rank-panel { width: 90%; min-width: unset; }
+            #history-list { max-height: 160px; }
+        }
+
+        /* ===== PHÁO HOA & WIN OVERLAY ===== */
+        #confetti-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 99998;
+        }
+
+        #win-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.55);
+            z-index: 99999;
+            justify-content: center;
+            align-items: center;
+            animation: overlayFadeIn 0.4s ease;
+        }
+        #win-overlay.show { display: flex; }
+
+        @keyframes overlayFadeIn {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+
+        .win-box {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border: 2px solid #f59e0b;
+            border-radius: 24px;
+            padding: 48px 60px;
+            text-align: center;
+            box-shadow: 0 0 60px rgba(245,158,11,0.4), 0 20px 60px rgba(0,0,0,0.6);
+            animation: winBoxPop 0.5s cubic-bezier(0.34,1.56,0.64,1);
+            max-width: 420px;
+            width: 90%;
+        }
+
+        @keyframes winBoxPop {
+            from { transform: scale(0.5); opacity: 0; }
+            to   { transform: scale(1);   opacity: 1; }
+        }
+
+        .win-emoji {
+            font-size: 4rem;
+            display: block;
+            margin-bottom: 12px;
+            animation: bounce 0.7s infinite alternate;
+        }
+
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to   { transform: translateY(-12px); }
+        }
+
+        .win-title {
+            font-size: 1.9rem;
+            font-weight: 900;
+            color: #f59e0b;
+            margin: 0 0 8px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .win-subtitle {
+            font-size: 1rem;
+            color: #94a3b8;
+            margin: 0 0 32px;
+        }
+
+        .btn-play-again {
+            padding: 14px 48px;
+            font-size: 1.1rem;
+            font-weight: 800;
+            border-radius: 50px;
+            border: none;
+            cursor: pointer;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            color: #fff;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 20px rgba(245,158,11,0.5);
+            transition: transform 0.15s, box-shadow 0.15s;
+            text-transform: uppercase;
+        }
+        .btn-play-again:hover {
+            transform: scale(1.06);
+            box-shadow: 0 6px 28px rgba(245,158,11,0.7);
+        }
+
+        /* ===== LỊCH SỬ ĐẤU ===== */
+        #history-panel {
+            width: 260px;
+            min-width: 220px;
+            border-radius: 12px;
+            padding: 10px 14px;
+            box-sizing: border-box;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            flex-shrink: 0;
+        }
+        .history-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+            padding: 4px 0;
+        }
+        .history-header h3 {
+            margin: 0;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #0f172a;
+        }
+        .history-toggle-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 2px 6px;
+            border-radius: 6px;
+            color: #475569;
+            transition: background 0.15s;
+        }
+        .history-toggle-btn:hover { background: rgba(0,0,0,0.06); }
+        .history-body {
+            display: none;
+            margin-top: 10px;
+            border-top: 2px solid #e2e8f0;
+            padding-top: 10px;
+        }
+        .history-body.open { display: block; }
+        #history-list {
+            max-height: 520px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        #history-list::-webkit-scrollbar { width: 5px; }
+        #history-list::-webkit-scrollbar-thumb { border-radius: 4px; background: rgba(128,128,128,0.4); }
+        .history-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 12px;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: inherit;
+        }
+        .history-item .h-num {
+            min-width: 24px;
+            font-size: 0.78rem;
+            opacity: 0.6;
+        }
+        .history-item .h-result {
+            min-width: 28px;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+        .history-item .h-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .history-item .h-mode {
+            font-size: 0.78rem;
+            opacity: 0.65;
+        }
+        .history-item.win  { background: rgba(37,99,235,0.12); border-left: 3px solid #2563eb; }
+        .history-item.lose { background: rgba(220,38,38,0.12);  border-left: 3px solid #dc2626; }
+        .history-item.draw { background: rgba(100,116,139,0.15); border-left: 3px solid #64748b; }
+        #history-empty {
+            text-align: center;
+            opacity: 0.45;
+            font-size: 0.9rem;
+            padding: 12px 0;
+        }
+        .btn-clear-history {
+            margin-top: 10px;
+            padding: 5px 18px;
+            font-size: 0.82rem;
+            border-radius: 20px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            opacity: 0.75;
+            display: block;
+            margin-left: auto;
+        }
+        .btn-clear-history:hover { opacity: 1; }
+
+        /* ===== BẢNG XẾP HẠNG ===== */
+        #rank-panel {
+            width: 260px;
+            min-width: 220px;
+            border-radius: 12px;
+            padding: 16px 14px;
+            box-sizing: border-box;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            flex-shrink: 0;
+        }
+        #rank-panel h3 {
+            margin: 0 0 12px;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: center;
+            padding-bottom: 8px;
+            color: #0f172a;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .rank-tabs {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+            justify-content: center;
+        }
+        .rank-tab {
+            padding: 4px 14px;
+            border-radius: 20px;
+            border: 1px solid #cbd5e1;
+            background: #f1f5f9;
+            color: #475569;
+            font-size: 0.82rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .rank-tab.active {
+            background: #2563eb;
+            color: #fff;
+            border-color: #2563eb;
+        }
+        #rank-list {
+            max-height: 260px;
+            overflow-y: auto;
+        }
+        #rank-list::-webkit-scrollbar { width: 5px; }
+        #rank-list::-webkit-scrollbar-thumb { border-radius: 4px; background: rgba(128,128,128,0.4); }
+        .rank-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 12px;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            background: #f8fafc;
+            border-left: 3px solid #cbd5e1;
+        }
+        .rank-item.rank-1 { background: rgba(245,158,11,0.12); border-color: #f59e0b; }
+        .rank-item.rank-2 { background: rgba(148,163,184,0.15); border-color: #94a3b8; }
+        .rank-item.rank-3 { background: rgba(180,120,60,0.13); border-color: #b4783c; }
+        .rank-medal { font-size: 1.2rem; min-width: 26px; text-align: center; }
+        .rank-name { flex: 1; }
+        .rank-time { font-size: 0.88rem; color: #2563eb; font-weight: 800; min-width: 60px; text-align: right; }
+        .rank-meta { font-size: 0.75rem; opacity: 0.55; min-width: 70px; text-align: right; }
+        .btn-clear-rank {
+            margin-top: 10px;
+            padding: 5px 18px;
+            font-size: 0.82rem;
+            border-radius: 20px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            opacity: 0.75;
+            display: block;
+            margin-left: auto;
+        }
+        .btn-clear-rank:hover { opacity: 1; }
+
+        /* ===== NAME INPUT OVERLAY ===== */
+        #name-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 100000;
+            justify-content: center;
+            align-items: center;
+        }
+        #name-overlay.show { display: flex; }
+        .name-box {
+            background: #1e293b;
+            border: 2px solid #f59e0b;
+            border-radius: 20px;
+            padding: 36px 44px;
+            text-align: center;
+            width: 90%;
+            max-width: 380px;
+            box-shadow: 0 0 40px rgba(245,158,11,0.3);
+        }
+        .name-box h2 { color: #f59e0b; margin: 0 0 6px; font-size: 1.4rem; }
+        .name-box p  { color: #94a3b8; margin: 0 0 20px; font-size: 0.95rem; }
+        .name-box input {
+            width: 100%;
+            padding: 10px 16px;
+            border-radius: 10px;
+            border: 1px solid #475569;
+            background: #0f172a;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: bold;
+            box-sizing: border-box;
+            margin-bottom: 16px;
+            outline: none;
+            text-align: center;
+        }
+        .name-box input:focus { border-color: #f59e0b; }
+        .btn-save-name {
+            padding: 10px 36px;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            color: #fff;
+            border: none;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 800;
+            cursor: pointer;
+            letter-spacing: 1px;
+        }
+        .btn-save-name:hover { filter: brightness(1.1); }
+    </style>
+</head>
+<body>
+
+    <h1 id="game-title">Caro BOT AI của CHẦN PRO</h1>
+    
+    <div class="control-wrapper">
+        <div class="config-panel" id="ui-config-panel">
+            <div class="config-group">
+                <label for="theme-select">🎨 Giao diện:</label>
+                <select id="theme-select" onchange="changeTheme()">
+                    <option value="pure-white" selected>Minh Kính (Nền Trắng)</option>
+                    <option value="pure-black">Hắc Dạ (Nền Đen)</option>
+                    <option value="cyber">Cyber Neon</option>
+                    <option value="luxury-wood">Gỗ Thượng Lưu</option>
+                </select>
+            </div>
+            <div class="config-group">
+                <label for="game-mode">🤖 Chế độ Bot:</label>
+                <select id="game-mode" onchange="initGame()">
+                    <option value="solo">Solo (2 Người)</option>
+                    <option value="ai-easy">Mức Dễ</option>
+                    <option value="ai-medium">Mức Thường</option>
+                    <option value="ai-hard">Mức Khó</option>
+                    <option value="ai-god" selected>Mức TỐI THƯỢNG (Bất Khả Chiến Bại 💀)</option>
+                </select>
+            </div>
+            <div class="config-group">
+                <label for="board-size">🏁 Bàn cờ:</label>
+                <select id="board-size" onchange="initGame()">
+                    <option value="inf" selected>♾️ Vô Hạn (Tự Mở Rộng)</option>
+                    <option value="3">3 x 3</option>
+                    <option value="5">5 x 5</option>
+                    <option value="10">10 x 10</option>
+                    <option value="15">15 x 15</option>
+                    <option value="30">30 x 30</option>
+                </select>
+            </div>
+            <div class="config-group">
+                <label for="win-count">🏆 Số quân thắng:</label>
+                <select id="win-count" onchange="initGame()">
+                    <option value="3">3 quân</option>
+                    <option value="4">4 quân</option>
+                    <option value="5" selected>5 quân</option>
+                    <option value="6">6 quân</option>
+                    <option value="7">7 quân</option>
+                    <option value="8">8 quân</option>
+                    <option value="9">9 quân</option>
+                    <option value="10">10 quân</option>
+                </select>
+            </div>
+            <div class="config-group" id="group-piece" style="display:none;">
+                <label for="player-piece">♟️ Bạn chọn:</label>
+                <select id="player-piece" onchange="initGame()">
+                    <option value="X" selected>X (Đi trước)</option>
+                    <option value="O">O (Đi sau)</option>
+                </select>
+            </div>
+            <div class="config-group" id="group-first" style="display:none;">
+                <label for="first-move">🚀 Đi trước:</label>
+                <select id="first-move" onchange="initGame()">
+                    <option value="X" selected>X</option>
+                    <option value="O">O</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="status-panel" id="status-panel">Đang tải...</div>
+
+    <div class="main-layout">
+        <!-- LỊCH SỬ ĐẤU — CÁNH TRÁI -->
+        <div id="history-panel">
+            <div class="history-header" onclick="toggleHistory()">
+                <h3 id="history-title">📜 Lịch Sử Đấu</h3>
+                <button class="history-toggle-btn" id="history-toggle-icon" title="Ẩn/Hiện lịch sử">▶</button>
+            </div>
+            <div class="history-body" id="history-body">
+                <div id="history-list">
+                    <div id="history-empty">Chưa có ván đấu nào.</div>
+                </div>
+                <button class="btn-clear-history" id="btn-clear-history" onclick="clearHistory()" style="display:none;">🗑️ Xóa lịch sử</button>
+            </div>
+        </div>
+
+        <div class="game-container" id="ui-game-container">
+            <div id="inf-nav" style="display:none; text-align:center; padding:6px 0 8px; font-size:0.85rem; opacity:0.7;">
+                📍 <span id="inf-coords"></span>
+                &nbsp;&nbsp;
+                <button onclick="jumpToCenter()" style="padding:3px 12px;border-radius:6px;border:none;cursor:pointer;font-size:0.82rem;font-weight:bold;">🏠 Về Nước Cuối</button>
+                &nbsp;
+                <button onclick="jumpToOrigin()" style="padding:3px 12px;border-radius:6px;border:none;cursor:pointer;font-size:0.82rem;font-weight:bold;">⌂ Về Gốc (0,0)</button>
+                &nbsp;
+                <button onclick="resizeInfCanvas()" style="padding:3px 12px;border-radius:6px;border:none;cursor:pointer;font-size:0.82rem;font-weight:bold;">⛶ To Bàn Cờ</button>
+            </div>
+            <div class="board" id="board"></div>
+            <div id="inf-resizable" style="display:none; position:relative; user-select:none;">
+                <canvas id="inf-canvas" style="display:block; cursor:crosshair;"></canvas>
+                <!-- Resize handles -->
+                <div class="rs-handle rs-n"  data-dir="n"></div>
+                <div class="rs-handle rs-s"  data-dir="s"></div>
+                <div class="rs-handle rs-w"  data-dir="w"></div>
+                <div class="rs-handle rs-e"  data-dir="e"></div>
+                <div class="rs-handle rs-nw" data-dir="nw"></div>
+                <div class="rs-handle rs-ne" data-dir="ne"></div>
+                <div class="rs-handle rs-sw" data-dir="sw"></div>
+                <div class="rs-handle rs-se" data-dir="se"></div>
+            </div>
+        </div>
+
+        <!-- CỘT PHẢI: KÝ HIỆU + BẢNG XẾP HẠNG -->
+        <div style="display:flex; flex-direction:column; gap:14px; flex-shrink:0;">
+            <div class="side-panel" id="right-panel">
+                <h3>Ký Hiệu Cờ</h3>
+                <p id="right-human-label">Bạn (Người): <span style="font-weight: bold; font-size: 1.1rem; color: #2563eb;">X</span></p>
+                <p id="right-bot-label">Máy (Bot): <span style="font-weight: bold; font-size: 1.1rem; color: #dc2626;">O</span></p>
+                <hr style="border: 0; border-top: 1px solid rgba(0,0,0,0.1);">
+                <p id="rule-desc">Chuỗi quân liên tiếp nếu bị chặn cả hai đầu sẽ <strong>không tính thắng</strong>.</p>
+                <p>📌 Ô viền vàng nhấp nháy = nước đi vừa đánh.</p>
+            </div>
+
+            <!-- BẢNG XẾP HẠNG -->
+            <div id="rank-panel">
+                <h3 id="rank-title">🏅 BẢNG XẾP HẠNG</h3>
+                <div class="rank-tabs" id="rank-tabs"></div>
+                <div id="rank-list"></div>
+                <button class="btn-clear-rank" id="btn-clear-rank" onclick="clearRank()" style="display:none;">🗑️ Xóa xếp hạng</button>
+            </div>
+        </div>
+    </div>
+
+    <button class="btn-restart" id="ui-btn-restart" onclick="initGame()">Khai Cuộc Ván Mới</button>
+
+    <!-- PHÁO HOA CANVAS -->
+    <canvas id="confetti-canvas"></canvas>
+    <div id="name-overlay">
+        <div class="name-box">
+            <h2>🏆 NHẬP TÊN CỦA BẠN</h2>
+            <p id="name-overlay-sub">Thời gian của bạn sẽ được lưu vào bảng xếp hạng!</p>
+            <input type="text" id="name-input" maxlength="20" placeholder="Tên của bạn..." />
+            <br>
+            <button class="btn-save-name" onclick="saveRankEntry()">💾 LƯU XẾP HẠNG</button>
+        </div>
+    </div>
+
+    <!-- WIN OVERLAY -->
+    <div id="win-overlay">
+        <div class="win-box">
+            <span class="win-emoji" id="win-emoji">🏆</span>
+            <div class="win-title" id="win-title">CHIẾN THẮNG!</div>
+            <div class="win-subtitle" id="win-subtitle"></div>
+            <div style="display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+                <button class="btn-play-again" onclick="reviewGame()" id="btn-review"
+                    style="background:linear-gradient(135deg,#475569,#1e293b);">
+                    🔍 XEM LẠI
+                </button>
+                <button class="btn-play-again" onclick="closeWinAndRestart()">🔄 ĐẤU LẠI</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const themes = {
+        'pure-white': `
+            body { background: #f8fafc; color: #1e293b; }
+            h1 { color: #0f172a; }
+            .config-panel { background: #ffffff; border: 1px solid #e2e8f0; color: #475569; }
+            select { background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; }
+            .status-panel { background: #ffffff; border: 1px solid #e2e8f0; color: #0f172a; }
+            .side-panel { background: #ffffff; border: 1px solid #e2e8f0; }
+            .side-panel h3 { color: #0f172a; border-bottom: 2px solid #e2e8f0; }
+            .game-container { background: #ffffff; border: 4px solid #cbd5e1; }
+            .board { background: #cbd5e1; }
+            .cell { background: #ffffff; color: #1e293b; border: 1px solid rgba(0,0,0,0.03); }
+            .cell:not(.X):not(.O):hover { background: #f1f5f9; }
+            .cell.X { color: #2563eb; } .cell.O { color: #dc2626; }
+            .cell.X::before { content: "X"; } .cell.O::before { content: "O"; }
+            .cell.winning-cell { background: #dbeafe !important; box-shadow: inset 0 0 8px #2563eb; }
+            .btn-restart { background: #2563eb; color: white; }
+            .turn-X { color: #2563eb; } .turn-O { color: #dc2626; }
+        `,
+        'pure-black': `
+            body { background: #1a1a2e; color: #e2e8f0; }
+            h1 { background: linear-gradient(to right, #c084fc, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+            .config-panel { background: #242440; border: 1px solid #3b3b60; color: #c4c4e0; }
+            select { background: #2e2e50; color: #e2e8f0; border: 1px solid #4a4a70; }
+            .status-panel { background: #242440; border: 1px solid #3b3b60; color: #e2e8f0; }
+            .side-panel { background: #242440; border: 1px solid #3b3b60; }
+            .side-panel h3 { color: #c084fc; border-bottom: 2px solid #3b3b60; }
+            .game-container { background: #1e1e38; border: 4px solid #3b3b60; }
+            .board { background: #2e2e50; }
+            .cell { background: #242440; color: #e2e8f0; border: 1px solid rgba(255,255,255,0.05); }
+            .cell:not(.X):not(.O):hover { background: #32325a; }
+            .cell.X { color: #818cf8; text-shadow: 0 0 6px #818cf8; }
+            .cell.O { color: #f472b6; text-shadow: 0 0 6px #f472b6; }
+            .cell.X::before { content: "X"; } .cell.O::before { content: "O"; }
+            .cell.winning-cell { background: #3730a3 !important; box-shadow: inset 0 0 8px #818cf8; }
+            .btn-restart { background: linear-gradient(135deg, #818cf8, #c084fc); color: #fff; }
+            .turn-X { color: #818cf8; } .turn-O { color: #f472b6; }
+        `,
+        'cyber': `
+            body { background: #0f172a; color: #fff; }
+            h1 { background: linear-gradient(to right, #38bdf8, #f43f5e); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+            .config-panel { background: #1e293b; border: 1px solid #334155; color: #38bdf8; }
+            select { background: #0f172a; color: white; border: 1px solid #475569; }
+            .status-panel { background: #1e293b; border: 1px solid #334155; }
+            .side-panel { background: #1e293b; border: 1px solid #334155; }
+            .side-panel h3 { color: #38bdf8; border-bottom: 2px solid #334155; }
+            .game-container { background: #0f172a; border: 4px solid #334155; }
+            .board { background: #334155; }
+            .cell { background: #1e293b; color: #fff; }
+            .cell:not(.X):not(.O):hover { background: #475569; }
+            .cell.X { color: #38bdf8; text-shadow: 0 0 8px #38bdf8; }
+            .cell.O { color: #f43f5e; text-shadow: 0 0 8px #f43f5e; }
+            .cell.X::before { content: "X"; } .cell.O::before { content: "O"; }
+            .cell.winning-cell { background: #0284c7 !important; }
+            .btn-restart { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; }
+            .turn-X { color: #38bdf8; } .turn-O { color: #f43f5e; }
+            .cell.last-move { outline: 3px solid #f43f5e !important; } /* Giao diện tối dùng đỏ neon cho hợp tông */
+        `,
+        'luxury-wood': `
+            body { background: #1a1510; color: #f4f1de; font-family: Georgia, serif; }
+            h1 { background: linear-gradient(to bottom, #f3e5ab, #d4af37); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+            .config-panel { background: #2d2219; border: 1px solid #5c4033; color: #d4af37; }
+            select { background: #0f0a07; color: #f4f1de; border: 1px solid #8c6239; }
+            .status-panel { background: #2d2219; border: 1px solid #4a3525; }
+            .side-panel { background: #2d2219; border: 2px solid #8c6239; }
+            .side-panel h3 { color: #d4af37; border-bottom: 2px solid #8c6239; }
+            .game-container { background: #5c4033; border: 4px solid #3d2b1f; }
+            .board { background: #2b1d15; }
+            .cell { background: #c2996b; border: 1px solid rgba(0,0,0,0.1); }
+            .cell:not(.X):not(.O):hover { background: #b08556; }
+            .cell.X::before, .cell.O::before { content: ''; width: 75%; height: 75%; border-radius: 50%; display: block; box-shadow: 1px 2px 4px rgba(0,0,0,0.4); }
+            .cell.X::before { background: radial-gradient(circle at 35% 35%, #ffffff, #9c9284); }
+            .cell.O::before { background: radial-gradient(circle at 35% 35%, #555555, #000000); border: 1px solid #d4af37; }
+            .cell.winning-cell { background: #b08556 !important; box-shadow: 0 0 10px #ffd700; }
+            .btn-restart { background: #6f4724; color: #f4f1de; border: 1px solid #3d2b1f; }
+            .turn-X { color: #ffffff; } .turn-O { color: #d4af37; }
+            .cell.last-move { outline: 3px solid #ffd700 !important; }
+        `
+    };
+
+    function changeTheme() {
+        const selectedTheme = document.getElementById('theme-select').value;
+        document.getElementById('theme-styles').innerHTML = themes[selectedTheme];
+        applyHistoryTheme(selectedTheme);
+        if (isInfinite) renderInfiniteBoard();
+        else if(boardState.length > 0) recalculateCellSizes();
+    }
+
+    // ===== STATE =====
+    const HISTORY_KEY = 'caro_history_v1';
+    const MAX_HISTORY = 30;
+
+    function loadHistory() {
+        try {
+            const raw = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+            // Khôi phục Date object từ string
+            return raw.map(m => ({ ...m, time: new Date(m.time) }));
+        } catch(e) { return []; }
+    }
+    function saveHistory(arr) {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(arr));
+    }
+
+    let matchHistory = loadHistory();
+
+    const MODE_LABELS = {
+        'solo':      '2 Người',
+        'ai-easy':   'Bot Dễ',
+        'ai-medium': 'Bot Thường',
+        'ai-hard':   'Bot Khó',
+        'ai-god':    'Bot Tối Thượng 💀'
+    };
+
+    function recordMatch(result, winner) {
+        const sizeVal = document.getElementById('board-size').value;
+        const boardLabel = sizeVal === 'inf' ? '♾️ Vô Hạn' : `${sizeVal}×${sizeVal}`;
+        matchHistory.unshift({
+            result,
+            winner,
+            mode: gameMode,
+            modeLabel: MODE_LABELS[gameMode] || gameMode,
+            winCount: winCount,
+            boardLabel,
+            moves: moveCount,
+            humanPiece: humanPiece,
+            botPiece: botPiece,
+            time: new Date()
+        });
+        if (matchHistory.length > MAX_HISTORY) matchHistory = matchHistory.slice(0, MAX_HISTORY);
+        saveHistory(matchHistory);
+        renderHistory();
+        const hp = document.getElementById('history-panel');
+        if (hp) hp.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function renderHistory() {
+        const list = document.getElementById('history-list');
+        const btnClear = document.getElementById('btn-clear-history');
+        if (!list) return;
+
+        if (matchHistory.length === 0) {
+            list.innerHTML = '<div style="text-align:center;opacity:0.45;font-size:0.9rem;padding:12px 0;">Chưa có ván đấu nào.</div>';
+            if (btnClear) btnClear.style.display = 'none';
+            return;
+        }
+
+        if (btnClear) btnClear.style.display = 'block';
+
+        list.innerHTML = matchHistory.map((m, i) => {
+            let emoji, label, cls;
+            if (m.result === 'draw') {
+                emoji = '🤝'; label = 'Hòa'; cls = 'draw';
+            } else if (m.mode === 'solo') {
+                emoji = '🏆';
+                label = `Người <b>${m.winner}</b> Thắng`;
+                cls = 'win';
+            } else if (m.result === 'win') {
+                // Lưu quân người chơi vào lịch sử để hiển thị đúng khi load lại
+                emoji = '🏆';
+                label = `<b>Bạn (${m.humanPiece || humanPiece || 'X'}) Thắng</b>`;
+                cls = 'win';
+            } else {
+                emoji = '💀';
+                label = `<b>Bot (${m.botPiece || botPiece || 'O'}) Thắng</b>`;
+                cls = 'lose';
+            }
+            const timeStr = m.time.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const movesStr = m.moves ? ` · ${m.moves} nước` : '';
+            return `<div class="history-item ${cls}">
+                <span class="h-num">#${matchHistory.length - i}</span>
+                <span class="h-result">${emoji}</span>
+                <div class="h-info">
+                    <span>${label}</span>
+                    <span class="h-mode"> — ${m.modeLabel} | ${m.boardLabel} | ${m.winCount} quân${movesStr} | ${timeStr}</span>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function clearHistory() {
+        matchHistory = [];
+        saveHistory([]);
+        renderHistory();
+    }
+
+    function toggleHistory() {
+        const body = document.getElementById('history-body');
+        const icon = document.getElementById('history-toggle-icon');
+        const isOpen = body.classList.toggle('open');
+        if (icon) icon.textContent = isOpen ? '▼' : '▶';
+    }
+
+    // Áp dụng màu cho history panel theo theme
+    function applyHistoryTheme(t) {
+        const hp = document.getElementById('history-panel');
+        const ht = document.getElementById('history-title');
+        const hb = document.getElementById('history-body');
+        const ti = document.getElementById('history-toggle-icon');
+        const bc = document.getElementById('btn-clear-history');
+        const rp = document.getElementById('rank-panel');
+        const rt = document.getElementById('rank-title');
+        const br = document.getElementById('btn-clear-rank');
+        const configs = {
+            'pure-white':   { bg: '#ffffff', border: '#e2e8f0', titleColor: '#0f172a', titleBorder: '#e2e8f0', btnBg: '#f1f5f9', btnColor: '#475569', toggleColor: '#475569' },
+            'pure-black':   { bg: '#242440', border: '#3b3b60', titleColor: '#c084fc', titleBorder: '#3b3b60', btnBg: '#2e2e50', btnColor: '#e2e8f0', toggleColor: '#c084fc' },
+            'cyber':        { bg: '#1e293b', border: '#334155', titleColor: '#38bdf8', titleBorder: '#334155', btnBg: '#0f172a', btnColor: '#38bdf8', toggleColor: '#38bdf8' },
+            'luxury-wood':  { bg: '#2d2219', border: '#8c6239', titleColor: '#d4af37', titleBorder: '#8c6239', btnBg: '#6f4724', btnColor: '#f4f1de', toggleColor: '#d4af37' }
+        };
+        const cfg = configs[t] || configs['pure-white'];
+        if (hp) { hp.style.background = cfg.bg; hp.style.border = `1px solid ${cfg.border}`; }
+        if (ht) { ht.style.color = cfg.titleColor; }
+        if (hb) { hb.style.borderTopColor = cfg.titleBorder; }
+        if (ti) { ti.style.color = cfg.toggleColor; }
+        if (bc) { bc.style.background = cfg.btnBg; bc.style.color = cfg.btnColor; }
+        if (rp) { rp.style.background = cfg.bg; rp.style.border = `1px solid ${cfg.border}`; }
+        if (rt) { rt.style.color = cfg.titleColor; rt.style.borderBottomColor = cfg.titleBorder; }
+        if (br) { br.style.background = cfg.btnBg; br.style.color = cfg.btnColor; }
+    }
+    let boardSize = 30;
+    let winCount = 5;
+    let boardState = [];        // dùng cho bàn cố định
+    let infiniteMap = new Map();// dùng cho bàn vô hạn: key="r,c", value="X"|"O"
+    let isInfinite = false;
+
+    // Viewport bàn vô hạn
+    const INF_VIEW = 50;        // kích thước viewport DOM cố định (không tăng)
+    const EXPAND_MARGIN = 5;    // khi quân cách mép bấy nhiêu ô thì dịch viewport
+    const EXPAND_STEP = 10;     // số ô dịch viewport mỗi lần
+    const CELL_SIZE_INF = 22;   // px mỗi ô bàn vô hạn (cố định)
+    const FONT_SIZE_INF = "0.9rem";
+    let infRows = INF_VIEW;     // số hàng hiện tại của DOM grid
+    let infCols = INF_VIEW;     // số cột hiện tại
+    let vRow = 0, vCol = 0;     // góc trên trái của viewport (tọa độ thực)
+    let lastMoveR = null, lastMoveC = null; // tọa độ thực nước đi cuối (cho infinite)
+    let winningCellCoords = [];             // tọa độ các ô thắng để re-render
+
+    // Căn viewport về trung tâm quanh (r, c)
+    function centerViewport(r, c) {
+        vRow = r - Math.floor(INF_VIEW / 2);
+        vCol = c - Math.floor(INF_VIEW / 2);
+    }
+
+    let currentPlayer = "X";
+    let isGameActive = true;
+    let gameMode = "ai-god";
+    let lastMoveCell = null;
+    let humanPiece = "X";   // quân người chơi (null khi solo)
+    let botPiece   = "O";   // quân bot (null khi solo)
+
+    // ===== RANK =====
+    let moveCount = 0;
+    let pendingRankEntry = null;
+
+    const RANK_KEY = 'caro_rank_v1';
+
+    function loadRank() {
+        try {
+            const data = JSON.parse(localStorage.getItem(RANK_KEY)) || {};
+            // Lọc bỏ key format cũ (không có '|')
+            const cleaned = {};
+            for (const [k, v] of Object.entries(data)) {
+                if (k.includes('|')) cleaned[k] = v;
+            }
+            return cleaned;
+        }
+        catch(e) { return {}; }
+    }
+    function saveRank(data) {
+        localStorage.setItem(RANK_KEY, JSON.stringify(data));
+    }
+
+    // key = "mode|winCnt q|boardLabel"  vd: "ai-god|5q|15×15"
+    function getRankKey(mode, winCnt, boardLabel) {
+        return `${mode}|${winCnt}q|${boardLabel}`;
+    }
+
+    function parseRankKey(k) {
+        const [mode, qPart, boardLabel] = k.split('|');
+        return { mode, winCnt: parseInt(qPart), boardLabel };
+    }
+
+    // Lấy danh sách chế độ có dữ liệu
+    function getRankModes() {
+        const data = loadRank();
+        const modes = [...new Set(Object.keys(data).map(k => parseRankKey(k).mode))];
+        // Sắp theo thứ tự cố định
+        const order = ['solo','ai-easy','ai-medium','ai-hard','ai-god'];
+        return modes.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    }
+
+    // Lấy danh sách sub-key (winCnt|board) trong 1 mode
+    function getRankSubKeys(mode) {
+        const data = loadRank();
+        return Object.keys(data)
+            .filter(k => k.startsWith(mode + '|'))
+            .sort((a, b) => {
+                const pa = parseRankKey(a), pb = parseRankKey(b);
+                return pa.winCnt !== pb.winCnt ? pa.winCnt - pb.winCnt : a.localeCompare(b);
+            });
+    }
+
+    let currentRankMode = null;
+    let currentRankTab  = null;
+
+    function renderRankPanel() {
+        const data = loadRank();
+        const modes = getRankModes();
+        const tabsEl  = document.getElementById('rank-tabs');
+        const listEl  = document.getElementById('rank-list');
+        const btnClear = document.getElementById('btn-clear-rank');
+
+        if (modes.length === 0) {
+            tabsEl.innerHTML = '';
+            listEl.innerHTML = '<div style="text-align:center;opacity:0.45;font-size:0.9rem;padding:12px 0;">Chưa có kỷ lục nào.</div>';
+            if (btnClear) btnClear.style.display = 'none';
+            return;
+        }
+        if (btnClear) btnClear.style.display = 'block';
+
+        // Đảm bảo currentRankMode hợp lệ
+        if (!currentRankMode || !modes.includes(currentRankMode)) currentRankMode = modes[0];
+
+        const subKeys = getRankSubKeys(currentRankMode);
+        if (!currentRankTab || !data[currentRankTab] || !currentRankTab.startsWith(currentRankMode + '|')) {
+            currentRankTab = subKeys[0] || null;
+        }
+
+        // Lớp 1: tab chế độ
+        const modeTabsHtml = modes.map(m => {
+            const active = m === currentRankMode ? ' active' : '';
+            return `<button class="rank-tab${active}" onclick="switchRankMode('${m}')">${MODE_LABELS[m] || m}</button>`;
+        }).join('');
+
+        // Lớp 2: tab cấu hình bàn trong chế độ đang chọn
+        const subTabsHtml = subKeys.map(k => {
+            const { winCnt, boardLabel } = parseRankKey(k);
+            const active = k === currentRankTab ? ' active' : '';
+            return `<button class="rank-tab${active}" style="font-size:0.78rem;padding:3px 10px" onclick="switchRankTab('${k}')">${winCnt} quân · ${boardLabel}</button>`;
+        }).join('');
+
+        tabsEl.innerHTML = `
+            <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:6px">${modeTabsHtml}</div>
+            ${subKeys.length > 1 ? `<div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:center">${subTabsHtml}</div>` : ''}
+        `;
+
+        // Render bảng
+        if (!currentRankTab) {
+            listEl.innerHTML = '<div style="text-align:center;opacity:0.45;font-size:0.9rem;padding:8px 0;">Chưa có kỷ lục.</div>';
+            return;
+        }
+        const entries = (data[currentRankTab] || []).slice(0, 20);
+        const medals = ['🥇','🥈','🥉'];
+        listEl.innerHTML = entries.map((e, i) => `
+            <div class="rank-item rank-${i+1}">
+                <span class="rank-medal">${medals[i] || `#${i+1}`}</span>
+                <span class="rank-name">${e.name}</span>
+                <span class="rank-time">${e.moves} nước</span>
+                <span class="rank-meta">${e.date}</span>
+            </div>
+        `).join('');
+    }
+
+    function switchRankMode(mode) {
+        currentRankMode = mode;
+        currentRankTab = null; // reset để tự chọn sub đầu tiên
+        renderRankPanel();
+    }
+
+    function switchRankTab(key) {
+        currentRankTab = key;
+        renderRankPanel();
+    }
+
+    function clearRank() {
+        if (!confirm('Xóa toàn bộ bảng xếp hạng?')) return;
+        localStorage.removeItem(RANK_KEY);
+        currentRankMode = null;
+        currentRankTab  = null;
+        renderRankPanel();
+    }
+
+    function promptRankName(moves, mode, winCnt, boardLabel, winnerLabel) {
+        pendingRankEntry = { moves, mode, winCnt, boardLabel };
+        const sub = document.getElementById('name-overlay-sub');
+        if (sub) sub.innerHTML = `🏅 ${moves} nước đi<br><span style="opacity:0.7;font-size:0.85rem">${winnerLabel} · ${MODE_LABELS[mode] || mode} · ${winCnt} quân · ${boardLabel}</span>`;
+        const inp = document.getElementById('name-input');
+        if (inp) inp.value = '';
+        document.getElementById('name-overlay').classList.add('show');
+        setTimeout(() => inp && inp.focus(), 100);
+    }
+
+    function saveRankEntry() {
+        const inp = document.getElementById('name-input');
+        const name = (inp ? inp.value.trim() : '') || 'Ẩn Danh';
+        if (!pendingRankEntry) { closeNameOverlay(); return; }
+        const { time, moves, mode, winCnt, boardLabel } = pendingRankEntry;
+        const data = loadRank();
+        const key = getRankKey(mode, winCnt, boardLabel);
+        if (!data[key]) data[key] = [];
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'2-digit' });
+        data[key].push({ name, moves, date: dateStr });
+        data[key].sort((a, b) => a.moves - b.moves); // ít nước nhất đứng đầu
+        data[key] = data[key].slice(0, 20);
+        saveRank(data);
+        currentRankMode = mode;
+        currentRankTab  = key;
+        pendingRankEntry = null;
+        closeNameOverlay();
+        renderRankPanel();
+        const rp = document.getElementById('rank-panel');
+        if (rp) setTimeout(() => rp.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 200);
+    }
+
+    function closeNameOverlay() {
+        document.getElementById('name-overlay').classList.remove('show');
+    }
+
+    // Enter để lưu
+    document.getElementById('name-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') saveRankEntry();
+        if (e.key === 'Escape') closeNameOverlay();
+    });
+
+    const boardElement = document.getElementById('board');
+    const statusPanel  = document.getElementById('status-panel');
+    const modeSelect   = document.getElementById('game-mode');
+
+    // ===== INIT =====
+    function initGame() {
+        const sizeVal = document.getElementById('board-size').value;
+        isInfinite = (sizeVal === 'inf');
+
+        gameMode = modeSelect.value;
+        const winSelect = document.getElementById('win-count');
+        winCount = parseInt(winSelect.value);
+        if (winCount < 3) winCount = 3;
+
+        // Ẩn/hiện config chọn quân theo chế độ
+        const isSolo = gameMode === 'solo';
+        const groupPiece = document.getElementById('group-piece');
+        const groupFirst = document.getElementById('group-first');
+        if (groupPiece) groupPiece.style.display = isSolo ? 'none' : 'flex';
+        if (groupFirst) groupFirst.style.display  = 'flex';
+
+        // Đọc cấu hình quân
+        const playerPiece = isSolo ? 'X'
+            : (document.getElementById('player-piece')?.value || 'X');
+        const firstMove = document.getElementById('first-move')?.value || 'X';
+
+        // Lưu vào biến toàn cục để dùng sau
+        humanPiece = isSolo ? null : playerPiece;
+        botPiece   = isSolo ? null : (playerPiece === 'X' ? 'O' : 'X');
+
+        // Reset toàn bộ state
+        currentPlayer     = firstMove;
+        isGameActive      = true;
+        lastMoveCell      = null;
+        lastMoveR         = null;
+        lastMoveC         = null;
+        winningCellCoords = [];
+        panMoved          = false;
+        moveCount         = 0;
+
+        if (isInfinite) {
+            infiniteMap = new Map();
+            boardSize   = INF_VIEW;
+            infRows     = INF_VIEW;
+            infCols     = INF_VIEW;
+            vRow = -Math.floor(INF_VIEW / 2);
+            vCol = -Math.floor(INF_VIEW / 2);
+            infCanvas = null; // force re-init canvas
+            vRowF = 0; vColF = 0;
+            infHoverR = null; infHoverC = null;
+            renderInfiniteBoard();
+            // resizeInfCanvas sẽ tự gọi sau 2 rAF trong initInfCanvas
+        } else {
+            document.getElementById('inf-nav').style.display = 'none';
+            const gc = document.getElementById('ui-game-container');
+            gc.classList.remove('inf-mode');
+            const wrapper = document.getElementById('inf-resizable');
+            if (wrapper) wrapper.style.display = 'none';
+            document.getElementById('board').style.display = '';
+            boardSize = parseInt(sizeVal);
+            winCount  = Math.min(winCount, boardSize);
+            winSelect.value = winCount;
+            boardState = Array(boardSize).fill(null).map(() => Array(boardSize).fill(""));
+            renderFixedBoard();
+        }
+        updateStatus();
+
+        // Cập nhật ký hiệu cờ trong side panel
+        const humanLabel = document.getElementById('right-human-label');
+        const botLabel   = document.getElementById('right-bot-label');
+        if (isSolo) {
+            if (humanLabel) humanLabel.innerHTML = `Người X: <span style="font-weight:bold;font-size:1.1rem;color:#2563eb;">X</span>`;
+            if (botLabel)   botLabel.innerHTML   = `Người O: <span style="font-weight:bold;font-size:1.1rem;color:#dc2626;">O</span>`;
+        } else {
+            const humanColor = humanPiece === 'X' ? '#2563eb' : '#dc2626';
+            const botColor   = botPiece   === 'X' ? '#2563eb' : '#dc2626';
+            if (humanLabel) humanLabel.innerHTML = `Bạn (Người): <span style="font-weight:bold;font-size:1.1rem;color:${humanColor};">${humanPiece}</span>`;
+            if (botLabel)   botLabel.innerHTML   = `Máy (Bot): <span style="font-weight:bold;font-size:1.1rem;color:${botColor};">${botPiece}</span>`;
+        }
+
+        // Nếu bot đi trước (người chọn O và first=X, hoặc first=botPiece)
+        if (isGameActive && !isSolo && gameMode.startsWith('ai') && currentPlayer === botPiece) {
+            const thinkTime = gameMode === 'ai-god' ? 500 : gameMode === 'ai-hard' ? 300 : 180;
+            statusPanel.innerHTML = `🤖 <span style="opacity:0.7">Đang tính toán</span> <span class="think-dots">...</span>`;
+            setTimeout(makeAIMove, thinkTime);
+        }
+    }
+
+    // ===== RENDER FIXED =====
+    function renderFixedBoard() {
+        boardElement.innerHTML = "";
+        for (let r = 0; r < boardSize; r++) {
+            for (let c = 0; c < boardSize; c++) {
+                boardElement.appendChild(makeCell(r, c));
+            }
+        }
+        recalculateCellSizes();
+    }
+
+    function recalculateCellSizes() {
+        if (isInfinite) {
+            boardElement.style.gridTemplateColumns = `repeat(${infCols}, ${CELL_SIZE_INF}px)`;
+            boardElement.style.gridTemplateRows    = `repeat(${infRows}, ${CELL_SIZE_INF}px)`;
+            for (const cell of boardElement.getElementsByClassName('cell')) {
+                cell.style.width    = `${CELL_SIZE_INF}px`;
+                cell.style.height   = `${CELL_SIZE_INF}px`;
+                cell.style.fontSize = FONT_SIZE_INF;
+            }
+            return;
+        }
+        const sz = boardSize;
+        let cellSize, fontSize;
+        if (sz <= 3)       { cellSize = 100; fontSize = "2.2rem"; }
+        else if (sz <= 5)  { cellSize = 80;  fontSize = "1.8rem"; }
+        else if (sz <= 8)  { cellSize = 58;  fontSize = "1.4rem"; }
+        else if (sz <= 10) { cellSize = 50;  fontSize = "1.2rem"; }
+        else if (sz <= 15) { cellSize = 36;  fontSize = "1.1rem"; }
+        else if (sz <= 20) { cellSize = 28;  fontSize = "1rem"; }
+        else               { cellSize = 22;  fontSize = "0.9rem"; }
+
+        boardElement.style.gridTemplateColumns = `repeat(${sz}, ${cellSize}px)`;
+        boardElement.style.gridTemplateRows    = `repeat(${sz}, ${cellSize}px)`;
+        for (const cell of boardElement.getElementsByClassName('cell')) {
+            cell.style.width    = `${cellSize}px`;
+            cell.style.height   = `${cellSize}px`;
+            cell.style.fontSize = fontSize;
+        }
+    }
+
+    // ===== RENDER INFINITE — CANVAS ENGINE =====
+    // Tọa độ thực = (vRow + pixelY/CS, vCol + pixelX/CS)
+    const INF_CS = 24; // cell size px
+
+    let infCanvas = null, infCtx = null;
+    let infCanvasW = 0, infCanvasH = 0;
+    // Pan state
+    let panStartX = 0, panStartY = 0, panStartVRow = 0, panStartVCol = 0;
+    let infPanning = false;
+    // float viewport (sub-cell precision khi kéo)
+    let vRowF = 0, vColF = 0;
+
+    function initInfCanvas() {
+        infCanvas = document.getElementById('inf-canvas');
+        infCtx    = infCanvas.getContext('2d');
+        document.getElementById('board').style.display = 'none';
+
+        const wrapper = document.getElementById('inf-resizable');
+        wrapper.style.display = 'inline-block';
+
+        const gc = document.getElementById('ui-game-container');
+        gc.classList.add('inf-mode');
+
+        infCanvas.onmousedown   = infOnMouseDown;
+        infCanvas.onmousemove   = infOnMouseMove;
+        infCanvas.onmouseup     = infOnMouseUp;
+        infCanvas.onmouseleave  = infOnMouseLeave;
+        infCanvas.onclick       = infOnClick;
+        infCanvas.oncontextmenu = e => e.preventDefault();
+        infCanvas.ontouchstart  = infOnTouchStart;
+        infCanvas.ontouchmove   = infOnTouchMove;
+        infCanvas.ontouchend    = infOnTouchEnd;
+
+        setupResizeHandles();
+
+        // Set kích thước tạm, đợi layout xong rồi resize đúng
+        infCanvasW = 400; infCanvasH = 300;
+        infCanvas.width = infCanvasW; infCanvas.height = infCanvasH;
+        requestAnimationFrame(() => requestAnimationFrame(() => resizeInfCanvas()));
+    }
+
+    // ===== RESIZE HANDLES =====
+    const CANVAS_SIZE_KEY = 'caro_canvas_size';
+
+    function loadCanvasSize() {
+        try { return JSON.parse(localStorage.getItem(CANVAS_SIZE_KEY)) || null; }
+        catch(e) { return null; }
+    }
+    function saveCanvasSize(w, h) {
+        localStorage.setItem(CANVAS_SIZE_KEY, JSON.stringify({w, h}));
+    }
+
+    function applyCanvasSize(w, h) {
+        infCanvasW = Math.max(8 * INF_CS, Math.round(w / INF_CS) * INF_CS);
+        infCanvasH = Math.max(8 * INF_CS, Math.round(h / INF_CS) * INF_CS);
+        infCanvas.width  = infCanvasW;
+        infCanvas.height = infCanvasH;
+        infCanvas.style.width  = infCanvasW + 'px';
+        infCanvas.style.height = infCanvasH + 'px';
+        renderInfiniteBoard();
+    }
+
+    function setupResizeHandles() {
+        const wrapper = document.getElementById('inf-resizable');
+        if (!wrapper) return;
+        wrapper.querySelectorAll('.rs-handle').forEach(handle => {
+            handle.addEventListener('mousedown', onResizeStart);
+        });
+    }
+
+    function onResizeStart(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const dir = e.currentTarget.getAttribute('data-dir');
+        const startX = e.clientX, startY = e.clientY;
+        const startW = infCanvasW, startH = infCanvasH;
+
+        function onMove(ev) {
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            let newW = startW, newH = startH;
+
+            if (dir.includes('e'))  newW = startW + dx;
+            if (dir.includes('w'))  newW = startW - dx;
+            if (dir.includes('s'))  newH = startH + dy;
+            if (dir.includes('n'))  newH = startH - dy;
+
+            applyCanvasSize(newW, newH);
+        }
+
+        function onUp() {
+            saveCanvasSize(infCanvasW, infCanvasH);
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        }
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    }
+
+    // Tính lại kích thước canvas — nút "To Bàn Cờ" hoặc lần đầu init
+    function resizeInfCanvas() {
+        if (!infCanvas) return;
+
+        // Thử load kích thước đã lưu
+        const saved = loadCanvasSize();
+        if (saved && saved.w > 0 && saved.h > 0) {
+            applyCanvasSize(saved.w, saved.h);
+            return;
+        }
+        autoResizeInfCanvas();
+    }
+
+    // Tính kích thước tự động từ viewport — không dùng saved size
+    function autoResizeInfCanvas() {
+        if (!infCanvas) return;
+        const rect = infCanvas.getBoundingClientRect();
+        const btnEl = document.getElementById('ui-btn-restart');
+        const btnH  = btnEl ? btnEl.offsetHeight + 20 : 60;
+        const availW = window.innerWidth  - rect.left - 18;
+        const availH = window.innerHeight - rect.top  - btnH - 10;
+        applyCanvasSize(availW, availH);
+        saveCanvasSize(infCanvasW, infCanvasH);
+    }
+
+    window.addEventListener('resize', () => {
+        if (isInfinite && infCanvas) {
+            // Khi resize cửa sổ: tính lại tự động, cập nhật saved size
+            autoResizeInfCanvas();
+        }
+    });
+
+    function renderInfiniteBoard() {
+        if (!infCanvas) initInfCanvas();
+        const c = infCtx;
+        const W = infCanvasW, H = infCanvasH;
+        const CS = INF_CS;
+
+        // Theme colors
+        const theme = document.getElementById('theme-select').value;
+        const themeColors = {
+            'pure-white':  { bg:'#ffffff', grid:'#94a3b8', x:'#2563eb', o:'#dc2626', lastMove:'#f59e0b', win:'#dbeafe' },
+            'pure-black':  { bg:'#242440', grid:'#6b6b90', x:'#818cf8', o:'#f472b6', lastMove:'#f59e0b', win:'#3730a3' },
+            'cyber':       { bg:'#1e293b', grid:'#475569', x:'#38bdf8', o:'#f43f5e', lastMove:'#f43f5e', win:'#0284c7' },
+            'luxury-wood': { bg:'#c2996b', grid:'#5c3d2e', x:'#ffffff', o:'#111111', lastMove:'#ffd700', win:'#b08556' }
+        };
+        const col = themeColors[theme] || themeColors['pure-white'];
+
+        c.fillStyle = col.bg;
+        c.fillRect(0, 0, W, H);
+
+        // Số ô visible
+        const cols = Math.ceil(W / CS) + 1;
+        const rows = Math.ceil(H / CS) + 1;
+
+        // Offset pixel của ô góc trên-trái (phần lẻ sub-cell)
+        const offX = -((vColF % 1 + 1) % 1) * CS;
+        const offY = -((vRowF % 1 + 1) % 1) * CS;
+        const c0 = Math.floor(vColF); // cột thực đầu tiên hiển thị
+        const r0 = Math.floor(vRowF);
+
+        // Vẽ grid lines
+        c.strokeStyle = col.grid;
+        c.lineWidth = 1;
+        for (let ci = 0; ci <= cols; ci++) {
+            const x = offX + ci * CS;
+            c.beginPath(); c.moveTo(x, 0); c.lineTo(x, H); c.stroke();
+        }
+        for (let ri = 0; ri <= rows; ri++) {
+            const y = offY + ri * CS;
+            c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke();
+        }
+
+        // Vẽ quân cờ
+        c.textAlign = 'center';
+        c.textBaseline = 'middle';
+        c.font = `bold ${Math.floor(CS * 0.65)}px Segoe UI, sans-serif`;
+
+        for (let ri = 0; ri < rows; ri++) {
+            for (let ci = 0; ci < cols; ci++) {
+                const gr = r0 + ri, gc2 = c0 + ci;
+                const val = infiniteMap.get(`${gr},${gc2}`);
+                if (!val) continue;
+                const px = offX + ci * CS + CS / 2;
+                const py = offY + ri * CS + CS / 2;
+
+                // Highlight winning cell
+                const isWin = winningCellCoords.some(([wr,wc]) => wr===gr && wc===gc2);
+                if (isWin) {
+                    c.fillStyle = col.win;
+                    c.fillRect(offX + ci*CS + 0.5, offY + ri*CS + 0.5, CS-1, CS-1);
+                }
+                // Highlight last move
+                const isLast = (gr === lastMoveR && gc2 === lastMoveC);
+                if (isLast) {
+                    c.strokeStyle = col.lastMove;
+                    c.lineWidth = 2.5;
+                    c.strokeRect(offX + ci*CS + 1.5, offY + ri*CS + 1.5, CS-3, CS-3);
+                    c.lineWidth = 0.5;
+                    c.strokeStyle = col.grid;
+                }
+                c.fillStyle = val === 'X' ? col.x : col.o;
+                c.fillText(val, px, py);
+            }
+        }
+
+        // Hover preview
+        if (infHoverR !== null && isGameActive && !(gameMode.startsWith('ai') && currentPlayer === botPiece)) {
+            const hr = infHoverR - r0, hc = infHoverC - c0;
+            if (hr >= 0 && hc >= 0 && hr < rows && hc < cols) {
+                c.fillStyle = theme === 'pure-white' ? 'rgba(37,99,235,0.12)' : 'rgba(255,255,255,0.08)';
+                c.fillRect(offX + hc*CS + 0.5, offY + hr*CS + 0.5, CS-1, CS-1);
+            }
+        }
+
+        // Nav bar
+        const nav = document.getElementById('inf-nav');
+        const cr = Math.floor(vRowF + rows/2), cc = Math.floor(vColF + cols/2);
+        document.getElementById('inf-coords').textContent = `Tâm: (${cr}, ${cc})`;
+        nav.style.display = 'block';
+    }
+
+    // Hover state
+    let infHoverR = null, infHoverC = null;
+
+    function canvasPixelToCell(px, py) {
+        const offX = -((vColF % 1 + 1) % 1) * INF_CS;
+        const offY = -((vRowF % 1 + 1) % 1) * INF_CS;
+        const c0 = Math.floor(vColF), r0 = Math.floor(vRowF);
+        const ci = Math.floor((px - offX) / INF_CS);
+        const ri = Math.floor((py - offY) / INF_CS);
+        return { r: r0 + ri, c: c0 + ci };
+    }
+
+    function infOnMouseDown(e) {
+        // Chuột phải (button=2) → kéo pan
+        if (e.button === 2) {
+            e.preventDefault();
+            infPanning = true; panMoved = false;
+            panStartX    = e.clientX;
+            panStartY    = e.clientY;
+            panStartVRow = vRowF;
+            panStartVCol = vColF;
+            infCanvas.style.cursor = 'grabbing';
+        }
+    }
+    function infOnMouseMove(e) {
+        if (infPanning) {
+            e.preventDefault();
+            const dx = e.clientX - panStartX;
+            const dy = e.clientY - panStartY;
+            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) panMoved = true;
+            vColF = panStartVCol - dx / INF_CS;
+            vRowF = panStartVRow - dy / INF_CS;
+            renderInfiniteBoard();
+            return;
+        }
+        // hover preview khi không pan
+        const rect = infCanvas.getBoundingClientRect();
+        const { r, c } = canvasPixelToCell(e.clientX - rect.left, e.clientY - rect.top);
+        if (r !== infHoverR || c !== infHoverC) {
+            infHoverR = r; infHoverC = c;
+            renderInfiniteBoard();
+        }
+    }
+    function infOnMouseUp(e) {
+        if (e.button === 2) {
+            infPanning = false;
+            infCanvas.style.cursor = 'crosshair';
+        }
+    }
+    function infOnMouseLeave() {
+        infPanning = false;
+        infCanvas.style.cursor = 'crosshair';
+        infHoverR = null; infHoverC = null;
+        renderInfiniteBoard();
+    }
+    function infOnClick(e) {
+        if (e.button !== 0) return; // chỉ chuột trái mới đánh quân
+        if (panMoved) { panMoved = false; return; }
+        if (!isGameActive) return;
+        if (gameMode.startsWith('ai') && currentPlayer === botPiece) return;
+        const rect = infCanvas.getBoundingClientRect();
+        const { r, c } = canvasPixelToCell(e.clientX - rect.left, e.clientY - rect.top);
+        if (getCell(r, c) !== '') return;
+        makeMove(r, c);
+    }
+
+    // Touch support
+    let touchStartX = 0, touchStartY = 0;
+    function infOnTouchStart(e) {
+        e.preventDefault();
+        const t = e.touches[0];
+        infPanning = true; panMoved = false;
+        panStartX = t.clientX; panStartY = t.clientY;
+        panStartVRow = vRowF; panStartVCol = vColF;
+        touchStartX = t.clientX; touchStartY = t.clientY;
+    }
+    function infOnTouchMove(e) {
+        e.preventDefault();
+        const t = e.touches[0];
+        const dx = t.clientX - panStartX, dy = t.clientY - panStartY;
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) panMoved = true;
+        vColF = panStartVCol - dx / INF_CS;
+        vRowF = panStartVRow - dy / INF_CS;
+        renderInfiniteBoard();
+    }
+    function infOnTouchEnd(e) {
+        e.preventDefault();
+        infPanning = false;
+        if (!panMoved) {
+            const t = e.changedTouches[0];
+            const rect = infCanvas.getBoundingClientRect();
+            const { r, c } = canvasPixelToCell(t.clientX - rect.left, t.clientY - rect.top);
+            if (isGameActive && getCell(r, c) === '' && !(gameMode.startsWith('ai') && currentPlayer === botPiece)) {
+                makeMove(r, c);
+            }
+        }
+        panMoved = false;
+    }
+
+    function jumpToCenter() {
+        if (lastMoveR !== null) {
+            vRowF = lastMoveR - Math.floor(infCanvasH / INF_CS / 2);
+            vColF = lastMoveC - Math.floor(infCanvasW / INF_CS / 2);
+        } else {
+            vRowF = -Math.floor(infCanvasH / INF_CS / 2);
+            vColF = -Math.floor(infCanvasW / INF_CS / 2);
+        }
+        renderInfiniteBoard();
+    }
+
+    function jumpToOrigin() {
+        vRowF = -Math.floor(infCanvasH / INF_CS / 2);
+        vColF = -Math.floor(infCanvasW / INF_CS / 2);
+        renderInfiniteBoard();
+    }
+
+    // Không còn dùng needsExpand / expandIfNeeded — canvas tự render theo vRowF/vColF
+    function needsExpand() { return false; }
+    function expandIfNeeded() {}
+    function scrollCellIntoView() {}
+
+    // Tạo 1 ô DOM
+    function makeCell(r, c) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.setAttribute('data-row', r);
+        cell.setAttribute('data-col', c);
+        cell.addEventListener('click', handleCellClick);
+        cell.addEventListener('contextmenu', e => { e.preventDefault(); handleCellClick(e); });
+        return cell;
+    }
+
+    function updateStatus() {
+        // Cập nhật mô tả luật (luôn cập nhật, kể cả sau game kết thúc)
+        const rd = document.getElementById('rule-desc');
+        if (rd) {
+            if (winCount >= 4) {
+                rd.textContent = `Chuỗi ${winCount} quân bị chặn cả 2 đầu bởi đối thủ sẽ không tính thắng.`;
+            } else {
+                rd.textContent = `Luật chặn 2 đầu không áp dụng khi chỉ cần ${winCount} quân.`;
+            }
+        }
+        if (!isGameActive) return;
+
+        if (gameMode.startsWith('ai') && currentPlayer === botPiece) {
+            statusPanel.innerHTML = `🤖 Siêu Não AI đang phong tỏa các hướng đi...`;
+        } else {
+            statusPanel.innerHTML = `Lượt của bạn: <span class="turn-${currentPlayer}">${currentPlayer}</span>`;
+        }
+    }
+
+    let isDragging = false, panMoved = false;
+
+    function handleCellClick(e) {
+        if (panMoved) return;
+        if (!isGameActive) return;
+        // Chặn click khi đến lượt bot
+        if (gameMode.startsWith('ai') && currentPlayer === botPiece) return;
+        let target = e.target;
+        if (!target.classList.contains('cell')) target = target.parentElement;
+        const r = parseInt(target.getAttribute('data-row'));
+        const c = parseInt(target.getAttribute('data-col'));
+        if (getCell(r, c) !== "") return;
+        makeMove(r, c);
+    }
+
+    // ===== GETTER/SETTER thống nhất cho cả 2 chế độ =====
+    function getCell(r, c) {
+        if (isInfinite) return infiniteMap.get(`${r},${c}`) || "";
+        if (r < 0 || r >= boardSize || c < 0 || c >= boardSize) return "W"; // wall
+        return boardState[r][c];
+    }
+    function setCell(r, c, val) {
+        if (isInfinite) {
+            if (val === "") infiniteMap.delete(`${r},${c}`);
+            else infiniteMap.set(`${r},${c}`, val);
+        } else {
+            boardState[r][c] = val;
+        }
+    }
+
+    function makeMove(r, c) {
+        moveCount++;
+        setCell(r, c, currentPlayer);
+
+        // Lưu tọa độ thực nước đi cuối
+        if (isInfinite) { lastMoveR = r; lastMoveC = c; }
+
+        if (isInfinite) {
+            // Canvas tự render lại — không cần expand DOM
+            // Auto-center nếu quân vừa đánh ra ngoài 1/3 canvas
+            const cols = infCanvasW / INF_CS;
+            const rows = infCanvasH / INF_CS;
+            const distR = Math.abs((r - vRowF) - rows / 2);
+            const distC = Math.abs((c - vColF) - cols / 2);
+            if (distR > rows * 0.35 || distC > cols * 0.35) {
+                vRowF = r - rows / 2;
+                vColF = c - cols / 2;
+            }
+            renderInfiniteBoard();
+        } else {
+            // Bàn cố định — update DOM trực tiếp
+            if (lastMoveCell) lastMoveCell.classList.remove('last-move');
+            let cell = document.querySelector(`[data-row='${r}'][data-col='${c}']`);
+            if (cell) {
+                cell.classList.add(currentPlayer);
+                cell.classList.add('last-move');
+                lastMoveCell = cell;
+            }
+        }
+
+        if (checkWin(r, c)) {
+            isGameActive = false;
+            if (lastMoveCell) lastMoveCell.classList.remove('last-move');
+            const isBotWin = gameMode.startsWith('ai') && currentPlayer === botPiece;
+            const sizeVal = document.getElementById('board-size').value;
+            const boardLabel = sizeVal === 'inf' ? '♾️ Vô Hạn' : `${sizeVal}×${sizeVal}`;
+
+            if (gameMode === 'solo') {
+                statusPanel.innerHTML = `🏆 Người <strong>${currentPlayer}</strong> chiến thắng!`;
+                recordMatch('win', currentPlayer);
+                setTimeout(() => {
+                    showWinOverlay(currentPlayer, false);
+                    // Hỏi tên sau khi overlay hiện
+                    setTimeout(() => promptRankName(moveCount, gameMode, winCount, boardLabel, `Người ${currentPlayer}`), 600);
+                }, 500);
+            } else {
+                statusPanel.innerHTML = isBotWin
+                    ? `💀 BOT TỐI THƯỢNG ĐÃ THẮNG! Gừng càng già càng cay!`
+                    : `🏆 KINH ĐIỂN! Bạn đã chiến thắng BOT của CHẦN PRO, bạn rất là kinh, bái phục`;
+                recordMatch(isBotWin ? 'lose' : 'win', currentPlayer);
+                setTimeout(() => {
+                    showWinOverlay(currentPlayer, isBotWin);
+                    // Chỉ hỏi tên khi người chơi thắng (không phải bot)
+                    if (!isBotWin) {
+                        setTimeout(() => promptRankName(moveCount, gameMode, winCount, boardLabel, `Người thắng Bot ${MODE_LABELS[gameMode]}`), 600);
+                    }
+                }, 500);
+            }
+            return;
+        }
+
+        // Bàn cố định: kiểm tra hòa
+        if (!isInfinite && boardState.flat().every(v => v !== "")) {
+            statusPanel.innerHTML = `Hòa cờ! Một trận đấu bất phân thắng bại.`;
+            isGameActive = false;
+            recordMatch('draw', null);
+            return;
+        }
+
+        currentPlayer = currentPlayer === "X" ? "O" : "X";
+        updateStatus();
+        if (isGameActive && gameMode.startsWith('ai') && currentPlayer === botPiece) {
+            // Delay theo độ khó: god=500ms, hard=300ms, medium=200ms
+            const thinkTime = gameMode === 'ai-god' ? 500 : gameMode === 'ai-hard' ? 300 : 180;
+            statusPanel.innerHTML = `🤖 <span style="opacity:0.7">Đang tính toán</span> <span class="think-dots">...</span>`;
+            setTimeout(makeAIMove, thinkTime);
+        }
+    }
+
+    function checkWin(r, c) {
+        const directions = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
+        const player = getCell(r, c);
+        const opp = player === "X" ? "O" : "X";
+        for (let { dr, dc } of directions) {
+            const cells = [[r, c]];
+            let fwd = 0, bwd = 0;
+            while (getCell(r+dr*(fwd+1), c+dc*(fwd+1)) === player) { fwd++; cells.push([r+dr*fwd, c+dc*fwd]); }
+            while (getCell(r-dr*(bwd+1), c-dc*(bwd+1)) === player) { bwd++; cells.push([r-dr*bwd, c-dc*bwd]); }
+            if (cells.length < winCount) continue;
+
+            if (winCount >= 4) {
+                const frontEndR = r + dr * fwd, frontEndC = c + dc * fwd;
+                const backEndR  = r - dr * bwd, backEndC  = c - dc * bwd;
+                const frontBlocked = isSideBlocked(frontEndR, frontEndC,  dr,  dc, opp);
+                const backBlocked  = isSideBlocked(backEndR,  backEndC,  -dr, -dc, opp);
+                if (frontBlocked && backBlocked) continue;
+            }
+            highlightWinners(cells);
+            return true;
+        }
+        return false;
+    }
+
+    // 1 đầu bị chặn nếu nhìn ra ngoài theo hướng đó gặp quân đối thủ trước khi hết không gian
+    // Bỏ qua ô trống (ô trống không chặn nhưng cũng không thoát) — chỉ dừng khi gặp opp, tường, hoặc hết winCount bước
+    function isSideBlocked(r, c, dr, dc, opp) {
+        let nr = r + dr, nc = c + dc;
+        for (let step = 0; step < winCount; step++) {
+            const v = getCell(nr, nc);
+            if (v === opp || v === "W") return true;  // gặp quân đối thủ hoặc tường → bị chặn
+            if (v === "") { nr += dr; nc += dc; continue; } // ô trống → tiếp tục tìm
+            return false; // gặp quân mình → không bị chặn (chuỗi có thể nối dài)
+        }
+        return false; // hết winCount bước không gặp gì → không bị chặn
+    }
+
+    function isValid(r, c) {
+        if (isInfinite) return true;
+        return r >= 0 && r < boardSize && c >= 0 && c < boardSize;
+    }
+
+    // checkWinSilent: kiểm tra thắng không highlight DOM — dùng cho AI
+    function checkWinSilent(r, c) {
+        const directions = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
+        const player = getCell(r, c);
+        const opp = player === "X" ? "O" : "X";
+        for (let { dr, dc } of directions) {
+            let fwd = 0, bwd = 0;
+            while (getCell(r+dr*(fwd+1), c+dc*(fwd+1)) === player) fwd++;
+            while (getCell(r-dr*(bwd+1), c-dc*(bwd+1)) === player) bwd++;
+            const count = 1 + fwd + bwd;
+            if (count < winCount) continue;
+            if (winCount >= 4) {
+                const frontEndR = r + dr * fwd, frontEndC = c + dc * fwd;
+                const backEndR  = r - dr * bwd, backEndC  = c - dc * bwd;
+                const frontBlocked = isSideBlocked(frontEndR, frontEndC,  dr,  dc, opp);
+                const backBlocked  = isSideBlocked(backEndR,  backEndC,  -dr, -dc, opp);
+                if (frontBlocked && backBlocked) continue;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    function highlightWinners(winningCells) {
+        if (isInfinite) winningCellCoords = winningCells.slice();
+        winningCells.forEach(([r, c]) => {
+            const cell = document.querySelector(`[data-row='${r}'][data-col='${c}']`);
+            if (cell) cell.classList.add('winning-cell');
+        });
+    }
+
+    function hasNeighbor(r, c, range) {
+        for (let dr = -range; dr <= range; dr++) {
+            for (let dc = -range; dc <= range; dc++) {
+                if (dr === 0 && dc === 0) continue;
+                if (getCell(r+dr, c+dc) !== "" && getCell(r+dr, c+dc) !== "W") return true;
+            }
+        }
+        return false;
+    }
+
+    function getCandidates(range) {
+        const result = [];
+        if (isInfinite) {
+            const checked = new Set();
+            for (const key of infiniteMap.keys()) {
+                const [r, c] = key.split(',').map(Number);
+                for (let dr = -range; dr <= range; dr++) {
+                    for (let dc = -range; dc <= range; dc++) {
+                        const nr = r+dr, nc = c+dc;
+                        const nk = `${nr},${nc}`;
+                        if (!checked.has(nk) && !infiniteMap.has(nk)) {
+                            checked.add(nk);
+                            result.push({r: nr, c: nc});
+                        }
+                    }
+                }
+            }
+            if (result.length === 0) result.push({r: 0, c: 0});
+        } else {
+            for (let r = 0; r < boardSize; r++) {
+                for (let c = 0; c < boardSize; c++) {
+                    if (boardState[r][c] === "" && hasNeighbor(r, c, range)) result.push({r, c});
+                }
+            }
+            if (result.length === 0) result.push({r: Math.floor(boardSize/2), c: Math.floor(boardSize/2)});
+        }
+        return result;
+    }
+
+    function getActivityCenter() {
+        if (isInfinite && infiniteMap.size > 0) {
+            let sr = 0, sc = 0, n = 0;
+            for (const key of infiniteMap.keys()) {
+                const [r, c] = key.split(',').map(Number);
+                sr += r; sc += c; n++;
+            }
+            return [Math.round(sr/n), Math.round(sc/n)];
+        }
+        return [Math.floor(boardSize/2), Math.floor(boardSize/2)];
+    }
+
+    function makeAIMove() {
+        if (!isGameActive) return;
+
+        if (gameMode === "ai-easy") {
+            const cands = getCandidates(1);
+            if (cands.length === 0) { makeMove(0, 0); return; }
+            const t = cands[Math.floor(Math.random() * cands.length)];
+            makeMove(t.r, t.c);
+            return;
+        }
+
+        try {
+            const best = findBestMove();
+            if (best && best.r !== undefined && best.c !== undefined) {
+                makeMove(best.r, best.c);
+            } else {
+                throw new Error("findBestMove trả về null/undefined");
+            }
+        } catch(e) {
+            console.error("AI error:", e);
+            const fallback = getCandidates(1);
+            // Tìm ô trống hợp lệ đầu tiên
+            const validFallback = fallback.find(({r,c}) => getCell(r,c) === "");
+            if (validFallback) makeMove(validFallback.r, validFallback.c);
+        }
+    }
+
+    // =====================================================================
+    // THREAT LEVEL
+    // 6=WIN, 5=FOUR_OPEN, 4=FOUR_HALF, 3=THREE_OPEN, 2=THREE_HALF, 1=TWO_OPEN, 0=NONE
+    // =====================================================================
+    const TL = { WIN:6, FOUR_OPEN:5, FOUR_HALF:4, THREE_OPEN:3, THREE_HALF:2, TWO_OPEN:1, NONE:0 };
+
+    function evalLine(r, c, dr, dc, player) {
+        const opp = player === "X" ? "O" : "X";
+        let fwd = 0, bwd = 0;
+        const MAX = winCount + 2;
+        while (fwd < MAX && getCell(r+dr*(fwd+1), c+dc*(fwd+1)) === player) fwd++;
+        while (bwd < MAX && getCell(r-dr*(bwd+1), c-dc*(bwd+1)) === player) bwd++;
+        const len = 1 + fwd + bwd;
+
+        const frontEndR = r+dr*fwd, frontEndC = c+dc*fwd;
+        const backEndR  = r-dr*bwd, backEndC  = c-dc*bwd;
+
+        const frontBlocked = isSideBlocked(frontEndR, frontEndC,  dr,  dc, opp);
+        const backBlocked  = isSideBlocked(backEndR,  backEndC,  -dr, -dc, opp);
+        const frontImm = (getCell(frontEndR+dr, frontEndC+dc) === opp || getCell(frontEndR+dr, frontEndC+dc) === "W");
+        const backImm  = (getCell(backEndR -dr, backEndC -dc) === opp || getCell(backEndR -dr, backEndC -dc) === "W");
+
+        if (len >= winCount) {
+            if (winCount >= 4 && frontBlocked && backBlocked) return TL.NONE;
+            return TL.WIN;
+        }
+        if (len === winCount - 1) {
+            if (frontImm && backImm) return TL.NONE;
+            if (!frontImm && !backImm) return TL.FOUR_OPEN;
+            return TL.FOUR_HALF;
+        }
+        if (len === winCount - 2) {
+            if (frontImm && backImm) return TL.NONE;
+            if (!frontImm && !backImm) return TL.THREE_OPEN;
+            return TL.THREE_HALF;
+        }
+        if (len === winCount - 3) {
+            if (!frontImm && !backImm) return TL.TWO_OPEN;
+        }
+
+        // --- Detect chuỗi có lỗ hổng (X X _ X, X _ X X ...) ---
+        // Quét window winCount ô liên tiếp theo hướng dr,dc từ ô hiện tại
+        // Nếu trong window đó có đủ (winCount-1) quân player và chỉ 1 ô trống → FOUR_HALF
+        // Nếu có (winCount-2) quân và 2 ô trống → THREE_OPEN/HALF
+        const gapCheck = evalLineGap(r, c, dr, dc, player, opp);
+        if (gapCheck > TL.NONE) return gapCheck;
+
+        return TL.NONE;
+    }
+
+    // Kiểm tra chuỗi có lỗ hổng trong window winCount ô
+    function evalLineGap(r, c, dr, dc, player, opp) {
+        // Thử tất cả window có kích thước winCount bắt đầu từ winCount-1 bước trước đến sau
+        const start = -(winCount - 1);
+        let best = TL.NONE;
+        for (let offset = start; offset <= 0; offset++) {
+            let playerCount = 0, emptyCount = 0, blocked = false;
+            for (let i = 0; i < winCount; i++) {
+                const nr = r + dr*(offset+i), nc = c + dc*(offset+i);
+                const v = getCell(nr, nc);
+                if (v === player) playerCount++;
+                else if (v === "") emptyCount++;
+                else { blocked = true; break; } // opp hoặc W trong window → không hợp lệ
+            }
+            if (blocked) continue;
+            if (playerCount + emptyCount < winCount) continue;
+            // Check 2 đầu window có bị chặn không
+            const wHeadR = r + dr*offset, wHeadC = c + dc*offset;
+            const wTailR = r + dr*(offset+winCount-1), wTailC = c + dc*(offset+winCount-1);
+            const headImm = (getCell(wHeadR-dr, wHeadC-dc) === opp || getCell(wHeadR-dr, wHeadC-dc) === "W");
+            const tailImm = (getCell(wTailR+dr, wTailC+dc) === opp || getCell(wTailR+dr, wTailC+dc) === "W");
+            if (playerCount === winCount - 1 && emptyCount === 1) {
+                // 1 lỗ trong winCount ô = FOUR
+                if (headImm && tailImm) continue;
+                const lv = (!headImm && !tailImm) ? TL.FOUR_OPEN : TL.FOUR_HALF;
+                if (lv > best) best = lv;
+            } else if (playerCount === winCount - 2 && emptyCount === 2) {
+                // 2 lỗ trong winCount ô = THREE
+                if (headImm && tailImm) continue;
+                const lv = (!headImm && !tailImm) ? TL.THREE_OPEN : TL.THREE_HALF;
+                if (lv > best) best = lv;
+            }
+        }
+        return best;
+    }
+
+    function getPlayerCells(player) {
+        if (isInfinite) {
+            return [...infiniteMap.keys()].filter(k=>infiniteMap.get(k)===player)
+                .map(k => { const [r,c]=k.split(',').map(Number); return {r,c}; });
+        }
+        const res = [];
+        for (let r=0;r<boardSize;r++) for (let c=0;c<boardSize;c++) if (boardState[r][c]===player) res.push({r,c});
+        return res;
+    }
+
+    function getAllThreats(player) {
+        const dirs = [{dr:0,dc:1},{dr:1,dc:0},{dr:1,dc:1},{dr:1,dc:-1}];
+        const threats = [];
+        const seen = new Set();
+        const cells = getPlayerCells(player);
+        for (const {r,c} of cells) {
+            for (const {dr,dc} of dirs) {
+                let br = r, bc = c;
+                while (getCell(br-dr, bc-dc) === player) { br-=dr; bc-=dc; }
+                const key = `${br},${bc},${dr},${dc}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                const lv = evalLine(r, c, dr, dc, player);
+                if (lv > TL.NONE) threats.push({r:br, c:bc, dr, dc, level:lv});
+            }
+        }
+        return threats;
+    }
+
+    function evalBoard() {
+        const bp = botPiece   || "O";
+        const hp = humanPiece || "X";
+        const oThreats = getAllThreats(bp);
+        const xThreats = getAllThreats(hp);
+        let score = 0;
+        const tlScore = [0, 500, 2000, 15000, 40000, 200000, 9000000];
+        for (const t of oThreats) score += tlScore[t.level];
+        for (const t of xThreats) score -= tlScore[t.level] * (gameMode==="ai-god" ? 1.8 : 1.3);
+
+        const oFourOpen  = oThreats.filter(t=>t.level>=TL.FOUR_OPEN).length;
+        const oThreeOpen = oThreats.filter(t=>t.level===TL.THREE_OPEN).length;
+        const xFourOpen  = xThreats.filter(t=>t.level>=TL.FOUR_OPEN).length;
+        const xThreeOpen = xThreats.filter(t=>t.level===TL.THREE_OPEN).length;
+
+        if (oFourOpen >= 2)  score += 500000;
+        if (oFourOpen >= 1 && oThreeOpen >= 1) score += 300000;
+        if (oThreeOpen >= 2) score += 150000;
+        if (xFourOpen >= 2)  score -= 800000;
+        if (xFourOpen >= 1 && xThreeOpen >= 1) score -= 500000;
+        if (xThreeOpen >= 2) score -= 250000;
+
+        return score;
+    }
+
+    function quickScore(r, c, player) {
+        const opp = player === "X" ? "O" : "X";
+        const dirs = [{dr:0,dc:1},{dr:1,dc:0},{dr:1,dc:1},{dr:1,dc:-1}];
+        const tlScore = [0, 500, 2000, 15000, 40000, 200000, 9000000];
+        const oldVal = getCell(r, c);
+        let s = 0;
+        setCell(r, c, player);
+        for (const {dr,dc} of dirs) s += tlScore[evalLine(r,c,dr,dc,player)];
+        setCell(r, c, opp);
+        for (const {dr,dc} of dirs) s += tlScore[evalLine(r,c,dr,dc,opp)] * (gameMode==="ai-god"?1.8:1.3);
+        setCell(r, c, oldVal);
+        return s;
+    }
+
+    function isWinMove(r, c, player) {
+        const oldVal = getCell(r, c);
+        setCell(r,c,player);
+        const w = checkWinSilent(r,c);
+        setCell(r,c,oldVal);
+        return w;
+    }
+
+    function getMustBlocks(r, c, player) {
+        const opp = player === "X" ? "O" : "X";
+        const dirs = [{dr:0,dc:1},{dr:1,dc:0},{dr:1,dc:1},{dr:1,dc:-1}];
+        const blocks = new Set();
+        for (const {dr,dc} of dirs) {
+            const lv = evalLine(r,c,dr,dc,player);
+            if (lv < TL.FOUR_HALF) continue;
+            let fwd=0,bwd=0;
+            while(getCell(r+dr*(fwd+1),c+dc*(fwd+1))===player) fwd++;
+            while(getCell(r-dr*(bwd+1),c-dc*(bwd+1))===player) bwd++;
+            const fR=r+dr*(fwd+1), fC=c+dc*(fwd+1);
+            const bR=r-dr*(bwd+1), bC=c-dc*(bwd+1);
+            if (getCell(fR,fC)==="") blocks.add(`${fR},${fC}`);
+            if (getCell(bR,bC)==="") blocks.add(`${bR},${bC}`);
+        }
+        return [...blocks].map(k=>{ const [r2,c2]=k.split(',').map(Number); return {r:r2,c:c2}; });
+    }
+
+    function vcfSearch(player, depth) {
+        if (depth <= 0) return null;
+        const playerCount = getPlayerCells(player).length;
+        if (playerCount < winCount - 2) return null;
+
+        const opp = player === "X" ? "O" : "X";
+        const cands = getCandidates(1).slice(0, 20);
+        const dirs = [{dr:0,dc:1},{dr:1,dc:0},{dr:1,dc:1},{dr:1,dc:-1}];
+
+        for (const {r,c} of cands) {
+            const oldVal = getCell(r,c);
+            setCell(r,c,player);
+            if (checkWinSilent(r,c)) { setCell(r,c,oldVal); return {r,c}; }
+
+            let createsFour = false;
+            for (const {dr,dc} of dirs) {
+                if (evalLine(r,c,dr,dc,player) >= TL.FOUR_HALF) { createsFour = true; break; }
+            }
+
+            if (createsFour) {
+                const blocks = getMustBlocks(r,c,player);
+                let allWin = blocks.length > 0;
+                for (const blk of blocks) {
+                    const blkOld = getCell(blk.r, blk.c);
+                    setCell(blk.r, blk.c, opp);
+                    const cont = vcfSearch(player, depth-1);
+                    setCell(blk.r, blk.c, blkOld);
+                    if (!cont) { allWin = false; break; }
+                }
+                if (allWin) { setCell(r,c,oldVal); return {r,c}; }
+            }
+            setCell(r,c,oldVal);
+        }
+        return null;
+    }
+
+    function minimaxAB(depth, isMax, alpha, beta, lastR, lastC) {
+        if (lastR !== null) {
+            const lp = isMax ? "X" : "O";
+            if (checkWinSilent(lastR, lastC)) {
+                return isMax ? -9000000 - depth : 9000000 + depth;
+            }
+        }
+        if (depth === 0) return evalBoard();
+
+        const cands = getCandidates(2);
+        if (cands.length === 0) return 0;
+
+        const player = isMax ? (botPiece||"O") : (humanPiece||"X");
+        const opp    = isMax ? (humanPiece||"X") : (botPiece||"O");
+        let moves = cands.map(({r,c}) => ({r,c,s:quickScore(r,c,player)}))
+                         .sort((a,b)=>b.s-a.s)
+                         .slice(0, depth >= 3 ? 8 : 10);
+
+        moves.sort((a,b) => {
+            const wa = isWinMove(a.r,a.c,player), wb = isWinMove(b.r,b.c,player);
+            const ba = isWinMove(a.r,a.c,opp),    bb = isWinMove(b.r,b.c,opp);
+            if (wa !== wb) return wa ? -1 : 1;
+            if (ba !== bb) return ba ? -1 : 1;
+            return b.s - a.s;
+        });
+
+        if (isMax) {
+            let best = -Infinity;
+            for (const {r,c} of moves) {
+                const oldVal = getCell(r,c);
+                setCell(r,c,player);
+                const val = minimaxAB(depth-1, false, alpha, beta, r, c);
+                setCell(r,c,oldVal);
+                if (val > best) best = val;
+                alpha = Math.max(alpha, val);
+                if (beta <= alpha) break;
+            }
+            return best;
+        } else {
+            let best = Infinity;
+            for (const {r,c} of moves) {
+                const oldVal = getCell(r,c);
+                setCell(r,c,opp);
+                const val = minimaxAB(depth-1, true, alpha, beta, r, c);
+                setCell(r,c,oldVal);
+                if (val < best) best = val;
+                beta = Math.min(beta, val);
+                if (beta <= alpha) break;
+            }
+            return best;
+        }
+    }
+
+    function findForkMove(player) {
+        const cands = getCandidates(2);
+        const dirs = [{dr:0,dc:1},{dr:1,dc:0},{dr:1,dc:1},{dr:1,dc:-1}];
+        let bestFork = null, bestCount = 1;
+        for (const {r,c} of cands) {
+            const oldVal = getCell(r,c);
+            setCell(r,c,player);
+            if (checkWinSilent(r,c)) { setCell(r,c,oldVal); continue; }
+            let cnt = 0;
+            for (const {dr,dc} of dirs) {
+                if (evalLine(r,c,dr,dc,player) >= TL.THREE_OPEN) cnt++;
+            }
+            setCell(r,c,oldVal);
+            if (cnt > bestCount) { bestCount = cnt; bestFork = {r,c}; }
+        }
+        return bestFork;
+    }
+
+    function findBestMove() {
+        const bp = botPiece   || "O";
+        const hp = humanPiece || "X";
+        const cands  = getCandidates(winCount);
+        const cands2 = getCandidates(2);
+        const dirs   = [{dr:0,dc:1},{dr:1,dc:0},{dr:1,dc:1},{dr:1,dc:-1}];
+
+        // 1. Thắng ngay
+        for (const {r,c} of cands) if (isWinMove(r,c,bp)) return {r,c};
+
+        // 2. Chặn người thắng ngay
+        for (const {r,c} of cands) if (isWinMove(r,c,hp)) return {r,c};
+
+        // 3. Chặn FOUR_OPEN / FOUR_HALF của người — ưu tiên trước tấn công
+        {
+            const blockSet = new Set();
+            const blockCells = [];
+            const humanCells = getPlayerCells(hp);
+            const opp2 = hp === "X" ? "O" : "X";
+
+            for (const {r,c} of humanCells) {
+                for (const {dr,dc} of dirs) {
+                    let br = r, bc = c;
+                    while (getCell(br-dr, bc-dc) === hp) { br-=dr; bc-=dc; }
+                    const key = `${br},${bc},${dr},${dc}`;
+                    if (blockSet.has(key)) continue;
+                    blockSet.add(key);
+                    const lv = evalLine(br, bc, dr, dc, hp);
+                    if (lv < TL.FOUR_HALF) continue;
+
+                    let fwd = 0;
+                    while (getCell(br+dr*(fwd+1), bc+dc*(fwd+1)) === hp) fwd++;
+                    const tailR = br+dr*fwd, tailC = bc+dc*fwd;
+
+                    const headBlocked = isSideBlocked(br, bc, -dr, -dc, opp2);
+                    const tailBlocked = isSideBlocked(tailR, tailC,  dr,  dc, opp2);
+
+                    // Quét xa đầu chưa bị chặn — thu thập ô trống có thể chặn
+                    // Dừng khi gặp O (không đi qua O) vì đó là ô vô nghĩa
+                    if (!headBlocked) {
+                        let nr = br - dr, nc = bc - dc;
+                        for (let s = 0; s < winCount; s++) {
+                            const v = getCell(nr, nc);
+                            if (v === opp2 || v === "W") break; // gặp O → dừng, không push
+                            if (v === "") blockCells.push({r: nr, c: nc});
+                            else break; // gặp quân mình → dừng
+                            nr -= dr; nc -= dc;
+                        }
+                    }
+                    if (!tailBlocked) {
+                        let nr = tailR + dr, nc = tailC + dc;
+                        for (let s = 0; s < winCount; s++) {
+                            const v = getCell(nr, nc);
+                            if (v === opp2 || v === "W") break;
+                            if (v === "") blockCells.push({r: nr, c: nc});
+                            else break;
+                            nr += dr; nc += dc;
+                        }
+                    }
+                }
+            }
+            if (blockCells.length > 0) {
+                let bestBlk = blockCells[0], bestS = -Infinity;
+                for (const blk of blockCells) {
+                    const s = quickScore(blk.r, blk.c, bp);
+                    if (s > bestS) { bestS = s; bestBlk = blk; }
+                }
+                return bestBlk;
+            }
+        }
+
+        // 4. Bot tạo FOUR_OPEN hoặc FOUR_HALF (ép đối thủ phải chặn)
+        for (const {r,c} of cands2) {
+            const ov = getCell(r,c);
+            setCell(r,c,bp);
+            for (const {dr,dc} of dirs) {
+                if (evalLine(r,c,dr,dc,bp) >= TL.FOUR_HALF) { setCell(r,c,ov); return {r,c}; }
+            }
+            setCell(r,c,ov);
+        }
+
+        // 5. VCF attack — bot tìm chuỗi ép buộc thắng
+        if (gameMode==="ai-god"||gameMode==="ai-hard") {
+            const vcf = vcfSearch(bp, gameMode==="ai-god"?5:3);
+            if (vcf) return vcf;
+        }
+
+        // 6. Chặn VCF của người
+        if (gameMode==="ai-god"||gameMode==="ai-hard") {
+            const xvcf = vcfSearch(hp, gameMode==="ai-god"?5:3);
+            if (xvcf) {
+                const oldX = getCell(xvcf.r,xvcf.c);
+                setCell(xvcf.r,xvcf.c,hp);
+                const blks = getMustBlocks(xvcf.r,xvcf.c,hp);
+                setCell(xvcf.r,xvcf.c,oldX);
+                if (blks.length>0) return blks[0];
+                return xvcf;
+            }
+        }
+
+        // 7. Chặn THREE_OPEN của người (2 đầu mở, W-2 quân)
+        {
+            const blockSet = new Set();
+            const blockCells = [];
+            const humanCells = getPlayerCells(hp);
+            const opp2 = hp === "X" ? "O" : "X";
+            for (const {r,c} of humanCells) {
+                for (const {dr,dc} of dirs) {
+                    let br = r, bc = c;
+                    while (getCell(br-dr, bc-dc) === hp) { br-=dr; bc-=dc; }
+                    const key = `${br},${bc},${dr},${dc}`;
+                    if (blockSet.has(key)) continue;
+                    blockSet.add(key);
+                    const lv = evalLine(br, bc, dr, dc, hp);
+                    if (lv !== TL.THREE_OPEN) continue;
+                    let fwd = 0;
+                    while (getCell(br+dr*(fwd+1), bc+dc*(fwd+1)) === hp) fwd++;
+                    const tailR = br+dr*fwd, tailC = bc+dc*fwd;
+                    const headBlocked = isSideBlocked(br, bc, -dr, -dc, opp2);
+                    const tailBlocked = isSideBlocked(tailR, tailC,  dr,  dc, opp2);
+                    if (!headBlocked) {
+                        let nr = br - dr, nc = bc - dc;
+                        for (let s = 0; s < winCount; s++) {
+                            const v = getCell(nr, nc);
+                            if (v === opp2 || v === "W") break;
+                            if (v === "") blockCells.push({r: nr, c: nc});
+                            nr -= dr; nc -= dc;
+                        }
+                    }
+                    if (!tailBlocked) {
+                        let nr = tailR + dr, nc = tailC + dc;
+                        for (let s = 0; s < winCount; s++) {
+                            const v = getCell(nr, nc);
+                            if (v === opp2 || v === "W") break;
+                            if (v === "") blockCells.push({r: nr, c: nc});
+                            nr += dr; nc += dc;
+                        }
+                    }
+                }
+            }
+            if (blockCells.length > 0) {
+                let bestBlk = blockCells[0], bestS = -Infinity;
+                for (const blk of blockCells) {
+                    const s = quickScore(blk.r, blk.c, bp);
+                    if (s > bestS) { bestS = s; bestBlk = blk; }
+                }
+                return bestBlk;
+            }
+        }
+
+        // 8. Bot tạo THREE_OPEN
+        for (const {r,c} of cands2) {
+            const ov = getCell(r,c);
+            setCell(r,c,bp);
+            for (const {dr,dc} of dirs) {
+                if (evalLine(r,c,dr,dc,bp) === TL.THREE_OPEN) { setCell(r,c,ov); return {r,c}; }
+            }
+            setCell(r,c,ov);
+        }
+
+        // 9. Fork attack/defense
+        const botFork = findForkMove(bp);
+        const xFork   = findForkMove(hp);
+        if (xFork && botFork) {
+            return quickScore(xFork.r,xFork.c,hp) > quickScore(botFork.r,botFork.c,bp)*1.2 ? xFork : botFork;
+        }
+        if (xFork)   return xFork;
+        if (botFork) return botFork;
+
+        // 10. Minimax
+        const totalPieces = isInfinite ? infiniteMap.size : boardState.flat().filter(v=>v!=="").length;
+        const depth = totalPieces < 4 ? 1
+                    : gameMode==="ai-god" ? 4
+                    : gameMode==="ai-hard" ? 2 : 1;
+        const topN  = gameMode==="ai-god"?10:7;
+        const scored = cands2.map(({r,c})=>({r,c,s:quickScore(r,c,bp)}))
+                             .sort((a,b)=>b.s-a.s).slice(0,topN);
+        if (scored.length === 0) {
+            const fb = getCandidates(1);
+            return fb.length > 0 ? fb[0] : {r:0,c:0};
+        }
+        let bestVal=-Infinity, bestMove=scored[0];
+        for (const {r,c} of scored) {
+            const ov = getCell(r,c);
+            setCell(r,c,bp);
+            const val = minimaxAB(depth-1,false,-Infinity,Infinity,r,c);
+            setCell(r,c,ov);
+            if (val>bestVal){bestVal=val;bestMove={r,c};}
+        }
+        return bestMove;
+    }
+
+    // Stubs de tuong thich (khong dung nua)
+    function findOpenThreat(player, len) { return null; }
+    function findDoubleOpenThreat(player, len) { return null; }
+    function countOpenThreats(r, c, player) { return 0; }
+    function minimax(depth, isMax, alpha, beta, cands) { return 0; }
+    function scoreCell(r, c) { return quickScore(r, c, botPiece||"O"); }
+    function analyzeWindow(lineArr, player) {
+        return { score: 0, openFour: false, openThree: false, openTwo: false };
+    }
+    // ===== PHÁO HOA =====
+    const confettiCanvas = document.getElementById('confetti-canvas');
+    const ctx = confettiCanvas.getContext('2d');
+    let confettiParticles = [];
+    let confettiRaf = null;
+
+    function resizeConfettiCanvas() {
+        confettiCanvas.width  = window.innerWidth;
+        confettiCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeConfettiCanvas);
+    resizeConfettiCanvas();
+
+    function randomColor() {
+        const colors = ['#f59e0b','#ef4444','#3b82f6','#10b981','#a855f7','#ec4899','#facc15','#ffffff'];
+        return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    function spawnConfetti(count = 160) {
+        for (let i = 0; i < count; i++) {
+            confettiParticles.push({
+                x:      Math.random() * confettiCanvas.width,
+                y:      Math.random() * confettiCanvas.height - confettiCanvas.height,
+                w:      Math.random() * 10 + 5,
+                h:      Math.random() * 6 + 3,
+                color:  randomColor(),
+                rot:    Math.random() * Math.PI * 2,
+                rotV:   (Math.random() - 0.5) * 0.15,
+                vx:     (Math.random() - 0.5) * 3,
+                vy:     Math.random() * 4 + 2,
+                alpha:  1,
+                decay:  Math.random() * 0.005 + 0.003
+            });
+        }
+    }
+
+    function animateConfetti() {
+        ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        confettiParticles = confettiParticles.filter(p => p.alpha > 0.02);
+
+        for (let p of confettiParticles) {
+            ctx.save();
+            ctx.globalAlpha = p.alpha;
+            ctx.translate(p.x + p.w / 2, p.y + p.h / 2);
+            ctx.rotate(p.rot);
+            ctx.fillStyle = p.color;
+            ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            ctx.restore();
+
+            p.x   += p.vx;
+            p.y   += p.vy;
+            p.rot += p.rotV;
+            p.vy  += 0.08; // gravity
+            p.alpha -= p.decay;
+        }
+
+        if (confettiParticles.length > 0) {
+            confettiRaf = requestAnimationFrame(animateConfetti);
+        } else {
+            ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        }
+    }
+
+    function startConfetti() {
+        if (confettiRaf) cancelAnimationFrame(confettiRaf);
+        confettiParticles = [];
+        // Bắn 3 loạt liên tiếp cho hoành tráng
+        spawnConfetti(180);
+        setTimeout(() => spawnConfetti(150), 400);
+        setTimeout(() => spawnConfetti(120), 900);
+        animateConfetti();
+    }
+
+    function stopConfetti() {
+        if (confettiRaf) cancelAnimationFrame(confettiRaf);
+        confettiRaf = null;
+        confettiParticles = [];
+        ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+    }
+
+    function showWinOverlay(winner, isBotWin) {
+        const overlay  = document.getElementById('win-overlay');
+        const emojiEl  = document.getElementById('win-emoji');
+        const titleEl  = document.getElementById('win-title');
+        const subEl    = document.getElementById('win-subtitle');
+
+        if (gameMode === 'solo') {
+            emojiEl.textContent = '🏆';
+            titleEl.textContent = `NGƯỜI ${winner} CHIẾN THẮNG!`;
+            titleEl.style.color = winner === 'X' ? '#2563eb' : '#dc2626';
+            subEl.textContent   = `Người ${winner} đã giành chiến thắng ván này.`;
+            startConfetti();
+        } else if (isBotWin) {
+            emojiEl.textContent  = '💀';
+            titleEl.textContent  = 'OẮT CON KO THẮNG NỔI BOT CỦA CHẦN!';
+            titleEl.style.color  = '#ef4444';
+            subEl.textContent    = 'Gừng càng già càng cay — thử lại đi!';
+        } else {
+            emojiEl.textContent  = '🏆';
+            titleEl.textContent  = 'CHIẾN THẮNG!';
+            titleEl.style.color  = '#f59e0b';
+            subEl.textContent    = 'Bạn đã hạ gục BOT của CHẦN PRO. Bái phục!';
+            startConfetti();
+        }
+
+        overlay.classList.add('show');
+    }
+
+    function closeWinAndRestart() {
+        document.getElementById('win-overlay').classList.remove('show');
+        stopConfetti();
+        initGame();
+    }
+
+    function reviewGame() {
+        document.getElementById('win-overlay').classList.remove('show');
+        stopConfetti();
+        if (isInfinite && winningCellCoords.length > 0) {
+            const [wr, wc] = winningCellCoords[Math.floor(winningCellCoords.length / 2)];
+            vRowF = wr - (infCanvasH / INF_CS) / 2;
+            vColF = wc - (infCanvasW / INF_CS) / 2;
+            renderInfiniteBoard();
+        }
+        statusPanel.innerHTML = `⬆️ Đang xem lại ván đấu &nbsp;|&nbsp; <button onclick="closeWinAndRestart()" style="padding:4px 16px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:0.9rem;">🔄 Đấu Lại</button>`;
+    }
+
+    function jumpToOrigin() {
+        vRowF = -(infCanvasH / INF_CS) / 2;
+        vColF = -(infCanvasW / INF_CS) / 2;
+        renderInfiniteBoard();
+    }
+
+    changeTheme();
+    initGame();
+    renderRankPanel();
+    renderHistory();
+    applyHistoryTheme(document.getElementById('theme-select').value);
+</script>
+</body>
+</html>
