@@ -927,23 +927,8 @@
     let infiniteMap = new Map();// dùng cho bàn vô hạn: key="r,c", value="X"|"O"
     let isInfinite = false;
 
-    // Viewport bàn vô hạn
-    const INF_VIEW = 50;        // kích thước viewport DOM cố định (không tăng)
-    const EXPAND_MARGIN = 5;    // khi quân cách mép bấy nhiêu ô thì dịch viewport
-    const EXPAND_STEP = 10;     // số ô dịch viewport mỗi lần
-    const CELL_SIZE_INF = 22;   // px mỗi ô bàn vô hạn (cố định)
-    const FONT_SIZE_INF = "0.9rem";
-    let infRows = INF_VIEW;     // số hàng hiện tại của DOM grid
-    let infCols = INF_VIEW;     // số cột hiện tại
-    let vRow = 0, vCol = 0;     // góc trên trái của viewport (tọa độ thực)
-    let lastMoveR = null, lastMoveC = null; // tọa độ thực nước đi cuối (cho infinite)
+    let lastMoveR = null, lastMoveC = null; // tọa độ thực nước đi cuối
     let winningCellCoords = [];             // tọa độ các ô thắng để re-render
-
-    // Căn viewport về trung tâm quanh (r, c)
-    function centerViewport(r, c) {
-        vRow = r - Math.floor(INF_VIEW / 2);
-        vCol = c - Math.floor(INF_VIEW / 2);
-    }
 
     let currentPlayer = "X";
     let isGameActive = true;
@@ -1169,11 +1154,6 @@
 
         if (isInfinite) {
             infiniteMap = new Map();
-            boardSize   = INF_VIEW;
-            infRows     = INF_VIEW;
-            infCols     = INF_VIEW;
-            vRow = -Math.floor(INF_VIEW / 2);
-            vCol = -Math.floor(INF_VIEW / 2);
             infCanvas = null; // force re-init canvas
             vRowF = 0; vColF = 0;
             infHoverR = null; infHoverC = null;
@@ -1227,16 +1207,7 @@
     }
 
     function recalculateCellSizes() {
-        if (isInfinite) {
-            boardElement.style.gridTemplateColumns = `repeat(${infCols}, ${CELL_SIZE_INF}px)`;
-            boardElement.style.gridTemplateRows    = `repeat(${infRows}, ${CELL_SIZE_INF}px)`;
-            for (const cell of boardElement.getElementsByClassName('cell')) {
-                cell.style.width    = `${CELL_SIZE_INF}px`;
-                cell.style.height   = `${CELL_SIZE_INF}px`;
-                cell.style.fontSize = FONT_SIZE_INF;
-            }
-            return;
-        }
+        if (isInfinite) return; // canvas tự xử lý, không dùng DOM grid
         const sz = boardSize;
         let cellSize, fontSize;
         if (sz <= 3)       { cellSize = 100; fontSize = "2.2rem"; }
@@ -1258,7 +1229,8 @@
 
     // ===== RENDER INFINITE — CANVAS ENGINE =====
     // Tọa độ thực = (vRow + pixelY/CS, vCol + pixelX/CS)
-    const INF_CS = 24; // cell size px
+    let INF_CS = 24; // cell size px — thay đổi khi zoom
+    const INF_CS_MIN = 10, INF_CS_MAX = 64;
 
     let infCanvas = null, infCtx = null;
     let infCanvasW = 0, infCanvasH = 0;
@@ -1288,8 +1260,12 @@
         infCanvas.ontouchstart  = infOnTouchStart;
         infCanvas.ontouchmove   = infOnTouchMove;
         infCanvas.ontouchend    = infOnTouchEnd;
+        infCanvas.addEventListener('wheel', infOnWheel, { passive: false });
 
         setupResizeHandles();
+
+        // Load zoom đã lưu
+        INF_CS = loadZoom();
 
         // Set kích thước tạm, đợi layout xong rồi resize đúng
         infCanvasW = 400; infCanvasH = 300;
@@ -1575,6 +1551,37 @@
             }
         }
         panMoved = false;
+    }
+
+    // ===== SCROLL TO ZOOM =====
+    const ZOOM_KEY = 'caro_zoom';
+    function loadZoom() {
+        const v = parseFloat(localStorage.getItem(ZOOM_KEY));
+        return (v >= INF_CS_MIN && v <= INF_CS_MAX) ? v : 24;
+    }
+    function saveZoom() { localStorage.setItem(ZOOM_KEY, INF_CS); }
+
+    function infOnWheel(e) {
+        e.preventDefault();
+        const rect = infCanvas.getBoundingClientRect();
+        // Tọa độ chuột trên canvas
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        // Tọa độ thực tại con trỏ trước khi zoom
+        const worldR = vRowF + my / INF_CS;
+        const worldC = vColF + mx / INF_CS;
+
+        // Tính cell size mới
+        const factor = e.deltaY < 0 ? 1.15 : (1 / 1.15);
+        const newCS = Math.min(INF_CS_MAX, Math.max(INF_CS_MIN, INF_CS * factor));
+        INF_CS = Math.round(newCS);
+
+        // Điều chỉnh viewport để giữ điểm dưới con trỏ cố định
+        vRowF = worldR - my / INF_CS;
+        vColF = worldC - mx / INF_CS;
+
+        saveZoom();
+        renderInfiniteBoard();
     }
 
     function jumpToCenter() {
