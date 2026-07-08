@@ -2253,31 +2253,26 @@
                     const headBlocked = isSideBlocked(br, bc, -dr, -dc, opp2);
                     const tailBlocked = isSideBlocked(tailR, tailC,  dr,  dc, opp2);
 
-                    // Quét xa đầu chưa bị chặn — thu thập ô trống có thể chặn
-                    // Dừng khi gặp O (không đi qua O) vì đó là ô vô nghĩa
+                    // Chặn đầu mở — chỉ chặn ô trống liền kề trước tiên
+                    // Sau đó mới xem các ô xa hơn nếu cần
                     if (!headBlocked) {
-                        let nr = br - dr, nc = bc - dc;
-                        for (let s = 0; s < winCount; s++) {
-                            const v = getCell(nr, nc);
-                            if (v === opp2 || v === "W") break; // gặp O → dừng, không push
-                            if (v === "") blockCells.push({r: nr, c: nc});
-                            else break; // gặp quân mình → dừng
-                            nr -= dr; nc -= dc;
+                        const nr = br - dr, nc = bc - dc;
+                        const v = getCell(nr, nc);
+                        if (v === "") {
+                            blockCells.push({r: nr, c: nc, priority: 'immediate'});
                         }
                     }
                     if (!tailBlocked) {
-                        let nr = tailR + dr, nc = tailC + dc;
-                        for (let s = 0; s < winCount; s++) {
-                            const v = getCell(nr, nc);
-                            if (v === opp2 || v === "W") break;
-                            if (v === "") blockCells.push({r: nr, c: nc});
-                            else break;
-                            nr += dr; nc += dc;
+                        const nr = tailR + dr, nc = tailC + dc;
+                        const v = getCell(nr, nc);
+                        if (v === "") {
+                            blockCells.push({r: nr, c: nc, priority: 'immediate'});
                         }
                     }
                 }
             }
             if (blockCells.length > 0) {
+                // Ưu tiên chặn ô trống liền kề với đầu mở của chuỗi
                 let bestBlk = blockCells[0], bestS = -Infinity;
                 for (const blk of blockCells) {
                     const s = quickScore(blk.r, blk.c, bp);
@@ -2336,22 +2331,20 @@
                     const tailR = br+dr*fwd, tailC = bc+dc*fwd;
                     const headBlocked = isSideBlocked(br, bc, -dr, -dc, opp2);
                     const tailBlocked = isSideBlocked(tailR, tailC,  dr,  dc, opp2);
+                    
+                    // Chặn cả hai đầu mở của THREE_OPEN — ưu tiên ô trống liền kề
                     if (!headBlocked) {
-                        let nr = br - dr, nc = bc - dc;
-                        for (let s = 0; s < winCount; s++) {
-                            const v = getCell(nr, nc);
-                            if (v === opp2 || v === "W") break;
-                            if (v === "") blockCells.push({r: nr, c: nc});
-                            nr -= dr; nc -= dc;
+                        const nr = br - dr, nc = bc - dc;
+                        const v = getCell(nr, nc);
+                        if (v === "") {
+                            blockCells.push({r: nr, c: nc, priority: 'immediate'});
                         }
                     }
                     if (!tailBlocked) {
-                        let nr = tailR + dr, nc = tailC + dc;
-                        for (let s = 0; s < winCount; s++) {
-                            const v = getCell(nr, nc);
-                            if (v === opp2 || v === "W") break;
-                            if (v === "") blockCells.push({r: nr, c: nc});
-                            nr += dr; nc += dc;
+                        const nr = tailR + dr, nc = tailC + dc;
+                        const v = getCell(nr, nc);
+                        if (v === "") {
+                            blockCells.push({r: nr, c: nc, priority: 'immediate'});
                         }
                     }
                 }
