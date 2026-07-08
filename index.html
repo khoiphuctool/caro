@@ -2273,26 +2273,28 @@
                     const headBlocked = isSideBlocked(br, bc, -dr, -dc, opp2);
                     const tailBlocked = isSideBlocked(tailR, tailC,  dr,  dc, opp2);
 
-                    // Chặn đầu mở — chỉ chặn ô trống liền kề trước tiên
-                    // Sau đó mới xem các ô xa hơn nếu cần
+                    // Chặn đầu mở: ưu tiên đầu chưa có O liền kề (clean open)
+                    // Không chặn đầu đã có O rồi (đã bị chặn sẵn)
                     if (!headBlocked) {
                         const nr = br - dr, nc = bc - dc;
                         const v = getCell(nr, nc);
-                        if (v === "") {
-                            blockCells.push({r: nr, c: nc, priority: 'immediate'});
+                        // Ô liền kề phải trống và không có O trước nó
+                        if (v === "" && getCell(br - 2*dr, bc - 2*dc) !== opp2) {
+                            blockCells.push({r: nr, c: nc, priority: 'clean-open'});
                         }
                     }
                     if (!tailBlocked) {
                         const nr = tailR + dr, nc = tailC + dc;
                         const v = getCell(nr, nc);
-                        if (v === "") {
-                            blockCells.push({r: nr, c: nc, priority: 'immediate'});
+                        // Ô liền kề phải trống và không có O trước nó
+                        if (v === "" && getCell(tailR + 2*dr, tailC + 2*dc) !== opp2) {
+                            blockCells.push({r: nr, c: nc, priority: 'clean-open'});
                         }
                     }
                 }
             }
             if (blockCells.length > 0) {
-                // Ưu tiên chặn ô trống liền kề với đầu mở của chuỗi
+                // Ưu tiên chặn ô trống liền kề với đầu mở sạch sẽ của chuỗi
                 let bestBlk = blockCells[0], bestS = -Infinity;
                 for (const blk of blockCells) {
                     const s = quickScore(blk.r, blk.c, bp);
@@ -2352,19 +2354,22 @@
                     const headBlocked = isSideBlocked(br, bc, -dr, -dc, opp2);
                     const tailBlocked = isSideBlocked(tailR, tailC,  dr,  dc, opp2);
                     
-                    // Chặn cả hai đầu mở của THREE_OPEN — ưu tiên ô trống liền kề
+                    // Chặn cả hai đầu mở: ưu tiên đầu chưa có O liền kề (clean open)
+                    // Không chặn đầu đã có O rồi (đã bị chặn sẵn)
                     if (!headBlocked) {
                         const nr = br - dr, nc = bc - dc;
                         const v = getCell(nr, nc);
-                        if (v === "") {
-                            blockCells.push({r: nr, c: nc, priority: 'immediate'});
+                        // Ô liền kề phải trống và không có O trước nó
+                        if (v === "" && getCell(br - 2*dr, bc - 2*dc) !== opp2) {
+                            blockCells.push({r: nr, c: nc, priority: 'clean-open'});
                         }
                     }
                     if (!tailBlocked) {
                         const nr = tailR + dr, nc = tailC + dc;
                         const v = getCell(nr, nc);
-                        if (v === "") {
-                            blockCells.push({r: nr, c: nc, priority: 'immediate'});
+                        // Ô liền kề phải trống và không có O trước nó
+                        if (v === "" && getCell(tailR + 2*dr, tailC + 2*dc) !== opp2) {
+                            blockCells.push({r: nr, c: nc, priority: 'clean-open'});
                         }
                     }
                 }
