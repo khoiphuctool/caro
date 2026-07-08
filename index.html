@@ -1262,8 +1262,8 @@
 
     // ===== RENDER INFINITE — CANVAS ENGINE =====
     // Tọa độ thực = (vRow + pixelY/CS, vCol + pixelX/CS)
-    let INF_CS = 24; // cell size px — thay đổi khi zoom
-    const INF_CS_MIN = 10, INF_CS_MAX = 64;
+    let INF_CS = 36; // cell size px — thay đổi khi zoom
+    const INF_CS_MIN = 18, INF_CS_MAX = 80;
 
     let infCanvas = null, infCtx = null;
     let infCanvasW = 0, infCanvasH = 0;
@@ -1590,7 +1590,7 @@
     const ZOOM_KEY = 'caro_zoom';
     function loadZoom() {
         const v = parseFloat(localStorage.getItem(ZOOM_KEY));
-        return (v >= INF_CS_MIN && v <= INF_CS_MAX) ? v : 24;
+        return (v >= INF_CS_MIN && v <= INF_CS_MAX) ? v : 36;
     }
     function saveZoom() { localStorage.setItem(ZOOM_KEY, INF_CS); }
 
