@@ -655,6 +655,11 @@
                 <button onclick="jumpToOrigin()" style="padding:3px 12px;border-radius:6px;border:none;cursor:pointer;font-size:0.82rem;font-weight:bold;">⌂ Về Gốc (0,0)</button>
                 &nbsp;
                 <button onclick="resizeInfCanvas()" style="padding:3px 12px;border-radius:6px;border:none;cursor:pointer;font-size:0.82rem;font-weight:bold;">⛶ To Bàn Cờ</button>
+                &nbsp;&nbsp;
+                <span style="color:#666; font-size:0.8rem;">💡 Chuột phải + kéo = di chuyển | 🔍 Lăn chuột = zoom | ⌨️ Click + Enter = đánh quân</span>
+            </div>
+                &nbsp;
+                <button onclick="resizeInfCanvas()" style="padding:3px 12px;border-radius:6px;border:none;cursor:pointer;font-size:0.82rem;font-weight:bold;">⛶ To Bàn Cờ</button>
             </div>
             <div class="board" id="board"></div>
             <div id="inf-resizable" style="display:none; position:relative; user-select:none;">
@@ -1314,6 +1319,9 @@
         infCanvas.ontouchmove   = infOnTouchMove;
         infCanvas.ontouchend    = infOnTouchEnd;
         infCanvas.addEventListener('wheel', infOnWheel, { passive: false });
+        
+        // Xử lý ENTER key để đánh quân tại ô đang hover
+        document.addEventListener('keydown', infOnKeyDown);
 
         setupResizeHandles();
 
@@ -1571,6 +1579,18 @@
         const { r, c } = canvasPixelToCell(e.clientX - rect.left, e.clientY - rect.top);
         if (getCell(r, c) !== '') return;
         makeMove(r, c);
+    }
+
+    function infOnKeyDown(e) {
+        // Chỉ xử lý ENTER key khi bàn cờ vô hạn đang active
+        if (e.key !== 'Enter' || !isInfinite) return;
+        if (!isGameActive) return;
+        if (gameMode.startsWith('ai') && currentPlayer === botPiece) return;
+        if (infHoverR === null || infHoverC === null) return;
+        if (getCell(infHoverR, infHoverC) !== '') return;
+        
+        // Đánh quân tại ô đang hover
+        makeMove(infHoverR, infHoverC);
     }
 
     // Touch support
