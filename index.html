@@ -80,8 +80,9 @@
 
         .main-layout {
             display: flex;
+            flex-direction: column;
             gap: 10px;
-            align-items: flex-start;
+            align-items: center;
             justify-content: center;
             width: 100%;
             max-width: 100%;
@@ -92,7 +93,12 @@
         }
 
         .panels-wrapper {
-            display: none; /* Hidden by default, only used in responsive */
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            max-width: 100%;
+            justify-content: center;
+            align-items: flex-start;
         }
 
         .side-panel {
@@ -104,7 +110,7 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
             flex-shrink: 0;
             overflow-y: auto;
-            max-height: calc(100vh - 200px);
+            max-height: calc(100vh - 150px);
         }
 
         .side-panel h3 {
@@ -227,44 +233,18 @@
 
         @media (max-width: 1200px) {
             .main-layout { gap: 8px; }
-            #history-panel { width: 120px; min-width: 110px; }
-            #rank-panel { width: 120px; min-width: 110px; }
+            .panels-wrapper { gap: 8px; }
         }
 
         @media (max-width: 900px) {
-            .main-layout { 
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                grid-template-rows: auto auto;
-                gap: 8px;
-            }
-            .side-panel { width: 100%; }
+            .main-layout { gap: 8px; }
+            .panels-wrapper { gap: 8px; }
+            #history-panel { min-width: 150px; }
+            #rank-panel { min-width: 150px; }
             #history-list { max-height: 120px; }
             #rank-list { max-height: 180px; }
             .control-wrapper { padding: 6px 8px; }
             h1 { font-size: 1.3rem; margin: 4px 0; }
-            
-            /* Game container spans both columns, first row */
-            .game-container {
-                grid-column: 1 / -1;
-                grid-row: 1;
-            }
-            
-            /* Panels in second row, side by side */
-            #history-panel {
-                grid-column: 1;
-                grid-row: 2;
-                max-width: 500px;
-                min-width: unset;
-                max-height: 150px;
-            }
-            #rank-panel {
-                grid-column: 2;
-                grid-row: 2;
-                max-width: 500px;
-                min-width: unset;
-                max-height: 150px;
-            }
         }
 
         @media (max-width: 600px) {
@@ -276,11 +256,11 @@
             .main-layout { padding: 0 6px; }
             
             /* Stack panels vertically on very small screens */
-            .main-layout > div:nth-child(1),
-            .main-layout > div:nth-child(3) {
+            .panels-wrapper {
                 flex-direction: column;
             }
             #history-panel, #rank-panel {
+                max-width: 100%;
                 max-height: 120px;
             }
         }
@@ -376,20 +356,35 @@
 
         /* ===== LỊCH SỬ ĐẤU ===== */
         #history-panel {
-            width: 180px;
-            min-width: 100px;
-            max-width: 500px;
+            flex: 1;
+            min-width: 200px;
+            max-width: 50%;
             border-radius: 10px;
             padding: 8px 10px;
             box-sizing: border-box;
             background: #ffffff;
             border: 1px solid #e2e8f0;
             flex-shrink: 0;
-            max-height: calc(100vh - 200px);
+            max-height: calc(100vh - 150px);
             overflow-y: auto;
             position: relative;
-            resize: horizontal;
             overflow: hidden;
+        }
+        #history-panel .resize-handle {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 8px;
+            height: 80px;
+            background: rgba(99,102,241,0.5);
+            cursor: ew-resize;
+            border-radius: 4px;
+            transition: background 0.15s;
+            z-index: 100;
+        }
+        #history-panel .resize-handle:hover {
+            background: rgba(99,102,241,0.9);
         }
         .history-header {
             display: flex;
@@ -488,20 +483,34 @@
 
         /* ===== BẢNG XẾP HẠNG ===== */
         #rank-panel {
-            width: 180px;
-            min-width: 100px;
-            max-width: 500px;
+            flex: 1;
+            min-width: 200px;
+            max-width: 50%;
             border-radius: 10px;
             padding: 8px 10px;
             box-sizing: border-box;
             background: #ffffff;
             border: 1px solid #e2e8f0;
             flex-shrink: 0;
-            max-height: calc(100vh - 200px);
+            max-height: calc(100vh - 150px);
             overflow-y: auto;
             position: relative;
-            resize: horizontal;
             overflow: hidden;
+        }
+        #rank-panel .resize-handle {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 60px;
+            background: rgba(99,102,241,0.3);
+            cursor: ew-resize;
+            border-radius: 2px;
+            transition: background 0.15s;
+        }
+        #rank-panel .resize-handle:hover {
+            background: rgba(99,102,241,0.7);
         }
         #rank-panel h3 {
             margin: 0 0 12px;
@@ -653,17 +662,6 @@
                 </select>
             </div>
             <div class="config-group">
-                <label for="board-size">🏁 Bàn cờ:</label>
-                <select id="board-size" onchange="initGame()">
-                    <option value="inf" selected>♾️ Vô Hạn (Tự Mở Rộng)</option>
-                    <option value="3">3 x 3</option>
-                    <option value="5">5 x 5</option>
-                    <option value="10">10 x 10</option>
-                    <option value="15">15 x 15</option>
-                    <option value="30">30 x 30</option>
-                </select>
-            </div>
-            <div class="config-group">
                 <label for="win-count">🏆 Số quân thắng:</label>
                 <select id="win-count" onchange="initGame()">
                     <option value="3">3 quân</option>
@@ -679,8 +677,8 @@
             <div class="config-group" id="group-piece" style="display:none;">
                 <label for="player-piece">♟️ Bạn chọn:</label>
                 <select id="player-piece" onchange="initGame()">
-                    <option value="X" selected>X (Đi trước)</option>
-                    <option value="O">O (Đi sau)</option>
+                    <option value="X" selected>X</option>
+                    <option value="O">O</option>
                 </select>
             </div>
             <div class="config-group" id="group-first" style="display:none;">
@@ -696,25 +694,11 @@
     <div class="status-panel" id="status-panel">Đang tải...</div>
 
     <div class="main-layout">
-        <!-- LỊCH SỬ ĐẤU — CÁNH TRÁI -->
-        <div id="history-panel">
-            <div class="history-header" onclick="toggleHistory()">
-                <h3 id="history-title">📜 Lịch Sử</h3>
-                <button class="history-toggle-btn" id="history-toggle-icon" title="Ẩn/Hiện">▶</button>
-            </div>
-            <div class="history-body" id="history-body">
-                <div id="history-list">
-                    <div id="history-empty">Chưa có ván.</div>
-                </div>
-                <button class="btn-clear-history" id="btn-clear-history" onclick="clearHistory()" style="display:none;">🗑️ Xóa</button>
-            </div>
-        </div>
-
         <div class="game-container" id="ui-game-container">
             <div id="inf-nav" style="display:none; text-align:center; padding:4px 0 6px; font-size:0.75rem; opacity:0.7;">
                 📍 <span id="inf-coords"></span>
                 &nbsp;
-                <button onclick="jumpToCenter()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">🏠 Cuối</button>
+                <button onclick="jumpToCenter()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">🏠 Tâm</button>
                 &nbsp;
                 <button onclick="jumpToOrigin()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">⌂ Gốc</button>
                 &nbsp;
@@ -735,12 +719,31 @@
             </div>
         </div>
 
-        <!-- CỘT PHẢI: BẢNG XẾP HẠNG -->
-        <div id="rank-panel">
-            <h3 id="rank-title">🏅 XẾP HẠNG</h3>
-            <div class="rank-tabs" id="rank-tabs"></div>
-            <div id="rank-list"></div>
-            <button class="btn-clear-rank" id="btn-clear-rank" onclick="clearRank()" style="display:none;">🗑️ Xóa</button>
+        <!-- PANELS WRAPPER: LỊCH SỬ & XẾP HẠNG NẰM DƯỚI BÀN CỜ -->
+        <div class="panels-wrapper">
+            <!-- LỊCH SỬ ĐẤU — CÁNH TRÁI -->
+            <div id="history-panel">
+                <div class="resize-handle" data-panel="history"></div>
+                <div class="history-header" onclick="toggleHistory()">
+                    <h3 id="history-title">📜 Lịch Sử</h3>
+                    <button class="history-toggle-btn" id="history-toggle-icon" title="Ẩn/Hiện">▶</button>
+                </div>
+                <div class="history-body" id="history-body">
+                    <div id="history-list">
+                        <div id="history-empty">Chưa có ván.</div>
+                    </div>
+                    <button class="btn-clear-history" id="btn-clear-history" onclick="clearHistory()" style="display:none;">🗑️ Xóa</button>
+                </div>
+            </div>
+
+            <!-- CỘT PHẢI: BẢNG XẾP HẠNG -->
+            <div id="rank-panel">
+                <div class="resize-handle" data-panel="rank"></div>
+                <h3 id="rank-title">🏅 XẾP HẠNG</h3>
+                <div class="rank-tabs" id="rank-tabs"></div>
+                <div id="rank-list"></div>
+                <button class="btn-clear-rank" id="btn-clear-rank" onclick="clearRank()" style="display:none;">🗑️ Xóa</button>
+            </div>
         </div>
     </div>
 
@@ -885,13 +888,12 @@
         const selectedTheme = document.getElementById('theme-select').value;
         document.getElementById('theme-styles').innerHTML = themes[selectedTheme];
         applyHistoryTheme(selectedTheme);
-        if (isInfinite) renderInfiniteBoard();
-        else if(boardState.length > 0) recalculateCellSizes();
+        renderInfiniteBoard();
     }
 
     // ===== STATE =====
     const HISTORY_KEY = 'caro_history_v1';
-    const MAX_HISTORY = 30;
+    const MAX_HISTORY = 50;
 
     function loadHistory() {
         try {
@@ -915,8 +917,7 @@
     };
 
     function recordMatch(result, winner) {
-        const sizeVal = document.getElementById('board-size').value;
-        const boardLabel = sizeVal === 'inf' ? '♾️ Vô Hạn' : `${sizeVal}×${sizeVal}`;
+        const boardLabel = '♾️ Vô Hạn';
         const entry = {
             result,
             winner,
@@ -1043,17 +1044,69 @@
     let moveCount = 0;
     let pendingRankEntry = null;
 
-    const RANK_KEY = 'caro_rank_v1';
+    // Hệ số độ khó
+    const DIFFICULTY_MULTIPLIERS = {
+        'solo': 0.5,
+        'ai-easy': 1,
+        'ai-medium': 1.5,
+        'ai-hard': 2,
+        'ai-god': 3
+    };
+
+    // Hệ số quân thắng
+    const WIN_COUNT_MULTIPLIERS = {
+        3: 0.5,
+        4: 0.7,
+        5: 1,
+        6: 1.3,
+        7: 1.6,
+        8: 2,
+        9: 2.5,
+        10: 3
+    };
+
+    function calculateScore(moves, mode, winCount) {
+        const baseScore = 10000;
+        const movePenalty = moves * 10;
+        const difficultyMultiplier = DIFFICULTY_MULTIPLIERS[mode] || 1;
+        const winCountMultiplier = WIN_COUNT_MULTIPLIERS[winCount] || 1;
+        
+        const score = Math.round((baseScore - movePenalty) * difficultyMultiplier * winCountMultiplier);
+        return Math.max(0, score); // Đảm bảo điểm không âm
+    }
+
+    const RANK_KEY = 'caro_rank_v2';
 
     function loadRank() {
         try {
             const data = JSON.parse(localStorage.getItem(RANK_KEY)) || {};
-            // Lọc bỏ key format cũ (không có '|')
-            const cleaned = {};
+            // Migrate dữ liệu cũ từ v1 sang v2 (tính điểm từ moves)
+            const migrated = {};
             for (const [k, v] of Object.entries(data)) {
-                if (k.includes('|')) cleaned[k] = v;
+                if (k.includes('|')) {
+                    // Dữ liệu mới format v2
+                    migrated[k] = v;
+                }
             }
-            return cleaned;
+            // Thử migrate từ v1 nếu không có dữ liệu
+            if (Object.keys(migrated).length === 0) {
+                try {
+                    const oldData = JSON.parse(localStorage.getItem('caro_rank_v1')) || {};
+                    for (const [k, entries] of Object.entries(oldData)) {
+                        if (!k.includes('|')) continue;
+                        const { mode, winCnt } = parseRankKey(k);
+                        migrated[k] = entries.map(e => ({
+                            ...e,
+                            score: calculateScore(e.moves, mode, winCnt)
+                        })).sort((a, b) => b.score - a.score).slice(0, 20);
+                    }
+                    if (Object.keys(migrated).length > 0) {
+                        saveRank(migrated);
+                        localStorage.removeItem('caro_rank_v1'); // Xóa dữ liệu cũ sau khi migrate
+                    }
+                } catch(e) {}
+            }
+            return migrated;
         }
         catch(e) { return {}; }
     }
@@ -1140,14 +1193,14 @@
             listEl.innerHTML = '<div style="text-align:center;opacity:0.45;font-size:0.9rem;padding:8px 0;">Chưa có kỷ lục.</div>';
             return;
         }
-        const entries = (data[currentRankTab] || []).slice(0, 20);
+        const entries = (data[currentRankTab] || []).slice(0, 50);
         const medals = ['🥇','🥈','🥉'];
         listEl.innerHTML = entries.map((e, i) => `
             <div class="rank-item rank-${i+1}">
                 <span class="rank-medal">${medals[i] || `#${i+1}`}</span>
                 <span class="rank-name">${e.name}</span>
-                <span class="rank-time">${e.moves} nước</span>
-                <span class="rank-meta">${e.date}</span>
+                <span class="rank-time">${e.score ? e.score.toLocaleString('vi-VN') : e.moves} ${e.score ? 'điểm' : 'nước'}</span>
+                <span class="rank-meta">${e.moves || ''} ${e.moves ? 'nước' : ''} · ${e.time || e.date}</span>
             </div>
         `).join('');
     }
@@ -1173,9 +1226,10 @@
     }
 
     function promptRankName(moves, mode, winCnt, boardLabel, winnerLabel) {
-        pendingRankEntry = { moves, mode, winCnt, boardLabel };
+        const score = calculateScore(moves, mode, winCnt);
+        pendingRankEntry = { moves, mode, winCnt, boardLabel, score };
         const sub = document.getElementById('name-overlay-sub');
-        if (sub) sub.innerHTML = `🏅 ${moves} nước đi<br><span style="opacity:0.7;font-size:0.85rem">${winnerLabel} · ${MODE_LABELS[mode] || mode} · ${winCnt} quân · ${boardLabel}</span>`;
+        if (sub) sub.innerHTML = `🏅 ${score.toLocaleString('vi-VN')} điểm<br><span style="opacity:0.7;font-size:0.85rem">${winnerLabel} · ${MODE_LABELS[mode] || mode} · ${winCnt} quân · ${boardLabel} · ${moves} nước</span>`;
         const inp = document.getElementById('name-input');
         if (inp) inp.value = '';
         document.getElementById('name-overlay').classList.add('show');
@@ -1186,15 +1240,16 @@
         const inp = document.getElementById('name-input');
         const name = (inp ? inp.value.trim() : '') || 'Ẩn Danh';
         if (!pendingRankEntry) { closeNameOverlay(); return; }
-        const { moves, mode, winCnt, boardLabel } = pendingRankEntry;
+        const { moves, mode, winCnt, boardLabel, score } = pendingRankEntry;
         const data = loadRank();
         const key = getRankKey(mode, winCnt, boardLabel);
         if (!data[key]) data[key] = [];
         const now = new Date();
         const dateStr = now.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'2-digit' });
-        data[key].push({ name, moves, date: dateStr });
-        data[key].sort((a, b) => a.moves - b.moves);
-        data[key] = data[key].slice(0, 20);
+        const timeStr = now.toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+        data[key].push({ name, score, moves, date: dateStr, time: timeStr });
+        data[key].sort((a, b) => b.score - a.score); // Sắp xếp theo điểm giảm dần
+        data[key] = data[key].slice(0, 50);
         saveRank(data);
         currentRankMode = mode;
         currentRankTab  = key;
@@ -1202,7 +1257,7 @@
         closeNameOverlay();
         renderRankPanel();
         // Sync lên server
-        apiPost('/api/rank', { key, name, moves, date: dateStr });
+        apiPost('/api/rank', { key, name, score, moves, date: dateStr, time: timeStr });
         const rp = document.getElementById('rank-panel');
         if (rp) setTimeout(() => rp.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 200);
     }
@@ -1211,11 +1266,79 @@
         document.getElementById('name-overlay').classList.remove('show');
     }
 
-    // Enter để lưu
-    document.getElementById('name-input').addEventListener('keydown', e => {
-        if (e.key === 'Enter') saveRankEntry();
-        if (e.key === 'Escape') closeNameOverlay();
-    });
+    // Enter để lưu - sẽ được gán sau khi DOM ready
+    function setupNameInputListener() {
+        const inp = document.getElementById('name-input');
+        if (inp) {
+            inp.addEventListener('keydown', e => {
+                if (e.key === 'Enter') saveRankEntry();
+                if (e.key === 'Escape') closeNameOverlay();
+            });
+        }
+    }
+
+    // ===== PANEL RESIZE FROM LEFT =====
+    const PANEL_SIZE_KEY = 'caro_panel_sizes';
+
+    function loadPanelSizes() {
+        try {
+            return JSON.parse(localStorage.getItem(PANEL_SIZE_KEY)) || {};
+        } catch(e) { return {}; }
+    }
+
+    function savePanelSizes(sizes) {
+        localStorage.setItem(PANEL_SIZE_KEY, JSON.stringify(sizes));
+    }
+
+    function applyPanelSizes() {
+        const sizes = loadPanelSizes();
+        const historyPanel = document.getElementById('history-panel');
+        const rankPanel = document.getElementById('rank-panel');
+        
+        if (sizes.history && historyPanel) {
+            historyPanel.style.width = sizes.history + 'px';
+        }
+        if (sizes.rank && rankPanel) {
+            rankPanel.style.width = sizes.rank + 'px';
+        }
+    }
+
+    function setupPanelResize() {
+        const handles = document.querySelectorAll('.resize-handle');
+        
+        handles.forEach(handle => {
+            handle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const panel = handle.closest('#history-panel, #rank-panel');
+                if (!panel) return;
+                
+                const panelType = handle.getAttribute('data-panel');
+                const startX = e.clientX;
+                const startWidth = panel.offsetWidth;
+                
+                function onMouseMove(ev) {
+                    const dx = ev.clientX - startX;
+                    const newWidth = Math.max(100, Math.min(500, startWidth + dx));
+                    panel.style.width = newWidth + 'px';
+                }
+                
+                function onMouseUp() {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                    
+                    // Lưu kích thước
+                    const sizes = loadPanelSizes();
+                    sizes[panelType] = panel.offsetWidth;
+                    savePanelSizes(sizes);
+                }
+                
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        });
+    }
 
     const boardElement = document.getElementById('board');
     const statusPanel  = document.getElementById('status-panel');
@@ -1241,8 +1364,8 @@
     }
 
     function initGame() {
-        const sizeVal = document.getElementById('board-size').value;
-        isInfinite = (sizeVal === 'inf');
+        // Luôn dùng bàn vô hạn
+        isInfinite = true;
 
         gameMode = modeSelect.value;
         const winSelect = document.getElementById('win-count');
@@ -1272,30 +1395,17 @@
         lastMoveR         = null;
         lastMoveC         = null;
         winningCellCoords = [];
-        panMoved          = false;
         moveCount         = 0;
         updateCursorByTurn();
 
-        if (isInfinite) {
-            infiniteMap = new Map();
-            infCanvas = null; // force re-init canvas
-            vRowF = 0; vColF = 0;
-            infHoverR = null; infHoverC = null;
-            renderInfiniteBoard();
-            // resizeInfCanvas sẽ tự gọi sau 2 rAF trong initInfCanvas
-        } else {
-            document.getElementById('inf-nav').style.display = 'none';
-            const gc = document.getElementById('ui-game-container');
-            gc.classList.remove('inf-mode');
-            const wrapper = document.getElementById('inf-resizable');
-            if (wrapper) wrapper.style.display = 'none';
-            document.getElementById('board').style.display = '';
-            boardSize = parseInt(sizeVal);
-            winCount  = Math.min(winCount, boardSize);
-            winSelect.value = winCount;
-            boardState = Array(boardSize).fill(null).map(() => Array(boardSize).fill(""));
-            renderFixedBoard();
-        }
+        // Luôn dùng bàn vô hạn
+        infiniteMap = new Map();
+        infCanvas = null; // force re-init canvas
+        vRowF = 0; vColF = 0;
+        infHoverR = null; infHoverC = null;
+        renderInfiniteBoard();
+        // resizeInfCanvas sẽ tự gọi sau 2 rAF trong initInfCanvas
+
         updateStatus();
 
         // Nếu bot đi trước (người chọn O và first=X, hoặc first=botPiece)
@@ -1374,6 +1484,7 @@
         infCanvas.addEventListener('wheel', infOnWheel, { passive: false });
         
         // Xử lý ENTER key để đánh quân tại ô đang hover
+        document.removeEventListener('keydown', infOnKeyDown);
         document.addEventListener('keydown', infOnKeyDown);
 
         setupResizeHandles();
@@ -1593,6 +1704,12 @@
             infCanvas.style.cursor = 'grabbing';
         }
     }
+    function infOnMouseUp(e) {
+        if (e.button === 2) {
+            infPanning = false;
+            updateCursorByTurn();
+        }
+    }
     function infOnMouseMove(e) {
         if (infPanning) {
             e.preventDefault();
@@ -1610,12 +1727,6 @@
         if (r !== infHoverR || c !== infHoverC) {
             infHoverR = r; infHoverC = c;
             renderInfiniteBoard();
-        }
-    }
-    function infOnMouseUp(e) {
-        if (e.button === 2) {
-            infPanning = false;
-            updateCursorByTurn();
         }
     }
     function infOnMouseLeave() {
@@ -1739,15 +1850,6 @@
     }
 
     function updateStatus() {
-        // Cập nhật mô tả luật (luôn cập nhật, kể cả sau game kết thúc)
-        const rd = document.getElementById('rule-desc');
-        if (rd) {
-            if (winCount >= 4) {
-                rd.textContent = `Chuỗi ${winCount} quân bị chặn cả 2 đầu bởi đối thủ sẽ không tính thắng.`;
-            } else {
-                rd.textContent = `Luật chặn 2 đầu không áp dụng khi chỉ cần ${winCount} quân.`;
-            }
-        }
         if (!isGameActive) return;
 
         if (gameMode.startsWith('ai') && currentPlayer === botPiece) {
@@ -1822,8 +1924,7 @@
             isGameActive = false;
             if (lastMoveCell) lastMoveCell.classList.remove('last-move');
             const isBotWin = gameMode.startsWith('ai') && currentPlayer === botPiece;
-            const sizeVal = document.getElementById('board-size').value;
-            const boardLabel = sizeVal === 'inf' ? '♾️ Vô Hạn' : `${sizeVal}×${sizeVal}`;
+            const boardLabel = '♾️ Vô Hạn';
 
             if (gameMode === 'solo') {
                 statusPanel.innerHTML = `🏆 Người <strong>${currentPlayer}</strong> chiến thắng!`;
@@ -1846,14 +1947,6 @@
                     }
                 }, 500);
             }
-            return;
-        }
-
-        // Bàn cố định: kiểm tra hòa
-        if (!isInfinite && boardState.flat().every(v => v !== "")) {
-            statusPanel.innerHTML = `Hòa cờ! Một trận đấu bất phân thắng bại.`;
-            isGameActive = false;
-            recordMatch('draw', null);
             return;
         }
 
@@ -2009,7 +2102,7 @@
             if (rand <= 0) {
                 const cell = entry.move;
                 if (isInfinite) {
-                    if (infiniteMap.get(`${cell[0]},${cell[1]}`) === "") return {r: cell[0], c: cell[1]};
+                    if (!infiniteMap.has(`${cell[0]},${cell[1]}`)) return {r: cell[0], c: cell[1]};
                 } else {
                     if (boardState[cell[0]] && boardState[cell[0]][cell[1]] === "") return {r: cell[0], c: cell[1]};
                 }
@@ -2248,14 +2341,13 @@
                     if (cells.length >= winCount) {
                         let blockCells = [];
                         if (!headBlocked) {
-                            const nr2 = headR + dr, nc2 = headC + dc;
-                            if (getCell(headR, headC) === "" && getCell(headR - 2*dr, headC - 2*dc) !== opp2) {
-                                blockCells.push({ r: headR, c: headC });
+                            if (getCell(headR + dr, headC + dc) === "" && getCell(headR + 2*dr, headC + 2*dc) !== opp2) {
+                                blockCells.push({ r: headR + dr, c: headC + dc });
                             }
                         }
                         if (!tailBlocked) {
-                            if (getCell(tailR, tailC) === "" && getCell(tailR + 2*dr, tailC + 2*dc) !== opp2) {
-                                blockCells.push({ r: tailR, c: tailC });
+                            if (getCell(tailR - dr, tailC - dc) === "" && getCell(tailR - 2*dr, tailC - 2*dc) !== opp2) {
+                                blockCells.push({ r: tailR - dr, c: tailC - dc });
                             }
                         }
                         if (blockCells.length > 0) {
@@ -2298,17 +2390,25 @@
         return cands2[0];
     }
     // ===== PHÁO HOA =====
-    const confettiCanvas = document.getElementById('confetti-canvas');
-    const ctx = confettiCanvas.getContext('2d');
+    let confettiCanvas = null;
+    let ctx = null;
     let confettiParticles = [];
     let confettiRaf = null;
 
+    function initConfetti() {
+        confettiCanvas = document.getElementById('confetti-canvas');
+        if (confettiCanvas) {
+            ctx = confettiCanvas.getContext('2d');
+            resizeConfettiCanvas();
+        }
+    }
+
     function resizeConfettiCanvas() {
+        if (!confettiCanvas) return;
         confettiCanvas.width  = window.innerWidth;
         confettiCanvas.height = window.innerHeight;
     }
     window.addEventListener('resize', resizeConfettiCanvas);
-    resizeConfettiCanvas();
 
     function randomColor() {
         const colors = ['#f59e0b','#ef4444','#3b82f6','#10b981','#a855f7','#ec4899','#facc15','#ffffff'];
@@ -2428,25 +2528,27 @@
     renderRankPanel();
     renderHistory();
     applyHistoryTheme(document.getElementById('theme-select').value);
+    setupNameInputListener();
+    initConfetti();
+    applyPanelSizes();
+    setupPanelResize();
 
     // Load rank + history từ server (merge vào localStorage nếu có)
     (async () => {
         const serverRank = await apiGet('/api/rank');
-        if (serverRank && typeof serverRank === 'object') {
+        if (serverRank) {
             const local = loadRank();
-            // Merge: gộp rồi sort, giữ top 20
-            for (const [k, entries] of Object.entries(serverRank)) {
-                if (!local[k]) local[k] = [];
-                for (const e of entries) {
-                    if (!local[k].find(x => x.name === e.name && x.moves === e.moves)) {
-                        local[k].push(e);
-                    }
-                }
-                local[k].sort((a, b) => a.moves - b.moves);
-                local[k] = local[k].slice(0, 20);
-            }
-            saveRank(local);
+            const merged = { ...local, ...serverRank };
+            saveRank(merged);
             renderRankPanel();
+        }
+        const serverHistory = await apiGet('/api/history');
+        if (serverHistory && Array.isArray(serverHistory)) {
+            const local = loadHistory();
+            const merged = [...serverHistory, ...local].slice(0, MAX_HISTORY);
+            saveHistory(merged);
+            matchHistory = merged;
+            renderHistory();
         }
     })();
 </script>
