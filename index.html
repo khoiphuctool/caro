@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Caro BOT CỦA CHẦN</title>
+    <title>Caro BOT CỦA CHẦN - NÂNG CẤP BOT M1 TỐI THƯỢNG</title>
     
     <style id="theme-styles"></style>
     
@@ -306,7 +306,13 @@
             .status-panel { font-size: 0.85rem; padding: 4px 10px; min-width: 150px; }
             h1 { font-size: 1.1rem; }
             .main-layout { padding: 0 6px; }
-            
+            #history-panel, #rank-panel {
+                min-width: 140px;
+                max-height: 150px;
+            }
+        }
+
+        @media (max-width: 400px) {
             /* Stack panels vertically on very small screens */
             .panels-wrapper {
                 flex-direction: column;
@@ -707,10 +713,10 @@
                 <label for="game-mode">🤖 Chế độ Bot:</label>
                 <select id="game-mode" onchange="initGame()">
                     <option value="solo">Solo (2 Người)</option>
-                    <option value="ai-easy">Mức Dễ</option>
+                    <option value="ai-easy">Mức Dễ ẸC</option>
                     <option value="ai-medium">Mức Thường</option>
-                    <option value="ai-hard">Mức Khó</option>
-                    <option value="ai-god" selected>Mức TỐI THƯỢNG (Bất Khả Chiến Bại 💀)</option>
+                    <option value="ai-hard">Mức Khó 1 TÝ</option>
+                    <option value="ai-god" selected>MỨC TỐI THƯỢNG 💀BOT M1</option>
                 </select>
             </div>
             <div class="config-group">
@@ -727,7 +733,7 @@
                 </select>
             </div>
             <div class="config-group">
-                <label for="block-both-ends">🚫 Luật chặn 2 đầu:</label>
+                <label for="block-both-ends">🚫chặn 2 đầu KHÔNG THẮNG:</label>
                 <input type="checkbox" id="block-both-ends" checked onchange="saveBlockBothEndsSetting()">
             </div>
             <div class="config-group" id="group-piece" style="display:none;">
@@ -750,7 +756,7 @@
     <div class="status-panel" id="status-panel">Đang tải...</div>
 
     <div style="text-align:center; font-size:0.8rem; opacity:0.6; margin:4px 0;">
-        ⌨️ <b>Phím tắt:</b> Mũi tên ↑↓←→ để di chuyển cursor · Enter để đánh quân
+        ⌨️ <b>Phím tắt:</b> Mũi tên ↑↓←→ để di chuyển CON TRỎ THỨ 2 · Enter để đánh quân
     </div>
 
     <div class="main-layout">
@@ -2119,6 +2125,11 @@
         
         // Lưu nước đi vào history để undo
         moveHistory.push({ r, c, player: currentPlayer });
+        
+        // Cập nhật keyboard cursor về vị trí quân vừa đánh
+        keyboardCursorR = r;
+        keyboardCursorC = c;
+        keyboardCursorVisible = true;
         
         updateCursorByTurn();
 
