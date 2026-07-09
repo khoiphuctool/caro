@@ -749,6 +749,10 @@
 
     <div class="status-panel" id="status-panel">Đang tải...</div>
 
+    <div style="text-align:center; font-size:0.8rem; opacity:0.6; margin:4px 0;">
+        ⌨️ <b>Phím tắt:</b> Mũi tên ↑↓←→ để di chuyển cursor · Enter để đánh quân
+    </div>
+
     <div class="main-layout">
         <div class="game-container" id="ui-game-container">
             <div id="inf-nav" style="display:none; text-align:center; padding:4px 0 6px; font-size:0.75rem; opacity:0.7;">
@@ -1467,6 +1471,9 @@
         winningCellCoords = [];
         moveCount         = 0;
         moveHistory       = []; // Reset undo history
+        keyboardCursorR   = 0;  // Reset keyboard cursor position
+        keyboardCursorC   = 0;
+        keyboardCursorVisible = false; // Hide keyboard cursor
         updateCursorByTurn();
 
         // Luôn dùng bàn vô hạn
@@ -1744,8 +1751,9 @@
             }
         }
 
-        // Keyboard cursor (solo mode)
-        if (keyboardCursorVisible && gameMode === 'solo' && isGameActive) {
+        // Keyboard cursor (solo mode or AI mode when player's turn)
+        const isPlayerTurn = gameMode === 'solo' || (gameMode.startsWith('ai') && currentPlayer !== botPiece);
+        if (keyboardCursorVisible && isPlayerTurn && isGameActive) {
             const kr = keyboardCursorR - r0, kc = keyboardCursorC - c0;
             if (kr >= 0 && kc >= 0 && kr < rows && kc < cols) {
                 // Draw keyboard cursor with different color (orange)
@@ -1834,8 +1842,11 @@
         if (!isInfinite) return;
         if (!isGameActive) return;
         
-        // Chế độ solo: hỗ trợ phím mũi tên để di chuyển cursor và Enter để đánh
-        if (gameMode === 'solo') {
+        // Hỗ trợ phím mũi tên để di chuyển cursor và Enter để đánh
+        // Áp dụng cho: Solo mode hoặc AI mode khi đến lượt người chơi
+        const isPlayerTurn = gameMode === 'solo' || (gameMode.startsWith('ai') && currentPlayer !== botPiece);
+        
+        if (isPlayerTurn) {
             if (e.key === 'ArrowUp') {
                 e.preventDefault();
                 keyboardCursorR--;
@@ -1873,7 +1884,7 @@
             }
         }
         
-        // Chế độ AI: ENTER key để đánh quân tại ô đang hover
+        // Fallback: ENTER key để đánh quân tại ô đang hover (chế độ AI cũ)
         if (e.key !== 'Enter') return;
         if (gameMode.startsWith('ai') && currentPlayer === botPiece) return;
         if (infHoverR === null || infHoverC === null) return;
