@@ -68,6 +68,13 @@
             font-weight: bold;
         }
 
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #2563eb;
+        }
+
         .status-panel {
             font-size: 0.95rem;
             margin: 0;
@@ -135,6 +142,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            position: relative;
         }
         .game-container.inf-mode {
             overflow: hidden;
@@ -144,6 +152,50 @@
             line-height: 0;
         }
         .game-container.panning { cursor: grabbing; }
+
+        /* ===== ZOOM CONTROLS ===== */
+        .zoom-controls {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            z-index: 100;
+        }
+        .zoom-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 2px solid #2563eb;
+            background: rgba(255, 255, 255, 0.95);
+            color: #2563eb;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            transition: all 0.2s;
+            line-height: 1;
+        }
+        .zoom-btn:hover {
+            background: #2563eb;
+            color: white;
+            transform: scale(1.1);
+        }
+        .zoom-btn:active {
+            transform: scale(0.95);
+        }
+        .zoom-btn.zoom-undo {
+            border-color: #f59e0b;
+            color: #f59e0b;
+        }
+        .zoom-btn.zoom-undo:hover {
+            background: #f59e0b;
+            color: white;
+        }
 
         #inf-canvas {
             display: block;
@@ -674,6 +726,10 @@
                     <option value="10">10 quân</option>
                 </select>
             </div>
+            <div class="config-group">
+                <label for="block-both-ends">🚫 Luật chặn 2 đầu:</label>
+                <input type="checkbox" id="block-both-ends" checked onchange="saveBlockBothEndsSetting()">
+            </div>
             <div class="config-group" id="group-piece" style="display:none;">
                 <label for="player-piece">♟️ Bạn chọn:</label>
                 <select id="player-piece" onchange="initGame()">
@@ -716,6 +772,12 @@
                 <div class="rs-handle rs-ne" data-dir="ne"></div>
                 <div class="rs-handle rs-sw" data-dir="sw"></div>
                 <div class="rs-handle rs-se" data-dir="se"></div>
+            </div>
+            <!-- ZOOM BUTTONS -->
+            <div class="zoom-controls">
+                <button class="zoom-btn zoom-in" onclick="zoomBoard(1)" title="Phóng to">+</button>
+                <button class="zoom-btn zoom-out" onclick="zoomBoard(-1)" title="Thu nhỏ">−</button>
+                <button class="zoom-btn zoom-undo" onclick="undoMove()" title="Thu lại nước đi">↩</button>
             </div>
         </div>
 
@@ -1043,6 +1105,14 @@
     // ===== RANK =====
     let moveCount = 0;
     let pendingRankEntry = null;
+
+    // ===== UNDO HISTORY =====
+    let moveHistory = []; // Stack of moves: [{r, c, player}]
+
+    // ===== KEYBOARD CURSOR (SOLO MODE) =====
+    let keyboardCursorR = 0; // Row position of keyboard cursor
+    let keyboardCursorC = 0; // Column position of keyboard cursor
+    let keyboardCursorVisible = false; // Whether keyboard cursor is active
 
     // Hệ số độ khó
     const DIFFICULTY_MULTIPLIERS = {
@@ -1396,6 +1466,7 @@
         lastMoveC         = null;
         winningCellCoords = [];
         moveCount         = 0;
+        moveHistory       = []; // Reset undo history
         updateCursorByTurn();
 
         // Luôn dùng bàn vô hạn
@@ -1673,6 +1744,19 @@
             }
         }
 
+        // Keyboard cursor (solo mode)
+        if (keyboardCursorVisible && gameMode === 'solo' && isGameActive) {
+            const kr = keyboardCursorR - r0, kc = keyboardCursorC - c0;
+            if (kr >= 0 && kc >= 0 && kr < rows && kc < cols) {
+                // Draw keyboard cursor with different color (orange)
+                c.strokeStyle = '#f59e0b';
+                c.lineWidth = 3;
+                c.strokeRect(offX + kc*CS + 1.5, offY + kr*CS + 1.5, CS-3, CS-3);
+                c.lineWidth = 0.5;
+                c.strokeStyle = col.grid;
+            }
+        }
+
         // Nav bar
         const nav = document.getElementById('inf-nav');
         const cr = Math.floor(vRowF + rows/2), cc = Math.floor(vColF + cols/2);
@@ -1747,9 +1831,50 @@
     }
 
     function infOnKeyDown(e) {
-        // Chỉ xử lý ENTER key khi bàn cờ vô hạn đang active
-        if (e.key !== 'Enter' || !isInfinite) return;
+        if (!isInfinite) return;
         if (!isGameActive) return;
+        
+        // Chế độ solo: hỗ trợ phím mũi tên để di chuyển cursor và Enter để đánh
+        if (gameMode === 'solo') {
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                keyboardCursorR--;
+                keyboardCursorVisible = true;
+                renderInfiniteBoard();
+                return;
+            }
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                keyboardCursorR++;
+                keyboardCursorVisible = true;
+                renderInfiniteBoard();
+                return;
+            }
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                keyboardCursorC--;
+                keyboardCursorVisible = true;
+                renderInfiniteBoard();
+                return;
+            }
+            if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                keyboardCursorC++;
+                keyboardCursorVisible = true;
+                renderInfiniteBoard();
+                return;
+            }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (keyboardCursorVisible && getCell(keyboardCursorR, keyboardCursorC) === '') {
+                    makeMove(keyboardCursorR, keyboardCursorC);
+                }
+                return;
+            }
+        }
+        
+        // Chế độ AI: ENTER key để đánh quân tại ô đang hover
+        if (e.key !== 'Enter') return;
         if (gameMode.startsWith('ai') && currentPlayer === botPiece) return;
         if (infHoverR === null || infHoverC === null) return;
         if (getCell(infHoverR, infHoverC) !== '') return;
@@ -1799,6 +1924,17 @@
     }
     function saveZoom() { localStorage.setItem(ZOOM_KEY, INF_CS); }
 
+    // ===== BLOCK BOTH ENDS SETTING =====
+    const BLOCK_BOTH_ENDS_KEY = 'caro_block_both_ends';
+    function loadBlockBothEndsSetting() {
+        const v = localStorage.getItem(BLOCK_BOTH_ENDS_KEY);
+        return v === null ? true : v === 'true';
+    }
+    function saveBlockBothEndsSetting() {
+        const checkbox = document.getElementById('block-both-ends');
+        localStorage.setItem(BLOCK_BOTH_ENDS_KEY, checkbox.checked);
+    }
+
     function infOnWheel(e) {
         e.preventDefault();
         const rect = infCanvas.getBoundingClientRect();
@@ -1820,6 +1956,83 @@
 
         saveZoom();
         renderInfiniteBoard();
+    }
+
+    function zoomBoard(direction) {
+        // direction: 1 = zoom in, -1 = zoom out
+        const factor = direction > 0 ? 1.15 : (1 / 1.15);
+        const newCS = Math.min(INF_CS_MAX, Math.max(INF_CS_MIN, INF_CS * factor));
+        
+        if (newCS === INF_CS) return; // Không thay đổi nếu đã đạt giới hạn
+        
+        // Zoom vào giữa canvas
+        const mx = infCanvasW / 2;
+        const my = infCanvasH / 2;
+        const worldR = vRowF + my / INF_CS;
+        const worldC = vColF + mx / INF_CS;
+        
+        INF_CS = Math.round(newCS);
+        
+        // Điều chỉnh viewport để giữ điểm giữa cố định
+        vRowF = worldR - my / INF_CS;
+        vColF = worldC - mx / INF_CS;
+        
+        saveZoom();
+        renderInfiniteBoard();
+    }
+
+    function undoMove() {
+        if (moveHistory.length === 0) return; // Không có nước đi để undo
+        if (!isGameActive) return; // Game đã kết thúc
+        
+        // Lấy nước đi cuối cùng
+        const lastMove = moveHistory.pop();
+        
+        // Xóa quân khỏi bàn
+        setCell(lastMove.r, lastMove.c, "");
+        
+        // Giảm moveCount
+        moveCount--;
+        
+        // Đổi lượt về người chơi vừa đánh
+        currentPlayer = lastMove.player;
+        
+        // Cập nhật lastMoveR, lastMoveC
+        if (moveHistory.length > 0) {
+            const prevMove = moveHistory[moveHistory.length - 1];
+            lastMoveR = prevMove.r;
+            lastMoveC = prevMove.c;
+        } else {
+            lastMoveR = null;
+            lastMoveC = null;
+        }
+        
+        // Xóa winning cells nếu có
+        winningCellCoords = [];
+        
+        // Render lại
+        if (isInfinite) {
+            renderInfiniteBoard();
+        } else {
+            if (lastMoveCell) lastMoveCell.classList.remove('last-move');
+            const cell = document.querySelector(`[data-row='${lastMove.r}'][data-col='${lastMove.c}']`);
+            if (cell) {
+                cell.classList.remove(lastMove.player);
+                cell.classList.remove('last-move');
+            }
+            // Cập nhật last-move cho nước đi trước đó
+            if (moveHistory.length > 0) {
+                const prevMove = moveHistory[moveHistory.length - 1];
+                const prevCell = document.querySelector(`[data-row='${prevMove.r}'][data-col='${prevMove.c}']`);
+                if (prevCell) {
+                    prevCell.classList.add('last-move');
+                    lastMoveCell = prevCell;
+                }
+            }
+        }
+        
+        updateCursorByTurn();
+        updateStatus();
     }
 
     function jumpToCenter() {
@@ -1892,6 +2105,10 @@
     function makeMove(r, c) {
         moveCount++;
         setCell(r, c, currentPlayer);
+        
+        // Lưu nước đi vào history để undo
+        moveHistory.push({ r, c, player: currentPlayer });
+        
         updateCursorByTurn();
 
         // Lưu tọa độ thực nước đi cuối
@@ -1965,20 +2182,51 @@
         const directions = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
         const player = getCell(r, c);
         const opp = player === "X" ? "O" : "X";
+        const blockBothEndsEnabled = document.getElementById('block-both-ends').checked;
+        
         for (let { dr, dc } of directions) {
             const cells = [[r, c]];
             let fwd = 0, bwd = 0;
             while (getCell(r+dr*(fwd+1), c+dc*(fwd+1)) === player) { fwd++; cells.push([r+dr*fwd, c+dc*fwd]); }
             while (getCell(r-dr*(bwd+1), c-dc*(bwd+1)) === player) { bwd++; cells.push([r-dr*bwd, c-dc*bwd]); }
+            
+            // Phải có ít nhất winCount quân
             if (cells.length < winCount) continue;
             
-            // Kiểm tra luật chặn 2 đầu (chỉ áp dụng khi winCount >= 4)
-            if (winCount >= 4) {
-                const headR = r + dr*(fwd+1), headC = c + dc*(fwd+1);
-                const tailR = r - dr*(bwd+1), tailC = c - dc*(bwd+1);
-                const headBlocked = (getCell(headR, headC) !== "" && getCell(headR, headC) !== player);
-                const tailBlocked = (getCell(tailR, tailC) !== "" && getCell(tailR, tailC) !== player);
-                if (headBlocked && tailBlocked) continue; // Bị chặn cả 2 đầu → không thắng
+            // Kiểm tra luật chặn 2 đầu (áp dụng cho tất cả winCount khi bật)
+            if (blockBothEndsEnabled) {
+                // Tìm ô chặn ở đầu forward (tìm quân địch gần nhất)
+                let headBlocked = false;
+                let headDist = 1;
+                while (!headBlocked && headDist <= 50) { // Tìm tối đa 50 ô
+                    const headR = r + dr*(fwd+headDist), headC = c + dc*(fwd+headDist);
+                    const cellVal = getCell(headR, headC);
+                    if (cellVal === opp) {
+                        headBlocked = true;
+                        break;
+                    } else if (cellVal === player) {
+                        break; // Gặp quân cùng màu → không bị chặn
+                    }
+                    headDist++;
+                }
+                
+                // Tìm ô chặn ở đầu backward (tìm quân địch gần nhất)
+                let tailBlocked = false;
+                let tailDist = 1;
+                while (!tailBlocked && tailDist <= 50) { // Tìm tối đa 50 ô
+                    const tailR = r - dr*(bwd+tailDist), tailC = c - dc*(tailDist+bwd);
+                    const cellVal = getCell(tailR, tailC);
+                    if (cellVal === opp) {
+                        tailBlocked = true;
+                        break;
+                    } else if (cellVal === player) {
+                        break; // Gặp quân cùng màu → không bị chặn
+                    }
+                    tailDist++;
+                }
+                
+                // Nếu cả 2 đầu đều bị chặn bởi quân địch → không thắng
+                if (headBlocked && tailBlocked) continue;
             }
             
             highlightWinners(cells);
@@ -1997,12 +2245,55 @@
     function checkWinSilent(r, c) {
         const directions = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
         const player = getCell(r, c);
+        const opp = player === "X" ? "O" : "X";
+        const blockBothEndsEnabled = document.getElementById('block-both-ends').checked;
+        
         for (let { dr, dc } of directions) {
             let fwd = 0, bwd = 0;
             while (getCell(r+dr*(fwd+1), c+dc*(fwd+1)) === player) fwd++;
             while (getCell(r-dr*(bwd+1), c-dc*(bwd+1)) === player) bwd++;
             const count = 1 + fwd + bwd;
-            if (count >= winCount) return true;
+            
+            // Phải có ít nhất winCount quân
+            if (count < winCount) continue;
+            
+            // Kiểm tra luật chặn 2 đầu (áp dụng cho tất cả winCount khi bật)
+            if (blockBothEndsEnabled) {
+                // Tìm ô chặn ở đầu forward (tìm quân địch gần nhất)
+                let headBlocked = false;
+                let headDist = 1;
+                while (!headBlocked && headDist <= 50) { // Tìm tối đa 50 ô
+                    const headR = r + dr*(fwd+headDist), headC = c + dc*(fwd+headDist);
+                    const cellVal = getCell(headR, headC);
+                    if (cellVal === opp) {
+                        headBlocked = true;
+                        break;
+                    } else if (cellVal === player) {
+                        break; // Gặp quân cùng màu → không bị chặn
+                    }
+                    headDist++;
+                }
+                
+                // Tìm ô chặn ở đầu backward (tìm quân địch gần nhất)
+                let tailBlocked = false;
+                let tailDist = 1;
+                while (!tailBlocked && tailDist <= 50) { // Tìm tối đa 50 ô
+                    const tailR = r - dr*(bwd+tailDist), tailC = c - dc*(tailDist+bwd);
+                    const cellVal = getCell(tailR, tailC);
+                    if (cellVal === opp) {
+                        tailBlocked = true;
+                        break;
+                    } else if (cellVal === player) {
+                        break; // Gặp quân cùng màu → không bị chặn
+                    }
+                    tailDist++;
+                }
+                
+                // Nếu cả 2 đầu đều bị chặn bởi quân địch → không thắng
+                if (headBlocked && tailBlocked) continue;
+            }
+            
+            return true;
         }
         return false;
     }
@@ -2268,18 +2559,24 @@
         const hp = humanPiece;
         const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
 
-        // 1. TÌM NƯỚC THẮNG LẬP TỨC CHO BOT
+        // 1. TÌM NƯỚC THẮNG LẬP TỨC CHO BOT (sử dụng checkWinSilent để tuân thủ luật chặn 2 đầu)
         for (const { r, c } of cands) {
-            for (const { dr, dc } of dirs) {
-                if (evalLine(r, c, dr, dc, bp) === TL.FIVE) return { r, c };
+            setCell(r, c, bp);
+            if (checkWinSilent(r, c)) {
+                setCell(r, c, "");
+                return { r, c };
             }
+            setCell(r, c, "");
         }
 
-        // 2. CHẶN ĐỊCH THẮNG LẬP TỨC (NẾU ĐỊCH CÓ 4 QUÂN CHƯA BỊ CHẶN)
+        // 2. CHẶN ĐỊCH THẮNG LẬP TỨC (sử dụng checkWinSilent để tuân thủ luật chặn 2 đầu)
         for (const { r, c } of cands) {
-            for (const { dr, dc } of dirs) {
-                if (evalLine(r, c, dr, dc, hp) === TL.FIVE) return { r, c };
+            setCell(r, c, hp);
+            if (checkWinSilent(r, c)) {
+                setCell(r, c, "");
+                return { r, c };
             }
+            setCell(r, c, "");
         }
 
         // 3. NẾU CHẾ ĐỘ THƯỜNG / DỄ, CHỈ CẦN QUYẾT ĐỊNH THEO QUICK SCORE THAM LAM
@@ -2325,8 +2622,9 @@
             const { r, c } = cands2[i];
             const oldV = getCell(r, c);
             setCell(r, c, hp);
-            for (const { dr, dc } of dirs) {
-                if (evalLine(r, c, dr, dc, hp) === TL.FIVE) {
+            // Sử dụng checkWinSilent để tuân thủ luật chặn 2 đầu
+            if (checkWinSilent(r, c)) {
+                for (const { dr, dc } of dirs) {
                     let cells = [{ r, c }];
                     let nr = r + dr, nc = c + dc;
                     while (getCell(nr, nc) === hp) { cells.push({ r: nr, c: nc }); nr += dr; nc += dc; }
@@ -2530,6 +2828,9 @@
     applyHistoryTheme(document.getElementById('theme-select').value);
     setupNameInputListener();
     initConfetti();
+    
+    // Load block-both-ends setting
+    document.getElementById('block-both-ends').checked = loadBlockBothEndsSetting();
     applyPanelSizes();
     setupPanelResize();
 
