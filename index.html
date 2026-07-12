@@ -1287,15 +1287,18 @@
     };
 
     function calculateScore(moves, mode, winCount, dangerScore, totalTime) {
-        const baseScore = 10000;
-        const timePenalty = totalTime * 2; // trừ điểm theo thời gian
+        const baseScore = 5000;
+        const timePenalty = totalTime * 5; // trừ điểm theo thời gian (tăng lên)
         const difficultyMultiplier = DIFFICULTY_MULTIPLIERS[mode] || 1;
         const winCountMultiplier = WIN_COUNT_MULTIPLIERS[winCount] || 1;
         
-        // Điểm độ nguy hiểm: càng tạo nước nguy hiểm càng加分
-        const dangerBonus = dangerScore * 50;
+        // Điểm độ nguy hiểm: giảm hệ số để không quá quan trọng
+        const dangerBonus = dangerScore * 10;
         
-        const score = Math.round((baseScore + dangerBonus - timePenalty) * difficultyMultiplier * winCountMultiplier);
+        // Giới hạn dangerBonus tối đa là 1000 điểm
+        const cappedDangerBonus = Math.min(dangerBonus, 1000);
+        
+        const score = Math.round((baseScore + cappedDangerBonus - timePenalty) * difficultyMultiplier * winCountMultiplier);
         return Math.max(0, score); // Đảm bảo điểm không âm
     }
 
@@ -1424,7 +1427,7 @@
                 <span class="rank-medal">${medals[i] || `#${i+1}`}</span>
                 <span class="rank-name">${e.name}</span>
                 <span class="rank-time">${e.score ? e.score.toLocaleString('vi-VN') : e.moves} ${e.score ? 'điểm' : 'nước'}</span>
-                <span class="rank-meta">${e.moves || ''} ${e.moves ? 'nước' : ''} · ${e.totalTime || e.time || e.date}</span>
+                <span class="rank-meta">${e.moves || ''} ${e.moves ? 'nước' : ''} · ${e.totalTime || '--:--'} · ${e.date || '--/--/--'} · ${e.time || '--:--:--'}</span>
             </div>
         `).join('');
     }
@@ -1451,9 +1454,14 @@
 
     function promptRankName(moves, mode, winCnt, boardLabel, winnerLabel, dangerScore, totalTime) {
         const score = calculateScore(moves, mode, winCnt, dangerScore, totalTime);
-        pendingRankEntry = { moves, mode, winCnt, boardLabel, score, dangerScore, totalTime };
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'2-digit' });
+        const timeStr = now.toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+        const totalTimeStr = `${Math.floor(totalTime/60)}:${(totalTime%60).toString().padStart(2,'0')}`;
+        
+        pendingRankEntry = { moves, mode, winCnt, boardLabel, score, dangerScore, totalTime, date: dateStr, time: timeStr };
         const sub = document.getElementById('name-overlay-sub');
-        if (sub) sub.innerHTML = `🏅 ${score.toLocaleString('vi-VN')} điểm<br><span style="opacity:0.7;font-size:0.85rem">${winnerLabel} · ${MODE_LABELS[mode] || mode} · ${winCnt} quân · ${boardLabel} · ${moves} nước · ${Math.floor(totalTime/60)}:${(totalTime%60).toString().padStart(2,'0')}</span>`;
+        if (sub) sub.innerHTML = `🏅 ${score.toLocaleString('vi-VN')} điểm<br><span style="opacity:0.7;font-size:0.85rem">${winnerLabel} · ${MODE_LABELS[mode] || mode} · ${winCnt} quân · ${boardLabel} · ${moves} nước · ${totalTimeStr} · ${dateStr} · ${timeStr}</span>`;
         const inp = document.getElementById('name-input');
         if (inp) inp.value = '';
         document.getElementById('name-overlay').classList.add('show');
@@ -1464,15 +1472,12 @@
         const inp = document.getElementById('name-input');
         const name = (inp ? inp.value.trim() : '') || 'Ẩn Danh';
         if (!pendingRankEntry) { closeNameOverlay(); return; }
-        const { moves, mode, winCnt, boardLabel, score, dangerScore, totalTime } = pendingRankEntry;
+        const { moves, mode, winCnt, boardLabel, score, dangerScore, totalTime, date, time } = pendingRankEntry;
         const data = loadRank();
         const key = getRankKey(mode, winCnt, boardLabel);
         if (!data[key]) data[key] = [];
-        const now = new Date();
-        const dateStr = now.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'2-digit' });
-        const timeStr = now.toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
         const totalTimeStr = `${Math.floor(totalTime/60)}:${(totalTime%60).toString().padStart(2,'0')}`;
-        data[key].push({ name, score, moves, date: dateStr, time: timeStr, totalTime: totalTimeStr, dangerScore });
+        data[key].push({ name, score, moves, date, time, totalTime: totalTimeStr, dangerScore });
         data[key].sort((a, b) => b.score - a.score); // Sắp xếp theo điểm giảm dần
         data[key] = data[key].slice(0, 50);
         saveRank(data);
@@ -1482,7 +1487,7 @@
         closeNameOverlay();
         renderRankPanel();
         // Sync lên server
-        apiPost('/api/rank', { key, name, score, moves, date: dateStr, time: timeStr, totalTime: totalTimeStr, dangerScore });
+        apiPost('/api/rank', { key, name, score, moves, date, time, totalTime: totalTimeStr, dangerScore });
         const rp = document.getElementById('rank-panel');
         if (rp) setTimeout(() => rp.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 200);
     }
@@ -2641,12 +2646,13 @@
             if (hB && tB) return TL.NONE;
             return (hB || tB) ? TL.FOUR_BLOCKED : TL.FOUR_OPEN;
         }
-        if (count === winCount - 2) {
+        // Chỉ đánh giá THREE_OPEN khi winCount >= 4 (vì với winCount=3, THREE_OPEN chỉ là 1 quân)
+        if (count === winCount - 2 && winCount >= 4) {
             if (hB && tB) return TL.NONE;
             return (hB || tB) ? TL.THREE_BLOCKED : TL.THREE_OPEN;
         }
-        // Kiểm tra TWO_OPEN cho tất cả winCount >= 3
-        if (count === winCount - 3 && winCount >= 3) {
+        // Kiểm tra TWO_OPEN cho winCount >= 5
+        if (count === winCount - 3 && winCount >= 5) {
             if (hB && tB) return TL.NONE;
             return (hB || tB) ? TL.TWO_BLOCKED : TL.TWO_OPEN;
         }
@@ -2764,6 +2770,107 @@
         return best;
     }
 
+    // Phát hiện Double Three/Double Four
+    function findDoublePattern(p, patternType) {
+        const cands = getSearchCandidates();
+        const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
+        
+        // Với winCount < 4, không có THREE_OPEN nên bỏ qua
+        if (patternType === 'three' && winCount < 4) return null;
+        
+        for (const { r, c } of cands) {
+            const old = getCell(r, c);
+            setCell(r, c, p);
+            
+            let count = 0;
+            for (const { dr, dc } of dirs) {
+                const res = evalLine(r, c, dr, dc, p);
+                if (patternType === 'three' && res === TL.THREE_OPEN) {
+                    count++;
+                } else if (patternType === 'four' && (res === TL.FOUR_OPEN || res === TL.FOUR_BLOCKED)) {
+                    count++;
+                }
+            }
+            
+            setCell(r, c, old);
+            
+            if (count >= 2) {
+                return { r, c, count };
+            }
+        }
+        return null;
+    }
+
+    // Tìm fork nâng cao (ưu tiên nhiều đòn cùng lúc)
+    function findAdvancedFork(p) {
+        const cands = getSearchCandidates();
+        const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
+        let best = null, maxScore = 0;
+
+        for (const { r, c } of cands) {
+            const old = getCell(r, c);
+            setCell(r, c, p);
+            
+            let score = 0;
+            let threeCount = 0;
+            let fourCount = 0;
+            
+            for (const { dr, dc } of dirs) {
+                const res = evalLine(r, c, dr, dc, p);
+                if (res === TL.FIVE) score += 10000;
+                else if (res === TL.FOUR_OPEN) { score += 5000; fourCount++; }
+                else if (res === TL.FOUR_BLOCKED) { score += 3000; fourCount++; }
+                else if (res === TL.THREE_OPEN) { score += 1000; threeCount++; }
+                else if (res === TL.THREE_BLOCKED) score += 300;
+                else if (res === TL.TWO_OPEN) score += 100;
+            }
+            
+            // Bonus cho fork (nhiều đòn cùng lúc) - chỉ áp dụng khi winCount đủ lớn
+            if (winCount >= 4 && threeCount >= 2) score += 2000; // Double Three
+            if (fourCount >= 2) score += 5000; // Double Four (hoạt động với mọi winCount)
+            if (winCount >= 4 && threeCount >= 1 && fourCount >= 1) score += 3000; // Four-Three
+            
+            setCell(r, c, old);
+            
+            if (score > maxScore) {
+                maxScore = score;
+                best = { r, c };
+            }
+        }
+        return best;
+    }
+
+    // Chặn THREE_BLOCKED của địch
+    function findBlockThreeBlocked(enemyPiece, myPiece) {
+        const cands = getSearchCandidates();
+        const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
+        
+        for (const { r, c } of cands) {
+            const old = getCell(r, c);
+            setCell(r, c, enemyPiece);
+            
+            let threeBlockedCount = 0;
+            for (const { dr, dc } of dirs) {
+                const res = evalLine(r, c, dr, dc, enemyPiece);
+                if (res === TL.THREE_BLOCKED) {
+                    threeBlockedCount++;
+                }
+            }
+            
+            setCell(r, c, old);
+            
+            // Nếu địch có thể tạo THREE_OPEN từ THREE_BLOCKED
+            if (threeBlockedCount >= 1) {
+                // Kiểm tra chặn có lợi không
+                const blockScore = quickScore(r, c, myPiece);
+                if (blockScore > 500) {
+                    return { r, c };
+                }
+            }
+        }
+        return null;
+    }
+
     function getBotMove() {
         const cands = getSearchCandidates();
         if (cands.length === 0) return { r: 0, c: 0 };
@@ -2848,6 +2955,25 @@
             }
         }
 
+        // 5.5. CHẶN DOUBLE THREE/DOUBLE FOUR CỦA ĐỊCH (chế độ god/hard)
+        if (gameMode === 'ai-god' || gameMode === 'ai-hard') {
+            const enemyDoubleThree = findDoublePattern(hp, 'three');
+            if (enemyDoubleThree) {
+                updateBotThinking('Phải chặn Double Three! 🎯');
+                // Chặn ở vị trí tạo Double Three
+                const blockMove = findBlockThreeBlocked(hp, bp);
+                if (blockMove) return blockMove;
+            }
+            
+            const enemyDoubleFour = findDoublePattern(hp, 'four');
+            if (enemyDoubleFour) {
+                updateBotThinking('Phải chặn Double Four! 🚨');
+                // Chặn ở vị trí tạo Double Four
+                const blockMove = findBlockThreeBlocked(hp, bp);
+                if (blockMove) return blockMove;
+            }
+        }
+
         // 6. LUẬT CHẶN LUẬT CHƠI ĐẶC BIỆT KHI CÓ CHUỖI 4 BỊ CHẶN 1 ĐẦU (FOUR_BLOCKED)
         const opp2 = hp;
         let cands2 = [];
@@ -2894,7 +3020,12 @@
                                         }
                                     }
                                     if (safe) {
-                                        blockCells.push({ r: blockR, c: blockC });
+                                        // Tính điểm cho vị trí chặn này
+                                        const blockScore = quickScore(blockR, blockC, bp);
+                                        // Penalty theo khoảng cách (càng xa càng trừ điểm)
+                                        const distPenalty = (dist - 1) * 100;
+                                        const totalScore = blockScore - distPenalty;
+                                        blockCells.push({ r: blockR, c: blockC, priority: dist, score: totalScore });
                                     }
                                 }
                             }
@@ -2914,20 +3045,24 @@
                                         }
                                     }
                                     if (safe) {
-                                        blockCells.push({ r: blockR, c: blockC });
+                                        // Tính điểm cho vị trí chặn này
+                                        const blockScore = quickScore(blockR, blockC, bp);
+                                        // Penalty theo khoảng cách (càng xa càng trừ điểm)
+                                        const distPenalty = (dist - 1) * 100;
+                                        const totalScore = blockScore - distPenalty;
+                                        blockCells.push({ r: blockR, c: blockC, priority: dist, score: totalScore });
                                     }
                                 }
                             }
                         }
                         if (blockCells.length > 0) {
                             setCell(r, c, oldV);
-                            // Chọn vị trí chặn có lợi nhất cho bot (điểm cao nhất)
-                            let bestBlk = blockCells[0], bestS = -Infinity;
-                            for (const blk of blockCells) {
-                                const s = quickScore(blk.r, blk.c, bp);
-                                if (s > bestS) { bestS = s; bestBlk = blk; }
-                            }
-                            return bestBlk;
+                            // Sắp xếp theo điểm cao nhất, nếu điểm tương đương thì chọn dist nhỏ nhất
+                            blockCells.sort((a, b) => {
+                                if (b.score !== a.score) return b.score - a.score;
+                                return a.priority - b.priority;
+                            });
+                            return blockCells[0];
                         }
                     }
                 }
@@ -2936,20 +3071,56 @@
         }
 
         // 7. BOT TẠO BA MỞ (THREE_OPEN) ĐỂ GÂY ÁP LỰC ĐỒNG THỜI VÀO PHUƠNG ÁN PHÂN NHÁNH (FORK ATTACK)
-        for (const { r, c } of cands2) {
-            const ov = getCell(r, c);
-            setCell(r, c, bp);
-            for (const { dr, dc } of dirs) {
-                if (evalLine(r, c, dr, dc, bp) === TL.THREE_OPEN) {
-                    setCell(r, c, ov);
-                    updateBotThinking('cơ hội thắng 🔥');
-                    return { r, c };
+        // Chỉ áp dụng khi winCount >= 4 (vì với winCount=3, THREE_OPEN không có nghĩa)
+        if (winCount >= 4) {
+            for (const { r, c } of cands2) {
+                const ov = getCell(r, c);
+                setCell(r, c, bp);
+                for (const { dr, dc } of dirs) {
+                    if (evalLine(r, c, dr, dc, bp) === TL.THREE_OPEN) {
+                        setCell(r, c, ov);
+                        updateBotThinking('cơ hội thắng 🔥');
+                        return { r, c };
+                    }
                 }
+                setCell(r, c, ov);
             }
-            setCell(r, c, ov);
         }
 
-        // 8. TÌM KIẾM NƯỚC ĐI TẠO THẾ GỌNG KÌM PHÂN NHÁNH (FORK ATTACK)
+        // 7.5. BOT TẠO DOUBLE THREE/DOUBLE FOUR (chế độ god/hard)
+        if (gameMode === 'ai-god' || gameMode === 'ai-hard') {
+            const botDoubleThree = findDoublePattern(bp, 'three');
+            if (botDoubleThree) {
+                updateBotThinking('Tạo Double Three! ⚡');
+                return { r: botDoubleThree.r, c: botDoubleThree.c };
+            }
+            
+            const botDoubleFour = findDoublePattern(bp, 'four');
+            if (botDoubleFour) {
+                updateBotThinking('Tạo Double Four! 💥');
+                return { r: botDoubleFour.r, c: botDoubleFour.c };
+            }
+        }
+
+        // 7.6. CHẶN THREE_BLOCKED CỦA ĐỊCH (chế độ god/hard)
+        if (gameMode === 'ai-god' || gameMode === 'ai-hard') {
+            const blockThreeBlocked = findBlockThreeBlocked(hp, bp);
+            if (blockThreeBlocked) {
+                updateBotThinking('Chặn THREE_BLOCKED! 🛡️');
+                return blockThreeBlocked;
+            }
+        }
+
+        // 8. TÌM KIẾM NƯỚC ĐI TẠO THẾ GỌNG KÌM PHÂN NHÁNH (FORK ATTACK) - nâng cao
+        if (gameMode === 'ai-god' || gameMode === 'ai-hard') {
+            const advancedFork = findAdvancedFork(bp);
+            if (advancedFork) {
+                updateBotThinking('Tìm fork nâng cao! 🚀');
+                return advancedFork;
+            }
+        }
+        
+        // 8.5. Fork cơ bản (cho chế độ medium/easy)
         const botFork = findForkMove(bp);
         const xFork = findForkMove(hp);
         if (xFork && botFork) {
@@ -2978,6 +3149,57 @@
         }
     }
 
+    // Đánh giá tổng thể bàn cờ của người chơi
+    function evaluateOverallBoardDanger(playerPiece) {
+        const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
+        let fiveCount = 0;
+        let fourOpenCount = 0;
+        let fourBlockedCount = 0;
+        let threeOpenCount = 0;
+        let threeBlockedCount = 0;
+        let twoOpenCount = 0;
+        
+        // Quét toàn bộ bàn cờ
+        const cands = getSearchCandidates();
+        for (const { r, c } of cands) {
+            if (getCell(r, c) === playerPiece) {
+                for (const { dr, dc } of dirs) {
+                    const res = evalLine(r, c, dr, dc, playerPiece);
+                    if (res === TL.FIVE) fiveCount++;
+                    else if (res === TL.FOUR_OPEN) fourOpenCount++;
+                    else if (res === TL.FOUR_BLOCKED) fourBlockedCount++;
+                    else if (res === TL.THREE_OPEN) threeOpenCount++;
+                    else if (res === TL.THREE_BLOCKED) threeBlockedCount++;
+                    else if (res === TL.TWO_OPEN) twoOpenCount++;
+                }
+            }
+        }
+        
+        // Tính điểm nguy hiểm tổng thể
+        let overallDanger = 0;
+        overallDanger += fiveCount * 15;           // FIVE rất nguy hiểm
+        overallDanger += fourOpenCount * 8;        // FOUR_OPEN nguy hiểm
+        overallDanger += fourBlockedCount * 3;     // FOUR_BLOCKED trung bình
+        overallDanger += threeOpenCount * 2;      // THREE_OPEN nhẹ
+        overallDanger += threeBlockedCount * 1;   // THREE_BLOCKED rất nhẹ
+        overallDanger += twoOpenCount * 0.5;       // TWO_OPEN rất nhẹ
+        
+        // Bonus cho fork (nhiều đòn cùng lúc)
+        if (fourOpenCount >= 2) overallDanger += 10;  // Double Four
+        if (threeOpenCount >= 2) overallDanger += 5;   // Double Three
+        if (fourOpenCount >= 1 && threeOpenCount >= 1) overallDanger += 7; // Four-Three
+        
+        return {
+            overallDanger,
+            fiveCount,
+            fourOpenCount,
+            fourBlockedCount,
+            threeOpenCount,
+            threeBlockedCount,
+            twoOpenCount
+        };
+    }
+
     function evaluatePlayerMove(r, c) {
         const hp = humanPiece;
         const bp = botPiece;
@@ -2998,6 +3220,9 @@
         let message = '';
         let emoji = '';
         
+        // Đánh giá tổng thể bàn cờ
+        const boardDanger = evaluateOverallBoardDanger(hp);
+        
         // Kiểm tra nước đi có tạo đòn nguy hiểm không
         let hasThreat = false;
         let currentDangerScore = 0;
@@ -3009,13 +3234,14 @@
             } else if (tTa === TL.FOUR_OPEN) {
                 hasThreat = true;
                 currentDangerScore += 5;
-            } else if (tTa === TL.THREE_OPEN) {
+            } else if (tTa === TL.THREE_OPEN && winCount >= 4) {
+                // Chỉ tính THREE_OPEN khi winCount >= 4
                 currentDangerScore += 2;
             }
         }
         
-        // Cộng dồn điểm nguy hiểm
-        playerDangerScore += currentDangerScore;
+        // Cộng dồn điểm nguy hiểm (kết hợp tổng thể bàn cờ)
+        playerDangerScore += currentDangerScore + (boardDanger.overallDanger * 0.1);
         
         // Kiểm tra nước đi có chặn bot không
         let blocksBot = false;
