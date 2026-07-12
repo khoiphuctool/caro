@@ -1428,6 +1428,7 @@
                 <span class="rank-name">${e.name}</span>
                 <span class="rank-time">${e.score ? e.score.toLocaleString('vi-VN') : e.moves} ${e.score ? 'điểm' : 'nước'}</span>
                 <span class="rank-meta">${e.moves || ''} ${e.moves ? 'nước' : ''} · ${e.totalTime || '--:--'} · ${e.date || '--/--/--'} · ${e.time || '--:--:--'}</span>
+                ${e.moveHistory && e.moveHistory.length > 0 ? `<button onclick="loadRankHistory(${i})" style="margin-left:8px;padding:2px 8px;font-size:0.75rem;border-radius:4px;border:1px solid #444;background:#222;color:#fff;cursor:pointer;">📺 Xem lại</button>` : ''}
             </div>
         `).join('');
     }
@@ -1441,6 +1442,90 @@
     function switchRankTab(key) {
         currentRankTab = key;
         renderRankPanel();
+    }
+
+    function loadRankHistory(index) {
+        const data = loadRank();
+        if (!currentRankTab || !data[currentRankTab]) return;
+        const entry = data[currentRankTab][index];
+        if (!entry || !entry.moveHistory || entry.moveHistory.length === 0) {
+            alert('Không có lịch sử trận đấu này!');
+            return;
+        }
+
+        // Đóng bảng xếp hạng
+        document.getElementById('rank-panel').classList.remove('show');
+
+        // Khởi tạo lại game với cùng cấu hình
+        const { winCnt, boardLabel } = parseRankKey(currentRankTab);
+        initGameWithConfig(winCnt, boardLabel);
+
+        // Load lịch sử nước đi
+        moveHistory = [...entry.moveHistory];
+        
+        // Hiển thị trạng thái xem lại
+        statusPanel.innerHTML = `📺 Đang xem lại trận đấu · ${entry.name} · ${entry.score.toLocaleString('vi-VN')} điểm &nbsp;|&nbsp; <button onclick="closeHistoryView()" style="padding:4px 12px;border-radius:6px;border:none;cursor:pointer;font-weight:bold;font-size:0.85rem;background:#dc2626;color:#fff;">❌ Đóng</button>`;
+
+        // Render lại bàn cờ với lịch sử
+        renderBoardFromHistory();
+    }
+
+    function renderBoardFromHistory() {
+        // Reset bàn cờ
+        if (isInfinite) {
+            infiniteMap.clear();
+        } else {
+            for (let r = 0; r < boardSize; r++) {
+                for (let c = 0; c < boardSize; c++) {
+                    boardState[r][c] = "";
+                }
+            }
+        }
+
+        // Replay từng nước đi
+        for (const move of moveHistory) {
+            const { r, c, player } = move;
+            if (isInfinite) {
+                infiniteMap.set(`${r},${c}`, player);
+            } else {
+                if (r >= 0 && r < boardSize && c >= 0 && c < boardSize) {
+                    boardState[r][c] = player;
+                }
+            }
+        }
+
+        // Render bàn cờ
+        if (isInfinite) {
+            renderInfiniteBoard();
+        } else {
+            renderBoard();
+        }
+
+        // Nếu có vô hạn, căn chỉnh camera đến trung tâm
+        if (isInfinite && moveHistory.length > 0) {
+            const lastMove = moveHistory[moveHistory.length - 1];
+            vRowF = lastMove.r - (infCanvasH / INF_CS) / 2;
+            vColF = lastMove.c - (infCanvasW / INF_CS) / 2;
+            renderInfiniteBoard();
+        }
+    }
+
+    function closeHistoryView() {
+        initGame();
+    }
+
+    function initGameWithConfig(winCount, boardLabel) {
+        // Parse boardLabel để lấy boardSize
+        let size = 15;
+        if (boardLabel.includes('10x10')) size = 10;
+        else if (boardLabel.includes('20x20')) size = 20;
+        else if (boardLabel.includes('25x25')) size = 25;
+        
+        boardSize = size;
+        winCount = winCount;
+        isInfinite = boardLabel.includes('Vô hạn');
+        
+        initGame();
     }
 
     function clearRank() {
@@ -1477,7 +1562,8 @@
         const key = getRankKey(mode, winCnt, boardLabel);
         if (!data[key]) data[key] = [];
         const totalTimeStr = `${Math.floor(totalTime/60)}:${(totalTime%60).toString().padStart(2,'0')}`;
-        data[key].push({ name, score, moves, date, time, totalTime: totalTimeStr, dangerScore });
+        // Lưu moveHistory để có thể xem lại
+        data[key].push({ name, score, moves, date, time, totalTime: totalTimeStr, dangerScore, moveHistory: [...moveHistory] });
         data[key].sort((a, b) => b.score - a.score); // Sắp xếp theo điểm giảm dần
         data[key] = data[key].slice(0, 50);
         saveRank(data);
@@ -1487,7 +1573,7 @@
         closeNameOverlay();
         renderRankPanel();
         // Sync lên server
-        apiPost('/api/rank', { key, name, score, moves, date, time, totalTime: totalTimeStr, dangerScore });
+        apiPost('/api/rank', { key, name, score, moves, date, time, totalTime: totalTimeStr, dangerScore, moveHistory });
         const rp = document.getElementById('rank-panel');
         if (rp) setTimeout(() => rp.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 200);
     }
@@ -3005,56 +3091,62 @@
                     if (cells.length >= winCount) {
                         let blockCells = [];
                         // Tìm tất cả các vị trí chặn có thể ở cả 2 đầu
-                        if (!headBlocked) {
-                            // Thử chặn ở các vị trí khác nhau (1-3 ô từ mép)
-                            for (let dist = 1; dist <= 3; dist++) {
-                                const blockR = headR + dist * dr, blockC = headC + dist * dc;
-                                if (getCell(blockR, blockC) === "") {
-                                    // Kiểm tra xem chặn ở đây có an toàn không (không tạo đòn cho địch)
-                                    let safe = true;
-                                    for (let checkDist = 1; checkDist <= 2; checkDist++) {
-                                        const checkR = blockR + checkDist * dr, checkC = blockC + checkDist * dc;
-                                        if (getCell(checkR, checkC) === hp) {
-                                            safe = false;
-                                            break;
-                                        }
-                                    }
-                                    if (safe) {
-                                        // Tính điểm cho vị trí chặn này
-                                        const blockScore = quickScore(blockR, blockC, bp);
-                                        // Penalty theo khoảng cách (càng xa càng trừ điểm)
-                                        const distPenalty = (dist - 1) * 100;
-                                        const totalScore = blockScore - distPenalty;
-                                        blockCells.push({ r: blockR, c: blockC, priority: dist, score: totalScore });
+                        // Đầu bên phải (head)
+                        let headDist = 0;
+                        while (headDist <= 3) {
+                            const blockR = headR + headDist * dr, blockC = headC + headDist * dc;
+                            if (getCell(blockR, blockC) === "") {
+                                // Tìm thấy vị trí trống, kiểm tra an toàn
+                                let safe = true;
+                                for (let checkDist = 1; checkDist <= 2; checkDist++) {
+                                    const checkR = blockR + checkDist * dr, checkC = blockC + checkDist * dc;
+                                    if (getCell(checkR, checkC) === hp) {
+                                        safe = false;
+                                        break;
                                     }
                                 }
+                                if (safe) {
+                                    const blockScore = quickScore(blockR, blockC, bp);
+                                    const distPenalty = headDist * 500;
+                                    const totalScore = blockScore - distPenalty;
+                                    blockCells.push({ r: blockR, c: blockC, priority: headDist, score: totalScore });
+                                }
+                                break; // Chỉ chặn ở vị trí trống gần nhất
+                            } else if (getCell(blockR, blockC) === bp) {
+                                // Đã có quân bot ở đây, không thể chặn
+                                break;
                             }
+                            headDist++;
                         }
-                        if (!tailBlocked) {
-                            // Thử chặn ở các vị trí khác nhau (1-3 ô từ mép)
-                            for (let dist = 1; dist <= 3; dist++) {
-                                const blockR = tailR - dist * dr, blockC = tailC - dist * dc;
-                                if (getCell(blockR, blockC) === "") {
-                                    // Kiểm tra xem chặn ở đây có an toàn không
-                                    let safe = true;
-                                    for (let checkDist = 1; checkDist <= 2; checkDist++) {
-                                        const checkR = blockR - checkDist * dr, checkC = blockC - checkDist * dc;
-                                        if (getCell(checkR, checkC) === hp) {
-                                            safe = false;
-                                            break;
-                                        }
-                                    }
-                                    if (safe) {
-                                        // Tính điểm cho vị trí chặn này
-                                        const blockScore = quickScore(blockR, blockC, bp);
-                                        // Penalty theo khoảng cách (càng xa càng trừ điểm)
-                                        const distPenalty = (dist - 1) * 100;
-                                        const totalScore = blockScore - distPenalty;
-                                        blockCells.push({ r: blockR, c: blockC, priority: dist, score: totalScore });
+                        
+                        // Đầu bên trái (tail)
+                        let tailDist = 0;
+                        while (tailDist <= 3) {
+                            const blockR = tailR - tailDist * dr, blockC = tailC - tailDist * dc;
+                            if (getCell(blockR, blockC) === "") {
+                                // Tìm thấy vị trí trống, kiểm tra an toàn
+                                let safe = true;
+                                for (let checkDist = 1; checkDist <= 2; checkDist++) {
+                                    const checkR = blockR - checkDist * dr, checkC = blockC - checkDist * dc;
+                                    if (getCell(checkR, checkC) === hp) {
+                                        safe = false;
+                                        break;
                                     }
                                 }
+                                if (safe) {
+                                    const blockScore = quickScore(blockR, blockC, bp);
+                                    const distPenalty = tailDist * 500;
+                                    const totalScore = blockScore - distPenalty;
+                                    blockCells.push({ r: blockR, c: blockC, priority: tailDist, score: totalScore });
+                                }
+                                break; // Chỉ chặn ở vị trí trống gần nhất
+                            } else if (getCell(blockR, blockC) === bp) {
+                                // Đã có quân bot ở đây, không thể chặn
+                                break;
                             }
+                            tailDist++;
                         }
+                        
                         if (blockCells.length > 0) {
                             setCell(r, c, oldV);
                             // Sắp xếp theo điểm cao nhất, nếu điểm tương đương thì chọn dist nhỏ nhất
@@ -3389,7 +3481,7 @@
             subEl.textContent   = `Người ${winner} đã giành chiến thắng ván này.`;
             startConfetti();
         } else if (isBotWin) {
-            emojiEl.textContent  = '💀';
+            emojiEl.textContent  = 'THUA ĐẬM 💀';
             titleEl.textContent  = 'rất cố gắn , cần tu luyện thêm!';
             titleEl.style.color  = '#ef4444';
             subEl.textContent    = 'Gừng càng già càng cay — bó tay thì gặp anh Chần!';
