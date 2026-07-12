@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Caro BOT CỦA CHẦN - NÂNG CẤP BOT M1 TỐI THƯỢNG</title>
+    <title>Caro BOT CỦA PRO - NÂNG CẤP BOT M1 TỐI THƯỢNG</title>
     
     <style id="theme-styles"></style>
     
@@ -271,6 +271,67 @@
             50%       { opacity: 1; }
         }
         .think-dots { animation: dotPulse 1s infinite; font-size: 1.1em; letter-spacing: 2px; }
+
+        /* Bot Avatar */
+        .bot-avatar {
+            position: absolute;
+            top: 60px;
+            left: 10px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            opacity: 0.85;
+            transition: opacity 0.3s ease;
+        }
+        
+        .bot-face {
+            font-size: 1.8rem;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+            animation: botBounce 2s ease-in-out infinite;
+        }
+        
+        @keyframes botBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+        
+        .bot-bubble {
+            position: relative;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 6px 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            max-width: 180px;
+            min-width: 100px;
+        }
+        
+        .bot-bubble::before {
+            content: '';
+            position: absolute;
+            right: -6px;
+            top: 50%;
+            transform: translateY(-50%);
+            border: 6px solid transparent;
+            border-left-color: rgba(255, 255, 255, 0.95);
+        }
+        
+        .bot-message {
+            font-size: 0.8rem;
+            color: #1e293b;
+            line-height: 1.3;
+            word-wrap: break-word;
+        }
+        
+        .bot-bubble.annoying {
+            animation: bubbleFlash 0.5s ease-in-out infinite;
+            background: rgba(255, 100, 100, 0.95);
+        }
+        
+        @keyframes bubbleFlash {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
 
         .btn-restart {
             margin-top: 20px;
@@ -696,7 +757,7 @@
 </head>
 <body>
 
-    <h1 id="game-title">Caro BOT AI của CHẦN PRO</h1>
+    <h1 id="game-title">Caro BOT M1 PRO</h1>
     
     <div class="control-wrapper">
         <div class="config-panel" id="ui-config-panel">
@@ -754,6 +815,9 @@
     </div>
 
     <div class="status-panel" id="status-panel">Đang tải...</div>
+    <div class="timer-panel" id="timer-panel" style="display:none; text-align:center; font-size:0.85rem; opacity:0.8; margin:2px 0;">
+        ⏱️ <span id="game-timer">00:00</span> · <span id="turn-timer">00:00</span>
+    </div>
 
     <div style="text-align:center; font-size:0.8rem; opacity:0.6; margin:4px 0;">
         ⌨️ <b>Phím tắt:</b> Mũi tên ↑↓←→ để di chuyển CON TRỎ THỨ 2 · Enter để đánh quân
@@ -761,6 +825,14 @@
 
     <div class="main-layout">
         <div class="game-container" id="ui-game-container">
+            <!-- Bot Avatar -->
+            <div id="bot-avatar" class="bot-avatar">
+                <div class="bot-face">🤖</div>
+                <div class="bot-bubble" id="bot-bubble">
+                    <div class="bot-message" id="bot-message">Xin chào! Tôi là Bot của anh Chần</div>
+                </div>
+            </div>
+            
             <div id="inf-nav" style="display:none; text-align:center; padding:4px 0 6px; font-size:0.75rem; opacity:0.7;">
                 📍 <span id="inf-coords"></span>
                 &nbsp;
@@ -1101,6 +1173,7 @@
     let boardState = [];        // dùng cho bàn cố định
     let infiniteMap = new Map();// dùng cho bàn vô hạn: key="r,c", value="X"|"O"
     let isInfinite = false;
+    let isBotMove = false;      // đánh dấu nước đi của bot
 
     let lastMoveR = null, lastMoveC = null; // tọa độ thực nước đi cuối
     let winningCellCoords = [];             // tọa độ các ô thắng để re-render
@@ -1111,6 +1184,74 @@
     let lastMoveCell = null;
     let humanPiece = "X";   // quân người chơi (null khi solo)
     let botPiece   = "O";   // quân bot (null khi solo)
+
+    // Đếm thời gian
+    let playerTurnTimer = null;       // timer đếm thời gian lượt đi người chơi
+    let gameTotalTimer = null;        // timer đếm tổng thời gian ván chơi
+    let playerTurnSeconds = 0;       // số giây lượt đi người chơi
+    let gameTotalSeconds = 0;        // tổng số giây ván chơi
+    let playerDangerScore = 0;       // điểm độ nguy hiểm nước đi người chơi
+
+    function updateTimerDisplay() {
+        const gameTimerEl = document.getElementById('game-timer');
+        const turnTimerEl = document.getElementById('turn-timer');
+        
+        if (gameTimerEl) {
+            const mins = Math.floor(gameTotalSeconds / 60);
+            const secs = gameTotalSeconds % 60;
+            gameTimerEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        if (turnTimerEl) {
+            const mins = Math.floor(playerTurnSeconds / 60);
+            const secs = playerTurnSeconds % 60;
+            turnTimerEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+    }
+
+    function startPlayerTurnTimer() {
+        playerTurnSeconds = 0;
+        if (playerTurnTimer) clearInterval(playerTurnTimer);
+        updateTimerDisplay();
+        
+        playerTurnTimer = setInterval(() => {
+            playerTurnSeconds++;
+            updateTimerDisplay();
+            
+            // Hiển thị tin nhắn phiền toái sau 10 giây
+            if (playerTurnSeconds === 10 && gameMode.startsWith('ai') && currentPlayer === humanPiece) {
+                const messages = [
+                    'Bạn đánh lâu quá đấy nhé!',
+                    'Nhanh lên nào, nghĩ lâu thế!',
+                    'Tôi đang chờ đấy...',
+                    'Đi đi, đừng để tôi chờ!'
+                ];
+                const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+                const botMessage = document.getElementById('bot-message');
+                const botBubble = document.getElementById('bot-bubble');
+                if (botMessage && botBubble) {
+                    botMessage.textContent = randomMsg;
+                    botBubble.classList.add('annoying');
+                    setTimeout(() => {
+                        botBubble.classList.remove('annoying');
+                    }, 3000);
+                }
+            }
+            
+            // Hiển thị tin nhắn khác sau 15 giây
+            if (playerTurnSeconds === 15 && gameMode.startsWith('ai') && currentPlayer === humanPiece) {
+                const botMessage = document.getElementById('bot-message');
+                const botBubble = document.getElementById('bot-bubble');
+                if (botMessage && botBubble) {
+                    botMessage.textContent = 'Nghĩ gì mà lâu thế! 😤';
+                    botBubble.classList.add('annoying');
+                    setTimeout(() => {
+                        botBubble.classList.remove('annoying');
+                    }, 3000);
+                }
+            }
+        }, 1000);
+    }
 
     // ===== RANK =====
     let moveCount = 0;
@@ -1145,13 +1286,16 @@
         10: 3
     };
 
-    function calculateScore(moves, mode, winCount) {
+    function calculateScore(moves, mode, winCount, dangerScore, totalTime) {
         const baseScore = 10000;
-        const movePenalty = moves * 10;
+        const timePenalty = totalTime * 2; // trừ điểm theo thời gian
         const difficultyMultiplier = DIFFICULTY_MULTIPLIERS[mode] || 1;
         const winCountMultiplier = WIN_COUNT_MULTIPLIERS[winCount] || 1;
         
-        const score = Math.round((baseScore - movePenalty) * difficultyMultiplier * winCountMultiplier);
+        // Điểm độ nguy hiểm: càng tạo nước nguy hiểm càng加分
+        const dangerBonus = dangerScore * 50;
+        
+        const score = Math.round((baseScore + dangerBonus - timePenalty) * difficultyMultiplier * winCountMultiplier);
         return Math.max(0, score); // Đảm bảo điểm không âm
     }
 
@@ -1177,7 +1321,7 @@
                         const { mode, winCnt } = parseRankKey(k);
                         migrated[k] = entries.map(e => ({
                             ...e,
-                            score: calculateScore(e.moves, mode, winCnt)
+                            score: calculateScore(e.moves, mode, winCnt, 0, 0) // dangerScore=0, totalTime=0 cho dữ liệu cũ
                         })).sort((a, b) => b.score - a.score).slice(0, 20);
                     }
                     if (Object.keys(migrated).length > 0) {
@@ -1280,7 +1424,7 @@
                 <span class="rank-medal">${medals[i] || `#${i+1}`}</span>
                 <span class="rank-name">${e.name}</span>
                 <span class="rank-time">${e.score ? e.score.toLocaleString('vi-VN') : e.moves} ${e.score ? 'điểm' : 'nước'}</span>
-                <span class="rank-meta">${e.moves || ''} ${e.moves ? 'nước' : ''} · ${e.time || e.date}</span>
+                <span class="rank-meta">${e.moves || ''} ${e.moves ? 'nước' : ''} · ${e.totalTime || e.time || e.date}</span>
             </div>
         `).join('');
     }
@@ -1305,11 +1449,11 @@
         apiDelete('/api/rank');
     }
 
-    function promptRankName(moves, mode, winCnt, boardLabel, winnerLabel) {
-        const score = calculateScore(moves, mode, winCnt);
-        pendingRankEntry = { moves, mode, winCnt, boardLabel, score };
+    function promptRankName(moves, mode, winCnt, boardLabel, winnerLabel, dangerScore, totalTime) {
+        const score = calculateScore(moves, mode, winCnt, dangerScore, totalTime);
+        pendingRankEntry = { moves, mode, winCnt, boardLabel, score, dangerScore, totalTime };
         const sub = document.getElementById('name-overlay-sub');
-        if (sub) sub.innerHTML = `🏅 ${score.toLocaleString('vi-VN')} điểm<br><span style="opacity:0.7;font-size:0.85rem">${winnerLabel} · ${MODE_LABELS[mode] || mode} · ${winCnt} quân · ${boardLabel} · ${moves} nước</span>`;
+        if (sub) sub.innerHTML = `🏅 ${score.toLocaleString('vi-VN')} điểm<br><span style="opacity:0.7;font-size:0.85rem">${winnerLabel} · ${MODE_LABELS[mode] || mode} · ${winCnt} quân · ${boardLabel} · ${moves} nước · ${Math.floor(totalTime/60)}:${(totalTime%60).toString().padStart(2,'0')}</span>`;
         const inp = document.getElementById('name-input');
         if (inp) inp.value = '';
         document.getElementById('name-overlay').classList.add('show');
@@ -1320,14 +1464,15 @@
         const inp = document.getElementById('name-input');
         const name = (inp ? inp.value.trim() : '') || 'Ẩn Danh';
         if (!pendingRankEntry) { closeNameOverlay(); return; }
-        const { moves, mode, winCnt, boardLabel, score } = pendingRankEntry;
+        const { moves, mode, winCnt, boardLabel, score, dangerScore, totalTime } = pendingRankEntry;
         const data = loadRank();
         const key = getRankKey(mode, winCnt, boardLabel);
         if (!data[key]) data[key] = [];
         const now = new Date();
         const dateStr = now.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'2-digit' });
         const timeStr = now.toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
-        data[key].push({ name, score, moves, date: dateStr, time: timeStr });
+        const totalTimeStr = `${Math.floor(totalTime/60)}:${(totalTime%60).toString().padStart(2,'0')}`;
+        data[key].push({ name, score, moves, date: dateStr, time: timeStr, totalTime: totalTimeStr, dangerScore });
         data[key].sort((a, b) => b.score - a.score); // Sắp xếp theo điểm giảm dần
         data[key] = data[key].slice(0, 50);
         saveRank(data);
@@ -1337,7 +1482,7 @@
         closeNameOverlay();
         renderRankPanel();
         // Sync lên server
-        apiPost('/api/rank', { key, name, score, moves, date: dateStr, time: timeStr });
+        apiPost('/api/rank', { key, name, score, moves, date: dateStr, time: timeStr, totalTime: totalTimeStr, dangerScore });
         const rp = document.getElementById('rank-panel');
         if (rp) setTimeout(() => rp.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 200);
     }
@@ -1481,6 +1626,22 @@
         keyboardCursorC   = 0;
         keyboardCursorVisible = false; // Hide keyboard cursor
         updateCursorByTurn();
+
+        // Reset timer
+        playerTurnSeconds = 0;
+        gameTotalSeconds = 0;
+        playerDangerScore = 0;
+        if (playerTurnTimer) clearInterval(playerTurnTimer);
+        if (gameTotalTimer) clearInterval(gameTotalTimer);
+        
+        // Bắt đầu đếm tổng thời gian ván chơi
+        gameTotalTimer = setInterval(() => {
+            gameTotalSeconds++;
+            updateTimerDisplay();
+        }, 1000);
+        
+        // Bắt đầu đếm thời gian lượt đi người chơi
+        startPlayerTurnTimer();
 
         // Luôn dùng bàn vô hạn
         infiniteMap = new Map();
@@ -2131,6 +2292,9 @@
         keyboardCursorC = c;
         keyboardCursorVisible = true;
         
+        // Reset timer lượt đi người chơi sau khi đi
+        if (playerTurnTimer) clearInterval(playerTurnTimer);
+        
         updateCursorByTurn();
 
         // Lưu tọa độ thực nước đi cuối
@@ -2170,19 +2334,31 @@
                 recordMatch('win', currentPlayer);
                 setTimeout(() => {
                     showWinOverlay(currentPlayer, false);
+                    // Dừng timer
+                    if (gameTotalTimer) clearInterval(gameTotalTimer);
+                    if (playerTurnTimer) clearInterval(playerTurnTimer);
+                    // Ẩn timer panel
+                    const timerPanel = document.getElementById('timer-panel');
+                    if (timerPanel) timerPanel.style.display = 'none';
                     // Hỏi tên sau khi overlay hiện
-                    setTimeout(() => promptRankName(moveCount, gameMode, winCount, boardLabel, `Người ${currentPlayer}`), 600);
+                    setTimeout(() => promptRankName(moveCount, gameMode, winCount, boardLabel, `Người ${currentPlayer}`, playerDangerScore, gameTotalSeconds), 600);
                 }, 500);
             } else {
                 statusPanel.innerHTML = isBotWin
                     ? `💀 BOT TỐI THƯỢNG ĐÃ THẮNG! Gừng càng già càng cay!`
-                    : `🏆 KINH ĐIỂN! Bạn đã chiến thắng BOT của CHẦN PRO, bạn rất là kinh, bái phục`;
+                    : `🏆 KINH ĐIỂN! Bạn đã chiến thắng BOT của PRO PRO, bạn rất là kinh, bái phục`;
                 recordMatch(isBotWin ? 'lose' : 'win', currentPlayer);
                 setTimeout(() => {
                     showWinOverlay(currentPlayer, isBotWin);
+                    // Dừng timer
+                    if (gameTotalTimer) clearInterval(gameTotalTimer);
+                    if (playerTurnTimer) clearInterval(playerTurnTimer);
+                    // Ẩn timer panel
+                    const timerPanel = document.getElementById('timer-panel');
+                    if (timerPanel) timerPanel.style.display = 'none';
                     // Chỉ hỏi tên khi người chơi thắng (không phải bot)
                     if (!isBotWin) {
-                        setTimeout(() => promptRankName(moveCount, gameMode, winCount, boardLabel, `Người thắng Bot ${MODE_LABELS[gameMode]}`), 600);
+                        setTimeout(() => promptRankName(moveCount, gameMode, winCount, boardLabel, `Người thắng Bot ${MODE_LABELS[gameMode]}`, playerDangerScore, gameTotalSeconds), 600);
                     }
                 }, 500);
             }
@@ -2191,6 +2367,17 @@
 
         currentPlayer = currentPlayer === "X" ? "O" : "X";
         updateCursorByTurn();
+        
+        // Đánh giá nước đi của người chơi (chỉ khi chơi với bot)
+        if (gameMode.startsWith('ai') && !isBotMove) {
+            evaluatePlayerMove(r, c);
+        }
+        
+        // Bắt đầu đếm lại timer lượt đi khi đến lượt người chơi
+        if (isGameActive && gameMode.startsWith('ai') && currentPlayer === humanPiece) {
+            startPlayerTurnTimer();
+        }
+        
         updateStatus();
         if (isGameActive && gameMode.startsWith('ai') && currentPlayer === botPiece) {
             // Delay theo độ khó: god=500ms, hard=300ms, medium=200ms
@@ -2426,8 +2613,10 @@
 
     function makeAIMove() {
         if (!isGameActive) return;
+        isBotMove = true;
         const move = getBotMove();
         if (move) makeMove(move.r, move.c);
+        isBotMove = false;
     }
 
     // ===== ENGINE AI CORE (MỨC ĐỘ KHÓ KHÁC NHAU) =====
@@ -2444,7 +2633,8 @@
         const tB = (getCell(nr, nc) !== "" && getCell(nr, nc) !== p);
 
         if (count >= winCount) {
-            if (winCount >= 4 && hB && tB) return TL.NONE;
+            // Áp dụng luật chặn 2 đầu cho tất cả winCount
+            if (hB && tB) return TL.NONE;
             return TL.FIVE;
         }
         if (count === winCount - 1) {
@@ -2455,7 +2645,8 @@
             if (hB && tB) return TL.NONE;
             return (hB || tB) ? TL.THREE_BLOCKED : TL.THREE_OPEN;
         }
-        if (count === winCount - 3 && winCount >= 4) {
+        // Kiểm tra TWO_OPEN cho tất cả winCount >= 3
+        if (count === winCount - 3 && winCount >= 3) {
             if (hB && tB) return TL.NONE;
             return (hB || tB) ? TL.TWO_BLOCKED : TL.TWO_OPEN;
         }
@@ -2581,24 +2772,44 @@
         const hp = humanPiece;
         const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
 
+        // Cập nhật trạng thái thinking
+        updateBotThinking('Hmm, để tôi xem bàn cờ...');
+
         // 1. TÌM NƯỚC THẮNG LẬP TỨC CHO BOT (sử dụng checkWinSilent để tuân thủ luật chặn 2 đầu)
         for (const { r, c } of cands) {
             setCell(r, c, bp);
             if (checkWinSilent(r, c)) {
                 setCell(r, c, "");
+                updateBotThinking('Hmm, có vẻ tốt đấy! 🎯');
                 return { r, c };
             }
             setCell(r, c, "");
         }
 
         // 2. CHẶN ĐỊCH THẮNG LẬP TỨC (sử dụng checkWinSilent để tuân thủ luật chặn 2 đầu)
+        updateBotThinking('Ôi không, địch sắp thắng rồi!');
+        // Tìm tất cả các vị trí chặn có thể và chọn vị trí tốt nhất cho bot
+        let blockMoves = [];
         for (const { r, c } of cands) {
             setCell(r, c, hp);
             if (checkWinSilent(r, c)) {
-                setCell(r, c, "");
-                return { r, c };
+                blockMoves.push({ r, c });
             }
             setCell(r, c, "");
+        }
+        
+        if (blockMoves.length > 0) {
+            // Chọn vị trí chặn có lợi nhất cho bot
+            let bestBlock = blockMoves[0], bestScore = -Infinity;
+            for (const move of blockMoves) {
+                const score = quickScore(move.r, move.c, bp);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestBlock = move;
+                }
+            }
+            updateBotThinking('Chặn nè! 🛡️ đánh nữa đi');
+            return bestBlock;
         }
 
         // 3. NẾU CHẾ ĐỘ THƯỜNG / DỄ, CHỈ CẦN QUYẾT ĐỊNH THEO QUICK SCORE THAM LAM
@@ -2616,17 +2827,24 @@
             return best;
         }
 
-        // 4. KIỂM TRA ĐỊCH CÓ NƯỚC BỐN MỞ (FOUR_OPEN) ĐỂ CHẶN NGAY
+        // 4. BOT TẠO NƯỚC BỐN MỞ (FOUR_OPEN) ĐỂ CHỦ ĐỘNG TẤN CÔNG - ƯU TIÊN TẤN CÔNG KHI CÓ CƠ HỘI
+        updateBotThinking('Đang tìm cơ hội tấn công...');
         for (const { r, c } of cands) {
             for (const { dr, dc } of dirs) {
-                if (evalLine(r, c, dr, dc, hp) === TL.FOUR_OPEN) return { r, c };
+                if (evalLine(r, c, dr, dc, bp) === TL.FOUR_OPEN) {
+                    updateBotThinking('Cơ hội tốt! Đi thôi! ⚔️');
+                    return { r, c };
+                }
             }
         }
 
-        // 5. BOT TẠO NƯỚC BỐN MỞ (FOUR_OPEN) ĐỂ CHỦ ĐỘNG TẤN CÔNG KHÓA GAME
+        // 5. CHẶN ĐỊCH CÓ NƯỚC BỐN MỞ (FOUR_OPEN) - CHỈ CHẶN KHI ĐỊCH CŨNG NGUY HIỂM
         for (const { r, c } of cands) {
             for (const { dr, dc } of dirs) {
-                if (evalLine(r, c, dr, dc, bp) === TL.FOUR_OPEN) return { r, c };
+                if (evalLine(r, c, dr, dc, hp) === TL.FOUR_OPEN) {
+                    updateBotThinking('Đã chặn kịp thời! 😅 hú vía chim én');
+                    return { r, c };
+                }
             }
         }
 
@@ -2660,18 +2878,50 @@
 
                     if (cells.length >= winCount) {
                         let blockCells = [];
+                        // Tìm tất cả các vị trí chặn có thể ở cả 2 đầu
                         if (!headBlocked) {
-                            if (getCell(headR + dr, headC + dc) === "" && getCell(headR + 2*dr, headC + 2*dc) !== opp2) {
-                                blockCells.push({ r: headR + dr, c: headC + dc });
+                            // Thử chặn ở các vị trí khác nhau (1-3 ô từ mép)
+                            for (let dist = 1; dist <= 3; dist++) {
+                                const blockR = headR + dist * dr, blockC = headC + dist * dc;
+                                if (getCell(blockR, blockC) === "") {
+                                    // Kiểm tra xem chặn ở đây có an toàn không (không tạo đòn cho địch)
+                                    let safe = true;
+                                    for (let checkDist = 1; checkDist <= 2; checkDist++) {
+                                        const checkR = blockR + checkDist * dr, checkC = blockC + checkDist * dc;
+                                        if (getCell(checkR, checkC) === hp) {
+                                            safe = false;
+                                            break;
+                                        }
+                                    }
+                                    if (safe) {
+                                        blockCells.push({ r: blockR, c: blockC });
+                                    }
+                                }
                             }
                         }
                         if (!tailBlocked) {
-                            if (getCell(tailR - dr, tailC - dc) === "" && getCell(tailR - 2*dr, tailC - 2*dc) !== opp2) {
-                                blockCells.push({ r: tailR - dr, c: tailC - dc });
+                            // Thử chặn ở các vị trí khác nhau (1-3 ô từ mép)
+                            for (let dist = 1; dist <= 3; dist++) {
+                                const blockR = tailR - dist * dr, blockC = tailC - dist * dc;
+                                if (getCell(blockR, blockC) === "") {
+                                    // Kiểm tra xem chặn ở đây có an toàn không
+                                    let safe = true;
+                                    for (let checkDist = 1; checkDist <= 2; checkDist++) {
+                                        const checkR = blockR - checkDist * dr, checkC = blockC - checkDist * dc;
+                                        if (getCell(checkR, checkC) === hp) {
+                                            safe = false;
+                                            break;
+                                        }
+                                    }
+                                    if (safe) {
+                                        blockCells.push({ r: blockR, c: blockC });
+                                    }
+                                }
                             }
                         }
                         if (blockCells.length > 0) {
                             setCell(r, c, oldV);
+                            // Chọn vị trí chặn có lợi nhất cho bot (điểm cao nhất)
                             let bestBlk = blockCells[0], bestS = -Infinity;
                             for (const blk of blockCells) {
                                 const s = quickScore(blk.r, blk.c, bp);
@@ -2692,6 +2942,7 @@
             for (const { dr, dc } of dirs) {
                 if (evalLine(r, c, dr, dc, bp) === TL.THREE_OPEN) {
                     setCell(r, c, ov);
+                    updateBotThinking('cơ hội thắng 🔥');
                     return { r, c };
                 }
             }
@@ -2704,10 +2955,112 @@
         if (xFork && botFork) {
             return quickScore(xFork.r, xFork.c, hp) > quickScore(botFork.r, botFork.c, bp) * 1.2 ? xFork : botFork;
         }
-        if (xFork) return xFork;
-        if (botFork) return botFork;
+        if (xFork) {
+            updateBotThinking('Phải chặn fork của địch! 🎯');
+            return xFork;
+        }
+        if (botFork) {
+            updateBotThinking('Tuyệt! Tìm thấy fork tấn công! 🚀');
+            return botFork;
+        }
 
         return cands2[0];
+    }
+
+    function updateBotThinking(message) {
+        if (statusPanel) {
+            statusPanel.innerHTML = `🤖 <span style="opacity:0.7">${message}</span> <span class="think-dots">...</span>`;
+        }
+        // Hiển thị vào bot avatar
+        const botMessage = document.getElementById('bot-message');
+        if (botMessage) {
+            botMessage.textContent = message;
+        }
+    }
+
+    function evaluatePlayerMove(r, c) {
+        const hp = humanPiece;
+        const bp = botPiece;
+        const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
+        
+        // Đánh giá nước đi của người chơi
+        const playerScore = quickScore(r, c, hp);
+        
+        // Tìm nước đi tốt nhất mà bot sẽ chọn
+        const cands = getSearchCandidates();
+        let bestBotScore = -Infinity;
+        for (const cand of cands) {
+            const score = quickScore(cand.r, cand.c, bp);
+            if (score > bestBotScore) bestBotScore = score;
+        }
+        
+        // Đánh giá chất lượng nước đi
+        let message = '';
+        let emoji = '';
+        
+        // Kiểm tra nước đi có tạo đòn nguy hiểm không
+        let hasThreat = false;
+        let currentDangerScore = 0;
+        for (const { dr, dc } of dirs) {
+            const tTa = evalLine(r, c, dr, dc, hp);
+            if (tTa === TL.FIVE) {
+                hasThreat = true;
+                currentDangerScore += 10;
+            } else if (tTa === TL.FOUR_OPEN) {
+                hasThreat = true;
+                currentDangerScore += 5;
+            } else if (tTa === TL.THREE_OPEN) {
+                currentDangerScore += 2;
+            }
+        }
+        
+        // Cộng dồn điểm nguy hiểm
+        playerDangerScore += currentDangerScore;
+        
+        // Kiểm tra nước đi có chặn bot không
+        let blocksBot = false;
+        for (const { dr, dc } of dirs) {
+            const tDich = evalLine(r, c, dr, dc, bp);
+            if (tDich === TL.FOUR_OPEN || tDich === TL.FIVE) {
+                blocksBot = true;
+                break;
+            }
+        }
+        
+        if (hasThreat) {
+            message = 'Uầy! Nước đi nguy hiểm quá! 😱';
+            emoji = '⚠️';
+        } else if (blocksBot) {
+            message = 'Chặn khéo léo đấy! 👏';
+            emoji = '👍';
+        } else if (playerScore > bestBotScore * 0.8) {
+            message = 'Wow! Nước đi xuất sắc! 🌟';
+            emoji = '🏆';
+        } else if (playerScore > bestBotScore * 0.5) {
+            message = 'Nước đi khá tốt, cố lên! 😊';
+            emoji = '😊';
+        } else if (playerScore > bestBotScore * 0.3) {
+            message = 'Bình thường, có thể tốt hơn 🤔';
+            emoji = '🤔';
+        } else {
+            message = 'Hmm, nước đi này chưa tối ưu lắm 😅';
+            emoji = '💭';
+        }
+        
+        // Hiển thị đánh giá (hiển thị ngắn gọn trong status panel)
+        setTimeout(() => {
+            if (statusPanel && isGameActive) {
+                statusPanel.innerHTML = `${emoji} ${message}`;
+            }
+            // Hiển thị vào bot avatar
+            const botMessage = document.getElementById('bot-message');
+            if (botMessage) {
+                botMessage.textContent = message;
+            }
+        }, 500);
+        
+        // Lưu đánh giá để hiển thị chi tiết sau khi bot đi
+        window.lastPlayerEvaluation = { message, emoji, playerScore, bestBotScore };
     }
     // ===== PHÁO HOA =====
     let confettiCanvas = null;
@@ -2811,14 +3164,14 @@
             startConfetti();
         } else if (isBotWin) {
             emojiEl.textContent  = '💀';
-            titleEl.textContent  = 'OẮT CON KO THẮNG NỔI BOT CỦA CHẦN!';
+            titleEl.textContent  = 'OẮT CON KO THẮNG NỔI BOT CỦA PRO!';
             titleEl.style.color  = '#ef4444';
             subEl.textContent    = 'Gừng càng già càng cay — thử lại đi!';
         } else {
             emojiEl.textContent  = '🏆';
             titleEl.textContent  = 'CHIẾN THẮNG!';
             titleEl.style.color  = '#f59e0b';
-            subEl.textContent    = 'Bạn đã hạ gục BOT của CHẦN PRO. Bái phục!';
+            subEl.textContent    = 'Bạn đã hạ gục BOT M1 . Bái phục!';
             startConfetti();
         }
 
