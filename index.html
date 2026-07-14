@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Caro BOT CỦA PRO - NÂNG CẤP BOT M1 TỐI THƯỢNG</title>
+    <title>Caro BOT CỦA PRO - NÂNG CẤP BOT M2 TỐI THƯỢNG</title>
     
     <style id="theme-styles"></style>
     
@@ -757,7 +757,7 @@
 </head>
 <body>
 
-    <h1 id="game-title">Caro BOT M1 PRO</h1>
+    <h1 id="game-title">Caro BOT M2 PRO</h1>
     
     <div class="control-wrapper">
         <div class="config-panel" id="ui-config-panel">
@@ -777,7 +777,7 @@
                     <option value="ai-easy">Mức Dễ ẸC</option>
                     <option value="ai-medium">Mức Thường</option>
                     <option value="ai-hard">Mức Khó 1 TÝ</option>
-                    <option value="ai-god" selected>MỨC TỐI THƯỢNG 💀BOT M1</option>
+                    <option value="ai-god" selected>MỨC TỐI THƯỢNG 💀BOT M2</option>
                 </select>
             </div>
             <div class="config-group">
@@ -1082,6 +1082,108 @@
         return finalLeaderboard;
     }
 
+    // ===== HELPER FUNCTIONS - CONVERT RANKDATA <-> LEADERBOARD =====
+    
+    // Chuyển từ rankData (format mới) sang leaderboard (format cũ)
+    function convertRankDataToLeaderboard(rankData) {
+        const leaderboard = [];
+        for (const [key, entries] of Object.entries(rankData)) {
+            if (Array.isArray(entries)) {
+                entries.forEach(entry => {
+                    const wins = entry.wins || 1;
+                    const score = entry.score || 0;
+                    const existingPlayer = leaderboard.find(p => p.name === entry.name);
+                    if (existingPlayer) {
+                        existingPlayer.wins += wins;
+                        existingPlayer.score += score;
+                    } else {
+                        leaderboard.push({
+                            name: entry.name,
+                            wins: wins,
+                            score: score
+                        });
+                    }
+                });
+            }
+        }
+        return leaderboard;
+    }
+
+    // Chuyển từ leaderboard (format cũ) sang rankData (format mới)
+    function convertLeaderboardToRankData(leaderboard, defaultKey) {
+        const rankData = {};
+        for (const player of leaderboard) {
+            if (!rankData[defaultKey]) {
+                rankData[defaultKey] = [];
+            }
+            rankData[defaultKey].push({
+                name: player.name,
+                wins: player.wins,
+                score: player.score,
+                moves: 0,
+                totalTime: '00:00',
+                date: new Date().toLocaleDateString('vi-VN'),
+                time: new Date().toLocaleTimeString('vi-VN')
+            });
+        }
+        return rankData;
+    }
+
+    // Merge rankData với lọc trùng theo tên (dùng Map)
+    function mergeRankDataWithDedup(localRank, importedRankData) {
+        for (const [key, importedEntries] of Object.entries(importedRankData)) {
+            if (!Array.isArray(importedEntries)) continue;
+            
+            if (!localRank[key]) {
+                localRank[key] = [];
+            }
+            
+            // Dùng Map để lọc trùng theo tên trong cùng key
+            const mergedMap = new Map();
+            
+            // Đưa entries hiện tại vào Map
+            localRank[key].forEach(entry => {
+                mergedMap.set(entry.name.trim().toLowerCase(), { ...entry });
+            });
+            
+            // Gộp entries từ file import
+            importedEntries.forEach(newEntry => {
+                const nameKey = newEntry.name.trim().toLowerCase();
+                if (mergedMap.has(nameKey)) {
+                    // Trùng tên: cộng dồn wins và score, giữ entry mới hơn
+                    const existing = mergedMap.get(nameKey);
+                    existing.wins += newEntry.wins || 0;
+                    existing.score += newEntry.score || 0;
+                    // Cập nhật các field khác nếu có
+                    if (newEntry.moves !== undefined) existing.moves = newEntry.moves;
+                    if (newEntry.totalTime) existing.totalTime = newEntry.totalTime;
+                    if (newEntry.date) existing.date = newEntry.date;
+                    if (newEntry.time) existing.time = newEntry.time;
+                } else {
+                    // Tên mới: thêm vào
+                    mergedMap.set(nameKey, { ...newEntry });
+                }
+            });
+            
+            // Chuyển Map thành mảng, sắp xếp và giới hạn
+            localRank[key] = Array.from(mergedMap.values());
+            localRank[key].sort((a, b) => b.score - a.score);
+            localRank[key] = localRank[key].slice(0, 50);
+        }
+        return localRank;
+    }
+
+    // Tính tổng số entry trong rankData
+    function countRankDataEntries(rankData) {
+        let total = 0;
+        for (const [key, entries] of Object.entries(rankData)) {
+            if (Array.isArray(entries)) {
+                total += entries.length;
+            }
+        }
+        return total;
+    }
+
     // Tự động nạp bộ não từ file Bo_Nao_BOT.html nếu có (chỉ hoạt động khi mở từ local file)
     async function autoLoadBotMemory() {
         try {
@@ -1143,28 +1245,7 @@
                         // Tự động merge leaderboard nếu có
                         if (importedLeaderboard.length > 0) {
                             const rankData = loadRank();
-                            const localLeaderboard = [];
-                            
-                            // Chuyển đổi dữ liệu rank hiện tại sang format leaderboard
-                            for (const [key, entries] of Object.entries(rankData)) {
-                                if (Array.isArray(entries)) {
-                                    entries.forEach(entry => {
-                                        const wins = entry.wins || 1;
-                                        const score = entry.score || 0;
-                                        const existingPlayer = localLeaderboard.find(p => p.name === entry.name);
-                                        if (existingPlayer) {
-                                            existingPlayer.wins += wins;
-                                            existingPlayer.score += score;
-                                        } else {
-                                            localLeaderboard.push({
-                                                name: entry.name,
-                                                wins: wins,
-                                                score: score
-                                            });
-                                        }
-                                    });
-                                }
-                            }
+                            const localLeaderboard = convertRankDataToLeaderboard(rankData);
                             
                             // Merge leaderboards
                             const mergedLeaderboard = mergeLeaderboard(localLeaderboard, importedLeaderboard);
@@ -1200,12 +1281,7 @@
         console.log('📊 Export BXH (nguyên cấu trúc):', rankData);
         
         // Tính tổng số entry
-        let totalEntries = 0;
-        for (const [key, entries] of Object.entries(rankData)) {
-            if (Array.isArray(entries)) {
-                totalEntries += entries.length;
-            }
-        }
+        const totalEntries = countRankDataEntries(rankData);
         console.log('📊 Tổng số entry:', totalEntries);
         
         // Tạo dữ liệu export với cấu trúc mới - giữ nguyên rankData
@@ -1215,21 +1291,18 @@
         };
         
         const dataStr = JSON.stringify(exportData, null, 2);
-        const base64Data = btoa(unescape(encodeURIComponent(dataStr)));
         
         const htmlParts = [];
         htmlParts.push('<!DOCTYPE html>\n<html>\n<head>\n');
         htmlParts.push('    <meta charset="UTF-8">\n');
         htmlParts.push('    <title>Bộ Não BOT - Caro Game</title>\n');
         htmlParts.push('</head>\n<body>\n');
-        htmlParts.push('    <h1>Bộ Não BOT M1 CỦA ANH  CHẦN PRO - Caro Game</h1>\n');
+        htmlParts.push('    <h1>Bộ Não BOT M2 CỦA ANH  CHẦN PRO - Caro Game</h1>\n');
         htmlParts.push('    <p>File này chứa bộ nhớ học hỏi của BOT và bảng xếp hạng.</p>\n');
         htmlParts.push('    <p>Để nạp vào game, sử dụng nút "Nạp File BỘ NÃO" trong game. ANH CHẦN BẢO KHÔNG ĐƯỢC HIỆN NÃO CỦA MÌNH RA ĐÂY KHÔNG LÀ KHÔ HẾT</p>\n');
-        htmlParts.push('    <input type="hidden" id="bot-memory-base64" value="' + base64Data + '">\n');
+        htmlParts.push('    <p>JSON thuần - có thể chỉnh sửa thủ công</p>\n');
         htmlParts.push('    <script>\n');
-        htmlParts.push('        const base64Data = document.getElementById("bot-memory-base64").value;\n');
-        htmlParts.push('        const decodedData = decodeURIComponent(escape(atob(base64Data)));\n');
-        htmlParts.push('        const botMemoryData = JSON.parse(decodedData);\n');
+        htmlParts.push('        const botMemoryData = ' + dataStr + ';\n');
         htmlParts.push('        console.log("Bộ Não BOT:", botMemoryData);\n');
         htmlParts.push('        console.log("Số bài học:", Object.keys(botMemoryData.botMoves || {}).length);\n');
         htmlParts.push('        // Hỗ trợ cả cấu trúc cũ (leaderboard) và mới (rankData)\n');
@@ -1273,23 +1346,29 @@
                 let importedData = null;
 
                 // 1. Quét tìm JSON trong file HTML nạp vào
-                // Cách 1: Tìm trong hidden input base64 (format mới)
-                const inputMatch = htmlContent.match(/<input[^>]*id="bot-memory-base64"[^>]*value="([^"]*)"/);
-                if (inputMatch) {
+                // Cách 1: Tìm trong script tag với biến botMemoryData (JSON thuần - format mới)
+                const scriptMatch = htmlContent.match(/const botMemoryData\s*=\s*({[\s\S]*?});/);
+                if (scriptMatch) {
                     try {
-                        const base64Data = inputMatch[1];
-                        const decodedData = decodeURIComponent(escape(atob(base64Data)));
-                        importedData = JSON.parse(decodedData);
+                        importedData = JSON.parse(scriptMatch[1]);
+                        console.log('Đọc JSON thuần thành công');
                     } catch (e) {
-                        console.log('Không thể decode base64 từ hidden input');
+                        console.log('Không thể parse JSON thuần:', e);
                     }
                 }
                 
-                // Cách 2: Tìm trong script tag với biến botMemoryData (format cũ)
+                // Cách 2: Tìm trong hidden input base64 (format cũ - tương thích)
                 if (!importedData) {
-                    const scriptMatch = htmlContent.match(/const botMemoryData\s*=\s*({[\s\S]*?});/);
-                    if (scriptMatch) {
-                        importedData = JSON.parse(scriptMatch[1]);
+                    const inputMatch = htmlContent.match(/<input[^>]*id="bot-memory-base64"[^>]*value="([^"]*)"/);
+                    if (inputMatch) {
+                        try {
+                            const base64Data = inputMatch[1];
+                            const decodedData = decodeURIComponent(escape(atob(base64Data)));
+                            importedData = JSON.parse(decodedData);
+                            console.log('Đọc base64 thành công (format cũ)');
+                        } catch (e) {
+                            console.log('Không thể decode base64 từ hidden input');
+                        }
                     }
                 }
                 
@@ -1332,70 +1411,25 @@
                 let totalRankEntries = 0;
                 
                 if (importedRankData) {
-                    // Merge rankData trực tiếp - giữ nguyên cấu trúc theo key
+                    // Merge rankData với lọc trùng theo tên
                     const localRank = loadRank();
+                    const mergedRank = mergeRankDataWithDedup(localRank, importedRankData);
                     
-                    for (const [key, importedEntries] of Object.entries(importedRankData)) {
-                        if (Array.isArray(importedEntries)) {
-                            if (!localRank[key]) {
-                                localRank[key] = [];
-                            }
-                            // Gộp entries cho cùng key
-                            localRank[key] = [...localRank[key], ...importedEntries];
-                            // Sắp xếp và giới hạn
-                            localRank[key].sort((a, b) => b.score - a.score);
-                            localRank[key] = localRank[key].slice(0, 50);
-                            totalRankEntries += importedEntries.length;
-                        }
-                    }
+                    // Tính tổng số entry sau khi merge
+                    totalRankEntries = countRankDataEntries(mergedRank);
                     
-                    saveRank(localRank);
+                    saveRank(mergedRank);
                     renderRankPanel();
                 } else if (importedLeaderboard.length > 0) {
                     // Cấu trúc cũ: chuyển đổi leaderboard sang rankData
                     const localRank = loadRank();
-                    
-                    // Chuyển đổi localRank sang format leaderboard đơn giản
-                    const localLeaderboard = [];
-                    for (const [key, entries] of Object.entries(localRank)) {
-                        if (Array.isArray(entries)) {
-                            entries.forEach(entry => {
-                                const wins = entry.wins || 1;
-                                const score = entry.score || 0;
-                                const existingPlayer = localLeaderboard.find(p => p.name === entry.name);
-                                if (existingPlayer) {
-                                    existingPlayer.wins += wins;
-                                    existingPlayer.score += score;
-                                } else {
-                                    localLeaderboard.push({
-                                        name: entry.name,
-                                        wins: wins,
-                                        score: score
-                                    });
-                                }
-                            });
-                        }
-                    }
+                    const localLeaderboard = convertRankDataToLeaderboard(localRank);
                     
                     const finalLeaderboard = mergeLeaderboard(localLeaderboard, importedLeaderboard);
                     
                     // Chuyển đổi lại thành format rankData và lưu
-                    const newRankData = {};
-                    for (const player of finalLeaderboard) {
-                        const defaultKey = 'ai-god|5q|♾️ Vô Hạn';
-                        if (!newRankData[defaultKey]) {
-                            newRankData[defaultKey] = [];
-                        }
-                        newRankData[defaultKey].push({
-                            name: player.name,
-                            wins: player.wins,
-                            score: player.score,
-                            moves: 0,
-                            totalTime: '00:00',
-                            date: new Date().toLocaleDateString('vi-VN'),
-                            time: new Date().toLocaleTimeString('vi-VN')
-                        });
-                    }
+                    const defaultKey = 'ai-god|5q|♾️ Vô Hạn';
+                    const newRankData = convertLeaderboardToRankData(finalLeaderboard, defaultKey);
                     
                     saveRank(newRankData);
                     renderRankPanel();
@@ -4530,7 +4564,7 @@
                 }
             }
             
-            let rankMessage = 'Bạn đã hạ gục BOT M1 . Bái phục!, chờ anh đẻ ra con M2 đã nha';
+            let rankMessage = 'Bạn đã hạ gục BOT M2 . Bái phục!, chờ anh đẻ ra con M2 đã nha';
             if (playerRank !== null) {
                 const medals = ['🥇', '🥈', '🥉'];
                 const medal = medals[playerRank - 1] || `#${playerRank}`;
