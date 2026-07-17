@@ -6,754 +6,366 @@
     <title>Caro BOT CỦA PRO - NÂNG CẤP BOT M2 TỐI THƯỢNG</title>
     
     <style id="theme-styles"></style>
+    <link rel="stylesheet" href="styles.css">
     
-    <style>
-        body {
-            margin: 0;
-            display: grid;
-            grid-template-rows: auto auto auto 1fr;
-            grid-template-columns: 1fr;
-            justify-items: center;
-            min-height: 100vh;
-            padding: 0;
-            box-sizing: border-box;
-            transition: background 0.3s, color 0.3s;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        h1 {
-            margin: 4px 0;
-            font-size: 1.4rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            text-align: center;
-            font-weight: 800;
-        }
-
-        .control-wrapper {
-            width: 100%;
-            max-width: 100%;
-            position: relative;
-            z-index: 9999; 
-            margin: 0;
-            padding: 6px 10px;
-        }
-
-        .config-panel {
-            display: flex;
-            gap: 8px;
-            padding: 6px 10px;
-            border-radius: 8px;
-            align-items: center;
-            justify-content: center;
-            flex-wrap: wrap;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            max-width: 100%;
-        }
-
-        .config-group {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-weight: bold;
-            font-size: 0.9rem;
-        }
-
-        select {
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            outline: none;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-            accent-color: #2563eb;
-        }
-
-        .status-panel {
-            font-size: 0.95rem;
-            margin: 0;
-            padding: 6px 15px;
-            border-radius: 6px;
-            text-align: center;
-            min-width: 200px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-
-        .main-layout {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            max-width: 100%;
-            flex: 1;
-            padding: 0 10px;
-            box-sizing: border-box;
-            overflow: hidden;
-        }
-
-        .panels-wrapper {
-            display: flex;
-            gap: 10px;
-            width: 100%;
-            max-width: 100%;
-            justify-content: center;
-            align-items: flex-start;
-        }
-
-        .side-panel {
-            width: 140px;
-            padding: 10px;
-            border-radius: 10px;
-            font-size: 0.8rem;
-            line-height: 1.4;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            flex-shrink: 0;
-            overflow-y: auto;
-            max-height: calc(100vh - 150px);
-        }
-
-        .side-panel h3 {
-            margin-top: 0;
-            text-transform: uppercase;
-            font-size: 1.05rem;
-            text-align: center;
-            padding-bottom: 8px;
-            margin-bottom: 12px;
-        }
-
-        .game-container {
-            padding: 8px;
-            border-radius: 8px;
-            overflow: auto;
-            flex: 1;
-            max-width: 100%;
-            min-height: 300px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-            cursor: grab;
-            user-select: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
-        .game-container.inf-mode {
-            overflow: hidden;
-            cursor: default;
-            padding: 0;
-            display: inline-block;
-            line-height: 0;
-        }
-        .game-container.panning { cursor: grabbing; }
-
-        /* ===== ZOOM CONTROLS ===== */
-        .zoom-controls {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            z-index: 100;
-        }
-        .zoom-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border: 2px solid #2563eb;
-            background: rgba(255, 255, 255, 0.95);
-            color: #2563eb;
-            font-size: 1.5rem;
-            font-weight: bold;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            transition: all 0.2s;
-            line-height: 1;
-        }
-        .zoom-btn:hover {
-            background: #2563eb;
-            color: white;
-            transform: scale(1.1);
-        }
-        .zoom-btn:active {
-            transform: scale(0.95);
-        }
-        .zoom-btn.zoom-undo {
-            border-color: #f59e0b;
-            color: #f59e0b;
-        }
-        .zoom-btn.zoom-undo:hover {
-            background: #f59e0b;
-            color: white;
-        }
-
-        #inf-canvas {
-            display: block;
-            touch-action: none;
-            cursor: default;
-        }
-
-        /* ===== RESIZE HANDLES CHO BÀN CỜ VÔ HẠN ===== */
-        #inf-resizable { display: inline-block; }
-        .rs-handle {
-            position: absolute;
-            background: rgba(99,102,241,0.55);
-            border-radius: 3px;
-            z-index: 20;
-            transition: background 0.15s;
-        }
-        .rs-handle:hover { background: rgba(99,102,241,0.95); }
-        /* Cạnh */
-        .rs-n  { top:-4px;    left:20px;  right:20px; height:8px; cursor:n-resize; }
-        .rs-s  { bottom:-4px; left:20px;  right:20px; height:8px; cursor:s-resize; }
-        .rs-w  { left:-4px;   top:20px;   bottom:20px; width:8px; cursor:w-resize; }
-        .rs-e  { right:-4px;  top:20px;   bottom:20px; width:8px; cursor:e-resize; }
-        /* Góc */
-        .rs-nw { top:-4px;    left:-4px;  width:14px; height:14px; cursor:nw-resize; border-radius:4px; }
-        .rs-ne { top:-4px;    right:-4px; width:14px; height:14px; cursor:ne-resize; border-radius:4px; }
-        .rs-sw { bottom:-4px; left:-4px;  width:14px; height:14px; cursor:sw-resize; border-radius:4px; }
-        .rs-se { bottom:-4px; right:-4px; width:14px; height:14px; cursor:se-resize; border-radius:4px; }
-
-        .board {
-            display: grid;
-            gap: 1px;
-            padding: 2px;
-        }
-
-        .cell {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            user-select: none;
-            box-sizing: border-box;
-            font-weight: 900;
-            font-size: 0.55rem;
-            transition: background 0.1s, transform 0.1s;
-            position: relative;
-        }
-
-        /* ĐƯỜNG VIỀN NHẤP NHÁY CHO NƯỚC ĐI VỪA ĐÁNH */
-        .cell.last-move {
-            outline: 3px solid #f59e0b !important;
-            outline-offset: -3px;
-            animation: modernFlash 0.8s infinite alternate;
-            z-index: 10;
-        }
-
-        @keyframes modernFlash {
-            0% { filter: brightness(1); box-shadow: inset 0 0 4px rgba(245, 158, 11, 0.4); }
-            100% { filter: brightness(1.3); box-shadow: inset 0 0 12px rgba(245, 158, 11, 0.9); }
-        }
-
-        .cell.winning-cell {
-            animation: pulseEffect 0.5s infinite alternate;
-            z-index: 11;
-        }
-
-        @keyframes pulseEffect {
-            0% { transform: scale(1); filter: brightness(1.2); }
-            100% { transform: scale(1.05); filter: brightness(1.4); }
-        }
-
-        @keyframes dotPulse {
-            0%, 100% { opacity: 0.2; }
-            50%       { opacity: 1; }
-        }
-        .think-dots { animation: dotPulse 1s infinite; font-size: 1.1em; letter-spacing: 2px; }
-
-        /* Bot Avatar */
-        .bot-avatar {
-            position: absolute;
-            top: 60px;
-            left: 10px;
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            opacity: 0.85;
-            transition: opacity 0.3s ease;
-        }
-        
-        .bot-face {
-            font-size: 1.8rem;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
-            animation: botBounce 2s ease-in-out infinite;
-        }
-        
-        @keyframes botBounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-3px); }
-        }
-        
-        .bot-bubble {
-            position: relative;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 10px;
-            padding: 6px 10px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-            max-width: 180px;
-            min-width: 100px;
-        }
-        
-        .bot-bubble::before {
-            content: '';
-            position: absolute;
-            right: -6px;
-            top: 50%;
-            transform: translateY(-50%);
-            border: 6px solid transparent;
-            border-left-color: rgba(255, 255, 255, 0.95);
-        }
-        
-        .bot-message {
-            font-size: 0.8rem;
-            color: #1e293b;
-            line-height: 1.3;
-            word-wrap: break-word;
-        }
-        
-        .bot-bubble.annoying {
-            animation: bubbleFlash 0.5s ease-in-out infinite;
-            background: rgba(255, 100, 100, 0.95);
-        }
-        
-        @keyframes bubbleFlash {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-
-        .btn-restart {
-            margin-top: 20px;
-            padding: 12px 40px;
-            font-size: 1.05rem;
-            font-weight: bold;
-            border-radius: 25px;
-            cursor: pointer;
-            border: none;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        @media (max-width: 1200px) {
-            .main-layout { gap: 8px; }
-            .panels-wrapper { gap: 8px; }
-        }
-
-        @media (max-width: 900px) {
-            .main-layout { gap: 8px; }
-            .panels-wrapper { gap: 8px; }
-            #history-panel { min-width: 150px; }
-            #rank-panel { min-width: 150px; }
-            #history-list { max-height: 120px; }
-            #rank-list { max-height: 180px; }
-            .control-wrapper { padding: 6px 8px; }
-            h1 { font-size: 1.3rem; margin: 4px 0; }
-        }
-
-        @media (max-width: 600px) {
-            .config-panel { gap: 6px; padding: 4px 8px; }
-            .config-group { font-size: 0.8rem; }
-            select { padding: 4px 8px; font-size: 0.75rem; }
-            .status-panel { font-size: 0.85rem; padding: 4px 10px; min-width: 150px; }
-            h1 { font-size: 1.1rem; }
-            .main-layout { padding: 0 6px; }
-            #history-panel, #rank-panel {
-                min-width: 140px;
-                max-height: 150px;
-            }
-        }
-
-        @media (max-width: 400px) {
-            /* Stack panels vertically on very small screens */
-            .panels-wrapper {
-                flex-direction: column;
-            }
-            #history-panel, #rank-panel {
-                max-width: 100%;
-                max-height: 120px;
-            }
-        }
-
-        /* ===== PHÁO HOA & WIN OVERLAY ===== */
-        #confetti-canvas {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            pointer-events: none;
-            z-index: 99998;
-        }
-
-        #win-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.55);
-            z-index: 99999;
-            justify-content: center;
-            align-items: center;
-            animation: overlayFadeIn 0.4s ease;
-        }
-        #win-overlay.show { display: flex; }
-
-        @keyframes overlayFadeIn {
-            from { opacity: 0; }
-            to   { opacity: 1; }
-        }
-
-        .win-box {
-            background: linear-gradient(135deg, #1e293b, #0f172a);
-            border: 2px solid #f59e0b;
-            border-radius: 24px;
-            padding: 48px 60px;
-            text-align: center;
-            box-shadow: 0 0 60px rgba(245,158,11,0.4), 0 20px 60px rgba(0,0,0,0.6);
-            animation: winBoxPop 0.5s cubic-bezier(0.34,1.56,0.64,1);
-            max-width: 420px;
-            width: 90%;
-        }
-
-        @keyframes winBoxPop {
-            from { transform: scale(0.5); opacity: 0; }
-            to   { transform: scale(1);   opacity: 1; }
-        }
-
-        .win-emoji {
-            font-size: 4rem;
-            display: block;
-            margin-bottom: 12px;
-            animation: bounce 0.7s infinite alternate;
-        }
-
-        @keyframes bounce {
-            from { transform: translateY(0); }
-            to   { transform: translateY(-12px); }
-        }
-
-        .win-title {
-            font-size: 1.9rem;
-            font-weight: 900;
-            color: #f59e0b;
-            margin: 0 0 8px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-
-        .win-subtitle {
-            font-size: 1rem;
-            color: #94a3b8;
-            margin: 0 0 32px;
-        }
-
-        .btn-play-again {
-            padding: 14px 48px;
-            font-size: 1.1rem;
-            font-weight: 800;
-            border-radius: 50px;
-            border: none;
-            cursor: pointer;
-            background: linear-gradient(135deg, #f59e0b, #ef4444);
-            color: #fff;
-            letter-spacing: 1px;
-            box-shadow: 0 4px 20px rgba(245,158,11,0.5);
-            transition: transform 0.15s, box-shadow 0.15s;
-            text-transform: uppercase;
-        }
-        .btn-play-again:hover {
-            transform: scale(1.06);
-            box-shadow: 0 6px 28px rgba(245,158,11,0.7);
-        }
-
-        /* ===== LỊCH SỬ ĐẤU ===== */
-        #history-panel {
-            flex: 1;
-            min-width: 200px;
-            max-width: 50%;
-            border-radius: 10px;
-            padding: 8px 10px;
-            box-sizing: border-box;
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            flex-shrink: 0;
-            max-height: calc(100vh - 150px);
-            overflow-y: auto;
-            position: relative;
-            overflow: hidden;
-        }
-        #history-panel .resize-handle {
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 8px;
-            height: 80px;
-            background: rgba(99,102,241,0.5);
-            cursor: ew-resize;
-            border-radius: 4px;
-            transition: background 0.15s;
-            z-index: 100;
-        }
-        #history-panel .resize-handle:hover {
-            background: rgba(99,102,241,0.9);
-        }
-        .history-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-            user-select: none;
-            padding: 4px 0;
-        }
-        .history-header h3 {
-            margin: 0;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #0f172a;
-        }
-        .history-toggle-btn {
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 0.85rem;
-            padding: 2px 4px;
-            border-radius: 4px;
-            color: #475569;
-            transition: background 0.15s;
-        }
-        .history-toggle-btn:hover { background: rgba(0,0,0,0.06); }
-        .history-body {
-            display: none;
-            margin-top: 10px;
-            border-top: 2px solid #e2e8f0;
-            padding-top: 10px;
-        }
-        .history-body.open { display: block; }
-        #history-list {
-            max-height: 300px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        #history-list::-webkit-scrollbar { width: 5px; }
-        #history-list::-webkit-scrollbar-thumb { border-radius: 4px; background: rgba(128,128,128,0.4); }
-        .history-item {
-            display: flex;
-            align-items: center;
-            gap: 3px;
-            padding: 2px 3px;
-            border-radius: 4px;
-            font-size: 0.68rem;
-            font-weight: 600;
-            color: inherit;
-        }
-        .history-item .h-num {
-            min-width: 12px;
-            font-size: 0.58rem;
-            opacity: 0.6;
-        }
-        .history-item .h-result {
-            min-width: 14px;
-            font-size: 0.75rem;
-            text-align: center;
-        }
-        .history-item .h-info {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 0px;
-        }
-        .history-item .h-mode {
-            font-size: 0.6rem;
-            opacity: 0.65;
-        }
-        .history-item.win  { background: rgba(37,99,235,0.12); border-left: 3px solid #2563eb; }
-        .history-item.lose { background: rgba(220,38,38,0.12);  border-left: 3px solid #dc2626; }
-        .history-item.draw { background: rgba(100,116,139,0.15); border-left: 3px solid #64748b; }
-        #history-empty {
-            text-align: center;
-            opacity: 0.45;
-            font-size: 0.9rem;
-            padding: 12px 0;
-        }
-        .btn-clear-history {
-            margin-top: 10px;
-            padding: 5px 18px;
-            font-size: 0.82rem;
-            border-radius: 20px;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-            opacity: 0.75;
-            display: block;
-            margin-left: auto;
-        }
-        .btn-clear-history:hover { opacity: 1; }
-
-        /* ===== BẢNG XẾP HẠNG ===== */
-        #rank-panel {
-            flex: 1;
-            min-width: 200px;
-            max-width: 50%;
-            border-radius: 10px;
-            padding: 8px 10px;
-            box-sizing: border-box;
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            flex-shrink: 0;
-            max-height: calc(100vh - 150px);
-            overflow-y: auto;
-            position: relative;
-            overflow: hidden;
-        }
-        #rank-panel .resize-handle {
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 4px;
-            height: 60px;
-            background: rgba(99,102,241,0.3);
-            cursor: ew-resize;
-            border-radius: 2px;
-            transition: background 0.15s;
-        }
-        #rank-panel .resize-handle:hover {
-            background: rgba(99,102,241,0.7);
-        }
-        #rank-panel h3 {
-            margin: 0 0 12px;
-            font-size: 1rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            text-align: center;
-            padding-bottom: 8px;
-            color: #0f172a;
-            border-bottom: 2px solid #e2e8f0;
-        }
-        .rank-tabs {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            margin-bottom: 12px;
-            justify-content: center;
-        }
-        .rank-tab {
-            padding: 4px 14px;
-            border-radius: 20px;
-            border: 1px solid #cbd5e1;
-            background: #f1f5f9;
-            color: #475569;
-            font-size: 0.82rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-        .rank-tab.active {
-            background: #2563eb;
-            color: #fff;
-            border-color: #2563eb;
-        }
-        #rank-list {
-            max-height: 260px;
-            overflow-y: auto;
-        }
-        #rank-list::-webkit-scrollbar { width: 5px; }
-        #rank-list::-webkit-scrollbar-thumb { border-radius: 4px; background: rgba(128,128,128,0.4); }
-        .rank-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 7px 12px;
-            border-radius: 8px;
-            font-size: 0.88rem;
-            font-weight: 600;
-            margin-bottom: 4px;
-            background: #f8fafc;
-            border-left: 3px solid #cbd5e1;
-        }
-        .rank-item.rank-1 { background: rgba(245,158,11,0.12); border-color: #f59e0b; }
-        .rank-item.rank-2 { background: rgba(148,163,184,0.15); border-color: #94a3b8; }
-        .rank-item.rank-3 { background: rgba(180,120,60,0.13); border-color: #b4783c; }
-        .rank-medal { font-size: 1.2rem; min-width: 26px; text-align: center; }
-        .rank-name { flex: 1; }
-        .rank-time { font-size: 0.88rem; color: #2563eb; font-weight: 800; min-width: 60px; text-align: right; }
-        .rank-meta { font-size: 0.75rem; opacity: 0.55; min-width: 70px; text-align: right; }
-        .btn-clear-rank {
-            margin-top: 10px;
-            padding: 5px 18px;
-            font-size: 0.82rem;
-            border-radius: 20px;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-            opacity: 0.75;
-            display: block;
-            margin-left: auto;
-        }
-        .btn-clear-rank:hover { opacity: 1; }
-
-        /* ===== NAME INPUT OVERLAY ===== */
-        #name-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.6);
-            z-index: 100000;
-            justify-content: center;
-            align-items: center;
-        }
-        #name-overlay.show { display: flex; }
-        .name-box {
-            background: #1e293b;
-            border: 2px solid #f59e0b;
-            border-radius: 20px;
-            padding: 36px 44px;
-            text-align: center;
-            width: 90%;
-            max-width: 380px;
-            box-shadow: 0 0 40px rgba(245,158,11,0.3);
-        }
-        .name-box h2 { color: #f59e0b; margin: 0 0 6px; font-size: 1.4rem; }
-        .name-box p  { color: #94a3b8; margin: 0 0 20px; font-size: 0.95rem; }
-        .name-box input {
-            width: 100%;
-            padding: 10px 16px;
-            border-radius: 10px;
-            border: 1px solid #475569;
-            background: #0f172a;
-            color: #fff;
-            font-size: 1rem;
-            font-weight: bold;
-            box-sizing: border-box;
-            margin-bottom: 16px;
-            outline: none;
-            text-align: center;
-        }
-        .name-box input:focus { border-color: #f59e0b; }
-        .btn-save-name {
-            padding: 10px 36px;
-            background: linear-gradient(135deg, #f59e0b, #ef4444);
-            color: #fff;
-            border: none;
-            border-radius: 50px;
-            font-size: 1rem;
-            font-weight: 800;
-            cursor: pointer;
-            letter-spacing: 1px;
-        }
-        .btn-save-name:hover { filter: brightness(1.1); }
-    </style>
+    <!-- Embedded bot memory data for auto-load -->
+    <script>
+        window.embeddedBotMemory = {
+  "botMoves": {
+    "r12c15": true,
+    "r9c14": true,
+    "r10c12": true,
+    "r9c11": true,
+    "r11c11": true,
+    "r10c14": true,
+    "r13c9": true,
+    "r8c14": true,
+    "r11c16": true,
+    "r14c15": true,
+    "r9c17": true,
+    "r12c12": true,
+    "r12c17": true,
+    "r6c16": true,
+    "r8c16": true,
+    "r7c19": true,
+    "r10c19": true,
+    "r5c12": true,
+    "r4c11": true,
+    "r6c11": true,
+    "r5c14": true,
+    "r8c9": true,
+    "r8c12": true,
+    "r3c12": true,
+    "r10c13": true,
+    "r7c12": true,
+    "r6c27": true,
+    "r11c27": true,
+    "r6c26": true,
+    "r11c26": true,
+    "r6c29": true,
+    "r6c13": true,
+    "r4c16": true,
+    "r7c14": true,
+    "r8c8": true,
+    "r7c7": true,
+    "r5c7": true,
+    "r6c6": true,
+    "r10c8": true,
+    "r4c10": true,
+    "r3c10": true,
+    "r4c9": true,
+    "r2c11": true,
+    "r3c7": true,
+    "r2c6": true,
+    "r1c5": true,
+    "r0c4": true,
+    "r7c15": true,
+    "r12c20": true,
+    "r11c20": true,
+    "r9c15": true,
+    "r9c18": true,
+    "ai-god_5_r6c18": true,
+    "ai-god_5_r11c13": true,
+    "ai-god_5_r7c14": true,
+    "ai-god_5_r6c17": true,
+    "ai-god_5_r9c13": true,
+    "ai-god_5_r2c17": true,
+    "ai-god_5_r8c14": true,
+    "ai-god_5_r5c14": true,
+    "ai-god_5_r4c15": true,
+    "ai-god_6_r7c10": true,
+    "ai-god_6_r6c9": true,
+    "ai-god_6_r6c13": true,
+    "ai-god_6_r12c13": true,
+    "ai-god_6_r12c10": true,
+    "ai-god_5_r9c17": true,
+    "ai-god_5_r13c11": true,
+    "ai-god_5_r12c11": true,
+    "ai-god_5_r6c13": true,
+    "ai-god_5_r12c10": true,
+    "ai-god_5_r5c11": true,
+    "ai-god_5_r9c16": true,
+    "ai-god_5_r7c16": true,
+    "ai-god_5_r10c16": true,
+    "ai-god_5_r7c15": true,
+    "ai-god_5_r3c12": true,
+    "ai-god_5_r2c12": true,
+    "ai-god_5_r6c14": true,
+    "ai-god_5_r-3c-3": true,
+    "ai-god_5_r-1c-3": true,
+    "ai-god_5_r0c-4": true,
+    "ai-god_5_r3c-2": true,
+    "ai-god_5_r-1c-4": true,
+    "ai-god_5_r-2c0": true,
+    "ai-god_5_r0c-2": true,
+    "ai-god_5_r-1c-2": true,
+    "ai-god_5_r5c0": true,
+    "ai-god_5_r5c1": true,
+    "ai-god_5_r12c37": true,
+    "ai-god_5_r13c37": true,
+    "ai-god_5_r14c34": true,
+    "ai-god_5_r16c36": true,
+    "ai-god_5_r12c39": true,
+    "ai-god_5_r8c41": true,
+    "ai-god_5_r9c42": true,
+    "ai-god_5_r9c36": true,
+    "ai-god_5_r14c41": true,
+    "ai-god_5_r13c42": true,
+    "ai-god_5_r11c31": true,
+    "ai-god_5_r10c35": true,
+    "ai-god_5_r10c31": true,
+    "ai-god_5_r10c33": true,
+    "ai-god_5_r13c31": true,
+    "ai-god_5_r14c35": true,
+    "ai-god_5_r11c39": true,
+    "ai-god_5_r15c36": true,
+    "ai-god_5_r13c39": true,
+    "ai-god_5_r13c25": true,
+    "ai-god_5_r14c30": true,
+    "ai-god_5_r14c28": true,
+    "ai-god_5_r13c29": true,
+    "ai-god_5_r18c29": true,
+    "ai-god_5_r11c27": true,
+    "ai-god_5_r13c28": true,
+    "ai-god_5_r14c27": true,
+    "ai-god_5_r11c30": true,
+    "ai-god_5_r16c26": true,
+    "ai-god_5_r12c27": true,
+    "ai-god_5_r10c30": true,
+    "ai-god_5_r10c24": true,
+    "ai-god_5_r9c30": true,
+    "ai-god_5_r15c28": true,
+    "ai-god_5_r12c31": true,
+    "ai-god_5_r10c29": true,
+    "ai-god_5_r10c32": true,
+    "ai-god_5_r14c32": true,
+    "ai-hard_5_r8c23": true,
+    "ai-hard_5_r12c24": true,
+    "ai-hard_5_r9c28": true,
+    "ai-hard_5_r10c25": true,
+    "ai-hard_5_r8c27": true,
+    "ai-god_5_r10c28": true,
+    "ai-god_5_r11c28": true,
+    "ai-god_5_r12c25": true,
+    "ai-god_5_r15c25": true,
+    "ai-god_5_r16c25": true,
+    "ai-god_5_r15c24": true,
+    "ai-god_5_r14c29": true,
+    "ai-god_5_r14c26": true,
+    "ai-god_5_r15c29": true,
+    "ai-god_5_r14c31": true,
+    "ai-god_5_r13c30": true,
+    "ai-god_5_r12c26": true,
+    "ai-god_5_r12c20": true,
+    "ai-god_5_r12c21": true,
+    "ai-god_5_r14c21": true,
+    "ai-god_5_r15c20": true,
+    "ai-god_5_r9c33": true,
+    "ai-god_5_r12c32": true,
+    "ai-god_5_r9c29": true,
+    "ai-god_5_r9c28": true,
+    "ai-god_5_r11c33": true,
+    "ai-god_5_r9c18": true,
+    "ai-god_5_r9c19": true,
+    "ai-god_5_r14c19": true,
+    "ai-god_5_r14c18": true,
+    "ai-god_5_r12c16": true,
+    "ai-god_5_r8c21": true,
+    "ai-god_5_r13c16": true,
+    "ai-god_5_r11c21": true,
+    "ai-god_5_r7c17": true,
+    "ai-god_5_r9c14": true,
+    "ai-god_5_r10c14": true,
+    "ai-god_5_r10c19": true,
+    "ai-god_5_r5c16": true,
+    "ai-god_5_r4c16": true,
+    "ai-god_5_r7c20": true,
+    "ai-god_5_r11c15": true,
+    "ai-god_5_r14c17": true,
+    "ai-god_5_r11c20": true,
+    "ai-god_5_r11c12": true,
+    "ai-god_5_r11c17": true,
+    "ai-god_5_r14c12": true,
+    "ai-god_5_r10c10": true,
+    "ai-god_5_r13c14": true,
+    "ai-god_5_r5c12": true,
+    "ai-god_5_r6c15": true,
+    "ai-god_5_r11c10": true,
+    "ai-god_5_r7c8": true,
+    "ai-god_5_r12c13": true
+  },
+  "rankData": {
+    "ai-god|5q|♾️ Vô Hạn": [
+      {
+        "name": "CHÂNF",
+        "score": 15060,
+        "moves": 31,
+        "date": "15/07/26",
+        "time": "08:03:47",
+        "totalTime": "0:36",
+        "dangerScore": 20,
+        "moveHistory": [
+          {
+            "r": 8,
+            "c": 13,
+            "player": "X"
+          },
+          {
+            "r": 7,
+            "c": 11,
+            "player": "O"
+          },
+          {
+            "r": 9,
+            "c": 14,
+            "player": "X"
+          },
+          {
+            "r": 6,
+            "c": 10,
+            "player": "O"
+          },
+          {
+            "r": 7,
+            "c": 12,
+            "player": "X"
+          },
+          {
+            "r": 6,
+            "c": 11,
+            "player": "O"
+          },
+          {
+            "r": 10,
+            "c": 15,
+            "player": "X"
+          },
+          {
+            "r": 11,
+            "c": 16,
+            "player": "O"
+          },
+          {
+            "r": 8,
+            "c": 15,
+            "player": "X"
+          },
+          {
+            "r": 6,
+            "c": 12,
+            "player": "O"
+          },
+          {
+            "r": 6,
+            "c": 13,
+            "player": "X"
+          },
+          {
+            "r": 8,
+            "c": 11,
+            "player": "O"
+          },
+          {
+            "r": 9,
+            "c": 11,
+            "player": "X"
+          },
+          {
+            "r": 8,
+            "c": 10,
+            "player": "O"
+          },
+          {
+            "r": 9,
+            "c": 9,
+            "player": "X"
+          },
+          {
+            "r": 7,
+            "c": 10,
+            "player": "O"
+          },
+          {
+            "r": 9,
+            "c": 10,
+            "player": "X"
+          },
+          {
+            "r": 9,
+            "c": 8,
+            "player": "O"
+          },
+          {
+            "r": 9,
+            "c": 12,
+            "player": "X"
+          },
+          {
+            "r": 9,
+            "c": 13,
+            "player": "O"
+          },
+          {
+            "r": 7,
+            "c": 14,
+            "player": "X"
+          },
+          {
+            "r": 5,
+            "c": 12,
+            "player": "O"
+          },
+          {
+            "r": 8,
+            "c": 9,
+            "player": "X"
+          },
+          {
+            "r": 6,
+            "c": 15,
+            "player": "O"
+          },
+          {
+            "r": 10,
+            "c": 11,
+            "player": "X"
+          },
+          {
+            "r": 11,
+            "c": 10,
+            "player": "O"
+          },
+          {
+            "r": 11,
+            "c": 12,
+            "player": "X"
+          },
+          {
+            "r": 7,
+            "c": 8,
+            "player": "O"
+          },
+          {
+            "r": 10,
+            "c": 13,
+            "player": "X"
+          },
+          {
+            "r": 12,
+            "c": 13,
+            "player": "O"
+          },
+          {
+            "r": 12,
+            "c": 11,
+            "player": "X"
+          }
+        ]
+      }
+    ]
+  }
+};
+    </script>
 </head>
 <body>
 
@@ -814,12 +426,41 @@
             <div class="config-group">
                 <button onclick="exportBotMemory()" style="padding:6px 12px;border-radius:6px;border:1px solid #cbd5e1;background:#f1f5f9;cursor:pointer;font-size:0.8rem;font-weight:bold;">🧠XUẤT Bộ Não BOT</button>
                 <button onclick="document.getElementById('import-bot-memory').click()" style="padding:6px 12px;border-radius:6px;border:1px solid #cbd5e1;background:#f1f5f9;cursor:pointer;font-size:0.8rem;font-weight:bold;">📥 Nạp File BỘ NÃO</button>
-                <input type="file" id="import-bot-memory" accept=".html" style="display:none;" onchange="importBotMemory(this)">
+                <input type="file" id="import-bot-memory" accept=".html,.json" style="display:none;" onchange="importBotMemory(this)">
+            </div>
+            <div class="config-group">
+                <button onclick="startAutoplay()" id="btn-autoplay" style="padding:6px 12px;border-radius:6px;border:1px solid #10b981;background:#d1fae5;color:#065f46;cursor:pointer;font-size:0.8rem;font-weight:bold;">🤖 AUTOPLAY (Bot Tự Học)</button>
+                <button onclick="stopAutoplay()" id="btn-stop-autoplay" style="padding:6px 12px;border-radius:6px;border:1px solid #ef4444;background:#fee2e2;color:#991b1b;cursor:pointer;font-size:0.8rem;font-weight:bold;display:none;">⏹️ DỪNG AUTOPLAY</button>
+            </div>
+            <div class="config-group">
+                <label for="autoplay-games">Số ván:</label>
+                <select id="autoplay-games" style="padding:4px 8px;border-radius:4px;border:1px solid #cbd5e1;">
+                    <option value="10">10 ván</option>
+                    <option value="50" selected>50 ván</option>
+                    <option value="100">100 ván</option>
+                    <option value="500">500 ván</option>
+                </select>
+            </div>
+            <div class="config-group">
+                <label for="autoplay-win-count">Số quân thắng:</label>
+                <select id="autoplay-win-count" style="padding:4px 8px;border-radius:4px;border:1px solid #cbd5e1;">
+                    <option value="3">3 quân</option>
+                    <option value="4">4 quân</option>
+                    <option value="5" selected>5 quân</option>
+                    <option value="6">6 quân</option>
+                    <option value="7">7 quân</option>
+                    <option value="8">8 quân</option>
+                    <option value="9">9 quân</option>
+                    <option value="10">10 quân</option>
+                </select>
             </div>
         </div>
     </div>
 
-    <div class="status-panel" id="status-panel">Đang tải...</div>
+    <div style="display:flex; gap:8px; justify-content:center; align-items:center; margin:4px 0;">
+        <div class="status-panel" id="status-panel" style="flex:1;">Đang tải...</div>
+        <div id="lesson-panel" style="background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.3); color:#6366f1; padding:6px 12px; border-radius:8px; font-size:0.85rem; font-weight:bold; white-space:nowrap;">🧠 0</div>
+    </div>
     <div class="timer-panel" id="timer-panel" style="display:none; text-align:center; font-size:0.85rem; opacity:0.8; margin:2px 0;">
         ⏱️ <span id="game-timer">00:00</span> · <span id="turn-timer">00:00</span>
     </div>
@@ -1048,30 +689,141 @@
     const BOT_DEFEAT_MEMORY_KEY = 'bot_defeat_memory';
     let botDefeatMemory = JSON.parse(localStorage.getItem(BOT_DEFEAT_MEMORY_KEY)) || {};
 
+    // ===== TRANSPOSITION TABLE (Cache kết quả Minimax) =====
+    const TT_SIZE = 100000; // Số entry tối đa trong bảng
+    const transpositionTable = new Map();
+    let ttHits = 0, ttMisses = 0;
+
+    function generateBoardHash() {
+        // Tạo hash đơn giản từ trạng thái bàn cờ
+        let hash = 0;
+        if (isInfinite) {
+            for (const [key, val] of infiniteMap.entries()) {
+                const [r, c] = key.split(',').map(Number);
+                hash = ((hash << 5) - hash) + (r * 1000 + c) * (val === 'X' ? 1 : 2);
+                hash = hash & hash; // Convert to 32bit integer
+            }
+        } else {
+            for (let r = 0; r < boardSize; r++) {
+                for (let c = 0; c < boardSize; c++) {
+                    if (boardState[r][c] !== '') {
+                        hash = ((hash << 5) - hash) + (r * 1000 + c) * (boardState[r][c] === 'X' ? 1 : 2);
+                        hash = hash & hash;
+                    }
+                }
+            }
+        }
+        return Math.abs(hash);
+    }
+
+    function ttLookup(hash, depth, alpha, beta) {
+        const entry = transpositionTable.get(hash);
+        if (entry && entry.depth >= depth) {
+            ttHits++;
+            if (entry.flag === 'exact') return entry.value;
+            if (entry.flag === 'lower' && entry.value >= alpha) return entry.value;
+            if (entry.flag === 'upper' && entry.value <= beta) return entry.value;
+        }
+        ttMisses++;
+        return null;
+    }
+
+    function ttStore(hash, depth, value, flag) {
+        if (transpositionTable.size >= TT_SIZE) {
+            // Xóa entry cũ nhất (FIFO đơn giản)
+            const firstKey = transpositionTable.keys().next().value;
+            transpositionTable.delete(firstKey);
+        }
+        transpositionTable.set(hash, { depth, value, flag });
+    }
+
+    function clearTranspositionTable() {
+        transpositionTable.clear();
+        ttHits = 0;
+        ttMisses = 0;
+    }
+
+    // ===== KILLER HEURISTIC (Nhớ nước tốt) =====
+    const killerMoves = []; // killerMoves[depth] = [{r, c}, ...]
+    const MAX_KILLER_DEPTH = 20;
+
+    function addKillerMove(depth, r, c) {
+        if (depth < MAX_KILLER_DEPTH) {
+            if (!killerMoves[depth]) killerMoves[depth] = [];
+            // Thêm vào đầu, loại bỏ trùng
+            const exists = killerMoves[depth].some(m => m.r === r && m.c === c);
+            if (!exists) {
+                killerMoves[depth].unshift({ r, c });
+                if (killerMoves[depth].length > 2) killerMoves[depth].pop();
+            }
+        }
+    }
+
+    function isKillerMove(depth, r, c) {
+        if (depth < MAX_KILLER_DEPTH && killerMoves[depth]) {
+            return killerMoves[depth].some(m => m.r === r && m.c === c);
+        }
+        return false;
+    }
+
+    function clearKillerMoves() {
+        for (let i = 0; i < MAX_KILLER_DEPTH; i++) {
+            killerMoves[i] = [];
+        }
+    }
+
+    // Cache DOM elements thường dùng
+    const DOM_CACHE = {
+        statusPanel: null,
+        lessonPanel: null,
+        botMessage: null,
+        botBubble: null
+    };
+
+    function getDOM(id) {
+        if (!DOM_CACHE[id]) {
+            DOM_CACHE[id] = document.getElementById(id);
+        }
+        return DOM_CACHE[id];
+    }
+
+    // Helper function cho pattern setCell/restore trong AI
+    function withCell(r, c, val, callback) {
+        const old = getCell(r, c);
+        setCell(r, c, val);
+        const result = callback();
+        setCell(r, c, old);
+        return result;
+    }
+
+    // Directions array dùng nhiều lần trong AI
+    const DIRECTIONS = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
+
     // ===== LEADERBOARD MERGE FUNCTION =====
-    function mergeLeaderboard(localLeaderboard, importedLeaderboard) {
+    function mergeLeaderboard(importedLeaderboard, localLeaderboard) {
+        // importedLeaderboard: BXH lấy từ file não mới nạp (ưu tiên)
         // localLeaderboard: BXH hiện tại trên máy
-        // importedLeaderboard: BXH lấy từ file não mới nạp
         
         // Sử dụng một Map để dễ dàng gộp theo Tên người chơi
         const mergedMap = new Map();
 
-        // 1. Đưa dữ liệu hiện tại trên máy vào Map
-        localLeaderboard.forEach(player => {
+        // 1. Đưa dữ liệu từ file não vào Map trước (ưu tiên)
+        importedLeaderboard.forEach(player => {
             mergedMap.set(player.name.trim().toLowerCase(), { ...player });
         });
 
-        // 2. Gộp dữ liệu từ file mới nạp vào
-        importedLeaderboard.forEach(newPlayer => {
-            const key = newPlayer.name.trim().toLowerCase();
+        // 2. Gộp dữ liệu hiện tại trên máy vào
+        localLeaderboard.forEach(localPlayer => {
+            const key = localPlayer.name.trim().toLowerCase();
             if (mergedMap.has(key)) {
-                // Nếu trùng tên: Cộng dồn số trận thắng và điểm số
-                const existingPlayer = mergedMap.get(key);
-                existingPlayer.wins += newPlayer.wins;
-                existingPlayer.score += newPlayer.score;
+                // Nếu trùng tên: Giữ entry có score cao hơn
+                const existing = mergedMap.get(key);
+                if (localPlayer.score > existing.score) {
+                    mergedMap.set(key, { ...localPlayer });
+                }
             } else {
-                // Nếu là người chơi mới: Thêm mới vào danh sách
-                mergedMap.set(key, { ...newPlayer });
+                // Tên mới: thêm vào
+                mergedMap.set(key, { ...localPlayer });
             }
         });
 
@@ -1130,7 +882,7 @@
     }
 
     // Merge rankData với lọc trùng theo tên (dùng Map)
-    function mergeRankDataWithDedup(localRank, importedRankData) {
+    function mergeRankDataWithDedup(importedRankData, localRank) {
         for (const [key, importedEntries] of Object.entries(importedRankData)) {
             if (!Array.isArray(importedEntries)) continue;
             
@@ -1141,27 +893,23 @@
             // Dùng Map để lọc trùng theo tên trong cùng key
             const mergedMap = new Map();
             
-            // Đưa entries hiện tại vào Map
-            localRank[key].forEach(entry => {
+            // Đưa entries từ file não vào Map trước (ưu tiên)
+            importedEntries.forEach(entry => {
                 mergedMap.set(entry.name.trim().toLowerCase(), { ...entry });
             });
             
-            // Gộp entries từ file import
-            importedEntries.forEach(newEntry => {
-                const nameKey = newEntry.name.trim().toLowerCase();
+            // Gộp entries hiện tại từ localStorage
+            localRank[key].forEach(localEntry => {
+                const nameKey = localEntry.name.trim().toLowerCase();
                 if (mergedMap.has(nameKey)) {
-                    // Trùng tên: cộng dồn wins và score, giữ entry mới hơn
+                    // Trùng tên: Giữ entry có score cao hơn
                     const existing = mergedMap.get(nameKey);
-                    existing.wins += newEntry.wins || 0;
-                    existing.score += newEntry.score || 0;
-                    // Cập nhật các field khác nếu có
-                    if (newEntry.moves !== undefined) existing.moves = newEntry.moves;
-                    if (newEntry.totalTime) existing.totalTime = newEntry.totalTime;
-                    if (newEntry.date) existing.date = newEntry.date;
-                    if (newEntry.time) existing.time = newEntry.time;
+                    if (localEntry.score > existing.score) {
+                        mergedMap.set(nameKey, { ...localEntry });
+                    }
                 } else {
                     // Tên mới: thêm vào
-                    mergedMap.set(nameKey, { ...newEntry });
+                    mergedMap.set(nameKey, { ...localEntry });
                 }
             });
             
@@ -1184,83 +932,149 @@
         return total;
     }
 
-    // Tự động nạp bộ não từ file Bo_Nao_BOT.html nếu có (chỉ hoạt động khi mở từ local file)
+    // Tự động nạp bộ não từ embedded data hoặc file
     async function autoLoadBotMemory() {
         try {
-            // Kiểm tra xem có đang mở từ file:// protocol không
-            if (window.location.protocol === 'file:') {
-                const response = await fetch('Bo_Nao_BOT.html');
-                if (response.ok) {
-                    const htmlContent = await response.text();
-                    
-                    // Tìm dữ liệu JSON trong file HTML
-                    let importedData = null;
-                    
-                    // Cách 1: Tìm trong script tag với biến botMemoryData
-                    const scriptMatch = htmlContent.match(/const botMemoryData\s*=\s*({[\s\S]*?});/);
-                    if (scriptMatch) {
-                        importedData = JSON.parse(scriptMatch[1]);
-                    } else {
-                        // Cách 2: Tìm trong pre tag
-                        const preMatch = htmlContent.match(/<pre[^>]*id="bot-memory-data"[^>]*>([\s\S]*?)<\/pre>/);
-                        if (preMatch) {
-                            importedData = JSON.parse(preMatch[1].trim());
-                        }
-                    }
-                    
-                    if (importedData && typeof importedData === 'object') {
-                        // Xử lý format mới: { botMoves: {...}, leaderboard: [...] }
-                        let importedBotMoves = {};
-                        let importedLeaderboard = [];
-                        
-                        if (importedData.botMoves && importedData.leaderboard) {
-                            // Format mới
-                            importedBotMoves = importedData.botMoves;
-                            importedLeaderboard = importedData.leaderboard;
-                        } else {
-                            // Format cũ - coi toàn bộ là botMoves
-                            importedBotMoves = importedData;
-                        }
-                        
-                        // Chỉ merge bot moves nếu localStorage trống hoặc file có nhiều bài học hơn
-                        const localCount = Object.keys(botDefeatMemory).length;
-                        const importedCount = Object.keys(importedBotMoves).length;
-                        
-                        if (localCount === 0 || importedCount > localCount) {
-                            botDefeatMemory = { ...botDefeatMemory, ...importedBotMoves };
-                            localStorage.setItem(BOT_DEFEAT_MEMORY_KEY, JSON.stringify(botDefeatMemory));
-                            console.log(`✅ Tự động nạp ${importedCount} bài học từ Bo_Nao_BOT.html`);
-                            
-                            // Hiển thị thông báo trên status panel
-                            setTimeout(() => {
-                                const statusPanel = document.getElementById('status-panel');
-                                if (statusPanel) {
-                                    statusPanel.innerHTML = `🧠 Đã nạp ${importedCount} bài học từ Bộ Não BOT`;
-                                }
-                            }, 1000);
-                        } else {
-                            console.log(`ℹ️ Bộ não hiện tại (${localCount} bài học) đã đủ hoặc nhiều hơn file (${importedCount} bài học)`);
-                        }
-                        
-                        // Tự động merge leaderboard nếu có
-                        if (importedLeaderboard.length > 0) {
-                            const rankData = loadRank();
-                            const localLeaderboard = convertRankDataToLeaderboard(rankData);
-                            
-                            // Merge leaderboards
-                            const mergedLeaderboard = mergeLeaderboard(localLeaderboard, importedLeaderboard);
-                            localStorage.setItem('caro_leaderboard_merged', JSON.stringify(mergedLeaderboard));
-                            
-                            console.log(`✅ Tự động gộp BXH: ${importedLeaderboard.length} người chơi từ file + ${localLeaderboard.length} người chơi hiện tại`);
-                        }
-                    }
-                } else {
-                    console.log('ℹ️ Không tìm thấy file Bo_Nao_BOT.html');
+            console.log('🔄 Đang thử tự động nạp bộ não...');
+            
+            let importedData = null;
+            let sourceFile = '';
+
+            // Ưu tiên 1: Dùng embedded data (chắc chắn hoạt động)
+            if (window.embeddedBotMemory && typeof window.embeddedBotMemory === 'object') {
+                importedData = window.embeddedBotMemory;
+                sourceFile = 'embedded data';
+                console.log('✅ Đã tìm thấy embedded bot memory');
+            }
+            
+            // Ưu tiên 2: Thử đọc từ bot-memory.json bằng XMLHttpRequest
+            if (!importedData) {
+                try {
+                    console.log('📖 Đang đọc bot-memory.json bằng XMLHttpRequest...');
+                    importedData = await new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('GET', 'bot-memory.json', true);
+                        xhr.responseType = 'json';
+                        xhr.onload = function() {
+                            if (xhr.status === 200) {
+                                console.log('✅ XMLHttpRequest bot-memory.json OK');
+                                resolve(xhr.response);
+                            } else {
+                                console.log('⚠️ XMLHttpRequest bot-memory.json status:', xhr.status);
+                                reject(new Error(`HTTP ${xhr.status}`));
+                            }
+                        };
+                        xhr.onerror = function() {
+                            console.log('❌ XMLHttpRequest bot-memory.json error');
+                            reject(new Error('Network error'));
+                        };
+                        xhr.send();
+                    });
+                    sourceFile = 'bot-memory.json';
+                    console.log('✅ Đã tìm thấy và parse bot-memory.json');
+                } catch (e) {
+                    console.log('ℹ️ Không tìm thấy bot-memory.json:', e.message);
                 }
+            }
+
+            // Ưu tiên 3: Thử đọc từ Bo_Nao_BOT.html (format cũ)
+            if (!importedData && window.location.protocol === 'file:') {
+                try {
+                    console.log('📖 Đang đọc Bo_Nao_BOT.html (file:// protocol)...');
+                    importedData = await new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('GET', 'Bo_Nao_BOT.html', true);
+                        xhr.responseType = 'text';
+                        xhr.onload = function() {
+                            if (xhr.status === 200) {
+                                console.log('✅ XMLHttpRequest Bo_Nao_BOT.html OK');
+                                const htmlContent = xhr.response;
+                                
+                                // Tìm dữ liệu JSON trong file HTML
+                                const scriptMatch = htmlContent.match(/const botMemoryData\s*=\s*({[\s\S]*?});/);
+                                if (scriptMatch) {
+                                    try {
+                                        const data = JSON.parse(scriptMatch[1]);
+                                        resolve(data);
+                                    } catch (e) {
+                                        reject(new Error('Parse error'));
+                                    }
+                                } else {
+                                    reject(new Error('No data found'));
+                                }
+                            } else {
+                                console.log('⚠️ XMLHttpRequest Bo_Nao_BOT.html status:', xhr.status);
+                                reject(new Error(`HTTP ${xhr.status}`));
+                            }
+                        };
+                        xhr.onerror = function() {
+                            console.log('❌ XMLHttpRequest Bo_Nao_BOT.html error');
+                            reject(new Error('Network error'));
+                        };
+                        xhr.send();
+                    });
+                    sourceFile = 'Bo_Nao_BOT.html';
+                    console.log('✅ Đã tìm thấy và parse Bo_Nao_BOT.html');
+                } catch (e) {
+                    console.log('ℹ️ Không tìm thấy Bo_Nao_BOT.html:', e.message);
+                }
+            }
+
+            if (importedData && typeof importedData === 'object') {
+                console.log('📊 Dữ liệu đã nạp:', importedData);
+                
+                // Xử lý format: { botMoves: {...}, rankData: {...} }
+                let importedBotMoves = {};
+                let importedRankData = {};
+                
+                if (importedData.botMoves) {
+                    importedBotMoves = importedData.botMoves;
+                    console.log('🧠 Bot moves:', Object.keys(importedBotMoves).length);
+                }
+                if (importedData.rankData) {
+                    importedRankData = importedData.rankData;
+                    console.log('🏅 Rank data:', Object.keys(importedRankData).length);
+                }
+                
+                // Chỉ merge bot moves nếu localStorage trống hoặc file có nhiều bài học hơn
+                const localCount = Object.keys(botDefeatMemory).length;
+                const importedCount = Object.keys(importedBotMoves).length;
+                
+                console.log(`📊 Local: ${localCount}, Imported: ${importedCount}`);
+                
+                if (localCount === 0 || importedCount > localCount) {
+                    botDefeatMemory = { ...botDefeatMemory, ...importedBotMoves };
+                    localStorage.setItem(BOT_DEFEAT_MEMORY_KEY, JSON.stringify(botDefeatMemory));
+                    console.log(`✅ Tự động nạp ${importedCount} bài học từ ${sourceFile}`);
+                    
+                    // Hiển thị thông báo trên status panel
+                    setTimeout(() => {
+                        const statusPanel = document.getElementById('status-panel');
+                        if (statusPanel) {
+                            statusPanel.innerHTML = `🧠 Đã nạp ${importedCount} bài học từ Bộ Não BOT`;
+                        }
+                    }, 1000);
+                } else {
+                    console.log(`ℹ️ Bộ não hiện tại (${localCount} bài học) đã đủ hoặc nhiều hơn file (${importedCount} bài học)`);
+                }
+                
+                // Tự động merge rankData nếu có
+                if (Object.keys(importedRankData).length > 0) {
+                    const localRankData = loadRank();
+                    const mergedRankData = mergeRankDataWithDedup(importedRankData, localRankData);
+                    saveRank(mergedRankData);
+                    
+                    const localCount = countRankDataEntries(localRankData);
+                    const importedCount = countRankDataEntries(importedRankData);
+                    console.log(`✅ Tự động gộp BXH: ${importedCount} entry từ file + ${localCount} entry hiện tại`);
+                }
+            } else {
+                console.log('ℹ️ Không tìm thấy file bộ não (embedded, bot-memory.json hoặc Bo_Nao_BOT.html)');
             }
         } catch (err) {
             // Bỏ qua nếu không tìm thấy file hoặc lỗi khác
-            console.log('ℹ️ Không tìm thấy file Bo_Nao_BOT.html hoặc không thể tự động nạp');
+            console.log('❌ Lỗi tự động nạp:', err.message);
+            console.log('ℹ️ Không tìm thấy file bộ não hoặc không thể tự động nạp');
         }
     }
 
@@ -1270,10 +1084,13 @@
     let lossStreak = parseInt(localStorage.getItem(LOSS_STREAK_KEY)) || 0;
     let lossStreakRecord = parseInt(localStorage.getItem(LOSS_STREAK_RECORD_KEY)) || 0;
 
-    // Export bot memory to HTML file (portable backup)
+    // Export bot memory to JSON file only
     function exportBotMemory() {
         // Chuẩn bị dữ liệu mới với cấu trúc: { botMoves: {...}, rankData: {...} }
         const botMoves = botDefeatMemory;
+        
+        console.log('📊 Export toàn bộ botMoves từ botDefeatMemory');
+        console.log('🧠 Tổng số bài học trong botDefeatMemory:', Object.keys(botMoves).length);
         
         // Lấy dữ liệu bảng xếp hạng từ localStorage - giữ nguyên cấu trúc
         const rankData = loadRank();
@@ -1282,7 +1099,7 @@
         
         // Tính tổng số entry
         const totalEntries = countRankDataEntries(rankData);
-        console.log('📊 Tổng số entry:', totalEntries);
+        console.log('📊 Tổng số entry BXH:', totalEntries);
         
         // Tạo dữ liệu export với cấu trúc mới - giữ nguyên rankData
         const exportData = {
@@ -1292,49 +1109,23 @@
         
         const dataStr = JSON.stringify(exportData, null, 2);
         
-        const htmlParts = [];
-        htmlParts.push('<!DOCTYPE html>\n<html>\n<head>\n');
-        htmlParts.push('    <meta charset="UTF-8">\n');
-        htmlParts.push('    <title>Bộ Não BOT - Caro Game</title>\n');
-        htmlParts.push('</head>\n<body>\n');
-        htmlParts.push('    <h1>Bộ Não BOT M2 CỦA ANH  CHẦN PRO - Caro Game</h1>\n');
-        htmlParts.push('    <p>File này chứa bộ nhớ học hỏi của BOT và bảng xếp hạng.</p>\n');
-        htmlParts.push('    <p>Để nạp vào game, sử dụng nút "Nạp File BỘ NÃO" trong game. ANH CHẦN BẢO KHÔNG ĐƯỢC HIỆN NÃO CỦA MÌNH RA ĐÂY KHÔNG LÀ KHÔ HẾT</p>\n');
-        htmlParts.push('    <p>JSON thuần - có thể chỉnh sửa thủ công</p>\n');
-        htmlParts.push('    <script>\n');
-        htmlParts.push('        const botMemoryData = ' + dataStr + ';\n');
-        htmlParts.push('        console.log("Bộ Não BOT:", botMemoryData);\n');
-        htmlParts.push('        console.log("Số bài học:", Object.keys(botMemoryData.botMoves || {}).length);\n');
-        htmlParts.push('        // Hỗ trợ cả cấu trúc cũ (leaderboard) và mới (rankData)\n');
-        htmlParts.push('        let rankCount = 0;\n');
-        htmlParts.push('        if (botMemoryData.rankData) {\n');
-        htmlParts.push('            for (const key in botMemoryData.rankData) {\n');
-        htmlParts.push('                if (Array.isArray(botMemoryData.rankData[key])) {\n');
-        htmlParts.push('                    rankCount += botMemoryData.rankData[key].length;\n');
-        htmlParts.push('                }\n');
-        htmlParts.push('            }\n');
-        htmlParts.push('        } else if (botMemoryData.leaderboard) {\n');
-        htmlParts.push('            rankCount = botMemoryData.leaderboard.length;\n');
-        htmlParts.push('        }\n');
-        htmlParts.push('        console.log("Số entry BXH:", rankCount);\n');
-        htmlParts.push('    <\/script>\n');
-        htmlParts.push('<\/body>\n<\/html>');
+        console.log('📦 Kích thước file export:', (dataStr.length / 1024).toFixed(2), 'KB');
         
-        const htmlContent = htmlParts.join('');
+        // Export ra JSON
+        const jsonBlob = new Blob([dataStr], { type: 'application/json' });
+        const jsonUrl = URL.createObjectURL(jsonBlob);
+        const jsonA = document.createElement('a');
+        jsonA.href = jsonUrl;
+        jsonA.download = 'bot-memory.json';
+        document.body.appendChild(jsonA);
+        jsonA.click();
+        document.body.removeChild(jsonA);
+        URL.revokeObjectURL(jsonUrl);
         
-        const blob = new Blob([htmlContent], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'Bo_Nao_BOT.html';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        alert(`Đã xuất Bộ Não BOT thành công!\n🧠 Số bài học: ${Object.keys(botMoves).length}\n🏅 Số người chơi trong BXH: ${leaderboard.length}`);
+        alert(`✅ Đã xuất TOÀN BỘ Bộ Não BOT thành công!\n📁 File: bot-memory.json\n🧠 Tổng số bài học: ${Object.keys(botMoves).length}\n🏅 Số entry BXH: ${totalEntries}\n📦 Kích thước: ${(dataStr.length / 1024).toFixed(2)} KB\n\n💡 Để update embedded data trong index.html:\n1. Mở file bot-memory.json vừa export\n2. Copy toàn bộ nội dung JSON\n3. Thay thế phần window.embeddedBotMemory trong index.html`);
     }
 
-    // Import bot memory from HTML file (portable backup restore)
+    // Import bot memory from HTML file or JSON file (portable backup restore)
     function importBotMemory(input) {
         const file = input.files[0];
         if (!file) return;
@@ -1342,41 +1133,60 @@
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
-                const htmlContent = e.target.result;
+                const fileContent = e.target.result;
                 let importedData = null;
+                let sourceType = '';
 
-                // 1. Quét tìm JSON trong file HTML nạp vào
-                // Cách 1: Tìm trong script tag với biến botMemoryData (JSON thuần - format mới)
-                const scriptMatch = htmlContent.match(/const botMemoryData\s*=\s*({[\s\S]*?});/);
-                if (scriptMatch) {
-                    try {
-                        importedData = JSON.parse(scriptMatch[1]);
-                        console.log('Đọc JSON thuần thành công');
-                    } catch (e) {
-                        console.log('Không thể parse JSON thuần:', e);
-                    }
-                }
+                // Kiểm tra file type dựa trên extension
+                const fileName = file.name.toLowerCase();
                 
-                // Cách 2: Tìm trong hidden input base64 (format cũ - tương thích)
-                if (!importedData) {
-                    const inputMatch = htmlContent.match(/<input[^>]*id="bot-memory-base64"[^>]*value="([^"]*)"/);
-                    if (inputMatch) {
+                if (fileName.endsWith('.json')) {
+                    // File JSON thuần - format mới
+                    try {
+                        importedData = JSON.parse(fileContent);
+                        sourceType = 'JSON file';
+                        console.log('Đọc JSON file thành công');
+                    } catch (e) {
+                        console.log('Không thể parse JSON file:', e);
+                        throw new Error('File JSON không hợp lệ');
+                    }
+                } else {
+                    // File HTML - quét tìm JSON trong file HTML
+                    // Cách 1: Tìm trong script tag với biến botMemoryData (JSON thuần - format mới)
+                    const scriptMatch = fileContent.match(/const botMemoryData\s*=\s*({[\s\S]*?});/);
+                    if (scriptMatch) {
                         try {
-                            const base64Data = inputMatch[1];
-                            const decodedData = decodeURIComponent(escape(atob(base64Data)));
-                            importedData = JSON.parse(decodedData);
-                            console.log('Đọc base64 thành công (format cũ)');
+                            importedData = JSON.parse(scriptMatch[1]);
+                            sourceType = 'HTML script';
+                            console.log('Đọc JSON thuần từ HTML thành công');
                         } catch (e) {
-                            console.log('Không thể decode base64 từ hidden input');
+                            console.log('Không thể parse JSON thuần từ HTML:', e);
                         }
                     }
-                }
-                
-                // Cách 3: Tìm trong pre tag (format rất cũ)
-                if (!importedData) {
-                    const preMatch = htmlContent.match(/<pre[^>]*id="bot-memory-data"[^>]*>([\s\S]*?)<\/pre>/);
-                    if (preMatch) {
-                        importedData = JSON.parse(preMatch[1].trim());
+                    
+                    // Cách 2: Tìm trong hidden input base64 (format cũ - tương thích)
+                    if (!importedData) {
+                        const inputMatch = fileContent.match(/<input[^>]*id="bot-memory-base64"[^>]*value="([^"]*)"/);
+                        if (inputMatch) {
+                            try {
+                                const base64Data = inputMatch[1];
+                                const decodedData = decodeURIComponent(escape(atob(base64Data)));
+                                importedData = JSON.parse(decodedData);
+                                sourceType = 'HTML base64';
+                                console.log('Đọc base64 thành công (format cũ)');
+                            } catch (e) {
+                                console.log('Không thể decode base64 từ hidden input');
+                            }
+                        }
+                    }
+                    
+                    // Cách 3: Tìm trong pre tag (format rất cũ)
+                    if (!importedData) {
+                        const preMatch = fileContent.match(/<pre[^>]*id="bot-memory-data"[^>]*>([\s\S]*?)<\/pre>/);
+                        if (preMatch) {
+                            importedData = JSON.parse(preMatch[1].trim());
+                            sourceType = 'HTML pre';
+                        }
                     }
                 }
 
@@ -1407,36 +1217,35 @@
                 botDefeatMemory = { ...botDefeatMemory, ...importedMoves };
                 localStorage.setItem(BOT_DEFEAT_MEMORY_KEY, JSON.stringify(botDefeatMemory));
 
-                // Gộp Bảng Xếp Hạng
+                // GỘP BẢNG XẾP HẠNG - Ưu tiên file não (dữ liệu mới nhất)
                 let totalRankEntries = 0;
                 
                 if (importedRankData) {
-                    // Merge rankData với lọc trùng theo tên
                     const localRank = loadRank();
-                    const mergedRank = mergeRankDataWithDedup(localRank, importedRankData);
+                    // Ưu tiên entry từ file não khi trùng tên (giữ score cao hơn)
+                    const mergedRank = mergeRankDataWithDedup(importedRankData, localRank);
                     
-                    // Tính tổng số entry sau khi merge
                     totalRankEntries = countRankDataEntries(mergedRank);
-                    
                     saveRank(mergedRank);
                     renderRankPanel();
+                    console.log(`✅ Đã gộp BXH: ưu tiên dữ liệu từ file não, tổng ${totalRankEntries} entry`);
                 } else if (importedLeaderboard.length > 0) {
-                    // Cấu trúc cũ: chuyển đổi leaderboard sang rankData
                     const localRank = loadRank();
                     const localLeaderboard = convertRankDataToLeaderboard(localRank);
                     
-                    const finalLeaderboard = mergeLeaderboard(localLeaderboard, importedLeaderboard);
+                    // Ưu tiên leaderboard từ file khi trùng tên
+                    const finalLeaderboard = mergeLeaderboard(importedLeaderboard, localLeaderboard);
                     
-                    // Chuyển đổi lại thành format rankData và lưu
                     const defaultKey = 'ai-god|5q|♾️ Vô Hạn';
                     const newRankData = convertLeaderboardToRankData(finalLeaderboard, defaultKey);
                     
                     saveRank(newRankData);
                     renderRankPanel();
                     totalRankEntries = importedLeaderboard.length;
+                    console.log(`✅ Đã gộp BXH (format cũ): ưu tiên dữ liệu từ file não`);
                 }
 
-                alert(`🎉 Nạp thành công!\n🧠 Đã học thêm ${Object.keys(importedMoves).length} bài học\n📊 Đã cập nhật ${totalRankEntries} entry BXH`);
+                alert(`🎉 Nạp thành công!\n🧠 Đã học thêm ${Object.keys(importedMoves).length} bài học\n📊 Đã cập nhật ${totalRankEntries} entry BXH (ưu tiên file não)`);
                 
             } catch (err) {
                 alert('Lỗi: File không hợp lệ hoặc không chứa dữ liệu tương thích!');
@@ -1470,11 +1279,16 @@
 
     function recordMatch(result, winner) {
         const boardLabel = '♾️ Vô Hạn';
+        
+        // Nếu đang autoplay, ghi chế độ là autoplay thay vì ai-god
+        const actualMode = isAutoplayRunning ? 'autoplay' : gameMode;
+        const actualModeLabel = isAutoplayRunning ? '🤖 Autoplay (Bot Tự Học)' : (MODE_LABELS[gameMode] || gameMode);
+        
         const entry = {
             result,
             winner,
-            mode: gameMode,
-            modeLabel: MODE_LABELS[gameMode] || gameMode,
+            mode: actualMode,
+            modeLabel: actualModeLabel,
             winCount: winCount,
             boardLabel,
             moves: moveCount,
@@ -1619,6 +1433,7 @@
     let currentPlayer = "X";
     let isGameActive = true;
     let gameMode = "ai-god";
+    let isSolo = false;
     let lastMoveCell = null;
     let humanPiece = "X";   // quân người chơi (null khi solo)
     let botPiece   = "O";   // quân bot (null khi solo)
@@ -1659,7 +1474,7 @@
             // Hiển thị tin nhắn phiền toái sau 10 giây
             if (playerTurnSeconds === 10 && gameMode.startsWith('ai') && currentPlayer === humanPiece) {
                 const messages = [
-                    'Bạn đánh lâu quá đấy nhé!',
+                    'lâu thế , nhanh tôi còn đi đái',
                     'Nhanh lên nào, nghĩ lâu thế!',
                     'Tôi đang chờ đấy...',
                     'Đi đi, đừng để tôi chờ!'
@@ -1681,7 +1496,7 @@
                 const botMessage = document.getElementById('bot-message');
                 const botBubble = document.getElementById('bot-bubble');
                 if (botMessage && botBubble) {
-                    botMessage.textContent = 'Nghĩ gì mà lâu thế! 😤';
+                    botMessage.textContent = 'quá lâu cho đội bạn , tôi chờ mà sắp tè ra quần rồi 😤';
                     botBubble.classList.add('annoying');
                     setTimeout(() => {
                         botBubble.classList.remove('annoying');
@@ -1902,6 +1717,11 @@
         moveHistory = [...entry.moveHistory];
         
         // Hiển thị trạng thái xem lại
+        const lessonCount = Object.keys(botDefeatMemory).length;
+        const lessonPanel = getDOM('lesson-panel');
+        if (lessonPanel) {
+            lessonPanel.textContent = `🧠 ${lessonCount}`;
+        }
         statusPanel.innerHTML = `📺 Đang xem lại trận đấu · ${entry.name} · ${entry.score.toLocaleString('vi-VN')} điểm &nbsp;|&nbsp; <button onclick="closeHistoryView()" style="padding:4px 12px;border-radius:6px;border:none;cursor:pointer;font-weight:bold;font-size:0.85rem;background:#dc2626;color:#fff;">❌ Đóng</button>`;
 
         // Render lại bàn cờ với lịch sử
@@ -2130,7 +1950,7 @@
         if (winCount < 3) winCount = 3;
 
         // Ẩn/hiện config chọn quân theo chế độ
-        const isSolo = gameMode === 'solo';
+        isSolo = gameMode === 'solo';
         const groupPiece = document.getElementById('group-piece');
         const groupFirst = document.getElementById('group-first');
         if (groupPiece) groupPiece.style.display = isSolo ? 'none' : 'flex';
@@ -2775,6 +2595,13 @@
     function updateStatus() {
         if (!isGameActive) return;
 
+        // Cập nhật số bài học vào panel riêng (1 ván = 1 bài học)
+        const lessonCount = Object.keys(botDefeatMemory).length;
+        const lessonPanel = getDOM('lesson-panel');
+        if (lessonPanel) {
+            lessonPanel.textContent = `🧠 ${lessonCount}`;
+        }
+
         if (gameMode.startsWith('ai') && currentPlayer === botPiece) {
             statusPanel.innerHTML = `🤖 Siêu Não AI đang phong tỏa các hướng đi...`;
         } else {
@@ -2862,33 +2689,25 @@
             const boardLabel = '♾️ Vô Hạn';
 
             // TỰ ĐỘNG HỌC HỎI KHI BOT THUA - ÁP DỤNG CHO TẤT CẢ CÁC CHẾ ĐỘ
-            // Lưu theo cấu trúc phân biệt chế độ và winCount để tối ưu hóa
-            if (!isBotWin && gameMode.startsWith('ai') && moveHistory.length > 0) {
-                // Ghi nhận chuỗi nước đi ở giai đoạn cuối của BOT (3-5 nước đi cuối cùng)
-                const botMovesToLearn = [];
-                const maxMovesToLearn = 5;
+            // 1 ván thua = 1 bài học (lưu timestamp của ván thua)
+            // Trong autoplay, cả X và O đều là bot, nên cả hai đều có thể thua và học
+            if (gameMode.startsWith('ai') && moveHistory.length > 0) {
+                const winner = currentPlayer;
+                const loser = winner === 'X' ? 'O' : 'X';
                 
-                for (let i = moveHistory.length - 1; i >= 0 && botMovesToLearn.length < maxMovesToLearn; i--) {
-                    if (moveHistory[i].player === botPiece) {
-                        botMovesToLearn.push(moveHistory[i]);
-                    }
-                }
+                // Tạo key duy nhất cho ván thua này
+                const timestamp = Date.now();
+                const memoryKey = `${gameMode}_${winCount}_${timestamp}_${loser}`;
                 
-                // Lưu các nước đi vào bộ nhớ với key phân biệt theo chế độ và winCount
-                let learnedCount = 0;
-                for (const botMove of botMovesToLearn.reverse()) {
-                    // Key mới: {mode}_{winCount}_r{row}c{col}
-                    const memoryKey = `${gameMode}_${winCount}_r${botMove.r}c${botMove.c}`;
-                    if (!botDefeatMemory[memoryKey]) {
-                        botDefeatMemory[memoryKey] = true;
-                        learnedCount++;
-                        console.log(`🧠 BOT học nước đi mới: ${memoryKey} (tổng bài học: ${Object.keys(botDefeatMemory).length})`);
-                    }
-                }
-                
-                if (learnedCount > 0) {
+                if (!botDefeatMemory[memoryKey]) {
+                    botDefeatMemory[memoryKey] = {
+                        timestamp: timestamp,
+                        loser: loser,
+                        winner: winner,
+                        moves: moveHistory.filter(m => m.player === loser).slice(-10) // Lưu 10 nước đi cuối của bot thua
+                    };
                     localStorage.setItem(BOT_DEFEAT_MEMORY_KEY, JSON.stringify(botDefeatMemory));
-                    console.log(`BOT đã học ${learnedCount} nước đi mới từ ván thua này`);
+                    console.log(`🧠 BOT ${loser} học bài học mới (thua trước ${winner}): ${memoryKey} (tổng bài học: ${Object.keys(botDefeatMemory).length})`);
                 }
             }
 
@@ -3062,12 +2881,11 @@
 
     // checkWinSilent: kiểm tra thắng không highlight DOM — dùng cho AI
     function checkWinSilent(r, c) {
-        const directions = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
         const player = getCell(r, c);
         const opp = player === "X" ? "O" : "X";
         const blockBothEndsEnabled = document.getElementById('block-both-ends').checked;
         
-        for (let { dr, dc } of directions) {
+        for (let { dr, dc } of DIRECTIONS) {
             let fwd = 0, bwd = 0;
             while (getCell(r+dr*(fwd+1), c+dc*(fwd+1)) === player) fwd++;
             while (getCell(r-dr*(bwd+1), c-dc*(bwd+1)) === player) bwd++;
@@ -3326,7 +3144,6 @@
     }
 
     function quickScore(r, c, p) {
-        const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
         let score = 0;
         const opp = p === 'X' ? 'O' : 'X';
 
@@ -3347,7 +3164,7 @@
             }
         }
 
-        for (const { dr, dc } of dirs) {
+        for (const { dr, dc } of DIRECTIONS) {
             const tTa = evalLine(r, c, dr, dc, p);
             if (tTa === TL.FIVE) score += 100000;
             else if (tTa === TL.FOUR_OPEN) score += 12000;
@@ -3370,14 +3187,13 @@
 
     function findForkMove(p) {
         const cands = getSearchCandidates();
-        const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
         let best = null, maxCount = 1;
 
         for (const { r, c } of cands) {
             const old = getCell(r, c);
             setCell(r, c, p);
             let openLines = 0;
-            for (const { dr, dc } of dirs) {
+            for (const { dr, dc } of DIRECTIONS) {
                 const res = evalLine(r, c, dr, dc, p);
                 if (res === TL.THREE_OPEN || res === TL.FOUR_OPEN || res === TL.FOUR_BLOCKED) {
                     openLines++;
@@ -3395,7 +3211,6 @@
     // Phát hiện Double Three/Double Four
     function findDoublePattern(p, patternType) {
         const cands = getSearchCandidates();
-        const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
         
         // Với winCount < 4, không có THREE_OPEN nên bỏ qua
         if (patternType === 'three' && winCount < 4) return null;
@@ -3405,7 +3220,7 @@
             setCell(r, c, p);
             
             let count = 0;
-            for (const { dr, dc } of dirs) {
+            for (const { dr, dc } of DIRECTIONS) {
                 const res = evalLine(r, c, dr, dc, p);
                 if (patternType === 'three' && res === TL.THREE_OPEN) {
                     count++;
@@ -3426,7 +3241,6 @@
     // Tìm fork nâng cao (ưu tiên nhiều đòn cùng lúc)
     function findAdvancedFork(p) {
         const cands = getSearchCandidates();
-        const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
         let best = null, maxScore = 0;
 
         for (const { r, c } of cands) {
@@ -3437,7 +3251,7 @@
             let threeCount = 0;
             let fourCount = 0;
             
-            for (const { dr, dc } of dirs) {
+            for (const { dr, dc } of DIRECTIONS) {
                 const res = evalLine(r, c, dr, dc, p);
                 if (res === TL.FIVE) score += 10000;
                 else if (res === TL.FOUR_OPEN) { score += 5000; fourCount++; }
@@ -3465,14 +3279,13 @@
     // Chặn THREE_BLOCKED của địch
     function findBlockThreeBlocked(enemyPiece, myPiece) {
         const cands = getSearchCandidates();
-        const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
         
         for (const { r, c } of cands) {
             const old = getCell(r, c);
             setCell(r, c, enemyPiece);
             
             let threeBlockedCount = 0;
-            for (const { dr, dc } of dirs) {
+            for (const { dr, dc } of DIRECTIONS) {
                 const res = evalLine(r, c, dr, dc, enemyPiece);
                 if (res === TL.THREE_BLOCKED) {
                     threeBlockedCount++;
@@ -3510,9 +3323,8 @@
             setCell(r, c, humanPiece);
             
             // Kiểm tra xem có tạo ra pattern giống các nước đi đã từng thua không
-            const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
             
-            for (const { dr, dc } of dirs) {
+            for (const { dr, dc } of DIRECTIONS) {
                 // Tìm tất cả các ô trong đường thẳng
                 const cells = [];
                 let nr = r, nc = c;
@@ -3562,32 +3374,60 @@
         return dangerousMoves;
     }
 
-    // ===== MINIMAX WITH ALPHA-BETA PRUNING =====
-    function minimax(depth, alpha, beta, isMaximizing, player, startTime, maxTime) {
+    // ===== MINIMAX WITH ALPHA-BETA PRUNING + TRANSPOSITION TABLE + KILLER HEURISTIC =====
+    function minimax(depth, alpha, beta, isMaximizing, player, startTime, maxTime, currentDepth) {
         // Kiểm tra timeout
         if (startTime && Date.now() - startTime > maxTime) {
             return 0; // Trả về trung lập khi timeout
         }
         
+        // Transposition Table lookup
+        const hash = generateBoardHash();
+        const ttResult = ttLookup(hash, depth, alpha, beta);
+        if (ttResult !== null) {
+            return ttResult;
+        }
+        
         // Kiểm tra điều kiện dừng
         if (depth === 0) {
-            return evaluateBoard(player);
+            const evalScore = evaluateBoard(player);
+            ttStore(hash, depth, evalScore, 'exact');
+            return evalScore;
         }
         
         // Kiểm tra thắng/thua
         const winner = checkBoardWinner();
-        if (winner === player) return 1000000 + depth; // Thắng càng nhanh càng tốt
-        if (winner !== null) return -1000000 - depth; // Thua càng chậm càng tốt
+        if (winner === player) {
+            const score = 1000000 + depth; // Thắng càng nhanh càng tốt
+            ttStore(hash, depth, score, 'exact');
+            return score;
+        }
+        if (winner !== null) {
+            const score = -1000000 - depth; // Thua càng chậm càng tốt
+            ttStore(hash, depth, score, 'exact');
+            return score;
+        }
         
         const candidates = getSearchCandidates();
-        if (candidates.length === 0) return 0; // Hòa
+        if (candidates.length === 0) {
+            ttStore(hash, depth, 0, 'exact');
+            return 0; // Hòa
+        }
         
-        // Sắp xếp ứng viên theo điểm heuristic để tối ưu alpha-beta
-        candidates.sort((a, b) => quickScore(b.r, b.c, player) - quickScore(a.r, a.c, player));
+        // Sắp xếp ứng viên với Killer Heuristic và heuristic score
+        candidates.sort((a, b) => {
+            const aIsKiller = isKillerMove(currentDepth || 0, a.r, a.c);
+            const bIsKiller = isKillerMove(currentDepth || 0, b.r, b.c);
+            if (aIsKiller && !bIsKiller) return -1;
+            if (!aIsKiller && bIsKiller) return 1;
+            return quickScore(b.r, b.c, player) - quickScore(a.r, a.c, player);
+        });
         
         // Giới hạn số lượng ứng viên để tối ưu hiệu suất
         const maxCandidates = Math.min(candidates.length, depth > 3 ? 6 : 10);
         const searchCandidates = candidates.slice(0, maxCandidates);
+        
+        let bestMove = null;
         
         if (isMaximizing) {
             let maxEval = -Infinity;
@@ -3595,14 +3435,31 @@
                 const oldV = getCell(r, c);
                 setCell(r, c, player);
                 
-                const evalScore = minimax(depth - 1, alpha, beta, false, player, startTime, maxTime);
+                const evalScore = minimax(depth - 1, alpha, beta, false, player, startTime, maxTime, (currentDepth || 0) + 1);
                 setCell(r, c, oldV);
                 
-                maxEval = Math.max(maxEval, evalScore);
+                if (evalScore > maxEval) {
+                    maxEval = evalScore;
+                    bestMove = { r, c };
+                }
                 alpha = Math.max(alpha, evalScore);
                 
-                if (beta <= alpha) break; // Beta cutoff
+                // Beta cutoff - thêm vào killer moves
+                if (beta <= alpha) {
+                    addKillerMove(currentDepth || 0, r, c);
+                    break;
+                }
             }
+            
+            // Lưu vào Transposition Table
+            if (maxEval <= alpha) {
+                ttStore(hash, depth, maxEval, 'upper');
+            } else if (maxEval >= beta) {
+                ttStore(hash, depth, maxEval, 'lower');
+            } else {
+                ttStore(hash, depth, maxEval, 'exact');
+            }
+            
             return maxEval;
         } else {
             let minEval = Infinity;
@@ -3612,14 +3469,31 @@
                 const oldV = getCell(r, c);
                 setCell(r, c, opponent);
                 
-                const evalScore = minimax(depth - 1, alpha, beta, true, player, startTime, maxTime);
+                const evalScore = minimax(depth - 1, alpha, beta, true, player, startTime, maxTime, (currentDepth || 0) + 1);
                 setCell(r, c, oldV);
                 
-                minEval = Math.min(minEval, evalScore);
+                if (evalScore < minEval) {
+                    minEval = evalScore;
+                    bestMove = { r, c };
+                }
                 beta = Math.min(beta, evalScore);
                 
-                if (beta <= alpha) break; // Alpha cutoff
+                // Alpha cutoff - thêm vào killer moves
+                if (beta <= alpha) {
+                    addKillerMove(currentDepth || 0, r, c);
+                    break;
+                }
             }
+            
+            // Lưu vào Transposition Table
+            if (minEval <= alpha) {
+                ttStore(hash, depth, minEval, 'upper');
+            } else if (minEval >= beta) {
+                ttStore(hash, depth, minEval, 'lower');
+            } else {
+                ttStore(hash, depth, minEval, 'exact');
+            }
+            
             return minEval;
         }
     }
@@ -3628,15 +3502,14 @@
     function evaluateBoard(player) {
         const opponent = player === 'X' ? 'O' : 'X';
         let score = 0;
-        const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
         
         // Đánh giá từng ô trống với heuristic nâng cao
         const candidates = getSearchCandidates();
         for (const { r, c } of candidates) {
             // Đánh giá cho người chơi
-            const playerScore = enhancedHeuristicScore(r, c, player, dirs);
+            const playerScore = enhancedHeuristicScore(r, c, player, DIRECTIONS);
             // Đánh giá cho đối thủ
-            const opponentScore = enhancedHeuristicScore(r, c, opponent, dirs);
+            const opponentScore = enhancedHeuristicScore(r, c, opponent, DIRECTIONS);
             
             // Trừ điểm cho các ô đã học trong bộ nhớ - giảm để tránh BOT né quá nhiều
             // Kiểm tra cả key cũ và key mới để tương thích
@@ -3760,10 +3633,14 @@
         return null;
     }
 
-    // Tìm nước đi tốt nhất bằng Minimax
+    // Tìm nước đi tốt nhất bằng Minimax với Iterative Deepening
     function getBestMoveWithMinimax(depth, player) {
         const candidates = getSearchCandidates();
         if (candidates.length === 0) return { r: 0, c: 0 };
+        
+        // Xóa cache khi bắt đầu tìm kiếm mới
+        clearTranspositionTable();
+        clearKillerMoves();
         
         let bestMove = candidates[0];
         let bestScore = -Infinity;
@@ -3771,7 +3648,7 @@
         // Sắp xếp ứng viên theo điểm heuristic
         candidates.sort((a, b) => quickScore(b.r, b.c, player) - quickScore(a.r, a.c, player));
         
-        // Giới hạn ứng viên để tránh lag - giảm từ 12 xuống 8
+        // Giới hạn ứng viên để tránh lag
         const maxCandidates = Math.min(candidates.length, 8);
         const searchCandidates = candidates.slice(0, maxCandidates);
         
@@ -3782,26 +3659,45 @@
         // Đánh dấu Minimax đang chạy để tránh spam console
         window.isMinimaxRunning = true;
         
-        for (const { r, c } of searchCandidates) {
-            // Kiểm tra timeout
-            if (Date.now() - startTime > maxTime) {
-                console.log('⏱️ Minimax timeout, trả về nước đi tốt nhất hiện tại');
+        // Iterative Deepening - tăng dần độ sâu
+        let finalDepth = depth;
+        for (let d = 1; d <= depth; d++) {
+            // Kiểm tra timeout trước khi tăng độ sâu
+            if (Date.now() - startTime > maxTime * 0.8) {
+                console.log(`⏱️ Iterative Deepening dừng ở độ sâu ${d-1}`);
                 break;
             }
             
-            const oldV = getCell(r, c);
-            setCell(r, c, player);
+            let currentBestMove = null;
+            let currentBestScore = -Infinity;
             
-            const score = minimax(depth - 1, -Infinity, Infinity, false, player, startTime, maxTime);
-            setCell(r, c, oldV);
+            for (const { r, c } of searchCandidates) {
+                const oldV = getCell(r, c);
+                setCell(r, c, player);
+                
+                const score = minimax(d - 1, -Infinity, Infinity, false, player, startTime, maxTime, 0);
+                setCell(r, c, oldV);
+                
+                if (score > currentBestScore) {
+                    currentBestScore = score;
+                    currentBestMove = { r, c };
+                }
+            }
             
-            if (score > bestScore) {
-                bestScore = score;
-                bestMove = { r, c };
+            if (currentBestMove) {
+                bestMove = currentBestMove;
+                bestScore = currentBestScore;
+                finalDepth = d;
             }
         }
         
         window.isMinimaxRunning = false;
+        
+        // Log thống kê Transposition Table
+        const ttTotal = ttHits + ttMisses;
+        const ttHitRate = ttTotal > 0 ? ((ttHits / ttTotal) * 100).toFixed(1) : 0;
+        console.log(`📊 TT Stats: ${ttHits} hits, ${ttMisses} misses (${ttHitRate}% hit rate), Depth: ${finalDepth}`);
+        
         return bestMove;
     }
 
@@ -3811,54 +3707,40 @@
 
         const bp = botPiece;
         const hp = humanPiece;
-        const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
 
         // Cập nhật trạng thái thinking
         updateBotThinking('Hmm, để tôi xem bàn cờ...');
         
-        // 0. ƯU TIÊN CAO NHẤT: CHẶN ĐỊCH THẮNG LẬP TỨC (sử dụng checkWinSilent để tuân thủ luật chặn 2 đầu)
-        // KIỂM TRA TRƯỚC KHI ÁP DỤNG BẤT KỲ LOGIC KHÁC
-        let mustBlock = false;
-        let blockMove = null;
-        
-        for (const { r, c } of cands) {
-            setCell(r, c, hp);
-            if (checkWinSilent(r, c)) {
-                mustBlock = true;
-                blockMove = { r, c };
-                setCell(r, c, "");
-                break;
-            }
-            setCell(r, c, "");
-        }
-        
-        if (mustBlock) {
-            // Chọn vị trí chặn tốt nhất nếu có nhiều lựa chọn
-            let bestBlock = blockMove, bestScore = -Infinity;
-            for (const { r, c } of cands) {
-                setCell(r, c, hp);
-                if (checkWinSilent(r, c)) {
-                    const score = quickScore(r, c, bp);
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestBlock = { r, c };
-                    }
-                }
-                setCell(r, c, "");
-            }
-            updateBotThinking('PHẢI CHẶN! Địch sắp thắng! 🛡️');
-            return bestBlock;
-        }
-
-        // 1. TÌM NƯỚC THẮNG LẬP TỨC CHO BOT (sử dụng checkWinSilent để tuân thủ luật chặn 2 đầu)
+        // 0. ƯU TIÊN CAO NHẤT: TÌM NƯỚC THẮNG LẬP TỨC CHO BOT (sử dụng checkWinSilent để tuân thủ luật chặn 2 đầu)
         for (const { r, c } of cands) {
             setCell(r, c, bp);
             if (checkWinSilent(r, c)) {
                 setCell(r, c, "");
-                updateBotThinking('Hmm, có vẻ tốt đấy! 🎯');
+                updateBotThinking('TÌM THẤY NƯỚC THẮNG! 🎯');
                 return { r, c };
             }
             setCell(r, c, "");
+        }
+        
+        // 1. CHẶN ĐỊCH THẮNG LẬP TỨC (sử dụng checkWinSilent để tuân thủ luật chặn 2 đầu)
+        // Gộp 2 loop thành 1 để tối ưu - vừa kiểm tra vừa chọn vị trí tốt nhất
+        let bestBlock = null, bestScore = -Infinity;
+        
+        for (const { r, c } of cands) {
+            setCell(r, c, hp);
+            if (checkWinSilent(r, c)) {
+                const score = quickScore(r, c, bp);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestBlock = { r, c };
+                }
+            }
+            setCell(r, c, "");
+        }
+        
+        if (bestBlock) {
+            updateBotThinking('PHẢI CHẶN! Địch sắp thắng! 🛡️');
+            return bestBlock;
         }
 
         // 2. CHẶN ĐỊCH TẠO FOUR_OPEN (4 quân mở - cực kỳ nguy hiểm) - ƯU TIÊN CAO
@@ -3869,8 +3751,7 @@
             setCell(r, c, hp);
             
             // Kiểm tra xem có tạo FOUR_OPEN không
-            const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
-            for (const { dr, dc } of dirs) {
+            for (const { dr, dc } of DIRECTIONS) {
                 if (evalLine(r, c, dr, dc, hp) === TL.FOUR_OPEN) {
                     blockFourOpen = { r, c };
                     break;
@@ -3899,8 +3780,7 @@
                 
                 // Đếm số THREE_OPEN
                 let threeOpenCount = 0;
-                const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
-                for (const { dr, dc } of dirs) {
+                for (const { dr, dc } of DIRECTIONS) {
                     if (evalLine(r, c, dr, dc, hp) === TL.THREE_OPEN) {
                         threeOpenCount++;
                     }
@@ -3922,6 +3802,51 @@
                 updateBotThinking('Chặn double 3 mở! 🔥');
                 return blockThreeOpen;
             }
+
+            // 3.5. DỰ ĐOÁN NƯỚC ĐI ĐỐI THỦ - CHẶN TRƯỚC KHI TẠO DOUBLE THREE
+            updateBotThinking('Dự đoán nước đi địch...');
+            for (const { r, c } of cands) {
+                const oldV = getCell(r, c);
+                setCell(r, c, hp);
+                
+                // Kiểm tra nếu địch đi ở đây, lượt sau có thể tạo double three không
+                let potentialDoubleThree = false;
+                for (const nextR of [r-1, r, r+1]) {
+                    for (const nextC of [c-1, c, c+1]) {
+                        if (getCell(nextR, nextC) === "") {
+                            setCell(nextR, nextC, hp);
+                            let threeOpenCount = 0;
+                            for (const { dr, dc } of DIRECTIONS) {
+                                if (evalLine(nextR, nextC, dr, dc, hp) === TL.THREE_OPEN) {
+                                    threeOpenCount++;
+                                }
+                            }
+                            setCell(nextR, nextC, "");
+                            if (threeOpenCount >= 2) {
+                                potentialDoubleThree = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (potentialDoubleThree) break;
+                }
+                
+                setCell(r, c, oldV);
+                
+                if (potentialDoubleThree) {
+                    // Chặn ngay vị trí này để ngăn địch tạo double three
+                    const score = quickScore(r, c, bp);
+                    if (score > maxThreeOpenScore) {
+                        maxThreeOpenScore = score;
+                        blockThreeOpen = { r, c };
+                    }
+                }
+            }
+            
+            if (blockThreeOpen) {
+                updateBotThinking('Chặn trước double 3! 🎯');
+                return blockThreeOpen;
+            }
         } else if (winCount === 3) {
             // Với winCount=3, chặn TWO_OPEN (2 quân mở) vì lượt sau địch sẽ thắng
             updateBotThinking('Kiểm tra địch tạo 2 mở (winCount=3)...');
@@ -3931,8 +3856,7 @@
                 const oldV = getCell(r, c);
                 setCell(r, c, hp);
                 
-                const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
-                for (const { dr, dc } of dirs) {
+                for (const { dr, dc } of DIRECTIONS) {
                     if (evalLine(r, c, dr, dc, hp) === TL.TWO_OPEN) {
                         blockTwoOpen = { r, c };
                         break;
@@ -3979,24 +3903,91 @@
             return best;
         }
 
-        // 4. BOT TẠO NƯỚC BỐN MỞ (FOUR_OPEN) ĐỂ CHỦ ĐỘNG TẤN CÔNG - ƯU TIÊN TẤN CÔNG KHI CÓ CƠ HỘI
-        updateBotThinking('Đang tìm cơ hội tấn công...');
+        // 4. ĐÁNH GIÁ TÌNH TRẠNG BÀN CỜ - QUYẾT ĐỊNH TẤN CÔNG HAY PHÒNG THỦ
+        updateBotThinking('Đánh giá tình thế...');
+        let botThreatLevel = 0;  // Mức độ nguy hiểm của bot (tấn công)
+        let humanThreatLevel = 0; // Mức độ nguy hiểm của người chơi (phòng thủ)
+
         for (const { r, c } of cands) {
-            for (const { dr, dc } of dirs) {
-                if (evalLine(r, c, dr, dc, bp) === TL.FOUR_OPEN) {
-                    updateBotThinking('Cơ hội tốt! Đi thôi! ⚔️');
-                    return { r, c };
+            // Đánh giá nguy hiểm của bot
+            const oldV = getCell(r, c);
+            setCell(r, c, bp);
+            for (const { dr, dc } of DIRECTIONS) {
+                const lineEval = evalLine(r, c, dr, dc, bp);
+                if (lineEval === TL.FOUR_OPEN) botThreatLevel += 100;
+                else if (lineEval === TL.FOUR_BLOCKED) botThreatLevel += 50;
+                else if (lineEval === TL.THREE_OPEN) botThreatLevel += 20;
+                else if (lineEval === TL.THREE_BLOCKED) botThreatLevel += 10;
+            }
+            setCell(r, c, oldV);
+
+            // Đánh giá nguy hiểm của người chơi
+            setCell(r, c, hp);
+            for (const { dr, dc } of DIRECTIONS) {
+                const lineEval = evalLine(r, c, dr, dc, hp);
+                if (lineEval === TL.FOUR_OPEN) humanThreatLevel += 100;
+                else if (lineEval === TL.FOUR_BLOCKED) humanThreatLevel += 50;
+                else if (lineEval === TL.THREE_OPEN) humanThreatLevel += 20;
+                else if (lineEval === TL.THREE_BLOCKED) humanThreatLevel += 10;
+            }
+            setCell(r, c, oldV);
+        }
+
+        // Nếu bot mạnh hơn hẳn -> ưu tiên tấn công
+        // Nếu người chơi nguy hiểm -> ưu tiên phòng thủ
+        const shouldAttack = botThreatLevel > humanThreatLevel * 1.3;
+
+        // 4.5. BOT TẠO NƯỚC BỐN MỞ (FOUR_OPEN) ĐỂ CHỦ ĐỘNG TẤN CÔNG
+        if (shouldAttack || botThreatLevel > 50) {
+            updateBotThinking('Đang tìm cơ hội tấn công...');
+            for (const { r, c } of cands) {
+                for (const { dr, dc } of DIRECTIONS) {
+                    if (evalLine(r, c, dr, dc, bp) === TL.FOUR_OPEN) {
+                        updateBotThinking('Cơ hội tốt! Đi thôi! ⚔️');
+                        return { r, c };
+                    }
                 }
             }
         }
 
         // 5. CHẶN ĐỊCH CÓ NƯỚC BỐN MỞ (FOUR_OPEN) - CHỈ CHẶN KHI ĐỊCH CŨNG NGUY HIỂM
-        for (const { r, c } of cands) {
-            for (const { dr, dc } of dirs) {
-                if (evalLine(r, c, dr, dc, hp) === TL.FOUR_OPEN) {
-                    updateBotThinking('Đã chặn kịp thời! 😅 hú vía chim én');
-                    return { r, c };
+        if (!shouldAttack || humanThreatLevel > botThreatLevel) {
+            for (const { r, c } of cands) {
+                for (const { dr, dc } of DIRECTIONS) {
+                    if (evalLine(r, c, dr, dc, hp) === TL.FOUR_OPEN) {
+                        updateBotThinking('Đã chặn kịp thời! 😅 hú vía chim én');
+                        return { r, c };
+                    }
                 }
+            }
+        }
+
+        // 5.5. BOT TẠO FORK ATTACK (nhiều đòn tấn công cùng lúc) - ƯU TIÊN CAO
+        if (shouldAttack) {
+            updateBotThinking('Tìm fork attack...');
+            const botFork = findAdvancedFork(bp);
+            if (botFork) {
+                updateBotThinking('Tạo fork attack! ⚡');
+                return botFork;
+            }
+        }
+
+        // 6. CHẶN FORK ATTACK CỦA ĐỊCH - ƯU TIÊN CAO KHI PHÒNG THỦ
+        if (!shouldAttack || humanThreatLevel > botThreatLevel) {
+            updateBotThinking('Kiểm tra fork địch...');
+            const enemyFork = findAdvancedFork(hp);
+            if (enemyFork) {
+                updateBotThinking('Chặn fork địch! 🛡️');
+                // Tìm vị trí tốt nhất để chặn fork
+                let bestBlock = null, bestBlockScore = -Infinity;
+                for (const { r, c } of cands) {
+                    const score = quickScore(r, c, bp);
+                    if (score > bestBlockScore) {
+                        bestBlockScore = score;
+                        bestBlock = { r, c };
+                    }
+                }
+                if (bestBlock) return bestBlock;
             }
         }
 
@@ -4035,7 +4026,7 @@
             setCell(r, c, hp);
             // Sử dụng checkWinSilent để tuân thủ luật chặn 2 đầu
             if (checkWinSilent(r, c)) {
-                for (const { dr, dc } of dirs) {
+                for (const { dr, dc } of DIRECTIONS) {
                     let cells = [{ r, c }];
                     let nr = r + dr, nc = c + dc;
                     while (getCell(nr, nc) === hp) { cells.push({ r: nr, c: nc }); nr += dr; nc += dc; }
@@ -4128,7 +4119,7 @@
             for (const { r, c } of cands2) {
                 const ov = getCell(r, c);
                 setCell(r, c, bp);
-                for (const { dr, dc } of dirs) {
+                for (const { dr, dc } of DIRECTIONS) {
                     if (evalLine(r, c, dr, dc, bp) === TL.THREE_OPEN) {
                         setCell(r, c, ov);
                         updateBotThinking('cơ hội thắng 🔥');
@@ -4142,7 +4133,7 @@
             for (const { r, c } of cands2) {
                 const ov = getCell(r, c);
                 setCell(r, c, bp);
-                for (const { dr, dc } of dirs) {
+                for (const { dr, dc } of DIRECTIONS) {
                     if (evalLine(r, c, dr, dc, bp) === TL.TWO_OPEN) {
                         setCell(r, c, ov);
                         updateBotThinking('Tạo 2 mở (winCount=3) 🔥');
@@ -4204,16 +4195,29 @@
         // 9. MINIMAX WITH ALPHA-BETA PRUNING (chế độ God và Hard)
         if (gameMode === 'ai-god' || gameMode === 'ai-hard') {
             updateBotThinking('Đang tính toán sâu... 🧠');
-            // Độ sâu tìm kiếm theo chế độ và winCount
+            // Độ sâu tìm kiếm theo chế độ và winCount - TĂNG ĐỘ SÂU ĐỂ BOT MẠNH HƠN
             let depth;
             if (gameMode === 'ai-god') {
-                depth = moveCount < 20 ? 4 : 3;
+                // God mode: độ sâu cao hơn với Iterative Deepening
+                if (winCount >= 6) {
+                    depth = moveCount < 15 ? 6 : 5; // WinCount lớn -> độ sâu cao
+                } else if (winCount === 5) {
+                    depth = moveCount < 15 ? 5 : 4; // Caro chuẩn 5 quân
+                } else {
+                    depth = moveCount < 15 ? 4 : 3; // WinCount nhỏ
+                }
             } else {
-                // Hard mode: độ sâu thấp hơn
-                depth = moveCount < 20 ? 3 : 2;
+                // Hard mode: độ sâu trung bình
+                if (winCount >= 6) {
+                    depth = moveCount < 15 ? 4 : 3;
+                } else if (winCount === 5) {
+                    depth = moveCount < 15 ? 3 : 2;
+                } else {
+                    depth = moveCount < 15 ? 3 : 2;
+                }
             }
-            // Giảm độ sâu cho winCount nhỏ (game nhanh hơn)
-            if (winCount <= 4) depth = Math.max(1, depth - 1);
+            // Giảm độ sâu cho winCount rất nhỏ (game nhanh hơn)
+            if (winCount <= 3) depth = Math.max(1, depth - 1);
             
             const minimaxMove = getBestMoveWithMinimax(depth, bp);
             if (minimaxMove) {
@@ -4238,7 +4242,6 @@
 
     // Đánh giá tổng thể bàn cờ của người chơi
     function evaluateOverallBoardDanger(playerPiece) {
-        const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
         let fiveCount = 0;
         let fourOpenCount = 0;
         let fourBlockedCount = 0;
@@ -4250,7 +4253,7 @@
         const cands = getSearchCandidates();
         for (const { r, c } of cands) {
             if (getCell(r, c) === playerPiece) {
-                for (const { dr, dc } of dirs) {
+                for (const { dr, dc } of DIRECTIONS) {
                     const res = evalLine(r, c, dr, dc, playerPiece);
                     if (res === TL.FIVE) fiveCount++;
                     else if (res === TL.FOUR_OPEN) fourOpenCount++;
@@ -4290,7 +4293,6 @@
     function evaluatePlayerMove(r, c) {
         const hp = humanPiece;
         const bp = botPiece;
-        const dirs = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 1, dc: -1 }];
         
         // Đánh giá nước đi của người chơi
         const playerScore = quickScore(r, c, hp);
@@ -4313,7 +4315,7 @@
         // Kiểm tra nước đi có tạo đòn nguy hiểm không
         let hasThreat = false;
         let currentDangerScore = 0;
-        for (const { dr, dc } of dirs) {
+        for (const { dr, dc } of DIRECTIONS) {
             const tTa = evalLine(r, c, dr, dc, hp);
             if (tTa === TL.FIVE) {
                 hasThreat = true;
@@ -4332,7 +4334,7 @@
         
         // Kiểm tra nước đi có chặn bot không
         let blocksBot = false;
-        for (const { dr, dc } of dirs) {
+        for (const { dr, dc } of DIRECTIONS) {
             const tDich = evalLine(r, c, dr, dc, bp);
             if (tDich === TL.FOUR_OPEN || tDich === TL.FIVE) {
                 blocksBot = true;
@@ -4518,6 +4520,12 @@
     }
 
     function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
+        // Không hiển thị overlay khi đang autoplay để tránh lag
+        if (isAutoplayRunning) {
+            console.log('Autoplay: Skipping win overlay');
+            return;
+        }
+        
         const overlay  = document.getElementById('win-overlay');
         const emojiEl  = document.getElementById('win-emoji');
         const titleEl  = document.getElementById('win-title');
@@ -4566,7 +4574,7 @@
             
             let rankMessage = 'Bạn đã hạ gục BOT M2 . Bái phục!, chờ anh đẻ ra con M2 đã nha';
             if (playerRank !== null) {
-                const medals = ['🥇', '🥈', '🥉'];
+                const medals = ['1🥇', '2🥈', '3🥉'];
                 const medal = medals[playerRank - 1] || `#${playerRank}`;
                 const score = tempEntry.score.toLocaleString('vi-VN');
                 rankMessage = `🏅 Thứ hạng: ${medal} · Điểm: ${score}`;
@@ -4585,6 +4593,193 @@
         initGame();
     }
 
+    // ===== AUTOPLAY - BOT TỰ HỌC =====
+    let autoplayInterval = null;
+    let autoplayGamesRemaining = 0;
+    let autoplayWins = 0;
+    let autoplayLosses = 0;
+    let autoplayDraws = 0;
+    let isAutoplayRunning = false;
+
+    function startAutoplay() {
+        if (isAutoplayRunning) return;
+        
+        const totalGames = parseInt(document.getElementById('autoplay-games').value);
+        const autoplayWinCount = parseInt(document.getElementById('autoplay-win-count').value);
+        
+        autoplayGamesRemaining = totalGames;
+        autoplayWins = 0;
+        autoplayLosses = 0;
+        autoplayDraws = 0;
+        isAutoplayRunning = true;
+        
+        // Cập nhật UI
+        document.getElementById('btn-autoplay').style.display = 'none';
+        document.getElementById('btn-stop-autoplay').style.display = 'inline-block';
+        
+        // Bot M2 tự đấu với Bot M2 (ai-god vs ai-god)
+        gameMode = 'ai-god';
+        
+        // Lưu winCount gốc để khôi phục sau khi autoplay
+        const originalWinCount = winCount;
+        winCount = autoplayWinCount;
+        
+        statusPanel.innerHTML = `🤖 AUTOPLAY: Bot M2 vs Bot M2 (${autoplayGamesRemaining}/${totalGames} ván, ${autoplayWinCount} quân thắng)`;
+        
+        // Bắt đầu vòng lặp autoplay
+        runAutoplayGame(originalWinCount);
+    }
+
+    function stopAutoplay() {
+        if (autoplayInterval) {
+            clearTimeout(autoplayInterval);
+            autoplayInterval = null;
+        }
+        isAutoplayRunning = false;
+        
+        // Cập nhật UI
+        document.getElementById('btn-autoplay').style.display = 'inline-block';
+        document.getElementById('btn-stop-autoplay').style.display = 'none';
+        
+        statusPanel.innerHTML = `🤖 AUTOPLAY ĐÃ DỪNG | Thắng: ${autoplayWins} | Thua: ${autoplayLosses} | Hòa: ${autoplayDraws}`;
+        
+        // Khôi phục chế độ gốc
+        gameMode = 'ai-god';
+        initGame();
+    }
+
+    function runAutoplayGame(originalWinCount) {
+        if (!isAutoplayRunning || autoplayGamesRemaining <= 0) {
+            stopAutoplay();
+            return;
+        }
+        
+        // Khởi tạo ván mới
+        initGame();
+        
+        // Đảm bảo winCount được áp dụng
+        winCount = parseInt(document.getElementById('autoplay-win-count').value);
+        
+        // Bot M2 vs Bot M2 - cả hai bên đều là bot
+        // X là Bot M2, O cũng là Bot M2
+        currentPlayer = 'X';
+        botPiece = 'X';
+        humanPiece = 'O'; // humanPiece là đối thủ của botPiece
+        
+        // Đảm bảo game đang active
+        isGameActive = true;
+        
+        // Bắt đầu vòng lặp nước đi
+        setTimeout(() => {
+            autoplayMove(originalWinCount);
+        }, 100);
+    }
+
+    function autoplayMove(originalWinCount) {
+        if (!isAutoplayRunning) return;
+        
+        // Kiểm tra game đã kết thúc chưa
+        if (!isGameActive) {
+            autoplayGamesRemaining--;
+            
+            // Cập nhật thống kê
+            const statusText = statusPanel.textContent;
+            let result = 'draw';
+            let winner = null;
+            
+            if (statusText.includes('BOT TỐI THƯỢNG ĐÃ THẮNG') || statusText.includes('BOT TỐI THƯỢNG')) {
+                autoplayWins++;
+                result = 'win';
+                winner = 'X'; // Bot X thắng
+            } else if (statusText.includes('Người') && statusText.includes('chiến thắng')) {
+                autoplayLosses++;
+                result = 'lose';
+                winner = 'O'; // Bot O thắng (đối thủ)
+            } else {
+                autoplayDraws++;
+                result = 'draw';
+                winner = null;
+            }
+            
+            // Ghi lịch sử ván autoplay
+            recordMatch(result, winner);
+            
+            // Cập nhật UI
+            statusPanel.innerHTML = `🤖 AUTOPLAY: Bot M2 vs Bot M2 (${autoplayGamesRemaining}/${parseInt(document.getElementById('autoplay-games').value)} ván, ${parseInt(document.getElementById('autoplay-win-count').value)} quân thắng) | Thắng: ${autoplayWins} | Thua: ${autoplayLosses} | Hòa: ${autoplayDraws}`;
+            
+            // Cập nhật số bài học
+            const lessonCount = Object.keys(botDefeatMemory).length;
+            const lessonPanel = getDOM('lesson-panel');
+            if (lessonPanel) {
+                lessonPanel.textContent = `🧠 ${lessonCount}`;
+            }
+            
+            // Chờ 1 chút rồi bắt đầu ván mới
+            if (autoplayGamesRemaining > 0) {
+                autoplayInterval = setTimeout(() => {
+                    runAutoplayGame(originalWinCount);
+                }, 500);
+            } else {
+                stopAutoplay();
+            }
+            return;
+        }
+        
+        // Bot đánh nước đi - cho cả hai bên X và O
+        try {
+            // Trong autoplay, cả X và O đều là bot
+            // Đảm bảo botPiece luôn là currentPlayer và humanPiece là đối thủ
+            botPiece = currentPlayer;
+            humanPiece = currentPlayer === 'X' ? 'O' : 'X';
+            
+            console.log(`Autoplay: ${currentPlayer} is moving, botPiece=${botPiece}, humanPiece=${humanPiece}, gameMode=${gameMode}, isGameActive=${isGameActive}`);
+            
+            // Lấy danh sách các nước đi ứng viên và tính điểm
+            const cands = getSearchCandidates();
+            if (cands.length === 0) {
+                console.log('No candidates found, ending game');
+                isGameActive = false;
+                return;
+            }
+            
+            // Tính điểm cho từng ứng viên (giống mevivu.com)
+            let scoredCands = [];
+            for (const { r, c } of cands) {
+                const score = quickScore(r, c, botPiece);
+                scoredCands.push({ r, c, score });
+            }
+            
+            // Sắp xếp theo điểm giảm dần
+            scoredCands.sort((a, b) => b.score - a.score);
+            
+            // Tìm điểm cao nhất
+            const maxScore = scoredCands[0].score;
+            
+            // Lấy tất cả các nước đi có điểm cao nhất (có thể nhiều)
+            const bestMoves = scoredCands.filter(m => m.score === maxScore);
+            
+            // Chọn ngẫu nhiên một trong số các nước đi tốt nhất (giống mevivu.com)
+            const randomIndex = Math.floor(Math.random() * bestMoves.length);
+            const move = bestMoves[randomIndex];
+            
+            console.log(`Autoplay move: ${currentPlayer} -> ${move} (score: ${move.score}, best moves: ${bestMoves.length})`);
+            
+            // Gọi trực tiếp makeMove với isBotMove = true
+            const originalIsBotMove = isBotMove;
+            isBotMove = true;
+            makeMove(move.r, move.c);
+            isBotMove = originalIsBotMove;
+        } catch (e) {
+            console.error('Autoplay move error:', e);
+            isGameActive = false;
+        }
+        
+        // Chờ lâu hơn để bot có thời gian tính toán
+        setTimeout(() => {
+            autoplayMove(originalWinCount);
+        }, 300);
+    }
+
     function reviewGame() {
         document.getElementById('win-overlay').classList.remove('show');
         stopConfetti();
@@ -4598,7 +4793,12 @@
     }
 
     changeTheme();
-    autoLoadBotMemory(); // Tự động nạp bộ não từ file Bo_Nao_BOT.html nếu có
+    
+    // Delay auto load để đảm bảo DOM ready
+    setTimeout(() => {
+        autoLoadBotMemory(); // Tự động nạp bộ não từ file bot-memory.json hoặc Bo_Nao_BOT.html nếu có
+    }, 500);
+    
     initGame();
     renderRankPanel();
     renderHistory();
