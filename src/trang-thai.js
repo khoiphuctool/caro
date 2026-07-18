@@ -143,9 +143,13 @@ let pendingRankEntry = null;
 // Giá trị thật được gán trong autoplay.js
 var isAutoplayRunning = false;
 
-// ===== CHUỖI TAO LIÊN TIẾP =====
-// Các key này được định nghĩa trong lich-su-va-xep-hang.js để tránh trùng lặp
-// Chỉ khai báo ở đây để tham chiếu, không khởi tạo giá trị
+// ===== CHUỖI THUA LIÊN TIẾP =====
+const LOSS_STREAK_KEY        = 'caro_loss_streak';
+const LOSS_STREAK_RECORD_KEY = 'caro_loss_streak_record';
+var lossStreak       = parseInt(localStorage.getItem(LOSS_STREAK_KEY))        || 0;
+var lossStreakRecord  = parseInt(localStorage.getItem(LOSS_STREAK_RECORD_KEY)) || 0;
+
+
 
 // ===== HELPER =====
 function withCell(r, c, val, callback) {

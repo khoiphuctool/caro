@@ -77,21 +77,25 @@ function runAutoplayGame(originalWinCount) {
     setTimeout(() => autoplayMove(originalWinCount), 100);
 }
 
+// Lưu kết quả autoplay khi makeMove phát hiện thắng
+var autoplayLastWinner = null;
+
 function autoplayMove(originalWinCount) {
     if (!isAutoplayRunning) return;
 
     if (!isGameActive) {
         autoplayGamesRemaining--;
 
-        const statusText = statusPanel.textContent;
-        let result = 'draw', winner = null;
+        // Dùng autoplayLastWinner thay vì parse statusPanel text
+        let result = 'draw', winner = autoplayLastWinner;
+        autoplayLastWinner = null;
 
-        if (statusText.includes('BOT TỐI THƯỢNG ĐÃ THẮNG') || statusText.includes('BOT TỐI THƯỢNG')) {
-            autoplayWins++; result = 'win'; winner = 'X';
-        } else if (statusText.includes('Người') && statusText.includes('chiến thắng')) {
-            autoplayLosses++; result = 'lose'; winner = 'O';
+        if (winner === 'X') {
+            autoplayWins++; result = 'win';
+        } else if (winner === 'O') {
+            autoplayLosses++; result = 'lose';
         } else {
-            autoplayDraws++; result = 'draw'; winner = null;
+            autoplayDraws++; result = 'draw';
         }
 
         // Learning: học từ cả thắng và thua

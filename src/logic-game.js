@@ -159,10 +159,16 @@ function makeMove(r, c) {
         const isBotWin   = gameMode.startsWith('ai') && currentPlayer === botPiece;
         const boardLabel = '♾️ Vô Hạn';
 
-        if (gameMode.startsWith('ai') && moveHistory.length > 0) {
-            const winner = currentPlayer;
-            const loser  = winner === 'X' ? 'O' : 'X';
-            console.log(`🎮 Game ended: ${winner} won against ${loser}`);
+        // Lưu kết quả cho autoplay
+        if (typeof autoplayLastWinner !== 'undefined') {
+            autoplayLastWinner = currentPlayer;
+        }
+
+        // Nếu đang autoplay thì bỏ qua phần UI popup
+        if (isAutoplayRunning) {
+            recordMatch(isBotWin ? 'lose' : 'win', currentPlayer);
+            if (typeof onBotLoss === 'function') onBotLoss([...moveHistory], humanPiece);
+            return;
         }
 
         if (gameMode === 'solo') {

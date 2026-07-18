@@ -432,27 +432,51 @@ function mctsSearch(iterations = 1000, timeLimit = 2000) {
     root.untriedMoves = [...searchCands];
     let iterCount = 0;
     while (iterCount < iterations && Date.now() - startTime < timeLimit) {
-        let node = root, path = [node];
+        let node = root;
+        const path = [node];
+        const pathPlayers = []; // lưu player của từng bước
+
+        // Selection
+        let currentMctsPlayer = botPiece;
         while (node.children.length > 0 && node.untriedMoves.length === 0) {
             let bestChild = null, bestUCB = -Infinity;
             for (const child of node.children) { const u = child.getUCB1(); if (u > bestUCB) { bestUCB = u; bestChild = child; } }
-            if (bestChild) { node = bestChild; path.push(node); if (node.r !== null) setCell(node.r, node.c, botPiece); }
-            else break;
+            if (bestChild) {
+                node = bestChild;
+                path.push(node);
+                if (node.r !== null) {
+                    setCell(node.r, node.c, currentMctsPlayer);
+                    pathPlayers.push({ r: node.r, c: node.c });
+                    currentMctsPlayer = currentMctsPlayer === 'X' ? 'O' : 'X';
+                }
+            } else break;
         }
+
+        // Expansion
         if (node.untriedMoves.length > 0) {
             const moveIdx = Math.floor(Math.random() * node.untriedMoves.length);
             const move = node.untriedMoves.splice(moveIdx, 1)[0];
-            setCell(move.r, move.c, botPiece);
+            setCell(move.r, move.c, currentMctsPlayer);
+            pathPlayers.push({ r: move.r, c: move.c });
             const childNode = node.addChild(move.r, move.c);
-            path.push(childNode); node = childNode;
+            path.push(childNode);
+            node = childNode;
         }
+
+        // Simulation
         const simResult = simulateRandomPlayout();
+
+        // Backpropagation
         for (const pathNode of path) {
             pathNode.visits++;
             if (simResult === botPiece) pathNode.wins++;
         }
-        for (let i = 1; i < path.length; i++)
-            if (path[i].r !== null) setCell(path[i].r, path[i].c, "");
+
+        // Undo path moves
+        for (let i = pathPlayers.length - 1; i >= 0; i--) {
+            setCell(pathPlayers[i].r, pathPlayers[i].c, '');
+        }
+
         iterCount++;
     }
     let bestChild = null, bestVisits = -1;
@@ -463,15 +487,23 @@ function mctsSearch(iterations = 1000, timeLimit = 2000) {
 function simulateRandomPlayout() {
     let player = botPiece === 'X' ? 'O' : 'X';
     let moves = 0;
+    const simMoves = []; // lưu lại để undo sau simulation
     while (moves < 50) {
         const candidates = getSearchCandidates();
-        if (candidates.length === 0) return null;
+        if (candidates.length === 0) break;
         const move = selectRandomMoveWithBias(candidates, player);
         setCell(move.r, move.c, player);
-        if (checkWinSilent(move.r, move.c)) { setCell(move.r, move.c, ""); return player; }
+        simMoves.push({ r: move.r, c: move.c });
+        if (checkWinSilent(move.r, move.c)) {
+            // Undo tất cả simulation moves
+            for (const m of simMoves) setCell(m.r, m.c, '');
+            return player;
+        }
         player = player === 'X' ? 'O' : 'X';
         moves++;
     }
+    // Undo tất cả simulation moves
+    for (const m of simMoves) setCell(m.r, m.c, '');
     return null;
 }
 

@@ -88,11 +88,6 @@ function stopConfetti() {
 
 // ===== WIN OVERLAY =====
 function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
-    if (isAutoplayRunning) {
-        console.log('Autoplay: Skipping win overlay');
-        return;
-    }
-
     const overlay = document.getElementById('win-overlay');
     const emojiEl = document.getElementById('win-emoji');
     const titleEl = document.getElementById('win-title');
@@ -106,7 +101,7 @@ function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
         startConfetti();
     } else if (isBotWin) {
         emojiEl.textContent = tauntEmoji || 'THUA ĐẬM 💀';
-        titleEl.textContent = 'rất cố gắn , cần tu luyện thêm!';
+        titleEl.textContent = 'rất cố gắng , cần tu luyện thêm!';
         titleEl.style.color = '#ef4444';
         subEl.textContent   = tauntMessage || 'Gừng càng già càng cay — bó tay thì gặp anh Chần!';
     } else {
