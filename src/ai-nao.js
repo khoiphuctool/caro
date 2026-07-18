@@ -9,7 +9,7 @@ const SCORE_ATK = {
     FIVE:          150000,  // thắng ngay
     FOUR_OPEN:      10000,  // 4 mở — bắt chiến thắng
     FOUR_BLOCKED:    2000,  // 4 đóng 1 đầu
-    THREE_OPEN:      1500,  // 3 mở — cực kỳ nguy hiểm
+    THREE_OPEN:      6000,  // 3 mở — ưu tiên tấn công (tăng từ 1500 để > phòng thủ)
     THREE_BLOCKED:    400,  // 3 đóng 1 đầu
     TWO_OPEN:         300,  // 2 mở
     TWO_BLOCKED:       30,
@@ -108,6 +108,8 @@ function scoreFromTL(tl, isAttack) {
 // ===== getSearchCandidates =====
 function getSearchCandidates() {
     let cells = [];
+    const MAX_CANDIDATES = 50; // Giới hạn số lượng candidate để tránh lag
+    
     if (isInfinite) {
         let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
         if (infiniteMap.size === 0) return [{ r: 0, c: 0 }];
@@ -134,8 +136,26 @@ function getSearchCandidates() {
             for (let c = 0; c < boardSize; c++)
                 if (boardState[r][c] !== "") { hasAny = true; break; }
         if (!hasAny) return [{ r: Math.floor(boardSize/2), c: Math.floor(boardSize/2) }];
+        
+        // Tính vùng quét giới hạn quanh các quân cờ
+        let minR = boardSize, maxR = 0, minC = boardSize, maxC = 0;
         for (let r = 0; r < boardSize; r++) {
             for (let c = 0; c < boardSize; c++) {
+                if (boardState[r][c] !== "") {
+                    if (r < minR) minR = r; if (r > maxR) maxR = r;
+                    if (c < minC) minC = c; if (c > maxC) maxC = c;
+                }
+            }
+        }
+        
+        const margin = 3; // Tăng margin lên 3 để đảm bảo không bỏ sót
+        const searchMinR = Math.max(0, minR - margin);
+        const searchMaxR = Math.min(boardSize - 1, maxR + margin);
+        const searchMinC = Math.max(0, minC - margin);
+        const searchMaxC = Math.min(boardSize - 1, maxC + margin);
+        
+        for (let r = searchMinR; r <= searchMaxR; r++) {
+            for (let c = searchMinC; c <= searchMaxC; c++) {
                 if (boardState[r][c] === "") {
                     let ok = false;
                     for (let dr = -2; dr <= 2 && !ok; dr++)
@@ -148,6 +168,13 @@ function getSearchCandidates() {
             }
         }
     }
+    
+    // Giới hạn số lượng candidate và sắp xếp theo điểm
+    if (cells.length > MAX_CANDIDATES) {
+        cells.sort((a, b) => quickScore(b.r, b.c, botPiece) - quickScore(a.r, a.c, botPiece));
+        return cells.slice(0, MAX_CANDIDATES);
+    }
+    
     return cells;
 }
 
@@ -161,6 +188,7 @@ function quickScore(r, c, p) {
     let atkScore = 0, defScore = 0;
     let atkFourCount = 0, atkThreeOpenCount = 0;
     let defFourCount = 0;
+    let hasWinningMove = false;
 
     for (const { dr, dc } of DIRECTIONS) {
         // ── Tấn công ──
@@ -175,6 +203,7 @@ function quickScore(r, c, p) {
                 atkScore += scoreFromTL(tAtk, true);
                 if (tAtk === TL.FOUR_OPEN || tAtk === TL.FOUR_BLOCKED) atkFourCount++;
                 if (tAtk === TL.THREE_OPEN) atkThreeOpenCount++;
+                if (tAtk === TL.FIVE) hasWinningMove = true;
             }
         }
 
@@ -201,6 +230,16 @@ function quickScore(r, c, p) {
 
     // ── Center bias ──
     const bias = centerBias(r, c);
+
+    // ── ƯU TIÊN TẤN CÔNG KHI CÓ CƠ HỘI THẮNG ──
+    // Nếu bot có 3 quân mở hoặc 4 quân, ưu tiên tấn công gấp đôi
+    if (atkThreeOpenCount >= 1 || atkFourCount >= 1) {
+        atkScore *= 2;  // Tăng gấp đôi điểm tấn công
+    }
+    // Nếu có nước thắng ngay, ưu tiên tuyệt đối
+    if (hasWinningMove) {
+        return 999999;  // Điểm tối đa
+    }
 
     return atkScore + defScore + bonus + bias;
 }

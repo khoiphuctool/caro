@@ -131,8 +131,3 @@ const WIN_COUNT_MULTIPLIERS = {
     3: 0.5, 4: 0.7, 5: 1, 6: 1.3,
     7: 1.6, 8: 2,   9: 2.5, 10: 3
 };
-
-// ===== STUB: autoLoadBotMemory (bot learning đã tắt) =====
-function autoLoadBotMemory() {
-    console.log('🤖 autoLoadBotMemory: Bot learning đã tắt, dùng AI thuật toán.');
-}
