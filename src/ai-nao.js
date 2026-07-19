@@ -281,30 +281,178 @@ function findDoublePattern(p, patternType) {
     return null;
 }
 
-// ===== findAdvancedFork =====
-function findAdvancedFork(p) {
-    const cands = getSearchCandidates();
-    let best = null, maxScore = 0;
-    for (const { r, c } of cands) {
-        const old = getCell(r, c);
+// ===== PATTERN RECOGNITION FOR FORK/TRAP =====
+function detectForkPatterns(p, candidates) {
+    const forks = [];
+    for (const { r, c } of candidates) {
+        if (getCell(r, c) !== '') continue;
+        
         setCell(r, c, p);
-        let score = 0, threeCount = 0, fourCount = 0;
+        let attackLines = 0;
+        let threeOpenLines = 0;
+        let fourOpenLines = 0;
+        
         for (const { dr, dc } of DIRECTIONS) {
             const res = evalLine(r, c, dr, dc, p);
-            if (res === TL.FIVE) score += 10000;
-            else if (res === TL.FOUR_OPEN)    { score += 5000; fourCount++; }
-            else if (res === TL.FOUR_BLOCKED) { score += 3000; fourCount++; }
-            else if (res === TL.THREE_OPEN)   { score += 1000; threeCount++; }
-            else if (res === TL.THREE_BLOCKED) score += 300;
-            else if (res === TL.TWO_OPEN)      score += 100;
+            if (res === TL.FOUR_OPEN || res === TL.FOUR_BLOCKED) {
+                fourOpenLines++;
+                attackLines++;
+            } else if (res === TL.THREE_OPEN) {
+                threeOpenLines++;
+                attackLines++;
+            }
         }
-        if (threeCount >= 2) score += 2000;
-        if (fourCount >= 2) score += 5000;
-        if (threeCount >= 1 && fourCount >= 1) score += 3000;
-        setCell(r, c, old);
-        if (score > maxScore) { maxScore = score; best = { r, c }; }
+        
+        setCell(r, c, '');
+        
+        // Fork: 2+ attack lines from one move
+        if (attackLines >= 2) {
+            forks.push({
+                r, c,
+                type: 'fork',
+                attackLines,
+                threeOpenLines,
+                fourOpenLines,
+                score: (fourOpenLines * 5000) + (threeOpenLines * 2000) + (attackLines * 1000)
+            });
+        }
     }
-    return best;
+    
+    return forks.sort((a, b) => b.score - a.score);
+}
+
+function detectTrapPatterns(p, candidates, opp) {
+    const traps = [];
+    for (const { r, c } of candidates) {
+        if (getCell(r, c) !== '') continue;
+        
+        // Check if this move forces opponent into a bad position
+        setCell(r, c, p);
+        
+        // Find opponent's best response
+        let bestOppScore = -Infinity;
+        let bestOppMove = null;
+        
+        for (const { r: or, c: oc } of candidates) {
+            if (getCell(or, oc) !== '') continue;
+            if (or === r && oc === c) continue;
+            
+            setCell(or, oc, opp);
+            let oppScore = 0;
+            
+            for (const { dr, dc } of DIRECTIONS) {
+                const res = evalLine(or, oc, dr, dc, opp);
+                if (res === TL.FIVE) oppScore += 10000;
+                else if (res === TL.FOUR_OPEN) oppScore += 5000;
+                else if (res === TL.THREE_OPEN) oppScore += 1000;
+            }
+            
+            setCell(or, oc, '');
+            
+            if (oppScore > bestOppScore) {
+                bestOppScore = oppScore;
+                bestOppMove = { r: or, c: oc };
+            }
+        }
+        
+        setCell(r, c, '');
+        
+        // If opponent's best response is weak, this is a trap
+        if (bestOppScore < 2000 && bestOppMove) {
+            traps.push({
+                r, c,
+                type: 'trap',
+                forcedResponse: bestOppMove,
+                oppScore: bestOppScore,
+                score: 3000 - bestOppScore // Higher score for weaker opponent response
+            });
+        }
+    }
+    
+    return traps.sort((a, b) => b.score - a.score);
+}
+
+function detectDoubleThreatPatterns(p, candidates) {
+    const doubleThreats = [];
+    
+    for (const { r, c } of candidates) {
+        if (getCell(r, c) !== '') continue;
+        
+        setCell(r, c, p);
+        
+        // Check for double three (two separate three-open lines)
+        let threeOpenCount = 0;
+        let threePositions = [];
+        
+        for (const { dr, dc } of DIRECTIONS) {
+            const res = evalLine(r, c, dr, dc, p);
+            if (res === TL.THREE_OPEN) {
+                threeOpenCount++;
+                threePositions.push({ dr, dc });
+            }
+        }
+        
+        setCell(r, c, '');
+        
+        if (threeOpenCount >= 2) {
+            doubleThreats.push({
+                r, c,
+                type: 'double-three',
+                threeOpenCount,
+                score: 4000 + (threeOpenCount * 1000)
+            });
+        }
+    }
+    
+    return doubleThreats.sort((a, b) => b.score - a.score);
+}
+
+function detectBreakthroughPatterns(p, candidates, opp) {
+    const breakthroughs = [];
+    
+    for (const { r, c } of candidates) {
+        if (getCell(r, c) !== '') continue;
+        
+        setCell(r, c, p);
+        
+        // Check if this creates an unstoppable line
+        let unstoppableLines = 0;
+        
+        for (const { dr, dc } of DIRECTIONS) {
+            const { count, blockedBoth } = countLineAndBlocked(r, c, dr, dc, p);
+            
+            // Line that can't be blocked
+            if (count >= winCount - 1 && !blockedBoth) {
+                // Check if opponent can block in next move
+                let canBlock = false;
+                const headR = r + dr * count;
+                const headC = c + dc * count;
+                const tailR = r - dr;
+                const tailC = c - dc;
+                
+                if (getCell(headR, headC) === '' || getCell(tailR, tailC) === '') {
+                    canBlock = true;
+                }
+                
+                if (!canBlock) {
+                    unstoppableLines++;
+                }
+            }
+        }
+        
+        setCell(r, c, '');
+        
+        if (unstoppableLines >= 1) {
+            breakthroughs.push({
+                r, c,
+                type: 'breakthrough',
+                unstoppableLines,
+                score: 6000 + (unstoppableLines * 2000)
+            });
+        }
+    }
+    
+    return breakthroughs.sort((a, b) => b.score - a.score);
 }
 
 // ===== findBlockThreeBlocked =====
@@ -527,6 +675,11 @@ class NeuralEvaluator {
         this.layer1Weights = [[1.2,0.8,0.5,0.3],[1.0,0.9,0.4,0.2],[0.7,1.1,0.6,0.3],[0.9,0.7,1.0,0.4]];
         this.layer2Weights = [1.3,1.1,0.9,0.7];
         this.bias = 0.1;
+        
+        // Training parameters
+        this.learningRate = 0.01;
+        this.trainingData = [];
+        this.isTrainingEnabled = true;
     }
     countNeighbors(r, c, player) {
         let count = 0;
@@ -618,7 +771,57 @@ class NeuralEvaluator {
         ];
         return layer1.reduce((s,v,i)=>s+v*this.layer2Weights[i],0) + this.bias;
     }
-    evaluate(player) { return this.forwardPass(this.extractFeatures(player)); }
+    
+    // ===== BACKPROPAGATION TRAINING =====
+    addTrainingSample(features, targetValue) {
+        if (!this.isTrainingEnabled) return;
+        this.trainingData.push({ features, target: targetValue });
+        if (this.trainingData.length > 1000) {
+            this.trainingData.shift(); // Keep only last 1000 samples
+        }
+    }
+    
+    train(epochs = 10) {
+        if (!this.isTrainingEnabled || this.trainingData.length === 0) return;
+        
+        for (let epoch = 0; epoch < epochs; epoch++) {
+            let totalError = 0;
+            
+            for (const sample of this.trainingData) {
+                const prediction = this.forwardPass(sample.features);
+                const error = sample.target - prediction;
+                totalError += error * error;
+                
+                // Backpropagation - simplified gradient descent
+                const gradient = error * this.learningRate;
+                
+                // Update layer2 weights
+                for (let i = 0; i < this.layer2Weights.length; i++) {
+                    this.layer2Weights[i] += gradient * 0.1;
+                }
+                
+                // Update layer1 weights
+                for (let i = 0; i < this.layer1Weights.length; i++) {
+                    for (let j = 0; j < this.layer1Weights[i].length; j++) {
+                        this.layer1Weights[i][j] += gradient * 0.05;
+                    }
+                }
+                
+                // Update bias
+                this.bias += gradient * 0.01;
+            }
+            
+            if (epoch % 5 === 0) {
+                console.log(`🧠 Neural Training - Epoch ${epoch}, Error: ${(totalError / this.trainingData.length).toFixed(4)}`);
+            }
+        }
+    }
+    
+    evaluate(player) { 
+        const features = this.extractFeatures(player);
+        const score = this.forwardPass(features);
+        return score;
+    }
 }
 
 const neuralEvaluator = new NeuralEvaluator();
@@ -979,19 +1182,95 @@ function assessThreats(cands, bp, hp) {
 function getBotMove() {
     const cands = getSearchCandidates();
     if (cands.length === 0) return { r: 0, c: 0 };
+    
+    // Lọc bỏ các ô đã có quân (tránh đi vào ô đã có)
+    const validCands = cands.filter(({ r, c }) => getCell(r, c) === '');
+    if (validCands.length === 0) return { r: 0, c: 0 };
+    
     const bp = botPiece, hp = humanPiece;
     const blockBothEnds = document.getElementById('block-both-ends').checked;
+
+    // ══════════════════════════════════════════════════════
+    // DIFFICULTY-BASED PIPELINE - Điều chỉnh theo level bot
+    // ══════════════════════════════════════════════════════
+    const isEasy = gameMode === 'ai-easy';
+    const isMedium = gameMode === 'ai-medium';
+    const isHard = gameMode === 'ai-hard';
+    const isGod = gameMode === 'ai-god';
 
     updateBotThinking('Đang phân tích bàn cờ...');
 
     // ══════════════════════════════════════════════════════
     // 0. BOT THẮNG NGAY — tuyệt đối ưu tiên
     // ══════════════════════════════════════════════════════
-    for (const { r, c } of cands) {
+    for (const { r, c } of validCands) {
         setCell(r, c, bp);
         const win = checkWinSilent(r, c);
         setCell(r, c, '');
         if (win) { updateBotThinking('TÌM THẤY NƯỚC THẮNG! 🎯'); return { r, c }; }
+    }
+
+    // ══════════════════════════════════════════════════════
+    // 0.5. BOT CÓ FOUR ĐỂ THẮNG (winCount-1) — ưu tiên tấn công
+    // ══════════════════════════════════════════════════════
+    // Nếu bot có FOUR (winCount-1) → ưu tiên tấn công hơn chặn
+    let botWinningMove = null;
+    let enemyFour = null; // Lưu FOUR của địch để dùng sau
+    
+    // Tìm FOUR của bot
+    for (const { r, c } of validCands) {
+        setCell(r, c, bp);
+        let hasFour = false;
+        for (const { dr, dc } of DIRECTIONS) {
+            const { count, blockedBoth } = countLineAndBlocked(r, c, dr, dc, bp);
+            if (count === winCount - 1 && !blockedBoth) {
+                hasFour = true;
+                break;
+            }
+        }
+        setCell(r, c, '');
+        if (hasFour) {
+            botWinningMove = { r, c };
+            break;
+        }
+    }
+    
+    // Tìm FOUR của địch để dùng sau
+    for (const { r, c } of validCands) {
+        setCell(r, c, hp);
+        let hasFour = false;
+        for (const { dr, dc } of DIRECTIONS) {
+            const { count, blockedBoth } = countLineAndBlocked(r, c, dr, dc, hp);
+            if (count === winCount - 1 && !blockedBoth) {
+                hasFour = true;
+                break;
+            }
+        }
+        setCell(r, c, '');
+        if (hasFour) {
+            enemyFour = { r, c };
+            break;
+        }
+    }
+    
+    // Nếu bot có FOUR để thắng → ưu tiên tấn công
+    if (botWinningMove) {
+        // Chỉ chặn nếu địch CŨNG có FIVE (thắng ngay lập tức)
+        let enemyHasFive = false;
+        for (const { r, c } of validCands) {
+            setCell(r, c, hp);
+            const win = checkWinSilent(r, c);
+            setCell(r, c, '');
+            if (win) {
+                enemyHasFive = true;
+                break;
+            }
+        }
+        
+        if (!enemyHasFive) {
+            updateBotThinking('Cơ hội thắng! Tấn công! ⚔️');
+            return botWinningMove;
+        }
     }
 
     // ══════════════════════════════════════════════════════
@@ -1006,7 +1285,7 @@ function getBotMove() {
         }
     }
     // Fallback: kiểm tra thêm bằng setCell/checkWinSilent
-    for (const { r, c } of cands) {
+    for (const { r, c } of validCands) {
         setCell(r, c, hp);
         const win = checkWinSilent(r, c);
         setCell(r, c, '');
@@ -1018,19 +1297,31 @@ function getBotMove() {
     //    findLiveThreats quét từ quân X đã có, tìm đúng đầu thoáng
     //    → không bao giờ bỏ sót dù ô trống ở đầu hay cuối chuỗi
     // ══════════════════════════════════════════════════════
-    const enemyFourThreats = findLiveThreats(hp, winCount - 1);
-    // findLiveThreats(winCount-1) đã bao gồm cả FIVE ở bước trên,
-    // nhưng ở đây địch chưa đủ winCount nên count=winCount-1 → đúng
-    // Lấy thêm trường hợp winCount-1 từ cả 2 hướng
-    if (enemyFourThreats.length > 0) {
-        // Chọn ô có quickScore cao nhất trong danh sách cần chặn
-        let best = null, bestS = -Infinity;
-        for (const { r, c } of enemyFourThreats) {
-            if (getCell(r, c) !== '') continue;
-            const s = quickScore(r, c, bp);
-            if (s > bestS) { bestS = s; best = { r, c }; }
+    // Easy mode bỏ qua bước này
+    if (!isEasy) {
+        const enemyFourThreats = findLiveThreats(hp, winCount - 1);
+        // findLiveThreats(winCount-1) đã bao gồm cả FIVE ở bước trên,
+        // nhưng ở đây địch chưa đủ winCount nên count=winCount-1 → đúng
+        // Lấy thêm trường hợp winCount-1 từ cả 2 hướng
+        if (enemyFourThreats.length > 0) {
+            // Chọn ô có quickScore cao nhất trong danh sách cần chặn
+            let best = null, bestS = -Infinity;
+            for (const { r, c } of enemyFourThreats) {
+                if (getCell(r, c) !== '') continue;
+                const s = quickScore(r, c, bp);
+                if (s > bestS) { bestS = s; best = { r, c }; }
+            }
+            // Nếu bot CŨNG có FOUR để thắng → ưu tiên tấn công
+            if (botWinningMove && best) {
+                updateBotThinking('Cả 2 có 4! Tấn công trước! ⚔️');
+                return botWinningMove;
+            }
+            // Nếu chỉ địch có FOUR → chặn
+            if (best && !botWinningMove) { 
+                updateBotThinking('Chặn 4 địch! 🛡️'); 
+                return best; 
+            }
         }
-        if (best) { updateBotThinking('Chặn 4 địch! 🛡️'); return best; }
     }
 
     // ══════════════════════════════════════════════════════
@@ -1043,11 +1334,12 @@ function getBotMove() {
     //  Đây là cách phát hiện "X sắp tạo FOUR từ THREE" và
     //  "double threat" (2 hướng tấn công cùng lúc).
     // ══════════════════════════════════════════════════════
-    {
+    // Medium/Hard/God mode mới dùng lookahead
+    if (!isEasy) {
         let preFourBlock = null, preFourScore = -Infinity;
         let preDoubleThree = null, preDTScore = -Infinity;
 
-        for (const { r, c } of cands) {
+        for (const { r, c } of validCands) {
             if (getCell(r, c) !== '') continue;
 
             // Giả lập địch đi vào ô này
@@ -1093,55 +1385,30 @@ function getBotMove() {
     //    defendScore  = điểm nguy hiểm nhất địch sẽ tạo ra
     // ══════════════════════════════════════════════════════
     const { attackScore, defendScore, bestAttackMove, bestDefendMove } =
-        assessThreats(cands, bp, hp);
+        assessThreats(validCands, bp, hp);
 
     // Bot có lợi thế rõ ràng (≥ địch) → tấn công
     // Địch nguy hiểm hơn               → phòng thủ
-    const shouldAttack = attackScore >= defendScore;
+    // God mode: ưu tiên tấn công hơn, chỉ phòng thủ khi địch cực kỳ nguy hiểm
+    let shouldAttack = attackScore >= defendScore;
+    if (isGod) {
+        // God mode: ưu tiên tấn công nhiều hơn
+        shouldAttack = attackScore >= defendScore * 0.8; // Chỉ phòng thủ khi địch nguy hiểm hơn 25%
+    }
 
     console.log(`🎯 Attack=${attackScore} | Defend=${defendScore} | ${shouldAttack ? 'ATTACK' : 'DEFEND'}`);
 
     // ══════════════════════════════════════════════════════
-    // 3. FOUR — ai có trước thì ưu tiên
-    //    Dùng countLineAndBlocked để đếm chuỗi thực, không dùng evalLine
+    // 3. FOUR — đã tìm ở bước 0.5, dùng lại kết quả
     // ══════════════════════════════════════════════════════
-
-    // Tìm FOUR của bot (đặt quân bot vào ô → đếm chuỗi)
-    let botFourOpen = null;
-    for (const { r, c } of cands) {
-        setCell(r, c, bp);
-        for (const { dr, dc } of DIRECTIONS) {
-            const { count, blockedBoth } = countLineAndBlocked(r, c, dr, dc, bp);
-            if (count < winCount - 1 || count >= winCount) continue;
-            if (blockBothEnds && blockedBoth) continue;
-            botFourOpen = { r, c };
-            break;
-        }
-        setCell(r, c, '');
-        if (botFourOpen) break;
-    }
-
-    // Tìm FOUR của địch còn sống
-    let enemyFour = null;
-    for (const { r, c } of cands) {
-        setCell(r, c, hp);
-        for (const { dr, dc } of DIRECTIONS) {
-            const { count, blockedBoth } = countLineAndBlocked(r, c, dr, dc, hp);
-            if (count < winCount - 1 || count >= winCount) continue;
-            if (blockBothEnds && blockedBoth) continue;
-            enemyFour = { r, c };
-            break;
-        }
-        setCell(r, c, '');
-        if (enemyFour) break;
-    }
-
-    if (botFourOpen && enemyFour) {
+    // botWinningMove và enemyFour đã được tìm ở bước 0.5
+    
+    if (botWinningMove && enemyFour) {
         // Cả 2 đều có FOUR → đánh của bot trước (tấn công thắng phòng thủ)
         updateBotThinking('Cả 2 có 4! Tấn công trước! ⚔️');
-        return botFourOpen;
+        return botWinningMove;
     }
-    if (botFourOpen) { updateBotThinking('Cơ hội 4 mở! ⚔️'); return botFourOpen; }
+    if (botWinningMove) { updateBotThinking('Cơ hội 4 mở! ⚔️'); return botWinningMove; }
     if (enemyFour)   { updateBotThinking('Chặn 4 địch! 🛡️'); return enemyFour; }
 
     // ══════════════════════════════════════════════════════
@@ -1150,7 +1417,7 @@ function getBotMove() {
     let botDoubleThree = null, enemyDoubleThree = null;
     let botDTScore = -Infinity, enemyDTScore = -Infinity;
 
-    for (const { r, c } of cands) {
+    for (const { r, c } of validCands) {
         // Bot tạo double three
         setCell(r, c, bp);
         let bThree = 0;
@@ -1194,24 +1461,86 @@ function getBotMove() {
     if (enemyDoubleThree) { updateBotThinking('Chặn double three địch! 🔥'); return enemyDoubleThree; }
 
     // ══════════════════════════════════════════════════════
-    // 5. FORK — dựa vào shouldAttack để ưu tiên
+    // 5. ADVANCED PATTERN RECOGNITION (God mode only)
     // ══════════════════════════════════════════════════════
-    if (gameMode === 'ai-god' || gameMode === 'ai-hard') {
-        const botFork   = findAdvancedFork(bp);
-        const enemyFork = findAdvancedFork(hp);
-
-        if (botFork && enemyFork) {
+    if (isGod) {
+        // Check for breakthrough patterns (unstoppable lines)
+        const botBreakthroughs = detectBreakthroughPatterns(bp, validCands, hp);
+        if (botBreakthroughs.length > 0) {
+            updateBotThinking('Phát hiện breakthrough! 🚀');
+            return botBreakthroughs[0];
+        }
+        
+        // Check for trap patterns (force opponent into weak position)
+        const botTraps = detectTrapPatterns(bp, validCands, hp);
+        if (botTraps.length > 0 && shouldAttack) {
+            updateBotThinking('Bẫy địch! 🎯');
+            return botTraps[0];
+        }
+        
+        // Check enemy traps and block them
+        const enemyTraps = detectTrapPatterns(hp, validCands, bp);
+        if (enemyTraps.length > 0 && !shouldAttack) {
+            updateBotThinking('Phát hiện bẫy địch! 🛡️');
+            return enemyTraps[0].forcedResponse;
+        }
+        
+        // Check for double threat patterns
+        const botDoubleThreats = detectDoubleThreatPatterns(bp, validCands);
+        if (botDoubleThreats.length > 0 && shouldAttack) {
+            updateBotThinking('Tạo double threat! ⚡');
+            return botDoubleThreats[0];
+        }
+        
+        const enemyDoubleThreats = detectDoubleThreatPatterns(hp, validCands);
+        if (enemyDoubleThreats.length > 0 && !shouldAttack) {
+            updateBotThinking('Chặn double threat địch! 🔥');
+            return enemyDoubleThreats[0];
+        }
+        
+        // Check for fork patterns using new detection
+        const botForks = detectForkPatterns(bp, validCands);
+        const enemyForks = detectForkPatterns(hp, validCands);
+        
+        if (botForks.length > 0 && enemyForks.length > 0) {
             if (shouldAttack) {
-                updateBotThinking('Tạo fork! ⚡'); return botFork;
+                updateBotThinking('Tạo fork mạnh hơn! ⚡');
+                return botForks[0];
             } else {
-                updateBotThinking('Chặn fork địch! 🛡️'); return enemyFork;
+                updateBotThinking('Chặn fork địch! 🛡️');
+                return enemyForks[0];
             }
         }
-        if (shouldAttack && botFork)   { updateBotThinking('Tạo fork! ⚡');        return botFork; }
-        if (!shouldAttack && enemyFork){ updateBotThinking('Chặn fork địch! 🛡️'); return enemyFork; }
+        if (shouldAttack && botForks.length > 0) {
+            updateBotThinking('Tạo fork! ⚡');
+            return botForks[0];
+        }
+        if (!shouldAttack && enemyForks.length > 0) {
+            updateBotThinking('Chặn fork địch! 🛡️');
+            return enemyForks[0];
+        }
+    }
+    
+    // ══════════════════════════════════════════════════════
+    // 5.5. FORK — dựa vào shouldAttack để ưu tiên (Hard mode fallback)
+    // ══════════════════════════════════════════════════════
+    // Hard mode dùng detectForkPatterns
+    if (isHard && !isGod) {
+        const botForks = detectForkPatterns(bp, validCands);
+        const enemyForks = detectForkPatterns(hp, validCands);
+
+        if (botForks.length > 0 && enemyForks.length > 0) {
+            if (shouldAttack) {
+                updateBotThinking('Tạo fork! ⚡'); return botForks[0];
+            } else {
+                updateBotThinking('Chặn fork địch! 🛡️'); return enemyForks[0];
+            }
+        }
+        if (shouldAttack && botForks.length > 0)   { updateBotThinking('Tạo fork! ⚡');        return botForks[0]; }
+        if (!shouldAttack && enemyForks.length > 0){ updateBotThinking('Chặn fork địch! 🛡️'); return enemyForks[0]; }
         // Chỉ có 1 trong 2
-        if (enemyFork) { updateBotThinking('Chặn fork địch! 🛡️'); return enemyFork; }
-        if (botFork)   { updateBotThinking('Tạo fork! ⚡');        return botFork; }
+        if (enemyForks.length > 0) { updateBotThinking('Chặn fork địch! 🛡️'); return enemyForks[0]; }
+        if (botForks.length > 0)   { updateBotThinking('Tạo fork! ⚡');        return botForks[0]; }
     }
 
     // ══════════════════════════════════════════════════════
@@ -1219,8 +1548,9 @@ function getBotMove() {
     //    Kiểm tra: nếu bot đi đây → địch phản công → địch có FOUR không?
     //    Nếu có → chọn nước đi an toàn khác
     // ══════════════════════════════════════════════════════
-    if (gameMode === 'ai-god') {
-        const safeMove = findSafeMoveWithLookahead(cands, bp, hp);
+    // God mode mới dùng lookahead
+    if (isGod) {
+        const safeMove = findSafeMoveWithLookahead(validCands, bp, hp);
         if (safeMove) {
             updateBotThinking('Tránh nước nguy hiểm! 🔮'); return safeMove;
         }
@@ -1252,10 +1582,11 @@ function getBotMove() {
     // ══════════════════════════════════════════════════════
     // 7. ADVANCED AI: MCTS + Minimax (hard/god)
     // ══════════════════════════════════════════════════════
-    if (gameMode === 'ai-god' || gameMode === 'ai-hard') {
+    if (isHard || isGod) {
         updateBotThinking('Đang tính toán sâu... 🧠');
-        if (gameMode === 'ai-god' && moveCount > 5) {
-            const mctsMove = mctsSearch(winCount >= 5 ? 1500 : 1000, 1500);
+        if (isGod && moveCount > 5) {
+            const mctsIterations = winCount >= 6 ? 5000 : 3000;
+            const mctsMove = mctsSearch(mctsIterations, 2000);
             if (mctsMove) {
                 console.log(`🧠 Neural: ${neuralEvaluator.evaluate(bp).toFixed(0)}`);
                 updateBotThinking('MCTS đã tìm ra nước đi! 🚀');
@@ -1263,12 +1594,12 @@ function getBotMove() {
             }
         }
         let depth;
-        if (gameMode === 'ai-god') {
-            if (winCount >= 8) depth = 5;
-            else if (winCount >= 6) depth = 6;
-            else if (winCount === 5) depth = 5;
-            else if (winCount === 4) depth = 4;
-            else depth = 3; // winCount = 3
+        if (isGod) {
+            if (winCount >= 8) depth = 8;
+            else if (winCount >= 6) depth = 7;
+            else if (winCount === 5) depth = 6;
+            else if (winCount === 4) depth = 5;
+            else depth = 4; // winCount = 3
         } else {
             depth = winCount >= 6 ? 4 : 3;
         }
@@ -1282,9 +1613,9 @@ function getBotMove() {
     }
 
     // Fallback
-    const scored = cands.map(({ r, c }) => ({ r, c, score: quickScore(r, c, bp) }));
+    const scored = validCands.map(({ r, c }) => ({ r, c, score: quickScore(r, c, bp) }));
     scored.sort((a, b) => b.score - a.score);
-    return scored[0] || cands[0];
+    return scored[0] || validCands[0];
 }
 
 function updateBotThinking(message) {

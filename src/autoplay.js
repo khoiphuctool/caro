@@ -5,10 +5,47 @@ let autoplayGamesRemaining = 0;
 let autoplayWins           = 0;
 let autoplayLosses         = 0;
 let autoplayDraws          = 0;
-let trainingBotXMode       = 'ai-god';  // Bot X (đi trước) - level
-let trainingBotOMode       = 'ai-hard'; // Bot O (đi sau) - level
-let learningEnabled        = true;      // Bật learning trong training
+let trainingBotXMode       = 'ai-medium';  // Bot X (đi trước) - level (mặc định medium)
+let trainingBotOMode       = 'ai-easy';    // Bot O (đi sau) - level (mặc định easy)
+let learningEnabled        = true;          // Bật learning trong training
 // isAutoplayRunning được khai báo var trong trang-thai.js
+
+// ===== LOCK TRAINING UI =====
+function lockTrainingUI(locked) {
+    const controlsToLock = [
+        'game-mode',
+        'win-count',
+        'block-both-ends',
+        'player-piece',
+        'first-move'
+    ];
+
+    for (const id of controlsToLock) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.disabled = locked;
+            element.style.opacity = locked ? '0.5' : '1';
+            element.style.cursor = locked ? 'not-allowed' : 'pointer';
+        }
+    }
+
+    // Also lock training-specific controls
+    const trainingControls = [
+        'autoplay-games',
+        'autoplay-win-count',
+        'training-bot-x',
+        'training-bot-o'
+    ];
+
+    for (const id of trainingControls) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.disabled = locked;
+            element.style.opacity = locked ? '0.5' : '1';
+            element.style.cursor = locked ? 'not-allowed' : 'pointer';
+        }
+    }
+}
 
 function startAutoplay() {
     if (isAutoplayRunning) return;
@@ -22,12 +59,24 @@ function startAutoplay() {
     autoplayDraws  = 0;
     isAutoplayRunning = true;
 
+    // Lock training configuration
+    if (typeof GameState !== 'undefined') {
+        GameState.training.isRunning = true;
+        GameState.lockTraining();
+    }
+
     document.getElementById('btn-autoplay').style.display      = 'none';
     document.getElementById('btn-stop-autoplay').style.display = 'inline-block';
 
-    // Luân phiên level để đa dạng hóa training
-    trainingBotXMode = 'ai-god';
-    trainingBotOMode = 'ai-hard';
+    // Lock UI controls during training
+    lockTrainingUI(true);
+
+    // Đọc level bot từ UI (nếu có), nếu không dùng mặc định
+    const botXSelect = document.getElementById('training-bot-x');
+    const botOSelect = document.getElementById('training-bot-o');
+    
+    if (botXSelect) trainingBotXMode = botXSelect.value;
+    if (botOSelect) trainingBotOMode = botOSelect.value;
 
     const originalWinCount = winCount;
     winCount = autoplayWinCount;
@@ -40,14 +89,29 @@ function stopAutoplay() {
     if (autoplayInterval) { clearTimeout(autoplayInterval); autoplayInterval = null; }
     isAutoplayRunning = false;
 
+    // Unlock training configuration
+    if (typeof GameState !== 'undefined') {
+        GameState.training.isRunning = false;
+        GameState.unlockTraining();
+    }
+
     document.getElementById('btn-autoplay').style.display      = 'inline-block';
     document.getElementById('btn-stop-autoplay').style.display = 'none';
+
+    // Unlock UI controls
+    lockTrainingUI(false);
 
     const memoryStats = typeof getMemoryStats === 'function' ? getMemoryStats() : { patterns: 0, totalHits: 0 };
     statusPanel.innerHTML = `🎓 TRAINING ĐÃ DỪNG | Thắng: ${autoplayWins} | Thua: ${autoplayLosses} | Hòa: ${autoplayDraws} | Pattern học: ${memoryStats.patterns}`;
 
-    gameMode = 'ai-god';
+    // Restore gameMode về giá trị từ UI
+    gameMode = modeSelect.value;
     initGame();
+    
+    // Force render lại board sau khi initGame
+    if (isInfinite && typeof renderInfiniteBoard === 'function') {
+        renderInfiniteBoard();
+    }
 }
 
 function runAutoplayGame(originalWinCount) {
@@ -55,21 +119,19 @@ function runAutoplayGame(originalWinCount) {
 
     initGame();
     winCount       = parseInt(document.getElementById('autoplay-win-count').value);
-    currentPlayer  = 'X';
+    currentPlayer  = 'X'; // Reset về X cho mỗi ván mới
     
     // Training mode: 2 bot đấu nhau
     // Bot X dùng trainingBotXMode, Bot O dùng trainingBotOMode
     // Mỗi lượt sẽ set gameMode tương ứng
     isGameActive   = true;
 
-    // Luân phiên level mỗi 10 ván để đa dạng hóa
-    if (autoplayGamesRemaining % 20 === 0) {
-        trainingBotXMode = 'ai-god';
-        trainingBotOMode = 'ai-hard';
-    } else if (autoplayGamesRemaining % 20 === 10) {
-        trainingBotXMode = 'ai-hard';
-        trainingBotOMode = 'ai-god';
-    }
+    // Đọc level bot từ UI (nếu có), nếu không dùng mặc định
+    const botXSelect = document.getElementById('training-bot-x');
+    const botOSelect = document.getElementById('training-bot-o');
+    
+    if (botXSelect) trainingBotXMode = botXSelect.value;
+    if (botOSelect) trainingBotOMode = botOSelect.value;
 
     const totalGames = parseInt(document.getElementById('autoplay-games').value);
     statusPanel.innerHTML = `🎓 TRAINING: Bot ${trainingBotXMode.toUpperCase()} vs Bot ${trainingBotOMode.toUpperCase()} (${autoplayGamesRemaining}/${totalGames}) | Thắng: ${autoplayWins} | Thua: ${autoplayLosses}`;
@@ -129,6 +191,8 @@ function autoplayMove(originalWinCount) {
         const originalIsSolo = isSolo;
 
         isSolo = false;
+        // Trong autoplay, cả X và O đều là bot
+        // currentPlayer là quân sẽ đi, nên botPiece = currentPlayer
         botPiece = currentPlayer;
         humanPiece = currentPlayer === 'X' ? 'O' : 'X';
 
@@ -146,6 +210,11 @@ function autoplayMove(originalWinCount) {
             isBotMove = true;
             makeMove(move.r, move.c);
             isBotMove = originalIsBotMove;
+            
+            // Force render lại board để đảm bảo hiển thị đúng
+            if (isInfinite && typeof renderInfiniteBoard === 'function') {
+                renderInfiniteBoard();
+            }
         } else {
             isGameActive = false;
         }

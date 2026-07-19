@@ -379,29 +379,101 @@ function getActivityCenter() {
 
 // ===== OPENING BOOK =====
 const openingBook = {
-    start: [{ moves: [], move: [0, 0], weight: 10 }],
-    center: (() => {
-        const mid = 0; // bàn vô hạn dùng origin
+    // Nước đi đầu tiên - mở rộng với diagonal và indirect openings
+    start: [
+        { moves: [], move: [0, 0], weight: 10 },        // Center (tốt nhất)
+        { moves: [], move: [-2, -2], weight: 3 },      // Diagonal opening
+        { moves: [], move: [2, 2], weight: 3 },
+        { moves: [], move: [-2, 2], weight: 3 },
+        { moves: [], move: [2, -2], weight: 3 },
+        { moves: [], move: [-3, 0], weight: 2 },        // Indirect opening
+        { moves: [], move: [3, 0], weight: 2 },
+        { moves: [], move: [0, -3], weight: 2 },
+        { moves: [], move: [0, 3], weight: 2 },
+    ],
+    // Response khi đối thủ đi trung tâm
+    centerResponse: (() => {
+        const mid = 0;
         return [
-            { moves: [[mid,mid]], move: [mid-1, mid-1], weight: 8 },
-            { moves: [[mid,mid]], move: [mid-1, mid+1], weight: 8 },
-            { moves: [[mid,mid]], move: [mid+1, mid-1], weight: 8 },
-            { moves: [[mid,mid]], move: [mid+1, mid+1], weight: 8 },
-            { moves: [[mid,mid]], move: [mid-2, mid],   weight: 4 },
-            { moves: [[mid,mid]], move: [mid+2, mid],   weight: 4 },
-            { moves: [[mid,mid]], move: [mid, mid-2],   weight: 4 },
-            { moves: [[mid,mid]], move: [mid, mid+2],   weight: 4 },
+            { moves: [[mid,mid]], move: [mid-1, mid-1], weight: 10 }, // Direct diagonal
+            { moves: [[mid,mid]], move: [mid-1, mid+1], weight: 10 },
+            { moves: [[mid,mid]], move: [mid+1, mid-1], weight: 10 },
+            { moves: [[mid,mid]], move: [mid+1, mid+1], weight: 10 },
+            { moves: [[mid,mid]], move: [mid-2, mid], weight: 6 },   // Indirect
+            { moves: [[mid,mid]], move: [mid+2, mid], weight: 6 },
+            { moves: [[mid,mid]], move: [mid, mid-2], weight: 6 },
+            { moves: [[mid,mid]], move: [mid, mid+2], weight: 6 },
+            { moves: [[mid,mid]], move: [mid-2, mid-2], weight: 4 }, // Far diagonal
+            { moves: [[mid,mid]], move: [mid-2, mid+2], weight: 4 },
+            { moves: [[mid,mid]], move: [mid+2, mid-2], weight: 4 },
+            { moves: [[mid,mid]], move: [mid+2, mid+2], weight: 4 },
+        ];
+    })(),
+    // Response khi đối thủ đi diagonal
+    diagonalResponse: (() => {
+        return [
+            { pattern: 'diagonal', move: [0, 0], weight: 10 },       // Chặn trung tâm
+            { pattern: 'diagonal', move: [-1, 1], weight: 8 },       // Counter diagonal
+            { pattern: 'diagonal', move: [1, -1], weight: 8 },
+            { pattern: 'diagonal', move: [-2, 0], weight: 5 },        // Indirect
+            { pattern: 'diagonal', move: [2, 0], weight: 5 },
+            { pattern: 'diagonal', move: [0, -2], weight: 5 },
+            { pattern: 'diagonal', move: [0, 2], weight: 5 },
+        ];
+    })(),
+    // Response khi đối thủ đi indirect
+    indirectResponse: (() => {
+        return [
+            { pattern: 'indirect', move: [0, 0], weight: 10 },       // Lấy trung tâm
+            { pattern: 'indirect', move: [-1, -1], weight: 8 },      // Tạo diagonal
+            { pattern: 'indirect', move: [-1, 1], weight: 8 },
+            { pattern: 'indirect', move: [1, -1], weight: 8 },
+            { pattern: 'indirect', move: [1, 1], weight: 8 },
+            { pattern: 'indirect', move: [-2, -1], weight: 5 },      // Kết nối
+            { pattern: 'indirect', move: [-2, 1], weight: 5 },
+            { pattern: 'indirect', move: [2, -1], weight: 5 },
+            { pattern: 'indirect', move: [2, 1], weight: 5 },
         ];
     })()
 };
 
 function getOpeningMove() {
     const cnt = isInfinite ? infiniteMap.size : boardState.flat().filter(x => x !== "").length;
-    if (cnt > 4) return null;
-    const book = cnt === 0 ? openingBook.start : openingBook.center;
+    if (cnt > 6) return null; // Mở rộng từ 4 lên 6 nước
+    
+    let book = null;
+    
+    if (cnt === 0) {
+        // Nước đi đầu tiên
+        book = openingBook.start;
+    } else if (cnt === 1) {
+        // Phản hồi nước đi đầu tiên của đối thủ
+        const lastMove = moveHistory[moveHistory.length - 1];
+        if (!lastMove) return null;
+        
+        const [lr, lc] = [lastMove.r, lastMove.c];
+        
+        // Phân tích kiểu opening của đối thủ
+        if (lr === 0 && lc === 0) {
+            // Đối thủ đi trung tâm
+            book = openingBook.centerResponse;
+        } else if (Math.abs(lr) === Math.abs(lc)) {
+            // Đối thủ đi diagonal
+            book = openingBook.diagonalResponse;
+        } else {
+            // Đối thủ đi indirect
+            book = openingBook.indirectResponse;
+        }
+    } else {
+        // Các nước tiếp theo - dùng response tương ứng
+        book = openingBook.centerResponse; // Fallback
+    }
+    
     if (!book || book.length === 0) return null;
+    
     const totalW = book.reduce((s, x) => s + x.weight, 0);
     let rand = Math.random() * totalW;
+    
     for (const entry of book) {
         rand -= entry.weight;
         if (rand <= 0) {

@@ -10,7 +10,7 @@
 // ─────────────────────────────────────────────────────────────────
 
 const MEMORY_KEY     = 'caro_bot_memory_v1';
-const MAX_MEMORIES   = 500;   // tối đa bao nhiêu pattern nhớ (tăng từ 200)
+const MAX_MEMORIES   = 1500;  // tối đa bao nhiêu pattern nhớ (tăng từ 500)
 const PENALTY_BASE   = 3000;  // điểm phạt cơ bản cho nước đi nguy hiểm
 const MEMORY_DEPTH   = 8;     // nhớ tối đa 8 nước đi gần nhất của địch (tăng từ 6)
 const DECAY_DAYS     = 30;    // số ngày để pattern giảm 50% importance
@@ -298,6 +298,18 @@ function onTrainingResult(history, result, winner) {
     if (result === 'lose') {
         rememberLoss(history, loserPiece);
     }
+    
+    // Train neural network with game result
+    if (typeof neuralEvaluator !== 'undefined' && neuralEvaluator.isTrainingEnabled) {
+        const features = neuralEvaluator.extractFeatures(winnerPiece);
+        const targetValue = result === 'win' ? 10000 : -5000;
+        neuralEvaluator.addTrainingSample(features, targetValue);
+        
+        // Train every 10 games
+        if (Math.random() < 0.1) {
+            neuralEvaluator.train(5);
+        }
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -321,6 +333,9 @@ function rememberWinPattern(history, winnerPiece) {
         if (botMemory[winKey]) {
             botMemory[winKey].hits++;
             botMemory[winKey].lastSeen = Date.now();
+            // Cập nhật context
+            botMemory[winKey].winCount = winCount;
+            botMemory[winKey].gameMode = gameMode;
         } else {
             botMemory[winKey] = {
                 hits: 1,
@@ -328,12 +343,71 @@ function rememberWinPattern(history, winnerPiece) {
                 lastSeen: Date.now(),
                 winCount,
                 gameMode,
-                type: 'win' // đánh dấu là pattern thắng
+                type: 'win', // đánh dấu là pattern thắng
+                // Thêm context
+                boardDensity: moveHistory.length,
+                centerDistance: getAverageCenterDistance(winnerMoves)
             };
         }
     }
 
+    // Giới hạn số lượng WIN patterns để tránh memory bloat
+    const winKeys = Object.keys(botMemory).filter(k => k.startsWith('WIN_'));
+    if (winKeys.length > MAX_MEMORIES / 2) {
+        // Xóa các WIN patterns cũ nhất
+        winKeys.sort((a, b) => botMemory[a].lastSeen - botMemory[b].lastSeen);
+        const toDelete = winKeys.slice(0, winKeys.length - MAX_MEMORIES / 2);
+        toDelete.forEach(k => delete botMemory[k]);
+    }
+
     saveBotMemory();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// KIỂM TRA WIN PATTERN - Bot nhận biết pattern thắng để áp dụng
+// Trả về { found: true/false, move: {r,c}, confidence }
+// ─────────────────────────────────────────────────────────────────
+function checkWinPattern(enemyPiece) {
+    if (Object.keys(botMemory).length === 0) return { found: false };
+
+    const botMoves = moveHistory.filter(m => m.player === botPiece);
+    if (botMoves.length < 2) return { found: false };
+
+    let bestMatch = null;
+    let bestConfidence = 0;
+
+    for (let depth = 3; depth <= Math.min(MEMORY_DEPTH, botMoves.length); depth++) {
+        const recent = botMoves.slice(-depth);
+        if (recent.length < depth) continue;
+
+        const key = normalizeMoveSequence(recent);
+        if (!key) continue;
+
+        const winKey = `WIN_${key}`;
+        const entry = botMemory[winKey];
+
+        if (entry && entry.type === 'win') {
+            // Kiểm tra context match
+            if (!isContextMatch(entry, botMoves)) continue;
+
+            // Tính confidence dựa trên hits và decay
+            const decay = calculateDecay(entry.lastSeen);
+            const confidence = (entry.hits / (entry.hits + 1)) * decay;
+
+            if (confidence > bestConfidence) {
+                bestConfidence = confidence;
+                bestMatch = entry;
+            }
+        }
+    }
+
+    if (bestMatch && bestConfidence > 0.3) {
+        // Tìm nước đi tiếp theo từ pattern
+        // (đây là simplified version - thực tế cần phức tạp hơn)
+        return { found: true, confidence: bestConfidence, pattern: bestMatch };
+    }
+
+    return { found: false };
 }
 
 // Gọi từ getBotMove để điều chỉnh ứng viên dựa trên bộ nhớ

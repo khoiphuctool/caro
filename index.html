@@ -30,6 +30,8 @@
                 <label for="game-mode">🤖 Chế độ Bot:</label>
                 <select id="game-mode" onchange="initGame()">
                     <option value="solo">Solo (2 Người)</option>
+                    <option value="ai-easy">Bot Dễ</option>
+                    <option value="ai-medium">Bot Trung Bình</option>
                     <option value="ai-hard">Mức Khó</option>
                     <option value="ai-god" selected>MỨC TỐI THƯỢNG 💀BOT M2</option>
                 </select>
@@ -65,38 +67,66 @@
                     <option value="O">O</option>
                 </select>
             </div>
-            <div class="config-group">
-                <label for="autoplay-games">Số ván:</label>
-                <select id="autoplay-games" style="padding:4px 8px;border-radius:4px;border:1px solid #cbd5e1;">
-                    <option value="10">10 ván</option>
-                    <option value="50" selected>50 ván</option>
-                    <option value="100">100 ván</option>
-                    <option value="500">500 ván</option>
-                </select>
+            
+            <!-- ══════════════════════════════════════════════════════════════════ -->
+            <!-- 🎓 HUẤN LUYỆN BOT TỰ ĐÁNH -->
+            <!-- ══════════════════════════════════════════════════════════════════ -->
+            <div style="margin-top: 16px; padding: 8px 12px; border: 2px solid #10b981; border-radius: 8px; background: #f0fdf4; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <div style="font-weight: bold; color: #065f46; font-size: 0.85rem; min-width: 140px;">
+                    🎓 HUẤN LUYỆN
+                </div>
+                <div class="config-group" style="margin: 0;">
+                    <label for="autoplay-games">Ván:</label>
+                    <select id="autoplay-games" style="padding:4px 8px;border-radius:4px;border:1px solid #cbd5e1;">
+                        <option value="10">10</option>
+                        <option value="50" selected>50</option>
+                        <option value="100">100</option>
+                        <option value="500">500</option>
+                    </select>
+                </div>
+                <div class="config-group" style="margin: 0;">
+                    <label for="autoplay-win-count">Thắng:</label>
+                    <select id="autoplay-win-count" style="padding:4px 8px;border-radius:4px;border:1px solid #cbd5e1;">
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5" selected>5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10">10</option>
+                    </select>
+                </div>
+                <div class="config-group" style="margin: 0;">
+                    <label for="training-bot-x">X:</label>
+                    <select id="training-bot-x" style="padding:4px 8px;border-radius:4px;border:1px solid #cbd5e1;">
+                        <option value="ai-easy">Dễ</option>
+                        <option value="ai-medium">TB</option>
+                        <option value="ai-hard">Khó</option>
+                        <option value="ai-god" selected>Tối Thượng</option>
+                    </select>
+                </div>
+                <div class="config-group" style="margin: 0;">
+                    <label for="training-bot-o">O:</label>
+                    <select id="training-bot-o" style="padding:4px 8px;border-radius:4px;border:1px solid #cbd5e1;">
+                        <option value="ai-easy">Dễ</option>
+                        <option value="ai-medium" selected>TB</option>
+                        <option value="ai-hard">Khó</option>
+                        <option value="ai-god">Tối Thượng</option>
+                    </select>
+                </div>
+                <div class="config-group" style="margin: 0;">
+                    <button onclick="startAutoplay()" id="btn-autoplay"
+                        style="padding:4px 10px;border-radius:6px;border:1px solid #10b981;background:#d1fae5;color:#065f46;cursor:pointer;font-size:0.8rem;font-weight:bold;">
+                        ▶️
+                    </button>
+                    <button onclick="stopAutoplay()" id="btn-stop-autoplay"
+                        style="padding:4px 10px;border-radius:6px;border:1px solid #ef4444;background:#fee2e2;color:#991b1b;cursor:pointer;font-size:0.8rem;font-weight:bold;display:none;">
+                        ⏹️
+                    </button>
+                </div>
             </div>
-            <div class="config-group">
-                <label for="autoplay-win-count">Số quân thắng:</label>
-                <select id="autoplay-win-count" style="padding:4px 8px;border-radius:4px;border:1px solid #cbd5e1;">
-                    <option value="3">3 quân</option>
-                    <option value="4">4 quân</option>
-                    <option value="5" selected>5 quân</option>
-                    <option value="6">6 quân</option>
-                    <option value="7">7 quân</option>
-                    <option value="8">8 quân</option>
-                    <option value="9">9 quân</option>
-                    <option value="10">10 quân</option>
-                </select>
-            </div>
-            <div class="config-group">
-                <button onclick="startAutoplay()" id="btn-autoplay"
-                    style="padding:6px 12px;border-radius:6px;border:1px solid #10b981;background:#d1fae5;color:#065f46;cursor:pointer;font-size:0.8rem;font-weight:bold;">
-                    🎓 TRAINING (Bot Huấn Luyện)
-                </button>
-                <button onclick="stopAutoplay()" id="btn-stop-autoplay"
-                    style="padding:6px 12px;border-radius:6px;border:1px solid #ef4444;background:#fee2e2;color:#991b1b;cursor:pointer;font-size:0.8rem;font-weight:bold;display:none;">
-                    ⏹️ DỪNG TRAINING
-                </button>
-            </div>
+            <!-- ══════════════════════════════════════════════════════════════════ -->
             <div class="config-group">
                 <div style="font-size:0.75rem;opacity:0.8;">
                     🧠 Pattern: <span id="memory-patterns">0</span> | 
@@ -221,20 +251,49 @@
     <!-- ===== SCRIPTS - thứ tự quan trọng ===== -->
     <!-- 1. Cấu hình & hằng số -->
     <script src="src/cau-hinh.js"></script>
-    <!-- 2. Trạng thái toàn cục & getter/setter -->
+    
+    <!-- 2. New Architecture Modules -->
+    <!-- 2.1 Single Source of Truth - Score Table -->
+    <script src="src/ScoreTable.js"></script>
+    <!-- 2.2 Centralized State Management -->
+    <script src="src/GameState.js"></script>
+    <!-- 2.3 Debug Logging System -->
+    <script src="src/DebugLogger.js"></script>
+    <!-- 2.4 Enhanced Caching System -->
+    <script src="src/Cache.js"></script>
+    <!-- 2.5 Learning Engine (Separated from AI) -->
+    <script src="src/LearningEngine.js"></script>
+    
+    <!-- 3. Legacy State (for backward compatibility during migration) -->
     <script src="src/trang-thai.js"></script>
-    <!-- 3. Logic game: initGame, makeMove, checkWin -->
+    
+    <!-- 4. New AI Architecture Modules -->
+    <!-- 4.1 Pattern Detector -->
+    <script src="src/PatternDetector.js"></script>
+    <!-- 4.2 Threat Detector -->
+    <script src="src/ThreatDetector.js"></script>
+    <!-- 4.3 Evaluation -->
+    <script src="src/Evaluation.js"></script>
+    <!-- 4.4 Search -->
+    <script src="src/Search.js"></script>
+    
+    <!-- 5. Logic game: initGame, makeMove, checkWin -->
     <script src="src/logic-game.js"></script>
-    <!-- 4. AI engine: PVS, MCTS, Neural, getBotMove -->
+    
+    <!-- 6. AI engine: PVS, MCTS, Neural, getBotMove -->
     <script src="src/hoc-kinh-nghiem.js"></script>
     <script src="src/ai-nao.js"></script>
-    <!-- 5. Render bàn cờ canvas, zoom, pan -->
+    
+    <!-- 7. Render bàn cờ canvas, zoom, pan -->
     <script src="src/ban-co.js"></script>
-    <!-- 6. Pháo hoa & win overlay -->
+    
+    <!-- 8. Pháo hoa & win overlay -->
     <script src="src/phat-sung.js"></script>
-    <!-- 7. Autoplay -->
+    
+    <!-- 9. Autoplay -->
     <script src="src/autoplay.js"></script>
-    <!-- 8. Lịch sử & bảng xếp hạng -->
+    
+    <!-- 10. Lịch sử & bảng xếp hạng -->
     <script src="src/lich-su-va-xep-hang.js"></script>
 
     <!-- Khởi động -->
@@ -243,6 +302,28 @@
         var boardElement = document.getElementById('board');
         var statusPanel  = document.getElementById('status-panel');
         var modeSelect   = document.getElementById('game-mode');
+
+        // Initialize new architecture modules
+        if (typeof GameState !== 'undefined') {
+            GameState.initialize();
+        }
+
+        if (typeof DebugLogger !== 'undefined') {
+            DebugLogger.initialize({
+                enabled: false,  // Disabled by default, can be enabled via UI
+                logLevel: 'info',
+                consoleOutput: true,
+                persistToStorage: false
+            });
+        }
+
+        if (typeof Cache !== 'undefined') {
+            Cache.initialize();
+        }
+
+        if (typeof LearningEngine !== 'undefined') {
+            LearningEngine.initialize();
+        }
 
         changeTheme();
 

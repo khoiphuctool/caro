@@ -116,6 +116,8 @@ function changeTheme() {
 // ===== NHÃN CHẾ ĐỘ CHƠI =====
 const MODE_LABELS = {
     'solo':      '2 Người',
+    'ai-easy':   'Bot Dễ',
+    'ai-medium': 'Bot Trung Bình',
     'ai-hard':   'Bot Khó',
     'ai-god':    'Bot Tối Thượng 💀'
 };
@@ -123,6 +125,8 @@ const MODE_LABELS = {
 // ===== HỆ SỐ ĐIỂM =====
 const DIFFICULTY_MULTIPLIERS = {
     'solo': 0.5,
+    'ai-easy': 1,
+    'ai-medium': 1.5,
     'ai-hard': 2,
     'ai-god': 3
 };
