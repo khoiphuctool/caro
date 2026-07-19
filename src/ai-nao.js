@@ -232,54 +232,26 @@ function quickScore(r, c, p) {
     const bias = centerBias(r, c);
 
     // ── ƯU TIÊN TẤN CÔNG KHI CÓ CƠ HỘI THẮNG ──
-    // Nếu bot có 3 quân mở hoặc 4 quân, ưu tiên tấn công gấp đôi
     if (atkThreeOpenCount >= 1 || atkFourCount >= 1) {
-        atkScore *= 2;  // Tăng gấp đôi điểm tấn công
+        atkScore *= 2;
     }
-    // Nếu có nước thắng ngay, ưu tiên tuyệt đối
     if (hasWinningMove) {
-        return 999999;  // Điểm tối đa
+        return 999999;
     }
 
-    return atkScore + defScore + bonus + bias;
+    // ── MEMORY PENALTY — trừ điểm nếu nước này tiếp tay cho chiêu nguy hiểm đã học ──
+    // Chỉ áp dụng cho nước của bot (p === botPiece), bỏ qua khi tính điểm cho địch
+    let memPenalty = 0;
+    if (p === (typeof botPiece !== 'undefined' ? botPiece : null) &&
+        typeof getMemoryPenalty === 'function' &&
+        typeof humanPiece !== 'undefined') {
+        memPenalty = getMemoryPenalty(r, c, humanPiece);
+    }
+
+    return atkScore + defScore + bonus + bias - memPenalty;
 }
 
-// ===== findForkMove =====
-function findForkMove(p) {
-    const cands = getSearchCandidates();
-    let best = null, maxCount = 1;
-    for (const { r, c } of cands) {
-        const old = getCell(r, c);
-        setCell(r, c, p);
-        let openLines = 0;
-        for (const { dr, dc } of DIRECTIONS) {
-            const res = evalLine(r, c, dr, dc, p);
-            if (res === TL.THREE_OPEN || res === TL.FOUR_OPEN || res === TL.FOUR_BLOCKED) openLines++;
-        }
-        setCell(r, c, old);
-        if (openLines > maxCount) { maxCount = openLines; best = { r, c }; }
-    }
-    return best;
-}
 
-// ===== findDoublePattern =====
-function findDoublePattern(p, patternType) {
-    const cands = getSearchCandidates();
-    if (patternType === 'three' && winCount < 4) return null;
-    for (const { r, c } of cands) {
-        const old = getCell(r, c);
-        setCell(r, c, p);
-        let count = 0;
-        for (const { dr, dc } of DIRECTIONS) {
-            const res = evalLine(r, c, dr, dc, p);
-            if (patternType === 'three' && res === TL.THREE_OPEN) count++;
-            else if (patternType === 'four' && (res === TL.FOUR_OPEN || res === TL.FOUR_BLOCKED)) count++;
-        }
-        setCell(r, c, old);
-        if (count >= 2) return { r, c, count };
-    }
-    return null;
-}
 
 // ===== PATTERN RECOGNITION FOR FORK/TRAP =====
 function detectForkPatterns(p, candidates) {
@@ -455,38 +427,7 @@ function detectBreakthroughPatterns(p, candidates, opp) {
     return breakthroughs.sort((a, b) => b.score - a.score);
 }
 
-// ===== findBlockThreeBlocked =====
-function findBlockThreeBlocked(enemyPiece, myPiece) {
-    const cands = getSearchCandidates();
-    for (const { r, c } of cands) {
-        const old = getCell(r, c);
-        setCell(r, c, enemyPiece);
-        let threeBlockedCount = 0;
-        for (const { dr, dc } of DIRECTIONS) {
-            if (evalLine(r, c, dr, dc, enemyPiece) === TL.THREE_BLOCKED) threeBlockedCount++;
-        }
-        setCell(r, c, old);
-        if (threeBlockedCount >= 1 && quickScore(r, c, myPiece) > 500) return { r, c };
-    }
-    return null;
-}
 
-// ===== findDangerousPatterns =====
-function findDangerousPatterns(candidates, humanPc) {
-    const dangerousMoves = [];
-    for (const { r, c } of candidates) {
-        const oldV = getCell(r, c);
-        setCell(r, c, humanPc);
-        for (const { dr, dc } of DIRECTIONS) {
-            const lineEval = evalLine(r, c, dr, dc, humanPc);
-            if (lineEval === TL.FOUR_OPEN || lineEval === TL.THREE_OPEN) {
-                dangerousMoves.push({ r, c }); break;
-            }
-        }
-        setCell(r, c, oldV);
-    }
-    return dangerousMoves;
-}
 
 // ===== PVS (Principal Variation Search) =====
 function pvs(depth, alpha, beta, isMaximizing, player, startTime, maxTime, currentDepth) {
@@ -554,9 +495,6 @@ function pvs(depth, alpha, beta, isMaximizing, player, startTime, maxTime, curre
     return bestScore;
 }
 
-function minimax(depth, alpha, beta, isMaximizing, player, startTime, maxTime, currentDepth) {
-    return pvs(depth, alpha, beta, isMaximizing, player, startTime, maxTime, currentDepth);
-}
 
 // ===== MCTS =====
 class MCTSNode {
@@ -903,7 +841,7 @@ function getBestMoveWithMinimax(depth, player) {
         for (const { r, c } of searchCands) {
             const oldV = getCell(r,c);
             setCell(r,c,player);
-            const score = minimax(d-1, -Infinity, Infinity, false, player, startTime, maxTime, 0);
+            const score = pvs(d-1, -Infinity, Infinity, false, player, startTime, maxTime, 0);
             setCell(r,c,oldV);
             if (score > currentBestScore) { currentBestScore = score; currentBestMove = {r,c}; }
         }
@@ -1113,6 +1051,73 @@ function findSafeMoveWithLookahead(cands, bp, hp) {
 }
 
 // ===== makeAIMove & getBotMove =====
+// ══════════════════════════════════════════════════════════════
+// EARLY GAME DEFENSE — Đầu game bot chủ động áp sát, chặn lan rộng
+//
+// Khi số nước đi còn ít (moveCount ≤ EARLY_GAME_THRESHOLD) và
+// không có mối đe dọa cấp cao nào, bot ưu tiên ô gần quân người
+// chơi nhất để ngăn họ spread thoải mái tạo nước đôi/ba.
+// ══════════════════════════════════════════════════════════════
+const EARLY_GAME_THRESHOLD = 8; // số quân mỗi bên ≤ này = đầu game
+
+function earlyGameDefense(validCands, bp, hp) {
+    // Lấy danh sách ô của người chơi
+    const humanCells = [];
+    if (isInfinite) {
+        infiniteMap.forEach((v, k) => {
+            if (v === hp) {
+                const [r, c] = k.split(',').map(Number);
+                humanCells.push({ r, c });
+            }
+        });
+    } else {
+        for (let r = 0; r < boardSize; r++)
+            for (let c = 0; c < boardSize; c++)
+                if (boardState[r][c] === hp) humanCells.push({ r, c });
+    }
+
+    if (humanCells.length === 0) return null;
+
+    // Tính điểm cho mỗi ô ứng viên: proximity tới quân người + quickScore
+    let best = null, bestScore = -Infinity;
+
+    for (const { r, c } of validCands) {
+        // Khoảng cách Chebyshev tới quân người chơi gần nhất
+        let minDist = Infinity;
+        for (const hc of humanCells) {
+            const d = Math.max(Math.abs(r - hc.r), Math.abs(c - hc.c));
+            if (d < minDist) minDist = d;
+        }
+
+        // Chỉ xét ô trong bán kính 3 của quân người chơi
+        if (minDist > 3) continue;
+
+        // Đánh giá các hướng mở rộng của người chơi từ ô này
+        let expansionBlock = 0;
+        setCell(r, c, hp);
+        for (const { dr, dc } of DIRECTIONS) {
+            const lv = evalLine(r, c, dr, dc, hp);
+            if (lv !== TL.NONE) {
+                // Ô này nếu người chơi đi sẽ tạo pattern → ưu tiên chặn
+                expansionBlock += scoreFromTL(lv, false);
+            }
+        }
+        setCell(r, c, '');
+
+        // Điểm tổng: chặn lan rộng + proximity bonus + quick score thường
+        const proximityBonus = (4 - minDist) * 150; // gần hơn = điểm cao hơn
+        const baseScore = quickScore(r, c, bp);
+        const totalScore = expansionBlock + proximityBonus + baseScore;
+
+        if (totalScore > bestScore) {
+            bestScore = totalScore;
+            best = { r, c };
+        }
+    }
+
+    return best;
+}
+
 function makeAIMove() {
     if (!isGameActive) return;
     isBotMove = true;
@@ -1450,15 +1455,27 @@ function getBotMove() {
     }
 
     if (botDoubleThree && enemyDoubleThree) {
-        // Cả 2 có double three → so điểm
-        if (shouldAttack) {
-            updateBotThinking('Tạo double three! ⚡'); return botDoubleThree;
-        } else {
-            updateBotThinking('Chặn double three địch! 🔥'); return enemyDoubleThree;
-        }
+        // Địch có double three → luôn chặn, bất kể shouldAttack
+        updateBotThinking('Chặn double three địch! 🔥'); return enemyDoubleThree;
     }
     if (botDoubleThree)   { updateBotThinking('Tạo double three! ⚡'); return botDoubleThree; }
     if (enemyDoubleThree) { updateBotThinking('Chặn double three địch! 🔥'); return enemyDoubleThree; }
+
+    // ══════════════════════════════════════════════════════
+    // 4.5. EARLY GAME DEFENSE — đầu game áp sát, ngăn người chơi
+    //      spread thoải mái tạo nước đôi/ba
+    //      Kích hoạt khi số nước còn ít VÀ không có mối đe dọa cao
+    // ══════════════════════════════════════════════════════
+    if (!isEasy) {
+        const humanMoveCount = moveHistory.filter(m => m.player === hp).length;
+        if (humanMoveCount <= EARLY_GAME_THRESHOLD) {
+            const earlyMove = earlyGameDefense(validCands, bp, hp);
+            if (earlyMove) {
+                updateBotThinking('Áp sát, ngăn lan rộng! 🛡️');
+                return earlyMove;
+            }
+        }
+    }
 
     // ══════════════════════════════════════════════════════
     // 5. ADVANCED PATTERN RECOGNITION (God mode only)
@@ -1478,9 +1495,9 @@ function getBotMove() {
             return botTraps[0];
         }
         
-        // Check enemy traps and block them
+        // Check enemy traps and block them — luôn chặn bất kể shouldAttack
         const enemyTraps = detectTrapPatterns(hp, validCands, bp);
-        if (enemyTraps.length > 0 && !shouldAttack) {
+        if (enemyTraps.length > 0) {
             updateBotThinking('Phát hiện bẫy địch! 🛡️');
             return enemyTraps[0].forcedResponse;
         }
@@ -1492,8 +1509,9 @@ function getBotMove() {
             return botDoubleThreats[0];
         }
         
+        // Địch có double threat → luôn chặn
         const enemyDoubleThreats = detectDoubleThreatPatterns(hp, validCands);
-        if (enemyDoubleThreats.length > 0 && !shouldAttack) {
+        if (enemyDoubleThreats.length > 0) {
             updateBotThinking('Chặn double threat địch! 🔥');
             return enemyDoubleThreats[0];
         }
@@ -1502,22 +1520,14 @@ function getBotMove() {
         const botForks = detectForkPatterns(bp, validCands);
         const enemyForks = detectForkPatterns(hp, validCands);
         
-        if (botForks.length > 0 && enemyForks.length > 0) {
-            if (shouldAttack) {
-                updateBotThinking('Tạo fork mạnh hơn! ⚡');
-                return botForks[0];
-            } else {
-                updateBotThinking('Chặn fork địch! 🛡️');
-                return enemyForks[0];
-            }
+        // Địch có fork → luôn chặn trước
+        if (enemyForks.length > 0) {
+            updateBotThinking('Chặn fork địch! 🛡️');
+            return enemyForks[0];
         }
         if (shouldAttack && botForks.length > 0) {
             updateBotThinking('Tạo fork! ⚡');
             return botForks[0];
-        }
-        if (!shouldAttack && enemyForks.length > 0) {
-            updateBotThinking('Chặn fork địch! 🛡️');
-            return enemyForks[0];
         }
     }
     
@@ -1529,16 +1539,7 @@ function getBotMove() {
         const botForks = detectForkPatterns(bp, validCands);
         const enemyForks = detectForkPatterns(hp, validCands);
 
-        if (botForks.length > 0 && enemyForks.length > 0) {
-            if (shouldAttack) {
-                updateBotThinking('Tạo fork! ⚡'); return botForks[0];
-            } else {
-                updateBotThinking('Chặn fork địch! 🛡️'); return enemyForks[0];
-            }
-        }
-        if (shouldAttack && botForks.length > 0)   { updateBotThinking('Tạo fork! ⚡');        return botForks[0]; }
-        if (!shouldAttack && enemyForks.length > 0){ updateBotThinking('Chặn fork địch! 🛡️'); return enemyForks[0]; }
-        // Chỉ có 1 trong 2
+        // Địch có fork → luôn chặn, không phụ thuộc shouldAttack
         if (enemyForks.length > 0) { updateBotThinking('Chặn fork địch! 🛡️'); return enemyForks[0]; }
         if (botForks.length > 0)   { updateBotThinking('Tạo fork! ⚡');        return botForks[0]; }
     }
@@ -1557,7 +1558,36 @@ function getBotMove() {
     }
 
     // ══════════════════════════════════════════════════════
-    // 6. BEST MOVE THEO assessThreats
+    // 5.9. WIN PATTERN — áp dụng thế thắng đã học
+    //      Tìm nước tiếp theo khớp với pattern thắng trong botMemory
+    // ══════════════════════════════════════════════════════
+    if (typeof botMemory !== 'undefined' && Object.keys(botMemory).length > 0) {
+        const botMoves = moveHistory.filter(m => m.player === bp);
+        if (botMoves.length >= 2) {
+            let bestWinMove = null, bestWinScore = -1;
+            for (const { r, c } of validCands) {
+                // Thử đặt nước này và kiểm tra chuỗi mới có khớp WIN_ pattern không
+                const hypothetical = [...botMoves, { r, c, player: bp }];
+                for (let depth = 3; depth <= Math.min(8, hypothetical.length); depth++) {
+                    const recent = hypothetical.slice(-depth);
+                    if (recent.length < depth) continue;
+                    const key = 'WIN_' + normalizeMoveSequence(recent);
+                    const entry = botMemory[key];
+                    if (entry && entry.hits >= 3) { // chỉ dùng pattern đã thấy ≥3 lần
+                        const score = entry.hits * (depth / 8);
+                        if (score > bestWinScore) { bestWinScore = score; bestWinMove = { r, c }; }
+                    }
+                }
+            }
+            if (bestWinMove) {
+                updateBotThinking('Áp dụng thế thắng đã học! 🏆');
+                return bestWinMove;
+            }
+        }
+    }
+
+    // ══════════════════════════════════════════════════════
+    // 6. BEST MOVE THEO assessThreats + MEMORY
     //    — dùng bestAttackMove / bestDefendMove đã tính sẵn
     //    — kết hợp bộ nhớ kinh nghiệm để tránh lặp pattern thua
     // ══════════════════════════════════════════════════════
@@ -1566,9 +1596,17 @@ function getBotMove() {
     const warning = checkPatternWarning(hp);
     if (warning.danger) {
         updateBotThinking(warning.message);
-        // Tăng ưu tiên phòng thủ khi nhận ra pattern nguy hiểm
-        if (!shouldAttack && bestDefendMove) {
-            return bestDefendMove;
+        // Khi nhận ra chiêu quen: chọn nước có điểm cao nhất SAU KHI trừ memory penalty
+        // Thay vì trả về bestDefendMove cứng, tìm nước tốt nhất với penalty đã áp dụng
+        const memoryAwareCands = validCands
+            .map(({ r, c }) => ({
+                r, c,
+                score: quickScore(r, c, bp) // quickScore đã tích hợp getMemoryPenalty
+            }))
+            .sort((a, b) => b.score - a.score);
+        if (memoryAwareCands.length > 0) {
+            updateBotThinking(`${warning.message} → Chọn nước tối ưu! 🧠`);
+            return memoryAwareCands[0];
         }
     }
 

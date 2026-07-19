@@ -407,22 +407,22 @@ const Search = {
 
     // ===== TRANSPOSITION TABLE HELPERS =====
     ttLookup(hash, depth, alpha, beta) {
-        if (typeof ttLookup === 'function') {
-            return ttLookup(hash, depth, alpha, beta);
+        if (typeof window.ttLookup === 'function') {
+            return window.ttLookup(hash, depth, alpha, beta);
         }
         return null;
     },
 
     ttStore(hash, depth, value, flag) {
-        if (typeof ttStore === 'function') {
-            ttStore(hash, depth, value, flag);
+        if (typeof window.ttStore === 'function') {
+            window.ttStore(hash, depth, value, flag);
         }
     },
 
     // ===== KILLER MOVE HELPERS =====
     addKillerMove(depth, r, c) {
-        if (typeof addKillerMove === 'function') {
-            addKillerMove(depth, r, c);
+        if (typeof window.addKillerMove === 'function') {
+            window.addKillerMove(depth, r, c);
         }
     },
 
@@ -440,8 +440,8 @@ const Search = {
     },
 
     isKillerMove(depth, r, c) {
-        if (typeof isKillerMove === 'function') {
-            return isKillerMove(depth, r, c);
+        if (typeof window.isKillerMove === 'function') {
+            return window.isKillerMove(depth, r, c);
         }
         return false;
     },

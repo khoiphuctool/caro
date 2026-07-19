@@ -125,12 +125,21 @@
                         ⏹️
                     </button>
                 </div>
+                <!-- Progress training -->
+                <div id="training-progress" style="display:none; align-items:center; gap:6px; margin:0;">
+                    <span id="training-progress-text" style="font-size:0.75rem;color:#065f46;font-weight:bold;white-space:nowrap;">0/0</span>
+                    <div style="width:80px;height:6px;background:#d1fae5;border-radius:3px;overflow:hidden;">
+                        <div id="training-progress-bar" style="height:100%;width:0%;background:#10b981;border-radius:3px;transition:width 0.3s;"></div>
+                    </div>
+                    <span id="training-progress-wr" style="font-size:0.7rem;color:#6b7280;white-space:nowrap;">W:0 L:0</span>
+                </div>
             </div>
             <!-- ══════════════════════════════════════════════════════════════════ -->
             <div class="config-group">
                 <div style="font-size:0.75rem;opacity:0.8;">
                     🧠 Pattern: <span id="memory-patterns">0</span> | 
                     <span style="color:#10b981;">✓<span id="memory-effective">0</span></span> |
+                    🎯 Elo: <span id="elo-current">1500</span> (Best: <span id="elo-best">1500</span>) |
                     <button onclick="showMemoryStats()" style="padding:2px 6px;border-radius:4px;border:1px solid #8b5cf6;background:#ede9fe;color:#5b21b6;cursor:pointer;font-size:0.7rem;">📊</button>
                     <button onclick="exportBotMemory()" style="padding:2px 6px;border-radius:4px;border:1px solid #3b82f6;background:#dbeafe;color:#1e40af;cursor:pointer;font-size:0.7rem;">Xuất</button>
                     <button onclick="document.getElementById('import-memory-input').click()" style="padding:2px 6px;border-radius:4px;border:1px solid #10b981;background:#d1fae5;color:#065f46;cursor:pointer;font-size:0.7rem;">Nhập</button>
@@ -261,8 +270,6 @@
     <script src="src/DebugLogger.js"></script>
     <!-- 2.4 Enhanced Caching System -->
     <script src="src/Cache.js"></script>
-    <!-- 2.5 Learning Engine (Separated from AI) -->
-    <script src="src/LearningEngine.js"></script>
     
     <!-- 3. Legacy State (for backward compatibility during migration) -->
     <script src="src/trang-thai.js"></script>
@@ -290,7 +297,10 @@
     <!-- 8. Pháo hoa & win overlay -->
     <script src="src/phat-sung.js"></script>
     
-    <!-- 9. Autoplay -->
+    <!-- 9. Batch Learning - Anti-oscillation system -->
+    <script src="src/BatchLearning.js"></script>
+
+    <!-- 10. Autoplay -->
     <script src="src/autoplay.js"></script>
     
     <!-- 10. Lịch sử & bảng xếp hạng -->
@@ -321,9 +331,7 @@
             Cache.initialize();
         }
 
-        if (typeof LearningEngine !== 'undefined') {
-            LearningEngine.initialize();
-        }
+
 
         changeTheme();
 

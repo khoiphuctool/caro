@@ -166,8 +166,8 @@ function makeMove(r, c) {
 
         // Nếu đang autoplay thì bỏ qua phần UI popup
         if (isAutoplayRunning) {
-            recordMatch(isBotWin ? 'lose' : 'win', currentPlayer);
-            if (typeof onBotLoss === 'function') onBotLoss([...moveHistory], humanPiece);
+            // autoplayLastWinner đã được set ở trên
+            // KHÔNG gọi onBotLoss ở đây — autoplayMove sẽ xử lý learning sau ván
             return;
         }
 

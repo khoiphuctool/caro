@@ -21,16 +21,19 @@ let botMemory = loadBotMemory();
 
 function loadBotMemory() {
     try {
-        return JSON.parse(localStorage.getItem(MEMORY_KEY)) || {};
-    } catch(e) { return {}; }
+        const data = JSON.parse(localStorage.getItem(MEMORY_KEY)) || {};
+        console.log(`[Memory] Loaded ${Object.keys(data).length} patterns`);
+        return data;
+    } catch(e) {
+        console.error('[Memory] Failed to load:', e);
+        return {};
+    }
 }
 
 function saveBotMemory() {
     try {
-        // Giới hạn kích thước — xóa entry cũ nhất nếu vượt quá
         const keys = Object.keys(botMemory);
         if (keys.length > MAX_MEMORIES) {
-            // Xóa entry có score hiệu quả thấp nhất (hits * decay factor)
             keys.sort((a, b) => {
                 const scoreA = calculatePatternScore(botMemory[a]);
                 const scoreB = calculatePatternScore(botMemory[b]);
@@ -41,7 +44,11 @@ function saveBotMemory() {
             }
         }
         localStorage.setItem(MEMORY_KEY, JSON.stringify(botMemory));
-    } catch(e) {}
+        // Cập nhật UI sau mỗi lần save (lấy từ LearningEngine)
+        if (typeof updateMemoryDisplay === 'function') updateMemoryDisplay();
+    } catch(e) {
+        console.error('[Memory] Failed to save:', e);
+    }
 }
 
 // ===== DECAY MECHANISM - Tính toán hiệu quả thực tế của pattern =====
@@ -64,12 +71,13 @@ function getAdaptivePenalty(entry) {
     if (!entry) return 0;
     
     const score = calculatePatternScore(entry);
-    const basePenalty = PENALTY_BASE;
+    const hits  = entry.hits || 1;
+
+    // Hits 1 → penalty = PENALTY_BASE (đủ mạnh ngay từ ván đầu)
+    // Hits tăng → penalty tăng, cap ở 3x
+    const adaptiveMultiplier = Math.min(1 + (hits - 1) * 0.5, 3);
     
-    // Pattern hiệu quả cao → penalty mạnh hơn
-    const adaptiveMultiplier = Math.min(score / MIN_HITS_THRESHOLD, 3);
-    
-    return basePenalty * adaptiveMultiplier;
+    return PENALTY_BASE * adaptiveMultiplier;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -107,31 +115,12 @@ function getAverageCenterDistance(moves) {
 
 // ===== CONTEXT MATCHING - Kiểm tra xem pattern có phù hợp context hiện tại =====
 function isContextMatch(entry, currentEnemyMoves) {
-    if (!entry) return true; // Không có context → luôn match
-    
-    const currentDensity = moveHistory.length;
-    const storedDensity = entry.boardDensity || 0;
-    
-    // Chỉ áp dụng pattern khi mật độ quân tương đồng (±50%)
-    const densityRatio = currentDensity / (storedDensity || 1);
-    if (densityRatio < 0.5 || densityRatio > 2.0) return false;
-    
-    // Kiểm tra vị trí tương đối
-    const currentCenterDist = getAverageCenterDistance(currentEnemyMoves);
-    const storedCenterDist = entry.centerDistance || 0;
-    
-    const distRatio = currentCenterDist / (storedCenterDist || 1);
-    if (distRatio < 0.5 || distRatio > 2.0) return false;
-    
+    if (!entry) return true;
+    // Bỏ context matching nghiêm ngặt — gây bỏ sót pattern đúng
+    // Chỉ check depth hợp lệ
     return true;
 }
 
-// Lấy chuỗi nước đi của địch (humanPiece) từ moveHistory
-function getEnemyMoveSequence(history, enemyPiece, depth) {
-    const enemyMoves = history.filter(m => m.player === enemyPiece);
-    const recent = enemyMoves.slice(-depth); // lấy `depth` nước gần nhất
-    return recent;
-}
 
 // ─────────────────────────────────────────────────────────────────
 // GHI NHỚ VAN THUA
@@ -142,7 +131,7 @@ function rememberLoss(history, enemyPiece) {
 
     // Lưu nhiều "window" độ dài khác nhau để nhận ra pattern sớm
     for (let depth = 3; depth <= Math.min(MEMORY_DEPTH, history.length); depth++) {
-        const enemyMoves = getEnemyMoveSequence(history, enemyPiece, depth);
+        const enemyMoves = history.filter(m => m.player === enemyPiece).slice(-depth);
         if (enemyMoves.length < depth) continue;
 
         const key = normalizeMoveSequence(enemyMoves);
@@ -180,35 +169,46 @@ function rememberLoss(history, enemyPiece) {
 function getMemoryPenalty(candidateR, candidateC, enemyPiece) {
     if (Object.keys(botMemory).length === 0) return 0;
 
-    // Lấy lịch sử hiện tại của địch
     const enemyMoves = moveHistory.filter(m => m.player === enemyPiece);
     if (enemyMoves.length === 0) return 0;
 
     let maxPenalty = 0;
 
-    // Thử thêm nước đi ứng viên vào cuối chuỗi địch (giả sử địch sẽ đi đây)
-    // thực ra ta đang xét nước của BOT — penalty áp dụng khi bot KHÔNG chặn
-    // nên ta kiểm tra: nếu địch đã đi theo pattern, bot phải tránh bỏ qua
-    for (let depth = 3; depth <= Math.min(MEMORY_DEPTH, enemyMoves.length + 1); depth++) {
-        const recent = enemyMoves.slice(-(depth - 1));
-        // Thêm ô ứng viên như nước tiếp theo của địch
-        const hypothetical = [...recent, { r: candidateR, c: candidateC, player: enemyPiece }];
-        if (hypothetical.length < depth) continue;
-
-        const key = normalizeMoveSequence(hypothetical);
+    for (let depth = 2; depth <= Math.min(MEMORY_DEPTH, enemyMoves.length); depth++) {
+        const recent = enemyMoves.slice(-depth);
+        const key = normalizeMoveSequence(recent);
         if (!key) continue;
 
         const entry = botMemory[key];
-        if (entry) {
-            // Kiểm tra context match trước khi áp dụng penalty
-            if (!isContextMatch(entry, enemyMoves)) continue;
-            
-            // Sử dụng adaptive penalty thay vì penalty cố định
-            const adaptivePenalty = getAdaptivePenalty(entry);
-            const depthFactor = depth / MEMORY_DEPTH;
-            const penalty = adaptivePenalty * depthFactor;
-            if (penalty > maxPenalty) maxPenalty = penalty;
+        if (!entry) continue;
+
+        // Pattern khớp → địch đang đi theo thế nguy hiểm đã học
+        // Penalty = phạt nếu candidate KHÔNG phải ô sát cạnh chuỗi địch
+        // (vì bot nên ở gần đó để chặn nước tiếp theo)
+        const adaptivePenalty = getAdaptivePenalty(entry);
+        const depthFactor = depth / MEMORY_DEPTH;
+
+        // Tìm ô đầu/cuối chuỗi địch để biết bot cần chặn chỗ nào
+        // Ô nguy hiểm = ô liền kề hai đầu của chuỗi địch hiện tại
+        let minR = recent[0].r, maxR = recent[0].r;
+        let minC = recent[0].c, maxC = recent[0].c;
+        for (const m of recent) {
+            minR = Math.min(minR, m.r); maxR = Math.max(maxR, m.r);
+            minC = Math.min(minC, m.c); maxC = Math.max(maxC, m.c);
         }
+
+        // Khoảng cách từ candidate đến bounding box của chuỗi địch
+        const distR = Math.max(0, minR - candidateR, candidateR - maxR);
+        const distC = Math.max(0, minC - candidateC, candidateC - maxC);
+        const dist  = distR + distC;
+
+        // Nếu candidate nằm SÁT chuỗi (dist <= 2): không phạt — đây là ô chặn tốt
+        // Nếu xa hơn: phạt tỷ lệ với khoảng cách
+        if (dist <= 2) continue;
+
+        const distanceFactor = Math.min((dist - 2) / 3, 2);
+        const penalty = adaptivePenalty * depthFactor * distanceFactor;
+        if (penalty > maxPenalty) maxPenalty = penalty;
     }
 
     return maxPenalty;
@@ -239,7 +239,7 @@ function checkPatternWarning(enemyPiece) {
         }
     }
 
-    if (maxHits >= 2) {
+    if (maxHits >= 1) {
         return {
             danger: true,
             hits: maxHits,
@@ -251,21 +251,6 @@ function checkPatternWarning(enemyPiece) {
     return { danger: false };
 }
 
-// ─────────────────────────────────────────────────────────────────
-// TÍCH HỢP VÀO quickScore — thêm penalty cho nước đi nguy hiểm
-// ─────────────────────────────────────────────────────────────────
-function getMemoryAwareScore(r, c, p, baseScore) {
-    // Chỉ áp dụng cho nước của bot (penalty khi bot bỏ qua chặn pattern nguy hiểm)
-    if (p !== botPiece) return baseScore;
-
-    const warning = checkPatternWarning(humanPiece);
-    if (!warning.danger) return baseScore;
-
-    // Tăng điểm PHÒNG THỦ nếu đang bị chiêu quen
-    // (tức là các nước chặn sẽ được ưu tiên hơn)
-    const penalty = getMemoryPenalty(r, c, humanPiece);
-    return baseScore - penalty + (warning.danger ? warning.penalty * 0.5 : 0);
-}
 
 // ─────────────────────────────────────────────────────────────────
 // API PUBLIC
@@ -282,30 +267,22 @@ function onBotLoss(history, enemyPiece) {
 }
 
 // Gọi từ autoplay.js khi training - học từ cả thắng và thua
+// (fallback khi BatchLearning chưa load)
 function onTrainingResult(history, result, winner) {
     if (!history || history.length < 3) return;
+    if (result === 'draw' || !winner) return; // bỏ qua hòa
 
-    // Xác định bot nào thắng/thua để học pattern tương ứng
-    const loserPiece = result === 'win' ? (winner === 'X' ? 'O' : 'X') : winner;
-    const winnerPiece = result === 'win' ? winner : (winner === 'X' ? 'O' : 'X');
+    const winnerPiece = winner; // winner là 'X' hoặc 'O'
+    const loserPiece  = winner === 'X' ? 'O' : 'X';
 
-    // Học từ pattern của người thắng (để bot biết cách thắng)
-    if (result === 'win' || result === 'lose') {
-        rememberWinPattern(history, winnerPiece);
-    }
+    rememberWinPattern(history, winnerPiece);
+    rememberLoss(history, loserPiece);
 
-    // Học từ pattern của người thua (để bot tránh lỗi tương tự)
-    if (result === 'lose') {
-        rememberLoss(history, loserPiece);
-    }
-    
     // Train neural network with game result
     if (typeof neuralEvaluator !== 'undefined' && neuralEvaluator.isTrainingEnabled) {
         const features = neuralEvaluator.extractFeatures(winnerPiece);
-        const targetValue = result === 'win' ? 10000 : -5000;
+        const targetValue = 10000;
         neuralEvaluator.addTrainingSample(features, targetValue);
-        
-        // Train every 10 games
         if (Math.random() < 0.1) {
             neuralEvaluator.train(5);
         }
@@ -363,57 +340,7 @@ function rememberWinPattern(history, winnerPiece) {
     saveBotMemory();
 }
 
-// ─────────────────────────────────────────────────────────────────
-// KIỂM TRA WIN PATTERN - Bot nhận biết pattern thắng để áp dụng
-// Trả về { found: true/false, move: {r,c}, confidence }
-// ─────────────────────────────────────────────────────────────────
-function checkWinPattern(enemyPiece) {
-    if (Object.keys(botMemory).length === 0) return { found: false };
 
-    const botMoves = moveHistory.filter(m => m.player === botPiece);
-    if (botMoves.length < 2) return { found: false };
-
-    let bestMatch = null;
-    let bestConfidence = 0;
-
-    for (let depth = 3; depth <= Math.min(MEMORY_DEPTH, botMoves.length); depth++) {
-        const recent = botMoves.slice(-depth);
-        if (recent.length < depth) continue;
-
-        const key = normalizeMoveSequence(recent);
-        if (!key) continue;
-
-        const winKey = `WIN_${key}`;
-        const entry = botMemory[winKey];
-
-        if (entry && entry.type === 'win') {
-            // Kiểm tra context match
-            if (!isContextMatch(entry, botMoves)) continue;
-
-            // Tính confidence dựa trên hits và decay
-            const decay = calculateDecay(entry.lastSeen);
-            const confidence = (entry.hits / (entry.hits + 1)) * decay;
-
-            if (confidence > bestConfidence) {
-                bestConfidence = confidence;
-                bestMatch = entry;
-            }
-        }
-    }
-
-    if (bestMatch && bestConfidence > 0.3) {
-        // Tìm nước đi tiếp theo từ pattern
-        // (đây là simplified version - thực tế cần phức tạp hơn)
-        return { found: true, confidence: bestConfidence, pattern: bestMatch };
-    }
-
-    return { found: false };
-}
-
-// Gọi từ getBotMove để điều chỉnh ứng viên dựa trên bộ nhớ
-function applyMemoryToScore(r, c, baseScore) {
-    return getMemoryAwareScore(r, c, botPiece, baseScore);
-}
 
 // Hiển thị thống kê bộ nhớ (dùng để debug)
 function getMemoryStats() {
@@ -458,8 +385,16 @@ function clearBotMemory() {
 // Reset bộ nhớ - gọi từ UI
 function resetMemory() {
     clearBotMemory();
+    if (typeof BatchLearning !== 'undefined') BatchLearning.reset();
     updateMemoryDisplay();
     console.log('🗑️ Đã reset bộ nhớ bot');
+}
+
+// Tính decay factor (dùng bởi checkWinPattern)
+function calculateDecay(lastSeen) {
+    if (!lastSeen) return 1;
+    const daysSince = (Date.now() - lastSeen) / (1000 * 60 * 60 * 24);
+    return Math.pow(0.5, daysSince / DECAY_DAYS);
 }
 
 // Cập nhật hiển thị số lượng pattern
@@ -472,6 +407,15 @@ function updateMemoryDisplay() {
     }
     if (effectiveDisplay) {
         effectiveDisplay.textContent = stats.effectivePatterns;
+    }
+
+    // Cập nhật Elo display
+    if (typeof BatchLearning !== 'undefined') {
+        const eloStatus = BatchLearning.getStatus();
+        const eloCurrent = document.getElementById('elo-current');
+        const eloBest    = document.getElementById('elo-best');
+        if (eloCurrent) eloCurrent.textContent = eloStatus.eloCurrentModel;
+        if (eloBest)    eloBest.textContent    = eloStatus.eloBestModel;
     }
 }
 

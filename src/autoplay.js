@@ -2,6 +2,7 @@
 
 let autoplayInterval       = null;
 let autoplayGamesRemaining = 0;
+let autoplayGamesTotal     = 0;  // tổng số ván được chọn
 let autoplayWins           = 0;
 let autoplayLosses         = 0;
 let autoplayDraws          = 0;
@@ -54,10 +55,21 @@ function startAutoplay() {
     const autoplayWinCount = parseInt(document.getElementById('autoplay-win-count').value);
 
     autoplayGamesRemaining = totalGames;
+    autoplayGamesTotal     = totalGames;
     autoplayWins  = 0;
     autoplayLosses = 0;
     autoplayDraws  = 0;
     isAutoplayRunning = true;
+
+    // Batch size = số ván được chọn → học 1 lần sau khi xong toàn bộ
+    if (typeof BatchLearning !== 'undefined') {
+        BatchLearning.config.batchSize = totalGames;
+    }
+
+    // Hiện progress bar
+    const progressEl = document.getElementById('training-progress');
+    if (progressEl) progressEl.style.display = 'flex';
+    updateTrainingProgress();
 
     // Lock training configuration
     if (typeof GameState !== 'undefined') {
@@ -81,13 +93,17 @@ function startAutoplay() {
     const originalWinCount = winCount;
     winCount = autoplayWinCount;
 
-    statusPanel.innerHTML = `🎓 TRAINING: Bot ${trainingBotXMode.toUpperCase()} vs Bot ${trainingBotOMode.toUpperCase()} (${autoplayGamesRemaining}/${totalGames} ván, ${autoplayWinCount} quân thắng)`;
+    statusPanel.innerHTML = `🎓 TRAINING: Bot ${trainingBotXMode.toUpperCase()} vs Bot ${trainingBotOMode.toUpperCase()} (0/${autoplayGamesTotal} ván, ${autoplayWinCount} quân thắng)`;
     runAutoplayGame(originalWinCount);
 }
 
 function stopAutoplay() {
     if (autoplayInterval) { clearTimeout(autoplayInterval); autoplayInterval = null; }
     isAutoplayRunning = false;
+
+    // Ẩn progress bar
+    const progressEl = document.getElementById('training-progress');
+    if (progressEl) progressEl.style.display = 'none';
 
     // Unlock training configuration
     if (typeof GameState !== 'undefined') {
@@ -102,7 +118,9 @@ function stopAutoplay() {
     lockTrainingUI(false);
 
     const memoryStats = typeof getMemoryStats === 'function' ? getMemoryStats() : { patterns: 0, totalHits: 0 };
-    statusPanel.innerHTML = `🎓 TRAINING ĐÃ DỪNG | Thắng: ${autoplayWins} | Thua: ${autoplayLosses} | Hòa: ${autoplayDraws} | Pattern học: ${memoryStats.patterns}`;
+    const batchInfo = typeof BatchLearning !== 'undefined' ? BatchLearning.getStatus() : null;
+    const eloStr = batchInfo ? ` | Elo: ${batchInfo.eloCurrentModel} (Best: ${batchInfo.eloBestModel})` : '';
+    statusPanel.innerHTML = `🎓 TRAINING ĐÃ DỪNG | Thắng: ${autoplayWins} | Thua: ${autoplayLosses} | Hòa: ${autoplayDraws} | Pattern học: ${memoryStats.patterns}${eloStr}`;
 
     // Restore gameMode về giá trị từ UI
     gameMode = modeSelect.value;
@@ -117,26 +135,60 @@ function stopAutoplay() {
 function runAutoplayGame(originalWinCount) {
     if (!isAutoplayRunning || autoplayGamesRemaining <= 0) { stopAutoplay(); return; }
 
-    initGame();
-    winCount       = parseInt(document.getElementById('autoplay-win-count').value);
-    currentPlayer  = 'X'; // Reset về X cho mỗi ván mới
-    
-    // Training mode: 2 bot đấu nhau
-    // Bot X dùng trainingBotXMode, Bot O dùng trainingBotOMode
-    // Mỗi lượt sẽ set gameMode tương ứng
-    isGameActive   = true;
+    // Tạm set gameMode = 'solo' TRƯỚC khi initGame để tránh initGame kích hoạt makeAIMove
+    const savedMode = modeSelect.value;
+    modeSelect.value = 'solo';
 
-    // Đọc level bot từ UI (nếu có), nếu không dùng mặc định
+    initGame();
+
+    // Restore gameMode thực sau initGame
+    modeSelect.value = savedMode;
+    gameMode = trainingBotXMode; // dùng mode của bot X làm default
+
+    winCount       = parseInt(document.getElementById('autoplay-win-count').value);
+    currentPlayer  = 'X';
+    isGameActive   = true;
+    isSolo         = false; // autoplay không phải solo
+
+    // ── RANDOMIZE OPENING ────────────────────────────────────────
+    const flipFirst = Math.random() < 0.5;
+    if (flipFirst) currentPlayer = 'O';
+
+    const seedR = Math.round((Math.random() - 0.5) * 6);
+    const seedC = Math.round((Math.random() - 0.5) * 6);
+    const seedKey = `${seedR},${seedC}`;
+    if (!infiniteMap.has(seedKey)) {
+        setCell(seedR, seedC, currentPlayer);
+        moveHistory.push({ r: seedR, c: seedC, player: currentPlayer });
+        moveCount++;
+        currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+        if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
+    }
+    // ─────────────────────────────────────────────────────────────
+
     const botXSelect = document.getElementById('training-bot-x');
     const botOSelect = document.getElementById('training-bot-o');
-    
     if (botXSelect) trainingBotXMode = botXSelect.value;
     if (botOSelect) trainingBotOMode = botOSelect.value;
 
-    const totalGames = parseInt(document.getElementById('autoplay-games').value);
-    statusPanel.innerHTML = `🎓 TRAINING: Bot ${trainingBotXMode.toUpperCase()} vs Bot ${trainingBotOMode.toUpperCase()} (${autoplayGamesRemaining}/${totalGames}) | Thắng: ${autoplayWins} | Thua: ${autoplayLosses}`;
+    const gamesPlayed = autoplayGamesTotal - autoplayGamesRemaining;
+    statusPanel.innerHTML = `🎓 TRAINING: Bot ${trainingBotXMode.toUpperCase()} vs Bot ${trainingBotOMode.toUpperCase()} (${gamesPlayed}/${autoplayGamesTotal}) | Thắng: ${autoplayWins} | Thua: ${autoplayLosses}`;
 
     setTimeout(() => autoplayMove(originalWinCount), 100);
+}
+
+// ===== CẬP NHẬT PROGRESS BAR TRONG KHUNG HUẤN LUYỆN =====
+function updateTrainingProgress() {
+    const played = autoplayGamesTotal - autoplayGamesRemaining;
+    const pct    = autoplayGamesTotal > 0 ? (played / autoplayGamesTotal) * 100 : 0;
+
+    const textEl = document.getElementById('training-progress-text');
+    const barEl  = document.getElementById('training-progress-bar');
+    const wrEl   = document.getElementById('training-progress-wr');
+
+    if (textEl) textEl.textContent = `${played}/${autoplayGamesTotal}`;
+    if (barEl)  barEl.style.width  = `${pct.toFixed(1)}%`;
+    if (wrEl)   wrEl.textContent   = `W:${autoplayWins} L:${autoplayLosses}`;
 }
 
 // Lưu kết quả autoplay khi makeMove phát hiện thắng
@@ -160,16 +212,34 @@ function autoplayMove(originalWinCount) {
             autoplayDraws++; result = 'draw';
         }
 
-        // Learning: học từ cả thắng và thua
-        if (learningEnabled && typeof onTrainingResult === 'function') {
-            onTrainingResult(moveHistory, result, winner);
+        // Learning: thêm ván vào Replay Buffer thay vì học ngay từng ván
+        // BatchLearning sẽ tự quyết định khi nào chạy batch và có chấp nhận model mới không
+        if (learningEnabled) {
+            if (typeof BatchLearning !== 'undefined') {
+                // Nếu đang ở evaluation phase, báo cáo kết quả ván này TRƯỚC
+                // (phải gọi trước addGame vì addGame có thể trigger _runBatch và reset evaluation)
+                if (BatchLearning.evaluation.active) {
+                    BatchLearning.onEvaluationGame(winner);
+                }
+                BatchLearning.addGame(moveHistory, result, winner);
+            } else if (typeof onTrainingResult === 'function') {
+                // Fallback nếu BatchLearning chưa load
+                onTrainingResult(moveHistory, result, winner);
+            }
         }
 
         recordMatch(result, winner);
+        updateTrainingProgress();
 
-        const totalGames = parseInt(document.getElementById('autoplay-games').value);
+        const gamesPlayed = autoplayGamesTotal - autoplayGamesRemaining;
         const memoryStats = typeof getMemoryStats === 'function' ? getMemoryStats() : { patterns: 0 };
-        statusPanel.innerHTML = `🎓 TRAINING: Bot ${trainingBotXMode.toUpperCase()} vs Bot ${trainingBotOMode.toUpperCase()} (${autoplayGamesRemaining}/${totalGames}) | Thắng: ${autoplayWins} | Thua: ${autoplayLosses} | Pattern: ${memoryStats.patterns}`;
+        const batchInfo = typeof BatchLearning !== 'undefined'
+            ? BatchLearning.getStatus()
+            : null;
+        const batchStr = batchInfo
+            ? ` | Batch: ${batchInfo.batchProgress} | Elo: ${batchInfo.eloCurrentModel}${batchInfo.evaluating ? ' 🔬Eval' : ''}`
+            : '';
+        statusPanel.innerHTML = `🎓 TRAINING: Bot ${trainingBotXMode.toUpperCase()} vs Bot ${trainingBotOMode.toUpperCase()} (${gamesPlayed}/${autoplayGamesTotal}) | Thắng: ${autoplayWins} | Thua: ${autoplayLosses} | Pattern: ${memoryStats.patterns}${batchStr}`;
 
         if (autoplayGamesRemaining > 0) {
             autoplayInterval = setTimeout(() => runAutoplayGame(originalWinCount), 500);
@@ -191,13 +261,50 @@ function autoplayMove(originalWinCount) {
         const originalIsSolo = isSolo;
 
         isSolo = false;
-        // Trong autoplay, cả X và O đều là bot
-        // currentPlayer là quân sẽ đi, nên botPiece = currentPlayer
         botPiece = currentPlayer;
         humanPiece = currentPlayer === 'X' ? 'O' : 'X';
 
-        // Sử dụng getBotMove để bot quyết định theo level của nó
-        const move = getBotMove();
+        // ── DRAW DETECTION: ván quá dài → tính hòa ──────────────
+        if (moveCount > 300) {
+            isGameActive = false;
+            autoplayLastWinner = null; // draw
+            gameMode = originalMode;
+            botPiece = originalBotPiece;
+            humanPiece = originalHumanPiece;
+            isSolo = originalIsSolo;
+            setTimeout(() => autoplayMove(originalWinCount), 50);
+            return;
+        }
+        // ─────────────────────────────────────────────────────────
+
+        // ── EXPLORATION NOISE ──────────────────────────────────────
+        // Trong training mode, thỉnh thoảng chọn ngẫu nhiên từ top-N
+        // thay vì luôn đi best move → tránh replay cùng 1 thế cờ mãi.
+        // Epsilon giảm dần theo số ván đã chơi (epsilon-greedy decay).
+        const totalPlayed = autoplayWins + autoplayLosses + autoplayDraws;
+        const totalGamesTarget = parseInt(document.getElementById('autoplay-games').value) || 50;
+        // epsilon bắt đầu 0.25, giảm dần về 0.05 khi gần hết training
+        const epsilon = Math.max(0.05, 0.25 * (1 - totalPlayed / totalGamesTarget));
+
+        let move;
+        if (Math.random() < epsilon) {
+            // Exploration: chọn ngẫu nhiên từ top-5 candidates theo quickScore
+            const cands = getSearchCandidates().filter(({ r, c }) => getCell(r, c) === '');
+            if (cands.length > 0) {
+                const scored = cands
+                    .map(({ r, c }) => ({ r, c, score: quickScore(r, c, botPiece) }))
+                    .sort((a, b) => b.score - a.score);
+                // Không chọn random hoàn toàn — chỉ trong top 5 để không đi nước quá tệ
+                const topN = scored.slice(0, Math.min(5, scored.length));
+                move = topN[Math.floor(Math.random() * topN.length)];
+            } else {
+                move = getBotMove();
+            }
+        } else {
+            // Exploitation: dùng getBotMove bình thường
+            move = getBotMove();
+        }
+        // ─────────────────────────────────────────────────────────
 
         // Restore original values
         gameMode = originalMode;

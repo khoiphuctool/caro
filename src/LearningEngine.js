@@ -27,42 +27,24 @@ const LearningEngine = {
     },
 
     // ===== INITIALIZATION =====
+    // LearningEngine bị vô hiệu hóa — hoc-kinh-nghiem.js + BatchLearning.js
+    // đang xử lý toàn bộ learning. Giữ file này để tránh lỗi reference.
     initialize() {
-        this.loadMemory();
+        // Không load/save localStorage nữa để tránh xung đột với botMemory
+        // (cùng key 'caro_bot_memory_v1' với hoc-kinh-nghiem.js)
+        this.memory = {};
         this.updateStats();
     },
 
     // ===== LOAD MEMORY =====
     loadMemory() {
-        try {
-            this.memory = JSON.parse(localStorage.getItem(this.config.storageKey)) || {};
-        } catch (e) {
-            console.error('Failed to load learning memory:', e);
-            this.memory = {};
-        }
+        // Disabled — memory được quản lý bởi hoc-kinh-nghiem.js (botMemory)
+        this.memory = {};
     },
 
     // ===== SAVE MEMORY =====
     saveMemory() {
-        try {
-            // Limit memory size
-            const keys = Object.keys(this.memory);
-            if (keys.length > this.config.maxMemories) {
-                // Remove least effective patterns
-                keys.sort((a, b) => {
-                    const scoreA = this.calculatePatternScore(this.memory[a]);
-                    const scoreB = this.calculatePatternScore(this.memory[b]);
-                    return scoreA - scoreB;
-                });
-                for (let i = 0; i < keys.length - this.config.maxMemories; i++) {
-                    delete this.memory[keys[i]];
-                }
-            }
-            localStorage.setItem(this.config.storageKey, JSON.stringify(this.memory));
-            this.updateStats();
-        } catch (e) {
-            console.error('Failed to save learning memory:', e);
-        }
+        // Disabled — tránh ghi đè botMemory của hoc-kinh-nghiem.js
     },
 
     // ===== CALCULATE PATTERN SCORE =====
