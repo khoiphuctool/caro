@@ -61,9 +61,10 @@ function startAutoplay() {
     autoplayDraws  = 0;
     isAutoplayRunning = true;
 
-    // Batch size = số ván được chọn → học 1 lần sau khi xong toàn bộ
+    // Batch size = 10 ván để học thường xuyên hơn thay vì đợi hết toàn bộ
+    // → pattern được lưu nhanh hơn, rollback ít ảnh hưởng hơn
     if (typeof BatchLearning !== 'undefined') {
-        BatchLearning.config.batchSize = totalGames;
+        BatchLearning.config.batchSize = 10;
     }
 
     // Hiện progress bar
@@ -215,16 +216,35 @@ function autoplayMove(originalWinCount) {
         // Learning: thêm ván vào Replay Buffer thay vì học ngay từng ván
         // BatchLearning sẽ tự quyết định khi nào chạy batch và có chấp nhận model mới không
         if (learningEnabled) {
+            // ── GHI PATTERN TRỰC TIẾP SAU MỖI VÁN ──────────────────────
+            // Không chờ batch/evaluation — pattern tăng ngay lập tức
+            if (winner && winner !== 'draw') {
+                const loser = winner === 'X' ? 'O' : 'X';
+                if (typeof rememberWinPattern === 'function') rememberWinPattern(moveHistory, winner);
+                if (typeof rememberLoss === 'function') rememberLoss(moveHistory, loser);
+            }
+            // ─────────────────────────────────────────────────────────────
+
             if (typeof BatchLearning !== 'undefined') {
-                // Nếu đang ở evaluation phase, báo cáo kết quả ván này TRƯỚC
-                // (phải gọi trước addGame vì addGame có thể trigger _runBatch và reset evaluation)
-                if (BatchLearning.evaluation.active) {
-                    BatchLearning.onEvaluationGame(winner);
-                }
+                // BatchLearning chỉ tracking Elo — không gọi evaluation nữa
                 BatchLearning.addGame(moveHistory, result, winner);
-            } else if (typeof onTrainingResult === 'function') {
-                // Fallback nếu BatchLearning chưa load
-                onTrainingResult(moveHistory, result, winner);
+            }
+            
+            // Neural Network Training - học từ kết quả ván
+            if (typeof neuralEvaluator !== 'undefined' && neuralEvaluator.isTrainingEnabled) {
+                // Train neural network với features từ người thắng
+                if (winner && winner !== 'draw') {
+                    const winnerFeatures = neuralEvaluator.extractFeatures(winner);
+                    const targetValue = winner === 'X' ? 10000 : -10000;
+                    neuralEvaluator.addTrainingSample(winnerFeatures, targetValue);
+                    
+                    // Train sau mỗi 10 ván để tránh quá tải
+                    const totalPlayed = autoplayWins + autoplayLosses + autoplayDraws;
+                    if (totalPlayed % 10 === 0) {
+                        neuralEvaluator.train(5); // Train 5 epochs
+                        console.log(`🧠 Neural Training - Epoch 5, Total games: ${totalPlayed}`);
+                    }
+                }
             }
         }
 

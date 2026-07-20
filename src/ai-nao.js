@@ -760,6 +760,31 @@ class NeuralEvaluator {
         const score = this.forwardPass(features);
         return score;
     }
+
+    // ===== ĐÁNH GIÁ TỪNG Ô CỤ THỂ =====
+    // Giả lập đặt quân vào (r,c) rồi tính neural score của trạng thái đó
+    evaluateCellNeural(r, c, player) {
+        try {
+            // Simulate placing piece
+            const prev = (typeof getCell === 'function') ? getCell(r, c) : '';
+            if (prev !== '') return 0; // ô đã có quân
+            if (typeof setCell === 'function') setCell(r, c, player);
+
+            const features = this.extractFeatures(player);
+            const score = this.forwardPass(features);
+
+            // Undo
+            if (typeof setCell === 'function') setCell(r, c, '');
+            return score;
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    // ===== NORMALIZE neural score về khoảng [-1, 1] để blend an toàn =====
+    normalizeScore(rawScore, scale = 50000) {
+        return Math.tanh(rawScore / scale);
+    }
 }
 
 const neuralEvaluator = new NeuralEvaluator();
@@ -1061,6 +1086,7 @@ function findSafeMoveWithLookahead(cands, bp, hp) {
 const EARLY_GAME_THRESHOLD = 8; // số quân mỗi bên ≤ này = đầu game
 
 function earlyGameDefense(validCands, bp, hp) {
+    // Thêm randomization để tránh trùng thế cờ
     // Lấy danh sách ô của người chơi
     const humanCells = [];
     if (isInfinite) {
@@ -1079,7 +1105,7 @@ function earlyGameDefense(validCands, bp, hp) {
     if (humanCells.length === 0) return null;
 
     // Tính điểm cho mỗi ô ứng viên: proximity tới quân người + quickScore
-    let best = null, bestScore = -Infinity;
+    let bestMoves = [], bestScore = -Infinity;
 
     for (const { r, c } of validCands) {
         // Khoảng cách Chebyshev tới quân người chơi gần nhất
@@ -1104,18 +1130,23 @@ function earlyGameDefense(validCands, bp, hp) {
         }
         setCell(r, c, '');
 
-        // Điểm tổng: chặn lan rộng + proximity bonus + quick score thường
+        // Điểm tổng: chặn lan rộng + proximity bonus + quick score thường + random noise
         const proximityBonus = (4 - minDist) * 150; // gần hơn = điểm cao hơn
         const baseScore = quickScore(r, c, bp);
-        const totalScore = expansionBlock + proximityBonus + baseScore;
+        const randomNoise = Math.random() * 500; // random noise để tránh trùng thế cờ
+        const totalScore = expansionBlock + proximityBonus + baseScore + randomNoise;
 
         if (totalScore > bestScore) {
             bestScore = totalScore;
-            best = { r, c };
+            bestMoves = [{ r, c }];
+        } else if (totalScore >= bestScore - 500 && totalScore > 0) {
+            // Chấp nhận các nước đi có điểm tương đương (chênh lệch <= 500)
+            bestMoves.push({ r, c });
         }
     }
 
-    return best;
+    // Random chọn 1 trong các nước đi tốt nhất
+    return bestMoves.length > 0 ? bestMoves[Math.floor(Math.random() * bestMoves.length)] : null;
 }
 
 function makeAIMove() {
@@ -1134,8 +1165,8 @@ function assessThreats(cands, bp, hp) {
     const blockBothEnds = document.getElementById('block-both-ends').checked;
 
     let attackScore = 0, defendScore = 0;
-    let bestAttackMove = null, bestAttackVal = -Infinity;
-    let bestDefendMove = null, bestDefendVal = -Infinity;
+    let bestAttackMoves = [], bestAttackVal = -Infinity;
+    let bestDefendMoves = [], bestDefendVal = -Infinity;
 
     for (const { r, c } of cands) {
         // --- Đánh giá nếu BOT đi vào đây ---
@@ -1160,8 +1191,17 @@ function assessThreats(cands, bp, hp) {
         if (aFour >= 2)                   aVal += BONUS_DOUBLE_FOUR;
         aVal += centerBias(r, c);
 
+        // Thêm random noise để tạo sự khác biệt
+        aVal += Math.random() * 1000;
+
         attackScore = Math.max(attackScore, aVal);
-        if (aVal > bestAttackVal) { bestAttackVal = aVal; bestAttackMove = { r, c, score: aVal }; }
+        if (aVal > bestAttackVal) {
+            bestAttackVal = aVal;
+            bestAttackMoves = [{ r, c, score: aVal }];
+        } else if (aVal >= bestAttackVal - 1000 && aVal > 0) {
+            // Chấp nhận các nước đi có điểm tương đương (chênh lệch <= 1000)
+            bestAttackMoves.push({ r, c, score: aVal });
+        }
 
         // --- Đánh giá nếu ĐỊCH đi vào đây ---
         let dVal = 0;
@@ -1177,8 +1217,31 @@ function assessThreats(cands, bp, hp) {
         }
         setCell(r, c, '');
 
+        // Thêm random noise để tạo sự khác biệt
+        dVal += Math.random() * 1000;
+
         defendScore = Math.max(defendScore, dVal);
-        if (dVal > bestDefendVal) { bestDefendVal = dVal; bestDefendMove = { r, c, score: dVal }; }
+        if (dVal > bestDefendVal) {
+            bestDefendVal = dVal;
+            bestDefendMoves = [{ r, c, score: dVal }];
+        } else if (dVal >= bestDefendVal - 1000 && dVal > 0) {
+            // Chấp nhận các nước đi có điểm tương đương (chênh lệch <= 1000)
+            bestDefendMoves.push({ r, c, score: dVal });
+        }
+    }
+
+    // Random chọn 1 trong các nước đi tốt nhất
+    const bestAttackMove = bestAttackMoves.length > 0
+        ? bestAttackMoves[Math.floor(Math.random() * bestAttackMoves.length)]
+        : null;
+    const bestDefendMove = bestDefendMoves.length > 0
+        ? bestDefendMoves[Math.floor(Math.random() * bestDefendMoves.length)]
+        : null;
+
+    // Debug log để xem randomization có hoạt động không
+    if (Math.random() < 0.05) { // chỉ log 5% để tránh spam
+        console.log(`[Random] bestAttackMoves: ${bestAttackMoves.length}, bestDefendMoves: ${bestDefendMoves.length}`);
+        console.log(`[Random] bestAttackMove:`, bestAttackMove, 'bestDefendMove:', bestDefendMove);
     }
 
     return { attackScore, defendScore, bestAttackMove, bestDefendMove };
@@ -1213,6 +1276,93 @@ function getBotMove() {
         const win = checkWinSilent(r, c);
         setCell(r, c, '');
         if (win) { updateBotThinking('TÌM THẤY NƯỚC THẮNG! 🎯'); return { r, c }; }
+    }
+
+    // ══════════════════════════════════════════════════════
+    // 0.3. PROACTIVE PATTERN BLOCK — RÚT KINH NGHIỆM THỰC CHIẾN
+    //
+    // Kiểm tra xem địch đang đi theo chuỗi nước đã từng thắng bot không.
+    // Nếu có pattern khớp trong botMemory → dự đoán nước tiếp theo của địch
+    // và chặn ngay, không chờ địch thực sự tạo FOUR.
+    //
+    // Ưu tiên sau win-ngay nhưng TRƯỚC mọi logic khác vì đây là kinh nghiệm
+    // đã học được từ thua — phải được áp dụng sớm nhất có thể.
+    // ══════════════════════════════════════════════════════
+    if (!isEasy && typeof botMemory !== 'undefined' && Object.keys(botMemory).length > 0) {
+        const enemyMoves = moveHistory.filter(m => m.player === hp);
+        if (enemyMoves.length >= 2) {
+            // Tìm pattern dài nhất khớp với chuỗi nước địch hiện tại
+            let matchedPattern = null;
+            let matchDepth = 0;
+
+            for (let depth = Math.min(MEMORY_DEPTH, enemyMoves.length); depth >= 2; depth--) {
+                const recent = enemyMoves.slice(-depth);
+                const key = normalizeMoveSequence(recent);
+                if (!key) continue;
+                const entry = botMemory[key];
+                if (entry && entry.hits >= 1) {
+                    matchedPattern = { key, entry, recent };
+                    matchDepth = depth;
+                    break; // lấy pattern dài nhất khớp
+                }
+            }
+
+            if (matchedPattern) {
+                // Dự đoán nước tiếp theo: tìm ô trống tốt nhất gần chuỗi địch
+                // để chặn trước khi họ hoàn thành thế cờ đã biết
+                const { recent } = matchedPattern;
+
+                // Lấy hướng chủ đạo của chuỗi (vector từ nước đầu đến nước cuối)
+                const r0 = recent[0].r, c0 = recent[0].c;
+                const rLast = recent[recent.length - 1].r;
+                const cLast = recent[recent.length - 1].c;
+
+                // Tìm ô ứng viên tốt nhất để chặn: ưu tiên ô sát chuỗi địch
+                // có điểm phòng thủ cao nhất
+                let bestBlockMove = null, bestBlockScore = -Infinity;
+
+                for (const { r, c } of validCands) {
+                    // Khoảng cách Chebyshev đến chuỗi địch gần nhất
+                    let minDist = Infinity;
+                    for (const m of recent) {
+                        const d = Math.max(Math.abs(r - m.r), Math.abs(c - m.c));
+                        if (d < minDist) minDist = d;
+                    }
+                    if (minDist > 3) continue; // chỉ xét ô gần chuỗi địch
+
+                    // Tính điểm chặn: phòng thủ + tấn công kết hợp
+                    let blockScore = 0;
+                    setCell(r, c, hp); // giả lập địch đi tiếp
+                    for (const { dr, dc } of DIRECTIONS) {
+                        const lv = evalLine(r, c, dr, dc, hp);
+                        if (lv !== TL.NONE) {
+                            const { blockedBoth } = countLineAndBlocked(r, c, dr, dc, hp);
+                            if (!blockBothEnds || !blockedBoth) {
+                                blockScore += scoreFromTL(lv, false) * 2; // x2 vì đây là pattern đã học
+                            }
+                        }
+                    }
+                    setCell(r, c, '');
+
+                    // Thêm proximity bonus: gần chuỗi địch hơn = ưu tiên hơn
+                    blockScore += (4 - minDist) * 500;
+                    // Thêm hits bonus: pattern xuất hiện nhiều lần = nguy hiểm hơn
+                    blockScore += (matchedPattern.entry.hits || 1) * 200;
+
+                    if (blockScore > bestBlockScore) {
+                        bestBlockScore = blockScore;
+                        bestBlockMove = { r, c };
+                    }
+                }
+
+                if (bestBlockMove) {
+                    const hits = matchedPattern.entry.hits || 1;
+                    updateBotThinking(`Nhớ chiêu này rồi! Chặn trước! 🧠 (${hits} lần)`);
+                    console.log(`🧠 Pattern block: depth=${matchDepth}, hits=${hits}, move=(${bestBlockMove.r},${bestBlockMove.c})`);
+                    return bestBlockMove;
+                }
+            }
+        }
     }
 
     // ══════════════════════════════════════════════════════
@@ -1573,7 +1723,7 @@ function getBotMove() {
                     if (recent.length < depth) continue;
                     const key = 'WIN_' + normalizeMoveSequence(recent);
                     const entry = botMemory[key];
-                    if (entry && entry.hits >= 3) { // chỉ dùng pattern đã thấy ≥3 lần
+                    if (entry && entry.hits >= 1) { // dùng pattern ngay từ lần học đầu tiên
                         const score = entry.hits * (depth / 8);
                         if (score > bestWinScore) { bestWinScore = score; bestWinMove = { r, c }; }
                     }

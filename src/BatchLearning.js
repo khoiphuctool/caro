@@ -12,8 +12,8 @@ const BatchLearning = {
     config: {
         replayBufferSize: 500,        // lưu tối đa N ván
         batchSize: 100,               // học sau mỗi N ván (batch)
-        winRateThreshold: 0.55,       // cần thắng > 55% mới chấp nhận model mới
-        evaluationGames: 100,         // đánh N ván để đánh giá model mới
+        winRateThreshold: 0.40,       // cần thắng > 40% mới chấp nhận model mới (giảm mạnh để học nhanh hơn)
+        evaluationGames: 50,          // giảm xuống 50 ván để đánh giá nhanh hơn
         eloK: 32,                     // hệ số K cho Elo
         storageKey: 'batch_learning_v1'
     },
@@ -97,34 +97,16 @@ const BatchLearning = {
     _runBatch() {
         console.log('[BatchLearning] Running batch on', this.replayBuffer.length, 'games...');
 
-        // Bắt đầu từ bestModel hiện tại (không từ {} rỗng)
-        // → giữ lại knowledge tích lũy, chỉ bổ sung thêm từ replay buffer
-        const tempMemory = this._cloneMemory(this.bestModel || {});
-
-        for (const game of this.replayBuffer) {
-            this._learnFromGame(tempMemory, game.history, game.result, game.winner);
-        }
-
-        // Tính win rate trong batch
+        // Tính win rate trong batch để tracking Elo
         const total = this.batchStats.wins + this.batchStats.losses + this.batchStats.draws;
         const winRate = total > 0 ? this.batchStats.wins / total : 0.5;
 
         console.log(`[BatchLearning] Batch WinRate: ${(winRate * 100).toFixed(1)}%`,
                     `Wins: ${this.batchStats.wins}, Losses: ${this.batchStats.losses}`);
 
-        // Kiểm tra win rate — nếu đủ tốt thì bắt đầu evaluation
-        if (winRate >= this.config.winRateThreshold) {
-            this.evaluation.active = true;
-            this.evaluation.games = 0;
-            this.evaluation.wins = 0;
-            this.evaluation.pendingMemory = tempMemory;
-            this.evaluation.pendingElo = this.elo.current;
-            console.log('[BatchLearning] Win rate OK! Starting evaluation phase...');
-        } else {
-            // Win rate không đủ — rollback về best model
-            console.log('[BatchLearning] Win rate too low. Rolling back to best model.');
-            this._rollbackToBestModel();
-        }
+        // BatchLearning chỉ tracking Elo — không đụng vào botMemory
+        // botMemory được quản lý hoàn toàn bởi hoc-kinh-nghiem.js (rememberLoss/rememberWinPattern)
+        this.elo.best = Math.max(this.elo.best, this.elo.current);
 
         // Reset batch stats
         this.batchStats = { gamesInBatch: 0, wins: 0, losses: 0, draws: 0, startTime: Date.now() };
@@ -183,75 +165,24 @@ const BatchLearning = {
     // ===== ĐÁNH GIÁ MODEL MỚI (gọi sau mỗi ván trong evaluation phase) =====
     onEvaluationGame(winner) {
         if (!this.evaluation.active) return;
-
-        this.evaluation.games++;
-        if (winner === 'X') this.evaluation.wins++;
-
-        if (this.evaluation.games >= this.config.evaluationGames) {
-            const evalWinRate = this.evaluation.wins / this.evaluation.games;
-            console.log(`[BatchLearning] Evaluation done. WinRate: ${(evalWinRate * 100).toFixed(1)}%`);
-
-            if (evalWinRate >= this.config.winRateThreshold) {
-                // Model mới tốt hơn → chấp nhận
-                console.log('[BatchLearning] New model accepted! Updating best model.');
-                this._acceptNewModel(this.evaluation.pendingMemory, this.evaluation.pendingElo);
-            } else {
-                // Model mới không đủ tốt → giữ best model
-                console.log('[BatchLearning] New model rejected. Keeping best model.');
-                this._rollbackToBestModel();
-            }
-
-            this.evaluation.active = false;
-            this.evaluation.pendingMemory = null;
-            this.save();
-        }
+        // Evaluation phase đã bị loại bỏ — BatchLearning chỉ tracking Elo
+        this.evaluation.active = false;
     },
 
     // ===== CHẤP NHẬN MODEL MỚI =====
     _acceptNewModel(newMemory, newElo) {
-        // Ghi vào botMemory
-        if (typeof botMemory !== 'undefined') {
-            // Merge: giữ lại pattern cũ có hits cao, thêm pattern mới
-            for (const [key, val] of Object.entries(newMemory)) {
-                if (!botMemory[key] || botMemory[key].hits < val.hits) {
-                    botMemory[key] = val;
-                }
-            }
-        }
-
-        // Cập nhật best model snapshot
-        this.bestModel = this._cloneMemory();
-        this.elo.best = newElo;
-
-        // Lưu Elo history
-        this.elo.history.push({
-            version: this.elo.history.length + 1,
-            elo: newElo,
-            timestamp: Date.now()
-        });
-        // Giới hạn history
-        if (this.elo.history.length > 50) this.elo.history.shift();
-
-        // Lưu xuống localStorage
+        // Không dùng nữa — botMemory do hoc-kinh-nghiem.js quản lý
+        this.elo.best = Math.max(this.elo.best, newElo);
         if (typeof saveBotMemory === 'function') saveBotMemory();
-
-        console.log(`[BatchLearning] Best model updated. Elo: ${newElo}`);
+        console.log(`[BatchLearning] Elo updated: ${newElo}`);
     },
 
     // ===== ROLLBACK VỀ BEST MODEL =====
     _rollbackToBestModel() {
-        if (!this.bestModel) return;
-
-        if (typeof botMemory !== 'undefined') {
-            // Restore botMemory từ bestModel snapshot
-            Object.keys(botMemory).forEach(k => delete botMemory[k]);
-            Object.assign(botMemory, this._cloneMemory(this.bestModel));
-        }
-
+        // Không rollback botMemory nữa — tránh xung đột với hoc-kinh-nghiem.js
+        // Chỉ reset Elo về best
         this.elo.current = this.elo.best;
-        if (typeof saveBotMemory === 'function') saveBotMemory();
-
-        console.log('[BatchLearning] Rolled back to best model. Elo:', this.elo.best);
+        console.log('[BatchLearning] Elo reset to best:', this.elo.best);
     },
 
     // ===== CẬP NHẬT ELO =====

@@ -9,12 +9,10 @@
 // - Decay mechanism: pattern cũ giảm dần importance
 // ─────────────────────────────────────────────────────────────────
 
-const MEMORY_KEY     = 'caro_bot_memory_v1';
-const MAX_MEMORIES   = 1500;  // tối đa bao nhiêu pattern nhớ (tăng từ 500)
-const PENALTY_BASE   = 3000;  // điểm phạt cơ bản cho nước đi nguy hiểm
-const MEMORY_DEPTH   = 8;     // nhớ tối đa 8 nước đi gần nhất của địch (tăng từ 6)
-const DECAY_DAYS     = 30;    // số ngày để pattern giảm 50% importance
-const MIN_HITS_THRESHOLD = 2; // hits tối thiểu để pattern được coi là hiệu quả
+const MEMORY_KEY     = 'caro_bot_memory_v2';
+const MAX_MEMORIES   = 1500;  // tối đa bao nhiêu pattern nhớ
+const PENALTY_BASE   = 600000;  // điểm phạt cơ bản cho nước đi nguy hiểm (tăng theo OX.HTML)
+const MEMORY_DEPTH   = 4;     // nhớ tối đa 4 nước đi gần nhất của địch (giảm theo OX.HTML)
 
 // Bộ nhớ trong RAM (load từ localStorage khi khởi động)
 let botMemory = loadBotMemory();
@@ -51,34 +49,8 @@ function saveBotMemory() {
     }
 }
 
-// ===== DECAY MECHANISM - Tính toán hiệu quả thực tế của pattern =====
-function calculatePatternScore(entry) {
-    if (!entry) return 0;
-    
-    // Decay factor: pattern cũ giảm importance
-    const daysSinceLastSeen = entry.lastSeen ? (Date.now() - entry.lastSeen) / (1000 * 60 * 60 * 24) : 0;
-    const decayFactor = Math.pow(0.5, daysSinceLastSeen / DECAY_DAYS);
-    
-    // Score = hits * decay * depth (pattern dài hơn có giá trị cao hơn)
-    const baseScore = (entry.hits || 0) * decayFactor;
-    const depthBonus = (entry.depth || 3) / MEMORY_DEPTH;
-    
-    return baseScore * (1 + depthBonus);
-}
-
-// ===== ADAPTIVE LEARNING - Điều chỉnh penalty dựa trên hiệu quả =====
-function getAdaptivePenalty(entry) {
-    if (!entry) return 0;
-    
-    const score = calculatePatternScore(entry);
-    const hits  = entry.hits || 1;
-
-    // Hits 1 → penalty = PENALTY_BASE (đủ mạnh ngay từ ván đầu)
-    // Hits tăng → penalty tăng, cap ở 3x
-    const adaptiveMultiplier = Math.min(1 + (hits - 1) * 0.5, 3);
-    
-    return PENALTY_BASE * adaptiveMultiplier;
-}
+// ===== ĐƠN GIẢN - Không decay, không adaptive learning =====
+// Pattern luôn giữ nguyên sức mạnh như OX.HTML
 
 // ─────────────────────────────────────────────────────────────────
 // Chuẩn hóa chuỗi nước đi về tọa độ tương đối (origin = nước đầu)
@@ -91,80 +63,52 @@ function normalizeMoveSequence(moves) {
     return moves.map(m => `${m.r - r0},${m.c - c0}`).join('|');
 }
 
-// ===== CONTEXT AWARE - Tính khoảng cách trung bình đến trung tâm =====
-function getAverageCenterDistance(moves) {
-    if (!moves || moves.length === 0) return 0;
-    
-    // Tính trung tâm của bàn cờ hiện tại
-    let sumR = 0, sumC = 0;
-    for (const m of moves) {
-        sumR += m.r;
-        sumC += m.c;
-    }
-    const centerR = sumR / moves.length;
-    const centerC = sumC / moves.length;
-    
-    // Tính khoảng cách trung bình
-    let totalDist = 0;
-    for (const m of moves) {
-        totalDist += Math.abs(m.r - centerR) + Math.abs(m.c - centerC);
-    }
-    
-    return totalDist / moves.length;
-}
-
-// ===== CONTEXT MATCHING - Kiểm tra xem pattern có phù hợp context hiện tại =====
-function isContextMatch(entry, currentEnemyMoves) {
-    if (!entry) return true;
-    // Bỏ context matching nghiêm ngặt — gây bỏ sót pattern đúng
-    // Chỉ check depth hợp lệ
-    return true;
-}
+// ===== BỎ CONTEXT MATCHING - Pattern áp dụng mọi lúc như OX.HTML =====
 
 
 // ─────────────────────────────────────────────────────────────────
-// GHI NHỚ VAN THUA
-// Gọi sau khi bot thua — lưu pattern nước đi của địch
+// GHI NHỚ VÁN THUA
+// Lưu tọa độ tuyệt đối như OX.HTML
 // ─────────────────────────────────────────────────────────────────
 function rememberLoss(history, enemyPiece) {
+    console.log('[Memory] rememberLoss called, history length:', history?.length, 'enemyPiece:', enemyPiece);
     if (!history || history.length < 3) return;
 
-    // Lưu nhiều "window" độ dài khác nhau để nhận ra pattern sớm
-    for (let depth = 3; depth <= Math.min(MEMORY_DEPTH, history.length); depth++) {
-        const enemyMoves = history.filter(m => m.player === enemyPiece).slice(-depth);
-        if (enemyMoves.length < depth) continue;
+    const enemyMoves = history.filter(m => m.player === enemyPiece);
+    console.log('[Memory] enemyMoves filtered:', enemyMoves.length);
 
-        const key = normalizeMoveSequence(enemyMoves);
+    // Lưu nhiều "window" độ dài khác nhau để nhận ra pattern sớm
+    // Bắt đầu từ depth=2 để match với getMemoryPenalty
+    for (let depth = 2; depth <= Math.min(MEMORY_DEPTH, enemyMoves.length); depth++) {
+        const recent = enemyMoves.slice(-depth);
+        if (recent.length < depth) continue;
+
+        // Lưu tọa độ tuyệt đối như OX.HTML
+        const key = JSON.stringify(recent.map(m => ({r: m.r, c: m.c})));
         if (!key) continue;
+
+        console.log('[Memory] Saving pattern key:', key.substring(0, 50));
 
         if (botMemory[key]) {
             botMemory[key].hits++;
-            botMemory[key].lastSeen = Date.now();
-            // Cập nhật context
-            botMemory[key].winCount = winCount;
-            botMemory[key].gameMode = gameMode;
         } else {
             botMemory[key] = {
                 hits: 1,
                 depth,
-                lastSeen: Date.now(),
-                winCount,
-                gameMode,
-                // Thêm context: số quân trên bàn cờ khi pattern xuất hiện
-                boardDensity: moveHistory.length,
-                // Thêm context: vị trí tương đối so với trung tâm
-                centerDistance: getAverageCenterDistance(enemyMoves)
+                moves: recent.map(m => ({r: m.r, c: m.c})) // lưu tọa độ tuyệt đối
             };
         }
     }
 
     saveBotMemory();
-    console.log(`🧠 Bot đã học! Tổng pattern: ${Object.keys(botMemory).length}`);
+    console.log(`🧠 Bot đã học! Tổng pattern: ${Object.keys(botMemory).length}`, 'Latest pattern:', enemyMoves.slice(-3).map(m => ({r: m.r, c: m.c})));
 }
 
 // ─────────────────────────────────────────────────────────────────
-// KIỂM TRA XEM CHUỖI NƯỚC ĐI HIỆN TẠI CÓ KHỚP PATTERN NGUY HIỂM
-// Gọi mỗi lần tính score để phạt nước đi nguy hiểm
+// KIỂM TRA XEM CHUỖI NƯỚC ĐI HIỆN TẠI CÓ KHỚP PATTERN
+// - Loss pattern: phạt điểm (tránh bị đánh bại)
+// - WIN pattern: thưởng điểm (lặp lại thế cờ thắng)
+// Check tọa độ tuyệt đối như OX.HTML
 // ─────────────────────────────────────────────────────────────────
 function getMemoryPenalty(candidateR, candidateC, enemyPiece) {
     if (Object.keys(botMemory).length === 0) return 0;
@@ -174,41 +118,91 @@ function getMemoryPenalty(candidateR, candidateC, enemyPiece) {
 
     let maxPenalty = 0;
 
+    // Helper function để check quân trên bàn cờ (hỗ trợ cả boardState và infiniteMap)
+    function getCellAt(r, c) {
+        if (typeof isInfinite !== 'undefined' && isInfinite) {
+            return infiniteMap.get(`${r},${c}`);
+        }
+        if (boardState[r] && boardState[r][c] !== undefined) {
+            return boardState[r][c];
+        }
+        return null;
+    }
+
+    // Debug: log số lượng pattern và sample keys
+    if (Math.random() < 0.01) { // chỉ log 1% để tránh spam
+        console.log('[Memory] Total patterns:', Object.keys(botMemory).length);
+        const sampleKeys = Object.keys(botMemory).slice(0, 5);
+        sampleKeys.forEach((key, i) => {
+            console.log(`[Memory] Sample key ${i}:`, key.substring(0, 80));
+        });
+    }
+
+    // Kiểm tra từng depth từ 2 đến MEMORY_DEPTH
     for (let depth = 2; depth <= Math.min(MEMORY_DEPTH, enemyMoves.length); depth++) {
         const recent = enemyMoves.slice(-depth);
-        const key = normalizeMoveSequence(recent);
+        const key = JSON.stringify(recent.map(m => ({r: m.r, c: m.c})));
         if (!key) continue;
 
         const entry = botMemory[key];
-        if (!entry) continue;
-
-        // Pattern khớp → địch đang đi theo thế nguy hiểm đã học
-        // Penalty = phạt nếu candidate KHÔNG phải ô sát cạnh chuỗi địch
-        // (vì bot nên ở gần đó để chặn nước tiếp theo)
-        const adaptivePenalty = getAdaptivePenalty(entry);
-        const depthFactor = depth / MEMORY_DEPTH;
-
-        // Tìm ô đầu/cuối chuỗi địch để biết bot cần chặn chỗ nào
-        // Ô nguy hiểm = ô liền kề hai đầu của chuỗi địch hiện tại
-        let minR = recent[0].r, maxR = recent[0].r;
-        let minC = recent[0].c, maxC = recent[0].c;
-        for (const m of recent) {
-            minR = Math.min(minR, m.r); maxR = Math.max(maxR, m.r);
-            minC = Math.min(minC, m.c); maxC = Math.max(maxC, m.c);
+        if (!entry) {
+            // Debug: log khi không match (chỉ 1%)
+            if (Math.random() < 0.01) {
+                console.log('[Memory] No match for key:', key.substring(0, 60));
+            }
+            continue;
         }
 
-        // Khoảng cách từ candidate đến bounding box của chuỗi địch
-        const distR = Math.max(0, minR - candidateR, candidateR - maxR);
-        const distC = Math.max(0, minC - candidateC, candidateC - maxC);
-        const dist  = distR + distC;
+        console.log(`[Memory] MATCHED pattern depth ${depth}, hits: ${entry.hits}`);
 
-        // Nếu candidate nằm SÁT chuỗi (dist <= 2): không phạt — đây là ô chặn tốt
-        // Nếu xa hơn: phạt tỷ lệ với khoảng cách
-        if (dist <= 2) continue;
+        // Logic OX.HTML: đếm match
+        let matchCount = 0;
+        recent.forEach(pMove => {
+            // Kiểm tra xem nước đi này có trên bàn cờ không
+            if (getCellAt(pMove.r, pMove.c) === enemyPiece) {
+                matchCount++;
+            }
+            // Nếu candidate position nằm trong pattern, cộng thêm 1.5
+            if (pMove.r === candidateR && pMove.c === candidateC) {
+                matchCount += 1.5;
+            }
+        });
 
-        const distanceFactor = Math.min((dist - 2) / 3, 2);
-        const penalty = adaptivePenalty * depthFactor * distanceFactor;
-        if (penalty > maxPenalty) maxPenalty = penalty;
+        // Nếu match >= 3, phạt 600000 (loss pattern)
+        if (matchCount >= 3) {
+            maxPenalty += PENALTY_BASE;
+            console.log(`[Memory] PENALTY APPLIED: ${PENALTY_BASE}`);
+        }
+    }
+
+    // Kiểm tra WIN pattern của bot (thưởng điểm để lặp lại)
+    const botMoves = moveHistory.filter(m => m.player !== enemyPiece);
+    if (botMoves.length >= 2) {
+        for (let depth = 2; depth <= Math.min(MEMORY_DEPTH, botMoves.length); depth++) {
+            const recent = botMoves.slice(-depth);
+            const key = JSON.stringify(recent.map(m => ({r: m.r, c: m.c})));
+            if (!key) continue;
+
+            const winKey = `WIN_${key}`;
+            const entry = botMemory[winKey];
+            if (!entry) continue;
+
+            // Đếm match với WIN pattern
+            let matchCount = 0;
+            recent.forEach(pMove => {
+                if (getCellAt(pMove.r, pMove.c) !== enemyPiece && getCellAt(pMove.r, pMove.c) !== null) {
+                    matchCount++;
+                }
+                if (pMove.r === candidateR && pMove.c === candidateC) {
+                    matchCount += 1.5;
+                }
+            });
+
+            // Nếu match >= 3, thưởng điểm âm (penalty âm = tăng điểm)
+            if (matchCount >= 3) {
+                maxPenalty -= PENALTY_BASE; // thưởng = giảm penalty
+            }
+        }
     }
 
     return maxPenalty;
@@ -216,7 +210,7 @@ function getMemoryPenalty(candidateR, candidateC, enemyPiece) {
 
 // ─────────────────────────────────────────────────────────────────
 // KIỂM TRA CẢNH BÁO SỚM — Bot nhận ra đang bị "chiêu quen"
-// Trả về { danger: true/false, message, penalty }
+// Check tọa độ tuyệt đối như OX.HTML
 // ─────────────────────────────────────────────────────────────────
 function checkPatternWarning(enemyPiece) {
     if (Object.keys(botMemory).length === 0) return { danger: false };
@@ -229,7 +223,7 @@ function checkPatternWarning(enemyPiece) {
 
     for (let depth = 2; depth <= Math.min(MEMORY_DEPTH, enemyMoves.length); depth++) {
         const recent = enemyMoves.slice(-depth);
-        const key = normalizeMoveSequence(recent);
+        const key = JSON.stringify(recent.map(m => ({r: m.r, c: m.c})));
         if (!key) continue;
 
         const entry = botMemory[key];
@@ -266,6 +260,16 @@ function onBotLoss(history, enemyPiece) {
     updateBotThinking(msg);
 }
 
+// Gọi từ logic-game.js khi bot thắng - bot nhớ pattern thắng để lặp lại
+function onBotWin(history, botPiece) {
+    rememberWinPattern(history, botPiece);
+    const total = Object.keys(botMemory).filter(k => k.startsWith('WIN_')).length;
+    const msg = total === 1
+        ? 'Đã nhớ thế cờ thắng này! 🎯'
+        : `Đã nhớ ${total} thế cờ thắng! Sẽ lặp lại! 🏆`;
+    updateBotThinking(msg);
+}
+
 // Gọi từ autoplay.js khi training - học từ cả thắng và thua
 // (fallback khi BatchLearning chưa load)
 function onTrainingResult(history, result, winner) {
@@ -291,17 +295,17 @@ function onTrainingResult(history, result, winner) {
 
 // ─────────────────────────────────────────────────────────────────
 // GHI NHỚ PATTERN THẮNG
-// Lưu pattern của người thắng để bot học cách thắng
+// Lưu tọa độ tuyệt đối như OX.HTML
 // ─────────────────────────────────────────────────────────────────
 function rememberWinPattern(history, winnerPiece) {
     if (!history || history.length < 3) return;
 
     for (let depth = 3; depth <= Math.min(MEMORY_DEPTH, history.length); depth++) {
-        const winnerMoves = history.filter(m => m.player === winnerPiece);
-        const recent = winnerMoves.slice(-depth);
-        if (recent.length < depth) continue;
+        const winnerMoves = history.filter(m => m.player === winnerPiece).slice(-depth);
+        if (winnerMoves.length < depth) continue;
 
-        const key = normalizeMoveSequence(recent);
+        // Lưu tọa độ tuyệt đối như OX.HTML
+        const key = JSON.stringify(winnerMoves.map(m => ({r: m.r, c: m.c})));
         if (!key) continue;
 
         // Sử dụng prefix khác để phân biệt pattern thắng vs thua
@@ -309,21 +313,12 @@ function rememberWinPattern(history, winnerPiece) {
 
         if (botMemory[winKey]) {
             botMemory[winKey].hits++;
-            botMemory[winKey].lastSeen = Date.now();
-            // Cập nhật context
-            botMemory[winKey].winCount = winCount;
-            botMemory[winKey].gameMode = gameMode;
         } else {
             botMemory[winKey] = {
                 hits: 1,
                 depth,
-                lastSeen: Date.now(),
-                winCount,
-                gameMode,
-                type: 'win', // đánh dấu là pattern thắng
-                // Thêm context
-                boardDensity: moveHistory.length,
-                centerDistance: getAverageCenterDistance(winnerMoves)
+                type: 'win',
+                moves: winnerMoves.map(m => ({r: m.r, c: m.c})) // lưu tọa độ tuyệt đối
             };
         }
     }
@@ -331,8 +326,8 @@ function rememberWinPattern(history, winnerPiece) {
     // Giới hạn số lượng WIN patterns để tránh memory bloat
     const winKeys = Object.keys(botMemory).filter(k => k.startsWith('WIN_'));
     if (winKeys.length > MAX_MEMORIES / 2) {
-        // Xóa các WIN patterns cũ nhất
-        winKeys.sort((a, b) => botMemory[a].lastSeen - botMemory[b].lastSeen);
+        // Xóa các WIN patterns có hits thấp nhất
+        winKeys.sort((a, b) => (botMemory[a].hits || 0) - (botMemory[b].hits || 0));
         const toDelete = winKeys.slice(0, winKeys.length - MAX_MEMORIES / 2);
         toDelete.forEach(k => delete botMemory[k]);
     }
@@ -347,29 +342,23 @@ function getMemoryStats() {
     const keys = Object.keys(botMemory);
     const totalHits = keys.reduce((s, k) => s + (botMemory[k].hits || 0), 0);
     
-    // Tính thống kê nâng cao
+    // Đơn giản hóa: pattern có hits >= 1 là hiệu quả
     let effectivePatterns = 0;
-    let avgScore = 0;
     let winPatterns = 0;
     let lossPatterns = 0;
     
     for (const key of keys) {
-        const entry = botMemory[key];
-        const score = calculatePatternScore(entry);
-        if (score >= MIN_HITS_THRESHOLD) effectivePatterns++;
-        avgScore += score;
+        if (botMemory[key].hits >= 1) effectivePatterns++;
         
         if (key.startsWith('WIN_')) winPatterns++;
         else lossPatterns++;
     }
     
-    avgScore = keys.length > 0 ? avgScore / keys.length : 0;
-    
     return { 
         patterns: keys.length, 
         totalHits,
         effectivePatterns,
-        avgScore: avgScore.toFixed(2),
+        avgScore: totalHits / (keys.length || 1),
         winPatterns,
         lossPatterns
     };
@@ -390,12 +379,7 @@ function resetMemory() {
     console.log('🗑️ Đã reset bộ nhớ bot');
 }
 
-// Tính decay factor (dùng bởi checkWinPattern)
-function calculateDecay(lastSeen) {
-    if (!lastSeen) return 1;
-    const daysSince = (Date.now() - lastSeen) / (1000 * 60 * 60 * 24);
-    return Math.pow(0.5, daysSince / DECAY_DAYS);
-}
+// ===== BỎ DECAY - Không còn tính decay factor =====
 
 // Cập nhật hiển thị số lượng pattern
 function updateMemoryDisplay() {
@@ -426,12 +410,12 @@ function showMemoryStats() {
     const message = `📊 THỐNG KÊ BỘ NHỚ BOT\n\n` +
         `🧠 Tổng pattern: ${stats.patterns}\n` +
         `✅ Pattern hiệu quả: ${stats.effectivePatterns}\n` +
-        `📈 Điểm trung bình: ${stats.avgScore}\n` +
+        `📈 Điểm trung bình: ${stats.avgScore.toFixed(2)}\n` +
         `🏆 Pattern thắng: ${stats.winPatterns}\n` +
         `💀 Pattern thua: ${stats.lossPatterns}\n` +
         `🎯 Tổng hits: ${stats.totalHits}\n\n` +
-        `💡 Pattern hiệu quả = pattern có score >= ${MIN_HITS_THRESHOLD}\n` +
-        `📉 Pattern cũ giảm importance sau ${DECAY_DAYS} ngày`;
+        `💡 Pattern hiệu quả = pattern có hits >= 1\n` +
+        `📉 Pattern không giảm importance (đã bỏ decay)`;
     
     alert(message);
 }
@@ -507,16 +491,50 @@ function importBotMemory(input) {
                 const confirmMsg = `Bạn có muốn nhập bộ nhớ này?\n\n` +
                     `📦 Hiện tại: ${currentStats.patterns} patterns\n` +
                     `📥 File nhập: ${importStats.patterns} patterns\n\n` +
-                    `Bộ nhớ hiện tại sẽ bị ghi đè!`;
+                    `Chọn "OK" để CỘNG DỒN (merge) pattern\n` +
+                    `Chọn "Cancel" để GHI ĐÈ hoàn toàn`;
                 
-                if (confirm(confirmMsg)) {
-                    // Nhập bộ nhớ
+                const shouldMerge = confirm(confirmMsg);
+                
+                if (shouldMerge) {
+                    // MERGE - cộng dồn pattern
+                    let mergedCount = 0;
+                    let updatedCount = 0;
+                    
+                    for (const [key, importEntry] of Object.entries(memoryToImport)) {
+                        if (botMemory[key]) {
+                            // Pattern đã tồn tại → cộng hits và cập nhật lastSeen
+                            const oldHits = botMemory[key].hits || 0;
+                            const importHits = importEntry.hits || 0;
+                            botMemory[key].hits = oldHits + importHits;
+                            botMemory[key].lastSeen = Date.now();
+                            // Giữ lại depth lớn hơn
+                            if (importEntry.depth > (botMemory[key].depth || 0)) {
+                                botMemory[key].depth = importEntry.depth;
+                            }
+                            updatedCount++;
+                        } else {
+                            // Pattern mới → thêm vào
+                            botMemory[key] = importEntry;
+                            botMemory[key].lastSeen = Date.now();
+                            mergedCount++;
+                        }
+                    }
+                    
+                    saveBotMemory();
+                    updateMemoryDisplay();
+                    
+                    const finalStats = getMemoryStats();
+                    console.log('📥 Đã merge bộ nhớ:', mergedCount, 'mới,', updatedCount, 'cập nhật');
+                    alert(`✅ Đã merge thành công!\n\n+ ${mergedCount} pattern mới\n+ ${updatedCount} pattern cập nhật\n→ Tổng: ${finalStats.patterns} patterns`);
+                } else {
+                    // GHI ĐÈ - thay thế hoàn toàn
                     botMemory = memoryToImport;
                     saveBotMemory();
                     updateMemoryDisplay();
                     
-                    console.log('📥 Đã nhập bộ nhớ bot:', importStats.patterns, 'patterns');
-                    alert(`✅ Đã nhập thành công ${importStats.patterns} patterns!`);
+                    console.log('📥 Đã ghi đè bộ nhớ bot:', importStats.patterns, 'patterns');
+                    alert(`✅ Đã ghi đè thành công ${importStats.patterns} patterns!`);
                 }
             } catch(err) {
                 console.error('❌ Lỗi khi đọc file:', err);

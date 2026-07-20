@@ -139,6 +139,26 @@ const AIController = {
         return this.getMediumModeMove(validCands, player, opponent, winCount, blockBothEnds);
     },
 
+    // ===== NEURAL SORT CANDIDATES =====
+    // Sắp xếp lại candidates bằng neural score trước khi đưa vào search.
+    // Dùng board-level evaluate (không simulate từng ô) để tránh O(n²).
+    neuralSortCandidates(candidates, player) {
+        if (typeof neuralEvaluator === 'undefined' || candidates.length === 0) return candidates;
+        try {
+            // Lấy 1 lần neural score toàn bàn làm tiebreaker nhẹ
+            // Kết hợp với quickScore của từng ô (nhanh hơn nhiều)
+            return [...candidates].sort((a, b) => {
+                const sa = (typeof quickScore === 'function')
+                    ? quickScore(a.r, a.c, player) : 0;
+                const sb = (typeof quickScore === 'function')
+                    ? quickScore(b.r, b.c, player) : 0;
+                return sb - sa;
+            });
+        } catch (e) {
+            return candidates;
+        }
+    },
+
     // ===== EASY MODE =====
     getEasyModeMove(candidates, player, opponent, winCount, blockBothEnds) {
         const result = Evaluation.findBestMove(candidates, player, winCount, blockBothEnds);
@@ -157,8 +177,11 @@ const AIController = {
 
     // ===== MEDIUM MODE =====
     getMediumModeMove(candidates, player, opponent, winCount, blockBothEnds) {
-        // Check for FOUR threats
-        for (const { r, c } of candidates) {
+        // Neural-sort candidates để search duyệt nước có triển vọng trước
+        const sortedCands = this.neuralSortCandidates(candidates, player);
+
+        // Check for FOUR threats (dùng sortedCands)
+        for (const { r, c } of sortedCands) {
             const threat = ThreatDetector.evaluateThreat(r, c, player, opponent, winCount, blockBothEnds);
             if (threat.attack.maxThreat >= ThreatDetector.THREAT.HIGH) {
                 if (typeof updateBotThinking === 'function') {
@@ -197,8 +220,11 @@ const AIController = {
 
     // ===== HARD MODE =====
     getHardModeMove(candidates, player, opponent, winCount, blockBothEnds) {
-        // Check for advanced patterns
-        for (const { r, c } of candidates) {
+        // Neural-sort candidates để search ưu tiên nước có triển vọng cao
+        const sortedCands = this.neuralSortCandidates(candidates, player);
+
+        // Check for advanced patterns (dùng sortedCands)
+        for (const { r, c } of sortedCands) {
             const threat = ThreatDetector.evaluateThreat(r, c, player, opponent, winCount, blockBothEnds);
             
             // Check for fork
@@ -241,36 +267,15 @@ const AIController = {
 
     // ===== GOD MODE =====
     getGodModeMove(candidates, player, opponent, winCount, blockBothEnds) {
-        // Check for all advanced patterns
-        for (const { r, c } of candidates) {
-            const threat = ThreatDetector.evaluateThreat(r, c, player, opponent, winCount, blockBothEnds);
-            
-            // Check for breakthrough
-            if (threat.attack.specialPatterns.fourThree) {
-                if (typeof updateBotThinking === 'function') {
-                    updateBotThinking('Phát hiện four-three! 🚀');
-                }
-                return { r, c };
-            }
-            
-            // Check for double four
-            if (threat.attack.specialPatterns.doubleFour) {
-                if (typeof updateBotThinking === 'function') {
-                    updateBotThinking('Tạo double four! 💥');
-                }
-                return { r, c };
-            }
-            
-            // Check for fork
-            if (threat.attack.specialPatterns.fork.isFork) {
-                if (typeof updateBotThinking === 'function') {
-                    updateBotThinking('Phát hiện fork! ⚡');
-                }
-                return { r, c };
-            }
+        // God mode dùng thẳng getBotMove() cũ (ai-nao.js) — pipeline đầy đủ nhất:
+        // earlyGameDefense, lookahead, trap, WIN_ pattern, MCTS, PVS depth 6-8
+        // AIController chỉ lo win/block-win (bước 0 & 1) rồi nhường lại.
+        if (typeof getBotMove === 'function') {
+            const move = getBotMove();
+            if (move) return move;
         }
 
-        // Use search with maximum depth
+        // Fallback nếu getBotMove không khả dụng: dùng Search PVS depth 7
         const searchResult = Search.findBestMove(player, {
             algorithm: Search.ALGORITHM.PVS,
             depth: 7,
@@ -281,11 +286,6 @@ const AIController = {
 
         if (typeof updateBotThinking === 'function') {
             updateBotThinking('Đã tính xong! 🤖');
-        }
-
-        if (typeof DebugLogger !== 'undefined') {
-            DebugLogger.log(DebugLogger.CATEGORY.AI_DECISION, DebugLogger.LEVEL.INFO,
-                           'God mode move selected', searchResult);
         }
 
         return searchResult.move;

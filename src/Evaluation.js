@@ -33,6 +33,21 @@ const Evaluation = {
             score = 999999;
         }
 
+        // ══════════════════════════════════════════════════════
+        // NEURAL NETWORK BLEND
+        // Board-level neural score được tính 1 lần bên ngoài (AIController)
+        // Ở đây chỉ áp dụng nhẹ từ neuralEvaluator.evaluate() toàn bàn
+        // để không làm chậm mỗi lần evaluateCell được gọi hàng chục lần.
+        // Weight 0.15 — đủ để tác động nhẹ lên ranking mà không át logic cứng.
+        // ══════════════════════════════════════════════════════
+        if (score < 900000 && typeof neuralEvaluator !== 'undefined') {
+            try {
+                const rawNeural = neuralEvaluator.evaluate(player);
+                const neuralContrib = neuralEvaluator.normalizeScore(rawNeural) * Math.abs(score + 1) * 0.15;
+                score += neuralContrib;
+            } catch (e) { /* neural không ảnh hưởng nếu lỗi */ }
+        }
+
         return {
             r,
             c,

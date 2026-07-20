@@ -205,7 +205,11 @@ function makeMove(r, c) {
                 }
                 statusPanel.innerHTML = `💀 BOT TỐI THƯỢNG ĐÃ THẮNG! ${tauntMessage}`;
                 recordMatch('lose', botPiece);
-                // Bot thua → học kinh nghiệm từ nước đi của người thắng
+                // Bot thắng → nhớ pattern thắng để lặp lại
+                if (typeof onBotWin === 'function') {
+                    onBotWin([...moveHistory], botPiece);
+                }
+                // Bot cũng học pattern của người thắng để tránh bị đánh bại tương tự
                 if (typeof onBotLoss === 'function') {
                     onBotLoss([...moveHistory], humanPiece);
                 }
