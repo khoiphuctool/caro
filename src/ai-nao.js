@@ -1163,6 +1163,7 @@ function makeAIMove() {
 // ══════════════════════════════════════════════════════════════
 function assessThreats(cands, bp, hp) {
     const blockBothEnds = document.getElementById('block-both-ends').checked;
+    const isEarlyGame = moveHistory.length <= 4; // 2 quân mỗi bên
 
     let attackScore = 0, defendScore = 0;
     let bestAttackMoves = [], bestAttackVal = -Infinity;
@@ -1191,20 +1192,24 @@ function assessThreats(cands, bp, hp) {
         if (aFour >= 2)                   aVal += BONUS_DOUBLE_FOUR;
         aVal += centerBias(r, c);
 
-        // Thêm random noise để tạo sự khác biệt
-        aVal += Math.random() * 1000;
+        // Thêm random noise chỉ ở đầu game (1-2 quân đầu) để tránh trùng thế cờ
+        // Sau đó chơi chính xác để chặn đúng vị trí
+        if (isEarlyGame) {
+            aVal += Math.random() * 100; // nhỏ hơn để không ảnh hưởng chặn
+        }
 
         attackScore = Math.max(attackScore, aVal);
         if (aVal > bestAttackVal) {
             bestAttackVal = aVal;
             bestAttackMoves = [{ r, c, score: aVal }];
-        } else if (aVal >= bestAttackVal - 1000 && aVal > 0) {
-            // Chấp nhận các nước đi có điểm tương đương (chênh lệch <= 1000)
+        } else if (aVal >= bestAttackVal - 100 && aVal > 0 && isEarlyGame) {
+            // Chấp nhận các nước đi có điểm tương đương chỉ ở đầu game
             bestAttackMoves.push({ r, c, score: aVal });
         }
 
         // --- Đánh giá nếu ĐỊCH đi vào đây ---
         let dVal = 0;
+        let threeOpenCount = 0, fourOpenCount = 0;
         setCell(r, c, hp);
         for (const { dr, dc } of DIRECTIONS) {
             const lv = evalLine(r, c, dr, dc, hp);
@@ -1213,19 +1218,38 @@ function assessThreats(cands, bp, hp) {
                 const { blockedBoth } = countLineAndBlocked(r, c, dr, dc, hp);
                 if (blockedBoth) continue;
             }
-            dVal += scoreFromTL(lv, false);
+            // Ưu tiên chặn nước đi mở (chưa bị chặn 2 đầu)
+            const score = scoreFromTL(lv, false);
+            // Bonus cho nước đi mở (THREE_OPEN, FOUR_OPEN) - tăng để chặn double threat
+            if (lv === TL.THREE_OPEN) {
+                dVal += score * 3; // 3x cho THREE_OPEN
+                threeOpenCount++;
+            } else if (lv === TL.FOUR_OPEN) {
+                dVal += score * 4; // 4x cho FOUR_OPEN
+                fourOpenCount++;
+            } else {
+                dVal += score;
+            }
         }
         setCell(r, c, '');
 
-        // Thêm random noise để tạo sự khác biệt
-        dVal += Math.random() * 1000;
+        // Debug log để xem double threat
+        if ((threeOpenCount >= 2 || fourOpenCount >= 1) && Math.random() < 0.1) {
+            console.log(`[Double Threat] r=${r}, c=${c}, THREE_OPEN=${threeOpenCount}, FOUR_OPEN=${fourOpenCount}, dVal=${dVal}`);
+        }
+
+        // Thêm random noise chỉ ở đầu game (1-2 quân đầu) để tránh trùng thế cờ
+        // Sau đó chơi chính xác để chặn đúng vị trí
+        if (isEarlyGame) {
+            dVal += Math.random() * 100; // nhỏ hơn để không ảnh hưởng chặn
+        }
 
         defendScore = Math.max(defendScore, dVal);
         if (dVal > bestDefendVal) {
             bestDefendVal = dVal;
             bestDefendMoves = [{ r, c, score: dVal }];
-        } else if (dVal >= bestDefendVal - 1000 && dVal > 0) {
-            // Chấp nhận các nước đi có điểm tương đương (chênh lệch <= 1000)
+        } else if (dVal >= bestDefendVal - 100 && dVal > 0 && isEarlyGame) {
+            // Chấp nhận các nước đi có điểm tương đương chỉ ở đầu game
             bestDefendMoves.push({ r, c, score: dVal });
         }
     }
@@ -1635,49 +1659,57 @@ function getBotMove() {
         const botBreakthroughs = detectBreakthroughPatterns(bp, validCands, hp);
         if (botBreakthroughs.length > 0) {
             updateBotThinking('Phát hiện breakthrough! 🚀');
-            return botBreakthroughs[0];
+            // Random chọn 1 breakthrough nếu có nhiều
+            return botBreakthroughs[Math.floor(Math.random() * botBreakthroughs.length)];
         }
-        
+
         // Check for trap patterns (force opponent into weak position)
         const botTraps = detectTrapPatterns(bp, validCands, hp);
         if (botTraps.length > 0 && shouldAttack) {
             updateBotThinking('Bẫy địch! 🎯');
-            return botTraps[0];
+            // Random chọn 1 trap nếu có nhiều
+            return botTraps[Math.floor(Math.random() * botTraps.length)];
         }
-        
+
         // Check enemy traps and block them — luôn chặn bất kể shouldAttack
         const enemyTraps = detectTrapPatterns(hp, validCands, bp);
         if (enemyTraps.length > 0) {
             updateBotThinking('Phát hiện bẫy địch! 🛡️');
-            return enemyTraps[0].forcedResponse;
+            // Random chọn 1 trap để chặn nếu có nhiều
+            const trapToBlock = enemyTraps[Math.floor(Math.random() * enemyTraps.length)];
+            return trapToBlock.forcedResponse;
         }
-        
+
         // Check for double threat patterns
         const botDoubleThreats = detectDoubleThreatPatterns(bp, validCands);
         if (botDoubleThreats.length > 0 && shouldAttack) {
             updateBotThinking('Tạo double threat! ⚡');
-            return botDoubleThreats[0];
+            // Random chọn 1 double threat nếu có nhiều
+            return botDoubleThreats[Math.floor(Math.random() * botDoubleThreats.length)];
         }
-        
+
         // Địch có double threat → luôn chặn
         const enemyDoubleThreats = detectDoubleThreatPatterns(hp, validCands);
         if (enemyDoubleThreats.length > 0) {
             updateBotThinking('Chặn double threat địch! 🔥');
-            return enemyDoubleThreats[0];
+            // Random chọn 1 để chặn nếu có nhiều
+            return enemyDoubleThreats[Math.floor(Math.random() * enemyDoubleThreats.length)];
         }
-        
+
         // Check for fork patterns using new detection
         const botForks = detectForkPatterns(bp, validCands);
         const enemyForks = detectForkPatterns(hp, validCands);
-        
+
         // Địch có fork → luôn chặn trước
         if (enemyForks.length > 0) {
             updateBotThinking('Chặn fork địch! 🛡️');
-            return enemyForks[0];
+            // Random chọn 1 fork để chặn nếu có nhiều
+            return enemyForks[Math.floor(Math.random() * enemyForks.length)];
         }
         if (shouldAttack && botForks.length > 0) {
             updateBotThinking('Tạo fork! ⚡');
-            return botForks[0];
+            // Random chọn 1 fork nếu có nhiều
+            return botForks[Math.floor(Math.random() * botForks.length)];
         }
     }
     
@@ -1690,8 +1722,16 @@ function getBotMove() {
         const enemyForks = detectForkPatterns(hp, validCands);
 
         // Địch có fork → luôn chặn, không phụ thuộc shouldAttack
-        if (enemyForks.length > 0) { updateBotThinking('Chặn fork địch! 🛡️'); return enemyForks[0]; }
-        if (botForks.length > 0)   { updateBotThinking('Tạo fork! ⚡');        return botForks[0]; }
+        if (enemyForks.length > 0) {
+            updateBotThinking('Chặn fork địch! 🛡️');
+            // Random chọn 1 fork để chặn nếu có nhiều
+            return enemyForks[Math.floor(Math.random() * enemyForks.length)];
+        }
+        if (botForks.length > 0) {
+            updateBotThinking('Tạo fork! ⚡');
+            // Random chọn 1 fork nếu có nhiều
+            return botForks[Math.floor(Math.random() * botForks.length)];
+        }
     }
 
     // ══════════════════════════════════════════════════════
@@ -1714,7 +1754,7 @@ function getBotMove() {
     if (typeof botMemory !== 'undefined' && Object.keys(botMemory).length > 0) {
         const botMoves = moveHistory.filter(m => m.player === bp);
         if (botMoves.length >= 2) {
-            let bestWinMove = null, bestWinScore = -1;
+            let bestWinMoves = [], bestWinScore = -1;
             for (const { r, c } of validCands) {
                 // Thử đặt nước này và kiểm tra chuỗi mới có khớp WIN_ pattern không
                 const hypothetical = [...botMoves, { r, c, player: bp }];
@@ -1725,13 +1765,20 @@ function getBotMove() {
                     const entry = botMemory[key];
                     if (entry && entry.hits >= 1) { // dùng pattern ngay từ lần học đầu tiên
                         const score = entry.hits * (depth / 8);
-                        if (score > bestWinScore) { bestWinScore = score; bestWinMove = { r, c }; }
+                        if (score > bestWinScore) {
+                            bestWinScore = score;
+                            bestWinMoves = [{ r, c }];
+                        } else if (score >= bestWinScore - 0.1 && score > 0) {
+                            // Chấp nhận các nước đi có điểm tương đương (chênh lệch <= 0.1)
+                            bestWinMoves.push({ r, c });
+                        }
                     }
                 }
             }
-            if (bestWinMove) {
+            if (bestWinMoves.length > 0) {
                 updateBotThinking('Áp dụng thế thắng đã học! 🏆');
-                return bestWinMove;
+                // Random chọn 1 trong các nước đi tốt nhất
+                return bestWinMoves[Math.floor(Math.random() * bestWinMoves.length)];
             }
         }
     }
