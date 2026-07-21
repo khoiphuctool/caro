@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Caro BOT CỦA PRO - NÂNG CẤP BOT M2 TỐI THƯỢNG</title>
+    <title>Caro BOT CỦA CHẦN PRO - NÂNG CẤP BOT M2 TỐI THƯỢNG</title>
 
     <!-- Theme styles (được JS ghi đè khi đổi theme) -->
     <style id="theme-styles"></style>
@@ -13,7 +13,7 @@
 </head>
 <body>
 
-    <h1 id="game-title">Caro BOT M2 PRO</h1>
+    <h1 id="game-title">Caro BOT M2 CHẦN PRO</h1>
 
     <div class="control-wrapper">
         <div class="config-panel" id="ui-config-panel">
@@ -283,6 +283,8 @@
     <script src="src/Evaluation.js"></script>
     <!-- 4.4 Search -->
     <script src="src/Search.js"></script>
+    <!-- 4.5 AI Controller - Main AI Coordinator -->
+    <script src="src/AIController.js"></script>
     
     <!-- 5. Logic game: initGame, makeMove, checkWin -->
     <script src="src/logic-game.js"></script>
@@ -331,7 +333,10 @@
             Cache.initialize();
         }
 
-
+        // Verify AIController is loaded
+        if (typeof AIController === 'undefined') {
+            console.error('AIController not loaded! AI functionality may not work correctly.');
+        }
 
         changeTheme();
 

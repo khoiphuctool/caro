@@ -231,13 +231,23 @@ function quickScore(r, c, p) {
     // ── Center bias ──
     const bias = centerBias(r, c);
 
-    // ── ƯU TIÊN TẤN CÔNG KHI CÓ CƠ HỘI THẮNG ──
-    if (atkThreeOpenCount >= 1 || atkFourCount >= 1) {
-        atkScore *= 2;
-    }
+    // ── KHÔNG nhân atkScore ở đây để tránh xung đột với assessThreats ──
+    // Attack priority sẽ được xử lý ở getBotMove() dựa trên so sánh attack/defend score
     if (hasWinningMove) {
         return 999999;
     }
+
+    // ── NEURAL CONTRIBUTION — thêm neural score để tăng độ chính xác ──
+    // Contribution vừa phải để Neural hỗ trợ nhưng không át logic cứng
+    // ĐÃ TẮT - quá nặng cho quickScore() vì extractFeatures() quét toàn bộ candidates
+    let neuralContrib = 0;
+    // if (typeof neuralEvaluator !== 'undefined' && p === (typeof botPiece !== 'undefined' ? botPiece : null)) {
+    //     try {
+    //         // Đánh giá neural cho ô cụ thể này (có cache để tránh tính lại)
+    //         const neuralScore = neuralEvaluator.evaluateCellNeural(r, c, p);
+    //         neuralContrib = neuralEvaluator.normalizeScore(neuralScore) * 500; // Tác động vừa phải (~8% của THREE_OPEN)
+    //     } catch (e) { /* neural không ảnh hưởng nếu lỗi */ }
+    // }
 
     // ── MEMORY PENALTY — trừ điểm nếu nước này tiếp tay cho chiêu nguy hiểm đã học ──
     // Chỉ áp dụng cho nước của bot (p === botPiece), bỏ qua khi tính điểm cho địch
@@ -248,7 +258,7 @@ function quickScore(r, c, p) {
         memPenalty = getMemoryPenalty(r, c, humanPiece);
     }
 
-    return atkScore + defScore + bonus + bias - memPenalty;
+    return atkScore + defScore + bonus + bias + neuralContrib - memPenalty;
 }
 
 
@@ -613,11 +623,15 @@ class NeuralEvaluator {
         this.layer1Weights = [[1.2,0.8,0.5,0.3],[1.0,0.9,0.4,0.2],[0.7,1.1,0.6,0.3],[0.9,0.7,1.0,0.4]];
         this.layer2Weights = [1.3,1.1,0.9,0.7];
         this.bias = 0.1;
-        
+
         // Training parameters
         this.learningRate = 0.01;
         this.trainingData = [];
         this.isTrainingEnabled = true;
+
+        // Cache để tránh tính lại neural score cho cùng ô nhiều lần
+        this.cellCache = new Map();
+        this.cacheVersion = 0; // tăng khi board state thay đổi
     }
     countNeighbors(r, c, player) {
         let count = 0;
@@ -714,8 +728,8 @@ class NeuralEvaluator {
     addTrainingSample(features, targetValue) {
         if (!this.isTrainingEnabled) return;
         this.trainingData.push({ features, target: targetValue });
-        if (this.trainingData.length > 1000) {
-            this.trainingData.shift(); // Keep only last 1000 samples
+        if (this.trainingData.length > 5000) {
+            this.trainingData.shift(); // Keep only last 5000 samples (tăng để học nhiều kinh nghiệm hơn)
         }
     }
     
@@ -765,6 +779,12 @@ class NeuralEvaluator {
     // Giả lập đặt quân vào (r,c) rồi tính neural score của trạng thái đó
     evaluateCellNeural(r, c, player) {
         try {
+            // Check cache trước để tránh tính lại
+            const cacheKey = `${r},${c},${player}`;
+            if (this.cellCache.has(cacheKey) && this.cellCache.get(cacheKey).version === this.cacheVersion) {
+                return this.cellCache.get(cacheKey).score;
+            }
+
             // Simulate placing piece
             const prev = (typeof getCell === 'function') ? getCell(r, c) : '';
             if (prev !== '') return 0; // ô đã có quân
@@ -775,9 +795,20 @@ class NeuralEvaluator {
 
             // Undo
             if (typeof setCell === 'function') setCell(r, c, '');
+
+            // Cache kết quả
+            this.cellCache.set(cacheKey, { score, version: this.cacheVersion });
             return score;
         } catch (e) {
             return 0;
+        }
+    }
+
+    // Clear cache khi board state thay đổi
+    invalidateCache() {
+        this.cacheVersion++;
+        if (this.cellCache.size > 1000) {
+            this.cellCache.clear(); // Xóa cache nếu quá lớn
         }
     }
 
@@ -1272,23 +1303,24 @@ function assessThreats(cands, bp, hp) {
 }
 
 function getBotMove() {
-    const cands = getSearchCandidates();
-    if (cands.length === 0) return { r: 0, c: 0 };
-    
-    // Lọc bỏ các ô đã có quân (tránh đi vào ô đã có)
-    const validCands = cands.filter(({ r, c }) => getCell(r, c) === '');
-    if (validCands.length === 0) return { r: 0, c: 0 };
-    
-    const bp = botPiece, hp = humanPiece;
-    const blockBothEnds = document.getElementById('block-both-ends').checked;
+    try {
+        const cands = getSearchCandidates();
+        if (cands.length === 0) return { r: 0, c: 0 };
+        
+        // Lọc bỏ các ô đã có quân (tránh đi vào ô đã có)
+        const validCands = cands.filter(({ r, c }) => getCell(r, c) === '');
+        if (validCands.length === 0) return { r: 0, c: 0 };
+        
+        const bp = botPiece, hp = humanPiece;
+        const blockBothEnds = document.getElementById('block-both-ends').checked;
 
-    // ══════════════════════════════════════════════════════
-    // DIFFICULTY-BASED PIPELINE - Điều chỉnh theo level bot
-    // ══════════════════════════════════════════════════════
-    const isEasy = gameMode === 'ai-easy';
-    const isMedium = gameMode === 'ai-medium';
-    const isHard = gameMode === 'ai-hard';
-    const isGod = gameMode === 'ai-god';
+        // ══════════════════════════════════════════════════════
+        // DIFFICULTY-BASED PIPELINE - Điều chỉnh theo level bot
+        // ══════════════════════════════════════════════════════
+        const isEasy = gameMode === 'ai-easy';
+        const isMedium = gameMode === 'ai-medium';
+        const isHard = gameMode === 'ai-hard';
+        const isGod = gameMode === 'ai-god';
 
     updateBotThinking('Đang phân tích bàn cờ...');
 
@@ -1390,11 +1422,11 @@ function getBotMove() {
     }
 
     // ══════════════════════════════════════════════════════
-    // 0.5. BOT CÓ FOUR ĐỂ THẮNG (winCount-1) — ưu tiên tấn công
+    // 0.5. Tìm FOUR của bot và địch — lưu để dùng sau, KHÔNG return ngay
     // ══════════════════════════════════════════════════════
-    // Nếu bot có FOUR (winCount-1) → ưu tiên tấn công hơn chặn
+    // Logic FOUR sẽ được xử lý thống nhất ở bước sau để tránh xung đột
     let botWinningMove = null;
-    let enemyFour = null; // Lưu FOUR của địch để dùng sau
+    let enemyFour = null;
     
     // Tìm FOUR của bot
     for (const { r, c } of validCands) {
@@ -1431,32 +1463,12 @@ function getBotMove() {
             break;
         }
     }
-    
-    // Nếu bot có FOUR để thắng → ưu tiên tấn công
-    if (botWinningMove) {
-        // Chỉ chặn nếu địch CŨNG có FIVE (thắng ngay lập tức)
-        let enemyHasFive = false;
-        for (const { r, c } of validCands) {
-            setCell(r, c, hp);
-            const win = checkWinSilent(r, c);
-            setCell(r, c, '');
-            if (win) {
-                enemyHasFive = true;
-                break;
-            }
-        }
-        
-        if (!enemyHasFive) {
-            updateBotThinking('Cơ hội thắng! Tấn công! ⚔️');
-            return botWinningMove;
-        }
-    }
 
     // ══════════════════════════════════════════════════════
     // 1. ĐỊCH THẮNG NGAY (FIVE) — phải chặn tuyệt đối
     // ══════════════════════════════════════════════════════
-    // Dùng findLiveThreats để tìm đúng đầu thoáng của chuỗi winCount-1
-    const enemyFiveThreats = findLiveThreats(hp, winCount - 1);
+    // Dùng findLiveThreats để tìm đúng đầu thoáng của chuỗi winCount
+    const enemyFiveThreats = findLiveThreats(hp, winCount);
     for (const { r, c } of enemyFiveThreats) {
         if (getCell(r, c) === '') {
             updateBotThinking('Chặn kịp! 😤');
@@ -1477,11 +1489,9 @@ function getBotMove() {
     //    → không bao giờ bỏ sót dù ô trống ở đầu hay cuối chuỗi
     // ══════════════════════════════════════════════════════
     // Easy mode bỏ qua bước này
+    // KHÔNG return ngay ở đây — logic FOUR thống nhất ở bước sau
     if (!isEasy) {
         const enemyFourThreats = findLiveThreats(hp, winCount - 1);
-        // findLiveThreats(winCount-1) đã bao gồm cả FIVE ở bước trên,
-        // nhưng ở đây địch chưa đủ winCount nên count=winCount-1 → đúng
-        // Lấy thêm trường hợp winCount-1 từ cả 2 hướng
         if (enemyFourThreats.length > 0) {
             // Chọn ô có quickScore cao nhất trong danh sách cần chặn
             let best = null, bestS = -Infinity;
@@ -1490,15 +1500,8 @@ function getBotMove() {
                 const s = quickScore(r, c, bp);
                 if (s > bestS) { bestS = s; best = { r, c }; }
             }
-            // Nếu bot CŨNG có FOUR để thắng → ưu tiên tấn công
-            if (botWinningMove && best) {
-                updateBotThinking('Cả 2 có 4! Tấn công trước! ⚔️');
-                return botWinningMove;
-            }
-            // Nếu chỉ địch có FOUR → chặn
-            if (best && !botWinningMove) { 
-                updateBotThinking('Chặn 4 địch! 🛡️'); 
-                return best; 
+            if (best) {
+                enemyFour = best; // Cập nhật enemyFour với vị trí chính xác
             }
         }
     }
@@ -1540,12 +1543,14 @@ function getBotMove() {
 
             // Địch tạo FOUR → cực nguy hiểm, phải chặn ngay
             if (liveFourCount >= 1) {
-                const s = quickScore(r, c, bp);
+                // Dùng quickScore cho địch để chọn ô nguy hiểm nhất cần chặn
+                const s = quickScore(r, c, hp);
                 if (s > preFourScore) { preFourScore = s; preFourBlock = { r, c }; }
             }
             // Địch tạo double THREE → cũng rất nguy hiểm (sẽ thành fork)
             else if (liveThreeCount >= 2) {
-                const s = quickScore(r, c, bp);
+                // Dùng quickScore cho địch để chọn ô nguy hiểm nhất cần chặn
+                const s = quickScore(r, c, hp);
                 if (s > preDTScore) { preDTScore = s; preDoubleThree = { r, c }; }
             }
         }
@@ -1578,17 +1583,22 @@ function getBotMove() {
     console.log(`🎯 Attack=${attackScore} | Defend=${defendScore} | ${shouldAttack ? 'ATTACK' : 'DEFEND'}`);
 
     // ══════════════════════════════════════════════════════
-    // 3. FOUR — đã tìm ở bước 0.5, dùng lại kết quả
+    // 3. XỬ LÝ FOUR THỐNG NHẤT — tránh xung đột logic
     // ══════════════════════════════════════════════════════
-    // botWinningMove và enemyFour đã được tìm ở bước 0.5
-    
+    // Ưu tiên: Bot FOUR > Địch FOUR > Không có FOUR
     if (botWinningMove && enemyFour) {
-        // Cả 2 đều có FOUR → đánh của bot trước (tấn công thắng phòng thủ)
+        // Cả 2 đều có FOUR → bot đi trước (tấn công thắng phòng thủ)
         updateBotThinking('Cả 2 có 4! Tấn công trước! ⚔️');
         return botWinningMove;
     }
-    if (botWinningMove) { updateBotThinking('Cơ hội 4 mở! ⚔️'); return botWinningMove; }
-    if (enemyFour)   { updateBotThinking('Chặn 4 địch! 🛡️'); return enemyFour; }
+    if (botWinningMove) { 
+        updateBotThinking('Cơ hội 4 mở! ⚔️'); 
+        return botWinningMove; 
+    }
+    if (enemyFour)   { 
+        updateBotThinking('Chặn 4 địch! 🛡️'); 
+        return enemyFour; 
+    }
 
     // ══════════════════════════════════════════════════════
     // 4. DOUBLE THREE — so sánh rồi quyết định
@@ -1629,11 +1639,20 @@ function getBotMove() {
     }
 
     if (botDoubleThree && enemyDoubleThree) {
-        // Địch có double three → luôn chặn, bất kể shouldAttack
-        updateBotThinking('Chặn double three địch! 🔥'); return enemyDoubleThree;
+        // Cả 2 có double three → chặn địch (phòng thủ ưu tiên)
+        updateBotThinking('Chặn double three địch! 🔥'); 
+        return enemyDoubleThree;
     }
-    if (botDoubleThree)   { updateBotThinking('Tạo double three! ⚡'); return botDoubleThree; }
-    if (enemyDoubleThree) { updateBotThinking('Chặn double three địch! 🔥'); return enemyDoubleThree; }
+    // Nếu chỉ bot có double three → kiểm tra shouldAttack
+    if (botDoubleThree && shouldAttack) {
+        updateBotThinking('Tạo double three! ⚡'); 
+        return botDoubleThree;
+    }
+    // Nếu chỉ địch có double three → luôn chặn
+    if (enemyDoubleThree) { 
+        updateBotThinking('Chặn double three địch! 🔥'); 
+        return enemyDoubleThree; 
+    }
 
     // ══════════════════════════════════════════════════════
     // 4.5. EARLY GAME DEFENSE — đầu game áp sát, ngăn người chơi
@@ -1819,9 +1838,19 @@ function getBotMove() {
     // ══════════════════════════════════════════════════════
     if (isHard || isGod) {
         updateBotThinking('Đang tính toán sâu... 🧠');
-        if (isGod && moveCount > 5) {
+        if (isGod && moveCount > Math.floor(winCount / 2)) {
+            // Điều kiện kích hoạt MCTS dựa trên winCount: càng nhiều quân thắng càng cần nhiều nước đi
             const mctsIterations = winCount >= 6 ? 5000 : 3000;
             const mctsMove = mctsSearch(mctsIterations, 2000);
+            if (mctsMove) {
+                console.log(`🧠 Neural: ${neuralEvaluator.evaluate(bp).toFixed(0)}`);
+                updateBotThinking('MCTS đã tìm ra nước đi! 🚀');
+                return mctsMove;
+            }
+        } else if (isHard && moveCount > Math.floor(winCount / 2)) {
+            // Hard mode cũng dùng MCTS nhưng với iterations thấp hơn
+            const mctsIterations = winCount >= 6 ? 3000 : 2000;
+            const mctsMove = mctsSearch(mctsIterations, 1500);
             if (mctsMove) {
                 console.log(`🧠 Neural: ${neuralEvaluator.evaluate(bp).toFixed(0)}`);
                 updateBotThinking('MCTS đã tìm ra nước đi! 🚀');
@@ -1830,13 +1859,21 @@ function getBotMove() {
         }
         let depth;
         if (isGod) {
-            if (winCount >= 8) depth = 8;
-            else if (winCount >= 6) depth = 7;
-            else if (winCount === 5) depth = 6;
-            else if (winCount === 4) depth = 5;
-            else depth = 4; // winCount = 3
+            // Depth tương ứng với từng winCount để đảm bảo tìm kiếm đủ sâu
+            if (winCount === 10) depth = 10;
+            else if (winCount === 9) depth = 9;
+            else if (winCount === 8) depth = 8;
+            else if (winCount === 7) depth = 7;
+            else if (winCount === 6) depth = 6;
+            else if (winCount === 5) depth = 5;
+            else if (winCount === 4) depth = 4;
+            else depth = 3; // winCount = 3
         } else {
-            depth = winCount >= 6 ? 4 : 3;
+            // Hard mode: depth tăng lên để nhìn trước sâu hơn
+            if (winCount >= 8) depth = 6;
+            else if (winCount >= 6) depth = 5;
+            else if (winCount === 5) depth = 4;
+            else depth = 3; // winCount = 3,4
         }
         if (moveCount >= 15) depth = Math.max(2, depth - 1);
         const minimaxMove = getBestMoveWithMinimax(depth, bp);
@@ -1851,6 +1888,10 @@ function getBotMove() {
     const scored = validCands.map(({ r, c }) => ({ r, c, score: quickScore(r, c, bp) }));
     scored.sort((a, b) => b.score - a.score);
     return scored[0] || validCands[0];
+    } catch (e) {
+        console.error('getBotMove error:', e);
+        return { r: 0, c: 0 };
+    }
 }
 
 function updateBotThinking(message) {

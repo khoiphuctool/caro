@@ -10,9 +10,9 @@
 // ─────────────────────────────────────────────────────────────────
 
 const MEMORY_KEY     = 'caro_bot_memory_v2';
-const MAX_MEMORIES   = 1500;  // tối đa bao nhiêu pattern nhớ
+const MAX_MEMORIES   = 3000;  // tối đa bao nhiêu pattern nhớ (tăng lên 3000)
 const PENALTY_BASE   = 600000;  // điểm phạt cơ bản cho nước đi nguy hiểm (tăng theo OX.HTML)
-const MEMORY_DEPTH   = 4;     // nhớ tối đa 4 nước đi gần nhất của địch (giảm theo OX.HTML)
+const MEMORY_DEPTH   = 8;     // nhớ tối đa 8 nước đi gần nhất của địch (tăng để phát hiện pattern phức tạp hơn)
 
 // Bộ nhớ trong RAM (load từ localStorage khi khởi động)
 let botMemory = loadBotMemory();

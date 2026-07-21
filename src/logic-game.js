@@ -130,6 +130,11 @@ function makeMove(r, c) {
     setCell(r, c, currentPlayer);
     moveHistory.push({ r, c, player: currentPlayer });
 
+    // Invalidate neural cache khi board state thay đổi
+    if (typeof neuralEvaluator !== 'undefined' && neuralEvaluator.invalidateCache) {
+        neuralEvaluator.invalidateCache();
+    }
+
     keyboardCursorR = r; keyboardCursorC = c;
     keyboardCursorVisible = true;
 
