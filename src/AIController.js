@@ -180,18 +180,21 @@ const AIController = {
         // Neural-sort candidates để search duyệt nước có triển vọng trước
         const sortedCands = this.neuralSortCandidates(candidates, player);
 
-        // Check for FOUR threats (dùng sortedCands)
+        // Check for FOUR threats — phòng thủ CRITICAL ưu tiên hơn tấn công HIGH
+        for (const { r, c } of sortedCands) {
+            const threat = ThreatDetector.evaluateThreat(r, c, player, opponent, winCount, blockBothEnds);
+            if (threat.defense.maxThreat >= ThreatDetector.THREAT.CRITICAL) {
+                if (typeof updateBotThinking === 'function') {
+                    updateBotThinking('Chặn nguy hiểm! 🛡️');
+                }
+                return { r, c };
+            }
+        }
         for (const { r, c } of sortedCands) {
             const threat = ThreatDetector.evaluateThreat(r, c, player, opponent, winCount, blockBothEnds);
             if (threat.attack.maxThreat >= ThreatDetector.THREAT.HIGH) {
                 if (typeof updateBotThinking === 'function') {
                     updateBotThinking('Cơ hội tấn công! ⚔️');
-                }
-                return { r, c };
-            }
-            if (threat.defense.maxThreat >= ThreatDetector.THREAT.CRITICAL) {
-                if (typeof updateBotThinking === 'function') {
-                    updateBotThinking('Chặn nguy hiểm! 🛡️');
                 }
                 return { r, c };
             }

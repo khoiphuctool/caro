@@ -226,8 +226,11 @@ const ThreatDetector = {
 
     // ===== GET SCORE =====
     getScore(patternType, isAttack) {
-        // Use ScoreTable if available
+        // Dùng ScoreTable.getScaledScore nếu có (scale theo winCount)
         if (typeof ScoreTable !== 'undefined') {
+            if (ScoreTable.getScaledScore && typeof winCount !== 'undefined') {
+                return ScoreTable.getScaledScore(patternType, isAttack, winCount);
+            }
             return ScoreTable.getScore(patternType, isAttack);
         }
 

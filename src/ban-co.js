@@ -9,6 +9,41 @@ function renderFixedBoard() {
     recalculateCellSizes();
 }
 
+// Vẽ điểm lên bàn DOM — gọi sau khi bot tính xong
+function renderCellScoresDOM() {
+    const showScores = document.getElementById('show-cell-scores');
+    if (!showScores || !showScores.checked || !window.cellScores) return;
+
+    // Xóa điểm cũ
+    for (const el of document.querySelectorAll('.cell-score-label')) el.remove();
+
+    const entries = Object.entries(window.cellScores)
+        .map(([key, val]) => ({ key, val }))
+        .sort((a, b) => b.val - a.val)
+        .slice(0, 4);
+    const top1Key = entries.length > 0 ? entries[0].key : null;
+
+    for (const { key, val } of entries) {
+        const [r, c] = key.split(',').map(Number);
+        const cell = document.querySelector(`[data-row='${r}'][data-col='${c}']`);
+        if (!cell || cell.classList.contains('X') || cell.classList.contains('O')) continue;
+        const isTop = key === top1Key;
+        const label = val >= 10000 ? `${Math.round(val/1000)}k` : `${(val/1000).toFixed(1)}k`;
+        const span = document.createElement('span');
+        span.className = 'cell-score-label';
+        span.textContent = label;
+        span.style.cssText = `
+            position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+            font-size:${isTop ? '0.55em' : '0.45em'}; font-weight:bold; pointer-events:none;
+            color:${isTop ? 'rgba(180,100,0,0.55)' : 'rgba(79,70,229,0.45)'};
+            background:${isTop ? 'rgba(245,158,11,0.12)' : 'rgba(99,102,241,0.08)'};
+            border-radius:2px; padding:0 1px; line-height:1.1; white-space:nowrap;
+        `;
+        cell.style.position = 'relative';
+        cell.appendChild(span);
+    }
+}
+
 function recalculateCellSizes() {
     if (isInfinite) return;
     const sz = boardSize;
@@ -240,6 +275,34 @@ function renderInfiniteBoard() {
     const cr  = Math.floor(vRowF + rows/2), cc = Math.floor(vColF + cols/2);
     document.getElementById('inf-coords').textContent = `Tâm: (${cr}, ${cc})`;
     nav.style.display = 'block';
+
+    // Vẽ điểm đánh giá ô (debug scores) — PHẢI ở cuối cùng để không bị ghi đè
+    const showScores = document.getElementById('show-cell-scores');
+    if (showScores && showScores.checked && window.cellScores && Object.keys(window.cellScores).length > 0) {
+        const top4 = Object.entries(window.cellScores)
+            .map(([key, val]) => ({ key, val }))
+            .sort((a, b) => b.val - a.val)
+            .slice(0, 4);
+        const top1Key = top4.length > 0 ? top4[0].key : null;
+        c.textAlign    = 'center';
+        c.textBaseline = 'middle';
+        for (let i = 0; i < top4.length; i++) {
+            const { key, val } = top4[i];
+            const [gr, gc2] = key.split(',').map(Number);
+            if (infiniteMap.get(key)) continue;
+            const ri = gr - r0, ci = gc2 - c0;
+            if (ri < 0 || ci < 0 || ri >= rows || ci >= cols) continue;
+            const px = offX + ci * CS + CS / 2;
+            const py = offY + ri * CS + CS / 2;
+            const isTop = key === top1Key;
+            const label = val >= 10000 ? `${Math.round(val/1000)}k` : `${(val/1000).toFixed(1)}k`;
+            c.font = `bold ${Math.max(8, Math.floor(CS * 0.22))}px monospace`;
+            c.fillStyle = isTop ? 'rgba(245,158,11,0.15)' : 'rgba(99,102,241,0.1)';
+            c.fillRect(offX + ci*CS + 1, offY + ri*CS + 1, CS-2, CS-2);
+            c.fillStyle = isTop ? 'rgba(180,100,0,0.55)' : 'rgba(79,70,229,0.45)';
+            c.fillText(label, px, py);
+        }
+    }
 }
 
 // ===== HOVER =====

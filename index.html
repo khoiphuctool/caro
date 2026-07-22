@@ -13,7 +13,7 @@
 </head>
 <body>
 
-    <h1 id="game-title">Caro BOT M2 CHẦN PRO</h1>
+    <h1 id="game-title">Caro BOT TIÊN CHI THẾ CỜ CHẦN PRO</h1>
 
     <div class="control-wrapper">
         <div class="config-panel" id="ui-config-panel">
@@ -51,7 +51,12 @@
             </div>
             <div class="config-group">
                 <label for="block-both-ends">🚫chặn 2 đầu KHÔNG THẮNG:</label>
-                <input type="checkbox" id="block-both-ends" checked onchange="saveBlockBothEndsSetting()">
+                <input type="checkbox" id="block-both-ends" checked onchange="saveBlockBothEndsSetting(); if(typeof invalidateBlockBothEndsCache==='function') invalidateBlockBothEndsCache();">
+            </div>
+            <div class="config-group">
+                <label for="show-cell-scores">🔢 Hiện điểm ô:</label>
+                <input type="checkbox" id="show-cell-scores"
+                    onchange="if(typeof renderInfiniteBoard==='function')renderInfiniteBoard();if(typeof renderCellScoresDOM==='function')renderCellScoresDOM();">
             </div>
             <div class="config-group" id="group-piece" style="display:none;">
                 <label for="player-piece">♟️ Bạn chọn:</label>
@@ -145,19 +150,20 @@
                     <button onclick="document.getElementById('import-memory-input').click()" style="padding:2px 6px;border-radius:4px;border:1px solid #10b981;background:#d1fae5;color:#065f46;cursor:pointer;font-size:0.7rem;">Nhập</button>
                     <input type="file" id="import-memory-input" accept=".json" style="display:none;" onchange="importBotMemory(this)">
                     <button onclick="resetMemory()" style="padding:2px 6px;border-radius:4px;border:1px solid #ef4444;background:#fee2e2;color:#991b1b;cursor:pointer;font-size:0.7rem;">Reset</button>
+                    <button onclick="openScoreTableConfig()" style="padding:2px 6px;border-radius:4px;border:1px solid #f59e0b;background:#fef3c7;color:#92400e;cursor:pointer;font-size:0.7rem;">⚙️ AI</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div style="display:flex; gap:8px; justify-content:center; align-items:center; margin:4px 0;">
+    <div style="display:flex; gap:8px; justify-content:center; align-items:center; margin:4px 0; width:100%; box-sizing:border-box; padding:0 10px;">
         <div class="status-panel" id="status-panel" style="flex:1;">Đang tải...</div>
     </div>
-    <div class="timer-panel" id="timer-panel" style="display:none; text-align:center; font-size:0.85rem; opacity:0.8; margin:2px 0;">
+    <div class="timer-panel" id="timer-panel" style="display:none; text-align:center; font-size:0.85rem; opacity:0.8; margin:2px 0; width:100%; box-sizing:border-box;">
         ⏱️ <span id="game-timer">00:00</span> · <span id="turn-timer">00:00</span>
     </div>
 
-    <div style="text-align:center; font-size:0.8rem; opacity:0.6; margin:4px 0;">
+    <div style="text-align:center; font-size:0.8rem; opacity:0.6; margin:4px 0; width:100%;">
         ⌨️ <b>Phím tắt:</b> Mũi tên ↑↓←→ để di chuyển CON TRỎ THỨ 2 · Enter để đánh quân
     </div>
 
@@ -223,9 +229,9 @@
                 <button class="btn-clear-rank" id="btn-clear-rank" onclick="clearRank()" style="display:none;">🗑️ Xóa</button>
             </div>
         </div>
-    </div>
 
-    <button class="btn-restart" id="ui-btn-restart" onclick="initGame()">🔄 Ván Mới</button>
+        <button class="btn-restart" id="ui-btn-restart" onclick="initGame()">🔄 Ván Mới</button>
+    </div>
 
     <!-- PHÁO HOA -->
     <canvas id="confetti-canvas"></canvas>
@@ -253,6 +259,158 @@
                     🔍 XEM LẠI
                 </button>
                 <button class="btn-play-again" onclick="closeWinAndRestart()">🔄 ĐẤU LẠI</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCORE TABLE CONFIG OVERLAY -->
+    <div id="scoretable-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:500; justify-content:center; align-items:center;">
+        <div style="background:#1e293b; border-radius:12px; padding:20px; max-width:800px; max-height:90vh; overflow-y:auto; color:#e2e8f0; box-shadow:0 10px 40px rgba(0,0,0,0.5);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2 style="margin:0; color:#f59e0b;">⚙️ Cấu Hình AI - ScoreTable</h2>
+                <button onclick="closeScoreTableConfig()" style="background:#ef4444; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:bold;">✕ Đóng</button>
+            </div>
+            
+            <div style="margin-bottom:20px;">
+                <p style="font-size:0.85rem; color:#94a3b8; margin:0;">Chỉnh điểm số để thay đổi cách bot ra quyết định. Điểm càng cao thì bot càng ưu tiên hành động đó.</p>
+            </div>
+
+            <!-- ATTACK SCORES -->
+            <div style="margin-bottom:24px; padding:16px; background:#334155; border-radius:8px;">
+                <h3 style="margin:0 0 12px 0; color:#10b981; font-size:1rem;">⚔️ Điểm Tấn Công (ATTACK)</h3>
+                <p style="font-size:0.8rem; color:#94a3b8; margin:0 0 12px 0;">Bot đánh quân của chính mình để tạo chuỗi chiến thắng</p>
+                
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">FIVE (5 quân)</label>
+                        <input type="number" id="st-attack-five" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">Thắng ngay lập tức</small>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">FOUR_OPEN (4 quân mở)</label>
+                        <input type="number" id="st-attack-four-open" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">4 quân, 2 đầu mở - sắp thắng</small>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">FOUR_BLOCKED (4 quân chặn)</label>
+                        <input type="number" id="st-attack-four-blocked" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">4 quân, 1 đầu bị chặn</small>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">THREE_OPEN (3 quân mở)</label>
+                        <input type="number" id="st-attack-three-open" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">3 quân, 2 đầu mở - ưu tiên tấn công</small>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">THREE_BLOCKED (3 quân chặn)</label>
+                        <input type="number" id="st-attack-three-blocked" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">3 quân, 1 đầu bị chặn</small>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">TWO_OPEN (2 quân mở)</label>
+                        <input type="number" id="st-attack-two-open" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">2 quân, 2 đầu mở</small>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">TWO_BLOCKED (2 quân chặn)</label>
+                        <input type="number" id="st-attack-two-blocked" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">2 quân, 1 đầu bị chặn</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DEFENSE SCORES -->
+            <div style="margin-bottom:24px; padding:16px; background:#334155; border-radius:8px;">
+                <h3 style="margin:0 0 12px 0; color:#ef4444; font-size:1rem;">🛡️ Điểm Phòng Thủ (DEFENSE)</h3>
+                <p style="font-size:0.8rem; color:#94a3b8; margin:0 0 12px 0;">Bot chặn quân của đối thủ để ngăn họ thắng</p>
+                
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">FIVE (5 quân)</label>
+                        <input type="number" id="st-defense-five" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">Đối thủ sắp thắng - PHẢI chặn ngay</small>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">FOUR_OPEN (4 quân mở)</label>
+                        <input type="number" id="st-defense-four-open" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">Đối thủ có 4 quân mở</small>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">FOUR_BLOCKED (4 quân chặn)</label>
+                        <input type="number" id="st-defense-four-blocked" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">Đối thủ có 4 quân bị chặn</small>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">THREE_OPEN (3 quân mở) ⚠️</label>
+                        <input type="number" id="st-defense-three-open" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">Đối thủ có 3 quân mở - NGUY HIỂM, chặn ngay</small>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">THREE_BLOCKED (3 quân chặn)</label>
+                        <input type="number" id="st-defense-three-blocked" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">Đối thủ có 3 quân bị chặn</small>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">TWO_OPEN (2 quân mở)</label>
+                        <input type="number" id="st-defense-two-open" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">Đối thủ có 2 quân mở</small>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">TWO_BLOCKED (2 quân chặn)</label>
+                        <input type="number" id="st-defense-two-blocked" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">Đối thủ có 2 quân bị chặn</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BONUS SCORES -->
+            <div style="margin-bottom:24px; padding:16px; background:#334155; border-radius:8px;">
+                <h3 style="margin:0 0 12px 0; color:#f59e0b; font-size:1rem;">🎁 Điểm Thưởng (BONUS)</h3>
+                <p style="font-size:0.8rem; color:#94a3b8; margin:0 0 12px 0;">Điểm thưởng cho các pattern đặc biệt</p>
+                
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">DOUBLE_THREE (Kép 3)</label>
+                        <input type="number" id="st-bonus-double-three" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">Hai đường THREE_OPEN cùng lúc</small>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">FOUR_THREE (4-3)</label>
+                        <input type="number" id="st-bonus-four-three" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">Có cả FOUR và THREE_OPEN</small>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">DOUBLE_FOUR (Kép 4)</label>
+                        <input type="number" id="st-bonus-double-four" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">Hai đường FOUR cùng lúc</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CENTER BIAS -->
+            <div style="margin-bottom:24px; padding:16px; background:#334155; border-radius:8px;">
+                <h3 style="margin:0 0 12px 0; color:#8b5cf6; font-size:1rem;">🎯 Ưu Tiên Trung Tâm (CENTER_BIAS)</h3>
+                <p style="font-size:0.8rem; color:#94a3b8; margin:0 0 12px 0;">Bot ưu tiên đánh gần trung tâm bàn cờ</p>
+                
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">MAX (Tối đa)</label>
+                        <input type="number" id="st-center-max" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">Điểm ưu tiên trung tâm tối đa</small>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">DISTANCE (Bán kính)</label>
+                        <input type="number" id="st-center-distance" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
+                        <small style="font-size:0.7rem; color:#64748b;">Bán kính tính ưu tiên trung tâm</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ACTION BUTTONS -->
+            <div style="display:flex; gap:12px; justify-content:flex-end; padding-top:16px; border-top:1px solid #475569;">
+                <button onclick="resetScoreTableToDefaults()" style="padding:10px 20px; border-radius:6px; border:1px solid #ef4444; background:#fee2e2; color:#991b1b; cursor:pointer; font-weight:bold;">🔄 Reset Mặc Định</button>
+                <button onclick="ScoreTable.exportAsFile()" style="padding:10px 20px; border-radius:6px; border:1px solid #8b5cf6; background:#ede9fe; color:#5b21b6; cursor:pointer; font-weight:bold;">📥 Xuất File JS</button>
+                <button onclick="saveScoreTableConfig()" style="padding:10px 20px; border-radius:6px; border:1px solid #10b981; background:#d1fae5; color:#065f46; cursor:pointer; font-weight:bold;">💾 Lưu Thay Đổi</button>
             </div>
         </div>
     </div>
@@ -355,6 +513,106 @@
         applyPanelSizes();
         setupPanelResize();
 
+        // Load ScoreTable settings
+        if (typeof ScoreTable !== 'undefined') {
+            ScoreTable.loadSettings();
+        }
+    </script>
+
+    <!-- ScoreTable Config Functions -->
+    <script>
+        function openScoreTableConfig() {
+            if (typeof ScoreTable === 'undefined') {
+                alert('ScoreTable chưa được tải!');
+                return;
+            }
+            
+            // Load current values into inputs
+            document.getElementById('st-attack-five').value = ScoreTable.ATTACK.FIVE;
+            document.getElementById('st-attack-four-open').value = ScoreTable.ATTACK.FOUR_OPEN;
+            document.getElementById('st-attack-four-blocked').value = ScoreTable.ATTACK.FOUR_BLOCKED;
+            document.getElementById('st-attack-three-open').value = ScoreTable.ATTACK.THREE_OPEN;
+            document.getElementById('st-attack-three-blocked').value = ScoreTable.ATTACK.THREE_BLOCKED;
+            document.getElementById('st-attack-two-open').value = ScoreTable.ATTACK.TWO_OPEN;
+            document.getElementById('st-attack-two-blocked').value = ScoreTable.ATTACK.TWO_BLOCKED;
+            
+            document.getElementById('st-defense-five').value = ScoreTable.DEFENSE.FIVE;
+            document.getElementById('st-defense-four-open').value = ScoreTable.DEFENSE.FOUR_OPEN;
+            document.getElementById('st-defense-four-blocked').value = ScoreTable.DEFENSE.FOUR_BLOCKED;
+            document.getElementById('st-defense-three-open').value = ScoreTable.DEFENSE.THREE_OPEN;
+            document.getElementById('st-defense-three-blocked').value = ScoreTable.DEFENSE.THREE_BLOCKED;
+            document.getElementById('st-defense-two-open').value = ScoreTable.DEFENSE.TWO_OPEN;
+            document.getElementById('st-defense-two-blocked').value = ScoreTable.DEFENSE.TWO_BLOCKED;
+            
+            document.getElementById('st-bonus-double-three').value = ScoreTable.BONUS.DOUBLE_THREE;
+            document.getElementById('st-bonus-four-three').value = ScoreTable.BONUS.FOUR_THREE;
+            document.getElementById('st-bonus-double-four').value = ScoreTable.BONUS.DOUBLE_FOUR;
+            
+            document.getElementById('st-center-max').value = ScoreTable.CENTER_BIAS.MAX;
+            document.getElementById('st-center-distance').value = ScoreTable.CENTER_BIAS.DISTANCE;
+            
+            document.getElementById('scoretable-overlay').style.display = 'flex';
+        }
+
+        function closeScoreTableConfig() {
+            document.getElementById('scoretable-overlay').style.display = 'none';
+        }
+
+        function saveScoreTableConfig() {
+            if (typeof ScoreTable === 'undefined') {
+                alert('ScoreTable chưa được tải!');
+                return;
+            }
+            
+            // Update ATTACK scores
+            ScoreTable.updateScore('ATTACK', 'FIVE', document.getElementById('st-attack-five').value);
+            ScoreTable.updateScore('ATTACK', 'FOUR_OPEN', document.getElementById('st-attack-four-open').value);
+            ScoreTable.updateScore('ATTACK', 'FOUR_BLOCKED', document.getElementById('st-attack-four-blocked').value);
+            ScoreTable.updateScore('ATTACK', 'THREE_OPEN', document.getElementById('st-attack-three-open').value);
+            ScoreTable.updateScore('ATTACK', 'THREE_BLOCKED', document.getElementById('st-attack-three-blocked').value);
+            ScoreTable.updateScore('ATTACK', 'TWO_OPEN', document.getElementById('st-attack-two-open').value);
+            ScoreTable.updateScore('ATTACK', 'TWO_BLOCKED', document.getElementById('st-attack-two-blocked').value);
+            
+            // Update DEFENSE scores
+            ScoreTable.updateScore('DEFENSE', 'FIVE', document.getElementById('st-defense-five').value);
+            ScoreTable.updateScore('DEFENSE', 'FOUR_OPEN', document.getElementById('st-defense-four-open').value);
+            ScoreTable.updateScore('DEFENSE', 'FOUR_BLOCKED', document.getElementById('st-defense-four-blocked').value);
+            ScoreTable.updateScore('DEFENSE', 'THREE_OPEN', document.getElementById('st-defense-three-open').value);
+            ScoreTable.updateScore('DEFENSE', 'THREE_BLOCKED', document.getElementById('st-defense-three-blocked').value);
+            ScoreTable.updateScore('DEFENSE', 'TWO_OPEN', document.getElementById('st-defense-two-open').value);
+            ScoreTable.updateScore('DEFENSE', 'TWO_BLOCKED', document.getElementById('st-defense-two-blocked').value);
+            
+            // Update BONUS scores
+            ScoreTable.updateScore('BONUS', 'DOUBLE_THREE', document.getElementById('st-bonus-double-three').value);
+            ScoreTable.updateScore('BONUS', 'FOUR_THREE', document.getElementById('st-bonus-four-three').value);
+            ScoreTable.updateScore('BONUS', 'DOUBLE_FOUR', document.getElementById('st-bonus-double-four').value);
+            
+            // Update CENTER_BIAS
+            ScoreTable.updateScore('CENTER_BIAS', 'MAX', document.getElementById('st-center-max').value);
+            ScoreTable.updateScore('CENTER_BIAS', 'DISTANCE', document.getElementById('st-center-distance').value);
+            
+            alert('Đã lưu cấu hình AI thành công!');
+            closeScoreTableConfig();
+        }
+
+        function resetScoreTableToDefaults() {
+            if (typeof ScoreTable === 'undefined') {
+                alert('ScoreTable chưa được tải!');
+                return;
+            }
+            
+            if (confirm('Bạn có chắc muốn reset về giá trị mặc định?')) {
+                ScoreTable.resetToDefaults();
+                
+                // Reload values into inputs
+                openScoreTableConfig();
+                
+                alert('Đã reset về giá trị mặc định!');
+            }
+        }
+    </script>
+
+    <script>
         // Sync với server nếu có API
         (async () => {
             const serverRank = await apiGet('/api/rank');

@@ -169,8 +169,19 @@ function getCell(r, c) {
 function setCell(r, c, val) {
     const oldVal = getCell(r, c);
     if (isInfinite) {
-        if (val === "") infiniteMap.delete(`${r},${c}`);
-        else infiniteMap.set(`${r},${c}`, val);
+        if (val === "") {
+            infiniteMap.delete(`${r},${c}`);
+            // Đồng bộ với GameState
+            if (typeof GameState !== 'undefined' && GameState.board.infiniteMap) {
+                GameState.board.infiniteMap.delete(`${r},${c}`);
+            }
+        } else {
+            infiniteMap.set(`${r},${c}`, val);
+            // Đồng bộ với GameState
+            if (typeof GameState !== 'undefined' && GameState.board.infiniteMap) {
+                GameState.board.infiniteMap.set(`${r},${c}`, val);
+            }
+        }
     } else {
         boardState[r][c] = val;
     }

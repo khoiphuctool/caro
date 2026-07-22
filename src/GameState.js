@@ -139,8 +139,16 @@ const GameState = {
         if (this.board.isInfinite) {
             if (value === "") {
                 this.board.infiniteMap.delete(`${r},${c}`);
+                // Đồng bộ với global infiniteMap
+                if (typeof infiniteMap !== 'undefined') {
+                    infiniteMap.delete(`${r},${c}`);
+                }
             } else {
                 this.board.infiniteMap.set(`${r},${c}`, value);
+                // Đồng bộ với global infiniteMap
+                if (typeof infiniteMap !== 'undefined') {
+                    infiniteMap.set(`${r},${c}`, value);
+                }
             }
         } else {
             if (r >= 0 && r < this.board.size && c >= 0 && c < this.board.size) {

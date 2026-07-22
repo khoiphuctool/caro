@@ -28,10 +28,13 @@ function startPlayerTurnTimer() {
 
         if (playerTurnSeconds === 10 && gameMode.startsWith('ai') && currentPlayer === humanPiece) {
             const messages = [
-                'lâu thế , nhanh tôi còn đi đái',
-                'Nhanh lên nào, nghĩ lâu thế!',
-                'Tôi đang chờ đấy...',
-                'Đi đi, đừng để tôi chờ!'
+                'Lâu thế, tôi còn phải đi đái! 🚽',
+                'Nhanh lên! Bắp rang của tôi nguội mất rồi 🍿',
+                'Ơ kìa, ngủ quên à? 😴',
+                'Tôi đang chờ đấy... thở dài nghe không? 😮‍💨',
+                'Bấm đi! Bàn cờ không tự di chuyển đâu nhé 🎯',
+                'Còn đây không? Hay đã bỏ trốn rồi? 👀',
+                'Suy nghĩ hay đang gọi viện binh vậy? 📞',
             ];
             const randomMsg = messages[Math.floor(Math.random() * messages.length)];
             const botMessage = document.getElementById('bot-message');
@@ -43,12 +46,56 @@ function startPlayerTurnTimer() {
             }
         }
         if (playerTurnSeconds === 15 && gameMode.startsWith('ai') && currentPlayer === humanPiece) {
+            const messages = [
+                'Trời ơi 15 giây rồi! Tôi chờ mà sắp tè ra quần rồi 😤',
+                'Chậm như rùa! Rùa còn đang cười bạn kìa 🐢😂',
+                'OK tôi đi pha cà phê đây, xong về còn chưa đi thì thôi ☕',
+                '15 giây... Tôi đã nghĩ xong 5 nước tiếp theo rồi đấy 😏',
+                'Bạn đang thiền à? Thiền bàn cờ kiểu mới? 🧘',
+                'Nước cờ không phải rượu, ngâm lâu không ngon hơn đâu! 🍷',
+            ];
+            const randomMsg = messages[Math.floor(Math.random() * messages.length)];
             const botMessage = document.getElementById('bot-message');
             const botBubble  = document.getElementById('bot-bubble');
             if (botMessage && botBubble) {
-                botMessage.textContent = 'quá lâu cho đội bạn , tôi chờ mà sắp tè ra quần rồi 😤';
+                botMessage.textContent = randomMsg;
                 botBubble.classList.add('annoying');
-                setTimeout(() => botBubble.classList.remove('annoying'), 3000);
+                setTimeout(() => botBubble.classList.remove('annoying'), 4000);
+            }
+        }
+        if (playerTurnSeconds === 25 && gameMode.startsWith('ai') && currentPlayer === humanPiece) {
+            const messages = [
+                'Ơ bạn vẫn còn đây không?? Tôi tưởng bạn đã ngủ rồi 😂',
+                '25 giây! Kỷ lục chần chừ mới! 🏆',
+                'Bạn đang nhờ ChatGPT tính nước à? Gian lận đấy nhé 😒',
+                'Thôi được rồi, tôi sẽ dùng thời gian này học thêm 1 pattern mới 🧠',
+                'Cứ từ từ đi, tôi không đi đâu cả... ngoại trừ lên bục chiến thắng 😈',
+                'OK OK tôi hiểu rồi, bạn đang cố làm tôi mất tập trung phải không 🤔',
+            ];
+            const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+            const botMessage = document.getElementById('bot-message');
+            const botBubble  = document.getElementById('bot-bubble');
+            if (botMessage && botBubble) {
+                botMessage.textContent = randomMsg;
+                botBubble.classList.add('annoying');
+                setTimeout(() => botBubble.classList.remove('annoying'), 5000);
+            }
+        }
+        if (playerTurnSeconds === 40 && gameMode.startsWith('ai') && currentPlayer === humanPiece) {
+            const messages = [
+                '40 GIÂY!! Bạn ổn không? Cần gọi cấp cứu không? 🚑',
+                'Tôi đã ngủ một giấc ngắn rồi thức dậy mà bạn vẫn chưa đi 😴',
+                'Kỷ lục thế giới về đứng im nhìn bàn cờ đây rồi 🌍',
+                'Bao lâu nữa? Tôi đặt hẹn cắt tóc chiều nay rồi 💈',
+                'Thôi được, tôi sẽ tweet về trận này: "Đối thủ đang thiền định" 🐦',
+            ];
+            const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+            const botMessage = document.getElementById('bot-message');
+            const botBubble  = document.getElementById('bot-bubble');
+            if (botMessage && botBubble) {
+                botMessage.textContent = randomMsg;
+                botBubble.classList.add('annoying');
+                setTimeout(() => botBubble.classList.remove('annoying'), 5000);
             }
         }
     }, 1000);
@@ -98,6 +145,11 @@ function initGame() {
     startPlayerTurnTimer();
 
     infiniteMap = new Map();
+    // Đồng bộ với GameState
+    if (typeof GameState !== 'undefined' && GameState.board) {
+        GameState.board.infiniteMap = infiniteMap;
+        GameState.board.isInfinite = true;
+    }
     infCanvas   = null;
     vRowF = 0; vColF = 0;
     infHoverR = null; infHoverC = null;
