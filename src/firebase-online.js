@@ -160,10 +160,16 @@ function setupEventListeners() {
             turn: "X",
             winner: "",
             lastMove: { row: -1, col: -1, by: "" },
-            moves: { init: true } // Mảng nước đi trống hoàn toàn cho ván mới
+            moves: { init: true }, // Mảng nước đi trống hoàn toàn cho ván mới
+            isBotHidden: true,     // Ẩn bot mặc định khi vào phòng
+            playerX_status: 'online',
+            playerO_status: 'offline'
         };
 
         newRoomRef.set(roomData).then(() => {
+            // Lưu ID phòng vào localStorage để khôi phục sau F5
+            localStorage.setItem('current_room_id', currentRoomId);
+            
             // CHƯA VÀO TRẬN ĐÂU: Hiện màn hình thông báo ĐANG CHỜ
             lobbySetupArea.style.display = "none";
             lobbyWaitingArea.style.display = "block";
@@ -173,6 +179,9 @@ function setupEventListeners() {
             
             // Ẩn các thành phần của Bot khi bắt đầu vào trạng thái Online
             anGiaoDienVaThoaiCuaBot(true);
+            
+            // Thiết lập onDisconnect cho chủ phòng
+            db.ref(`rooms/${currentRoomId}/playerX_status`).onDisconnect().set('offline');
             
             listenToRoomChanges(currentRoomId);
             newRoomRef.onDisconnect().remove(); // Mất mạng tự hủy phòng chờ
@@ -193,6 +202,19 @@ function setupEventListeners() {
         }
     });
 
+    // Hàm tự động xóa phòng trống quá hạn
+    function xoaPhongMaTuDong(allRooms) {
+        const now = Date.now();
+        Object.keys(allRooms).forEach(roomId => {
+            const room = allRooms[roomId];
+            if (room.deleteTimeoutTimestamp && now > room.deleteTimeoutTimestamp) {
+                // Đã quá 1 phút không có ai quay lại -> Xóa sạch phòng và bàn cờ trên Firebase
+                db.ref(`rooms/${roomId}`).remove();
+                console.log(`Đã dọn dẹp phòng trống quá hạn: ${roomId}`);
+            }
+        });
+    }
+
     // Lắng nghe danh sách phòng tại sảnh
     roomsListListener = db.ref('rooms').on('value', (snapshot) => {
         const rooms = snapshot.val();
@@ -202,6 +224,9 @@ function setupEventListeners() {
             roomListDiv.innerHTML = "<p style='color:#888;'>Chưa có phòng nào. Hãy tạo phòng!</p>";
             return;
         }
+
+        // Gọi hàm dọn dẹp phòng trống quá hạn
+        xoaPhongMaTuDong(rooms);
 
         let hasRoom = false;
         for (let roomId in rooms) {
@@ -282,11 +307,17 @@ function setupEventListeners() {
             if (myPlayerId === room.playerX_id) {
                 myRole = 'X'; // Nhận lại vai chủ phòng
                 console.log("Bạn đã quay lại phòng với tư cách quân X");
+                localStorage.setItem('current_room_id', roomId);
+                db.ref(`rooms/${roomId}/playerX_status`).set('online');
+                db.ref(`rooms/${roomId}/playerX_status`).onDisconnect().set('offline');
                 startOnlineMatch();
                 listenToRoomChanges(roomId);
             } else if (myPlayerId === room.playerO_id) {
                 myRole = 'O'; // Nhận lại vai khách
                 console.log("Bạn đã quay lại phòng với tư cách quân O");
+                localStorage.setItem('current_room_id', roomId);
+                db.ref(`rooms/${roomId}/playerO_status`).set('online');
+                db.ref(`rooms/${roomId}/playerO_status`).onDisconnect().set('offline');
                 startOnlineMatch();
                 listenToRoomChanges(roomId);
             } else if (room.playerO && room.playerO_id) {
@@ -299,11 +330,16 @@ function setupEventListeners() {
                 roomRef.update({ 
                     playerO: myClientId, 
                     playerO_id: myPlayerId,
-                    status: "playing" 
+                    status: "playing",
+                    playerO_status: 'online'
                 }).then(() => {
+                    // Lưu ID phòng vào localStorage để khôi phục sau F5
+                    localStorage.setItem('current_room_id', roomId);
+                    
                     startOnlineMatch();
                     listenToRoomChanges(roomId);
                     roomRef.onDisconnect().update({ status: "ended", winner: "X (Đối thủ thoát)" });
+                    db.ref(`rooms/${roomId}/playerO_status`).onDisconnect().set('offline');
                 });
             }
         });
@@ -321,10 +357,42 @@ function setupEventListeners() {
             const room = snapshot.val();
             if (!room) return;
 
+            // Ẩn/hiện bot UI dựa trên trạng thái isBotHidden từ Firebase
+            const botElement = document.getElementById('bot-avatar');
+            if (botElement) {
+                if (room.isBotHidden) {
+                    botElement.style.display = 'none';
+                } else {
+                    botElement.style.display = 'block';
+                }
+            }
+
             currentTurn = room.turn;
             currentRule = room.chan2Dau ? 'chan_2_dau' : 'tu_do';
             currentWinCount = room.winCount || 5; // Cập nhật số quân thắng từ Firebase
             winCount = currentWinCount; // Đồng bộ trực tiếp vào Core game
+
+            // Xử lý xóa phòng trống (cả 2 người offline)
+            const xOnline = room.playerX_status === 'online';
+            const oOnline = room.playerO_status === 'online';
+
+            // TRƯỜNG HỢP 1: Còn ít nhất 1 người online (X hoặc O)
+            if (xOnline || oOnline) {
+                // Xóa lệnh đếm ngược xóa phòng nếu có (vì đã có người ở trong phòng hoặc quay lại kịp)
+                if (room.deleteTimeoutTimestamp) {
+                    db.ref(`rooms/${room.id}/deleteTimeoutTimestamp`).remove();
+                }
+                console.log("Vẫn còn người trong phòng, giữ nguyên ván cờ chơi tiếp!");
+            } 
+
+            // TRƯỜNG HỢP 2: KHÔNG CÒN AI CẢ (Cả 2 cùng offline)
+            if (!xOnline && !oOnline) {
+                // Nếu chưa thiết lập thời gian chờ xóa, thì gán thời gian hiện tại + 60 giây
+                if (!room.deleteTimeoutTimestamp) {
+                    const deleteTime = Date.now() + 60000; // 1 phút sau
+                    db.ref(`rooms/${room.id}/deleteTimeoutTimestamp`).set(deleteTime);
+                }
+            }
 
             // Nếu người chơi thứ 2 vào phòng -> Trạng thái đổi thành "playing"
             if (room.status === "playing") {
@@ -685,4 +753,46 @@ function setupEventListeners() {
 
     // Chạy hàm hiển thị lịch sử ngay khi tải trang sảnh chờ
     langNgheLichSuOnline();
+
+    // Khôi phục phòng sau F5 refresh
+    window.addEventListener('load', () => {
+        const savedRoomId = localStorage.getItem('current_room_id');
+        const myPlayerId = localStorage.getItem('my_player_id');
+        
+        if (savedRoomId && myPlayerId) {
+            db.ref('rooms/' + savedRoomId).once('value').then((snapshot) => {
+                const room = snapshot.val();
+                if (room) {
+                    // Kiểm tra xem mình có đúng là Player cũ trong phòng không
+                    if (myPlayerId === room.playerX_id || myPlayerId === room.playerO_id) {
+                        console.log("Đang khôi phục lại phòng đấu cũ: " + savedRoomId);
+                        
+                        // Gán lại ID phòng hiện tại vào biến global
+                        currentRoomId = savedRoomId;
+                        
+                        // Gán lại vai trò
+                        myRole = (myPlayerId === room.playerX_id) ? 'X' : 'O';
+                        
+                        // Cập nhật trạng thái online
+                        if (myRole === 'X') {
+                            db.ref(`rooms/${savedRoomId}/playerX_status`).set('online');
+                            db.ref(`rooms/${savedRoomId}/playerX_status`).onDisconnect().set('offline');
+                        } else {
+                            db.ref(`rooms/${savedRoomId}/playerO_status`).set('online');
+                            db.ref(`rooms/${savedRoomId}/playerO_status`).onDisconnect().set('offline');
+                        }
+                        
+                        // Gọi lại hàm lắng nghe phòng để vẽ lại bàn cờ
+                        startOnlineMatch();
+                        listenToRoomChanges(savedRoomId);
+                    } else {
+                        // Nếu phòng đã đổi chủ hoặc mình không liên quan, xóa cache
+                        localStorage.removeItem('current_room_id');
+                    }
+                } else {
+                    localStorage.removeItem('current_room_id');
+                }
+            });
+        }
+    });
 }
