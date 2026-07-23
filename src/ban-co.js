@@ -343,6 +343,16 @@ function renderInfiniteBoard() {
 
 // ===== HOVER =====
 let infHoverR = null, infHoverC = null;
+let _rafPending = false;
+
+function scheduleRender() {
+    if (_rafPending) return;
+    _rafPending = true;
+    requestAnimationFrame(() => {
+        _rafPending = false;
+        renderInfiniteBoard();
+    });
+}
 
 function canvasPixelToCell(px, py) {
     const offX = -((vColF % 1 + 1) % 1) * INF_CS;
@@ -373,21 +383,21 @@ function infOnMouseMove(e) {
         if (Math.abs(dx) > 3 || Math.abs(dy) > 3) panMoved = true;
         vColF = panStartVCol - dx / INF_CS;
         vRowF = panStartVRow - dy / INF_CS;
-        renderInfiniteBoard();
+        scheduleRender();
         return;
     }
     const rect = infCanvas.getBoundingClientRect();
     const { r, c } = canvasPixelToCell(e.clientX - rect.left, e.clientY - rect.top);
     if (r !== infHoverR || c !== infHoverC) {
         infHoverR = r; infHoverC = c;
-        renderInfiniteBoard();
+        scheduleRender();
     }
 }
 function infOnMouseLeave() {
     infPanning = false;
     updateCursorByTurn();
     infHoverR = null; infHoverC = null;
-    renderInfiniteBoard();
+    scheduleRender();
 }
 function infOnClick(e) {
     if (e.button !== 0) return;
@@ -491,7 +501,7 @@ function infOnTouchMove(e) {
     if (Math.abs(dx) > 5 || Math.abs(dy) > 5) panMoved = true;
     vColF = panStartVCol - dx / INF_CS;
     vRowF = panStartVRow - dy / INF_CS;
-    renderInfiniteBoard();
+    scheduleRender();
 }
 function infOnTouchEnd(e) {
     e.preventDefault();
