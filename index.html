@@ -86,9 +86,7 @@
                 </select>
             </div>
             
-            <!-- ══════════════════════════════════════════════════════════════════ -->
             <!-- 🎓 HUẤN LUYỆN BOT TỰ ĐÁNH -->
-            <!-- ══════════════════════════════════════════════════════════════════ -->
             <div style="margin-top: 16px; padding: 8px 12px; border: 2px solid #10b981; border-radius: 8px; background: #f0fdf4; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                 <div style="font-weight: bold; color: #065f46; font-size: 0.85rem; min-width: 140px;">
                     🎓 HUẤN LUYỆN
@@ -202,32 +200,40 @@
                     </div>
                 </div>
 
-            <div id="inf-nav" style="display:none; text-align:center; padding:4px 0 6px; font-size:0.75rem; opacity:0.7;">
-                📍 <span id="inf-coords"></span>
-                &nbsp;
-                <button onclick="jumpToCenter()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">🏠 Tâm</button>
-                &nbsp;
-                <button onclick="jumpToOrigin()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">⌂ Gốc</button>
-                &nbsp;
-                <button onclick="resizeInfCanvas()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">⛶ To</button>
-            </div>
-            <div class="board" id="board"></div>
-            <div id="inf-resizable" style="display:none; position:relative; user-select:none;">
-                <canvas id="inf-canvas" style="display:block;"></canvas>
-                <div class="rs-handle rs-n"  data-dir="n"></div>
-                <div class="rs-handle rs-s"  data-dir="s"></div>
-                <div class="rs-handle rs-w"  data-dir="w"></div>
-                <div class="rs-handle rs-e"  data-dir="e"></div>
-                <div class="rs-handle rs-nw" data-dir="nw"></div>
-                <div class="rs-handle rs-ne" data-dir="ne"></div>
-                <div class="rs-handle rs-sw" data-dir="sw"></div>
-                <div class="rs-handle rs-se" data-dir="se"></div>
-            </div>
-            <div class="zoom-controls">
-                <button class="zoom-btn zoom-in"   onclick="zoomBoard(1)"   title="Phóng to">+</button>
-                <button class="zoom-btn zoom-out"  onclick="zoomBoard(-1)"  title="Thu nhỏ">−</button>
-                <button class="zoom-btn zoom-undo" onclick="undoMove()"     title="Thu lại nước đi">↩</button>
-            </div>
+                <!-- Thanh điều khiển phóng to / thu nhỏ ô cờ cho Mobile -->
+                <div class="board-zoom-controls">
+                    <button type="button" class="btn-zoom" onclick="thayDoiKichThuocCo(-2)"> Thừa / Thu nhỏ</button>
+                    <button type="button" class="btn-zoom btn-zoom-in" onclick="thayDoiKichThuocCo(2)"> Phóng to</button>
+                </div>
+
+                <!-- ĐÃ BỎ DIV GAME-BOARD-CONTAINER Ở ĐÂY -->
+                <div id="inf-nav" style="display:none; text-align:center; padding:4px 0 6px; font-size:0.75rem; opacity:0.7;">
+                    📍 <span id="inf-coords"></span>
+                    &nbsp;
+                    <button onclick="jumpToCenter()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">🏠 Tâm</button>
+                    &nbsp;
+                    <button onclick="jumpToOrigin()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">⌂ Gốc</button>
+                    &nbsp;
+                    <button onclick="resizeInfCanvas()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">⛶ To</button>
+                </div>
+                <div class="board" id="board"></div>
+                <div id="inf-resizable" style="display:none; position:relative; user-select:none;">
+                    <canvas id="inf-canvas" style="display:block;"></canvas>
+                    <div class="rs-handle rs-n"  data-dir="n"></div>
+                    <div class="rs-handle rs-s"  data-dir="s"></div>
+                    <div class="rs-handle rs-w"  data-dir="w"></div>
+                    <div class="rs-handle rs-e"  data-dir="e"></div>
+                    <div class="rs-handle rs-nw" data-dir="nw"></div>
+                    <div class="rs-handle rs-ne" data-dir="ne"></div>
+                    <div class="rs-handle rs-sw" data-dir="sw"></div>
+                    <div class="rs-handle rs-se" data-dir="se"></div>
+                </div>
+
+                <div class="zoom-controls">
+                    <button class="zoom-btn zoom-in"   onclick="zoomBoard(1)"   title="Phóng to">+</button>
+                    <button class="zoom-btn zoom-out"  onclick="zoomBoard(-1)"  title="Thu nhỏ">−</button>
+                    <button class="zoom-btn zoom-undo" onclick="undoMove()"     title="Thu lại nước đi">↩</button>
+                </div>
             </div>
 
             <!-- BÊN PHẢI: THÔNG TIN NGƯỜI CHƠI O (KHÁCH) -->
@@ -326,7 +332,6 @@
     <!-- SẢNH CHỜ ONLINE (ẨN MẶC ĐỊNH) -->
     <div id="lobby-screen" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95%; max-width: 1200px; max-height: 90vh; background: white; padding: 20px; border-radius: 8px; box-shadow: 0px 0px 15px rgba(0,0,0,0.3); z-index: 9999; font-family: Arial; overflow-y: auto;">
         
-        <!-- KHUNG DÀN TRANG NẰM NGANG CHO PC -->
         <div class="lobby-layout">
             
             <!-- CỘT CHÍNH 1: TẠO PHÒNG & DANH SÁCH PHÒNG -->
@@ -361,7 +366,6 @@
                     <div id="room-list" style="max-height: 250px; overflow-y: auto;">Đang tải danh sách...</div>
                 </div>
                 
-                <!-- Thêm phần Kỳ thủ trực tuyến vào dưới này luôn cho gọn -->
                 <div id="online-users-panel" class="panel-box">
                     <h3 class="panel-title">👥 Kỳ thủ đang trực tuyến</h3>
                     <div id="danh-sach-online" style="max-height: 150px; overflow-y: auto;">
@@ -395,6 +399,72 @@
             <p style="color: #666; font-size: 14px; margin-top: 0;">Bạn đang là Chủ Phòng (Quân X)</p>
             <p id="waiting-room-info" style="background: #f8f9fa; padding: 8px; border-radius: 4px; font-size: 13px; color: #555;"></p>
             <button id="btn-cancel-room" style="padding: 8px 20px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px;">Hủy phòng</button>
+        </div>
+
+    </div>
+
+    <!-- KHUNG PHÒNG ĐẤU CARO ONLINE CHUYÊN NGHIỆP -->
+    <div id="game-match-screen" style="display: none;">
+        
+        <div class="match-header">
+            <span id="txt-room-title">Phòng chờ đấu...</span>
+            <div>
+                <button id="btn-start-game" onclick="chuPhongBatDauGame()" class="btn-success" style="display:none; margin-right:10px;">BẮT ĐẦU GAME 🎮</button>
+                <button id="btn-leave-match" onclick="thoatPhongDau()" class="btn-danger">Thoát phòng 🚪</button>
+            </div>
+        </div>
+
+        <!-- LƯỢT ĐI INDICATOR -->
+        <div id="turn-indicator">⏳ Đang chờ bắt đầu...</div>
+
+        <!-- KHU VỰC ĐỐI KHÁNG -->
+        <div class="versus-container">
+            <div class="player-slot" id="slot-playerX">
+                <div class="avatar-circle">X</div>
+                <div class="player-info">
+                    <div class="player-name" id="name-pX">Đang chờ...</div>
+                    <div class="player-status" id="status-pX">Chủ phòng</div>
+                </div>
+            </div>
+
+            <div class="vs-text">VS</div>
+
+            <div class="player-slot" id="slot-playerO">
+                <div class="avatar-circle avatar-o">O</div>
+                <div class="player-info">
+                    <div class="player-name" id="name-pO">Đang chờ đối thủ...</div>
+                    <div class="player-status" id="status-pO">Trống ghế</div>
+                </div>
+                <button id="btn-kick-player" onclick="kickDoiThu()" class="btn-kick" style="display: none;">Đuổi ❌</button>
+            </div>
+        </div>
+
+        <!-- BÀN CỜ PHÒNG ĐẤU ONLINE (Có chứa khung bọc riêng biệt cho chế độ online) -->
+        <div class="match-board-section">
+            <div class="board-zoom-controls">
+                <button type="button" class="btn-zoom" onclick="thayDoiKichThuocCo(-2)"> Thu nhỏ</button>
+                <button type="button" class="btn-zoom btn-zoom-in" onclick="thayDoiKichThuocCo(2)">Phóng to</button>
+            </div>
+            <div id="game-board-container">
+                <table id="board"></table>
+            </div>
+        </div>
+
+        <!-- KHU VỰC KHÁN GIẢ, CHAT & MỜI ONLINE -->
+        <div class="match-footer-panels">
+            <div class="invite-panel">
+                <h4> Mời kỳ thủ online vào Solo</h4>
+                <div id="room-online-users-list" class="scroll-list"></div>
+            </div>
+
+            <div class="chat-panel">
+                <h4>💬 Trò chuyện</h4>
+                <div id="chat-messages" class="scroll-list"></div>
+                <div class="chat-input-row">
+                    <input type="text" id="chat-input" placeholder="Nhập tin nhắn..." onkeydown="if(event.key==='Enter') guiTinNhanOnline()">
+                    <button onclick="guiTinNhanOnline()">Gửi</button>
+                </div>
+            </div>
         </div>
 
     </div>
@@ -578,72 +648,40 @@
         </div>
     </div>
 
-    <!-- ===== SCRIPTS - thứ tự quan trọng ===== -->
-    <!-- 1. Cấu hình & hằng số -->
+    <!-- ===== SCRIPTS ===== -->
     <script src="src/cau-hinh.js"></script>
-    
-    <!-- 2. New Architecture Modules -->
-    <!-- 2.1 Single Source of Truth - Score Table -->
     <script src="src/ScoreTable.js"></script>
-    <!-- 2.2 Centralized State Management -->
     <script src="src/GameState.js"></script>
-    <!-- 2.3 Debug Logging System -->
     <script src="src/DebugLogger.js"></script>
-    <!-- 2.4 Enhanced Caching System -->
     <script src="src/Cache.js"></script>
-    
-    <!-- 3. Legacy State (for backward compatibility during migration) -->
     <script src="src/trang-thai.js"></script>
-    
-    <!-- 4. New AI Architecture Modules -->
-    <!-- 4.1 Pattern Detector -->
     <script src="src/PatternDetector.js"></script>
-    <!-- 4.2 Threat Detector -->
     <script src="src/ThreatDetector.js"></script>
-    <!-- 4.3 Evaluation -->
     <script src="src/Evaluation.js"></script>
-    <!-- 4.4 Search -->
     <script src="src/Search.js"></script>
-    <!-- 4.5 AI Controller - Main AI Coordinator -->
     <script src="src/AIController.js"></script>
-    
-    <!-- 5. Logic game: initGame, makeMove, checkWin -->
     <script src="src/logic-game.js"></script>
-    
-    <!-- 6. AI engine: PVS, MCTS, Neural, getBotMove -->
     <script src="src/hoc-kinh-nghiem.js"></script>
     <script src="src/ai-nao.js"></script>
-    
-    <!-- 7. Render bàn cờ canvas, zoom, pan -->
     <script src="src/ban-co.js"></script>
-    
-    <!-- 8. Pháo hoa & win overlay -->
     <script src="src/phat-sung.js"></script>
-    
-    <!-- 9. Batch Learning - Anti-oscillation system -->
     <script src="src/BatchLearning.js"></script>
-
-    <!-- 10. Autoplay -->
     <script src="src/autoplay.js"></script>
-    
-    <!-- 10. Lịch sử & bảng xếp hạng -->
     <script src="src/lich-su-va-xep-hang.js"></script>
 
     <!-- Khởi động -->
     <script>
-        // Khai báo global DOM refs (dùng var để các script khác truy cập được)
         var boardElement = document.getElementById('board');
         var statusPanel  = document.getElementById('status-panel');
         var modeSelect   = document.getElementById('game-mode');
 
-        // Initialize new architecture modules
         if (typeof GameState !== 'undefined') {
             GameState.initialize();
         }
 
         if (typeof DebugLogger !== 'undefined') {
             DebugLogger.initialize({
-                enabled: false,  // Disabled by default, can be enabled via UI
+                enabled: false,
                 logLevel: 'info',
                 consoleOutput: true,
                 persistToStorage: false
@@ -654,7 +692,6 @@
             Cache.initialize();
         }
 
-        // Verify AIController is loaded
         if (typeof AIController === 'undefined') {
             console.error('AIController not loaded! AI functionality may not work correctly.');
         }
@@ -676,7 +713,6 @@
         applyPanelSizes();
         setupPanelResize();
 
-        // Load ScoreTable settings
         if (typeof ScoreTable !== 'undefined') {
             ScoreTable.loadSettings();
         }
@@ -690,7 +726,6 @@
                 return;
             }
             
-            // Load current values into inputs
             document.getElementById('st-attack-five').value = ScoreTable.ATTACK.FIVE;
             document.getElementById('st-attack-four-open').value = ScoreTable.ATTACK.FOUR_OPEN;
             document.getElementById('st-attack-four-blocked').value = ScoreTable.ATTACK.FOUR_BLOCKED;
@@ -727,7 +762,6 @@
                 return;
             }
             
-            // Update ATTACK scores
             ScoreTable.updateScore('ATTACK', 'FIVE', document.getElementById('st-attack-five').value);
             ScoreTable.updateScore('ATTACK', 'FOUR_OPEN', document.getElementById('st-attack-four-open').value);
             ScoreTable.updateScore('ATTACK', 'FOUR_BLOCKED', document.getElementById('st-attack-four-blocked').value);
@@ -736,7 +770,6 @@
             ScoreTable.updateScore('ATTACK', 'TWO_OPEN', document.getElementById('st-attack-two-open').value);
             ScoreTable.updateScore('ATTACK', 'TWO_BLOCKED', document.getElementById('st-attack-two-blocked').value);
             
-            // Update DEFENSE scores
             ScoreTable.updateScore('DEFENSE', 'FIVE', document.getElementById('st-defense-five').value);
             ScoreTable.updateScore('DEFENSE', 'FOUR_OPEN', document.getElementById('st-defense-four-open').value);
             ScoreTable.updateScore('DEFENSE', 'FOUR_BLOCKED', document.getElementById('st-defense-four-blocked').value);
@@ -745,12 +778,10 @@
             ScoreTable.updateScore('DEFENSE', 'TWO_OPEN', document.getElementById('st-defense-two-open').value);
             ScoreTable.updateScore('DEFENSE', 'TWO_BLOCKED', document.getElementById('st-defense-two-blocked').value);
             
-            // Update BONUS scores
             ScoreTable.updateScore('BONUS', 'DOUBLE_THREE', document.getElementById('st-bonus-double-three').value);
             ScoreTable.updateScore('BONUS', 'FOUR_THREE', document.getElementById('st-bonus-four-three').value);
             ScoreTable.updateScore('BONUS', 'DOUBLE_FOUR', document.getElementById('st-bonus-double-four').value);
             
-            // Update CENTER_BIAS
             ScoreTable.updateScore('CENTER_BIAS', 'MAX', document.getElementById('st-center-max').value);
             ScoreTable.updateScore('CENTER_BIAS', 'DISTANCE', document.getElementById('st-center-distance').value);
             
@@ -766,17 +797,13 @@
             
             if (confirm('Bạn có chắc muốn reset về giá trị mặc định?')) {
                 ScoreTable.resetToDefaults();
-                
-                // Reload values into inputs
                 openScoreTableConfig();
-                
                 alert('Đã reset về giá trị mặc định!');
             }
         }
     </script>
 
     <script>
-        // Sync với server nếu có API
         (async () => {
             const serverRank = await apiGet('/api/rank');
             if (serverRank) {
@@ -796,7 +823,6 @@
         })();
     </script>
 
-    <!-- BƯỚC 1.3: NHÚNG FILE XỬ LÝ FIREBASE (ĐỂ Ở DƯỚI CÙNG THẺ BODY) -->
     <script src="src/firebase-online.js"></script>
 </body>
 </html>

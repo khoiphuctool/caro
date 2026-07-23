@@ -1,5 +1,41 @@
 // ===== BÀN CỜ - Render canvas vô hạn, zoom, pan, resize =====
 
+// Thiết lập kích thước ô cờ mặc định ban đầu
+let kichThuocOCoHienTai = 24;
+
+// Hàm thay đổi kích thước ô cờ cho cả fixed board và infinite board
+function thayDoiKichThuocCo(luongThayDoi) {
+    kichThuocOCoHienTai += luongThayDoi;
+    
+    // Khống chế giới hạn: Thấp nhất là 18px, cao nhất 40px
+    if (kichThuocOCoHienTai < 18) kichThuocOCoHienTai = 18;
+    if (kichThuocOCoHienTai > 40) kichThuocOCoHienTai = 40;
+    
+    // TRƯỜNG HỢP A: Nếu bàn cờ dùng các ô thẻ <td> (TABLE - Fixed Board)
+    const tatCaOCo = document.querySelectorAll('#board .cell');
+    if (tatCaOCo.length > 0) {
+        const fontSize = kichThuocOCoHienTai >= 30 ? "1.2rem" : (kichThuocOCoHienTai >= 24 ? "1rem" : "0.9rem");
+        boardElement.style.gridTemplateColumns = `repeat(${boardSize}, ${kichThuocOCoHienTai}px)`;
+        boardElement.style.gridTemplateRows = `repeat(${boardSize}, ${kichThuocOCoHienTai}px)`;
+        tatCaOCo.forEach(oCo => {
+            oCo.style.width = kichThuocOCoHienTai + 'px';
+            oCo.style.height = kichThuocOCoHienTai + 'px';
+            oCo.style.minWidth = kichThuocOCoHienTai + 'px';
+            oCo.style.fontSize = fontSize;
+        });
+        return;
+    }
+    
+    // TRƯỜNG HỢP B: Nếu bàn cờ dùng <canvas> (Infinite Board)
+    if (typeof INF_CS !== 'undefined') {
+        INF_CS = kichThuocOCoHienTai;
+        saveZoom();
+        if (typeof renderInfiniteBoard === 'function') {
+            renderInfiniteBoard();
+        }
+    }
+}
+
 // ===== RENDER BÀN CỐ ĐỊNH =====
 function renderFixedBoard() {
     boardElement.innerHTML = "";

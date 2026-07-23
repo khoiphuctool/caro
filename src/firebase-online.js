@@ -320,41 +320,34 @@ function langNgheDanhSachOnline() {
 
 // Hàm gửi lệnh mời lên Firebase của người nhận
 function guiLoiMoiChoi(targetUid) {
-    if (!currentRoomId) return;
-    
-    db.ref(`users/${targetUid}/invitation`).set({
-        fromUid: localStorage.getItem('current_user_id'),
-        fromName: (currentUserData && currentUserData.displayName) ? currentUserData.displayName : currentUsername,
-        roomId: currentRoomId,
-        timestamp: Date.now()
-    }).then(() => {
-        alert("Đã gửi lời mời! Đang chờ đối thủ phản hồi...");
-    });
+    // Hàm này đã được thay thế bởi guiLoiMoiThachDau()
+    // Giữ lại để tương thích ngược nếu có code cũ gọi
+    guiLoiMoiThachDau(targetUid, "");
 }
 
 function langNgheLoiMoiDen() {
     const userId = localStorage.getItem('current_user_id');
     if (!userId) return;
 
-    if (invitationListener) db.ref(`users/${userId}/invitation`).off('value', invitationListener);
+    if (invitationListener) db.ref(`invitations/${userId}`).off('value', invitationListener);
 
-    invitationListener = db.ref(`users/${userId}/invitation`).on('value', (snapshot) => {
+    invitationListener = db.ref(`invitations/${userId}`).on('value', (snapshot) => {
         const invite = snapshot.val();
         if (!invite) return;
 
         // Bỏ qua lời mời quá cũ (hơn 30 giây)
         if (Date.now() - invite.timestamp > 30000) {
-            db.ref(`users/${userId}/invitation`).remove();
+            db.ref(`invitations/${userId}`).remove();
             return;
         }
 
         // Hiện xác nhận mời chơi
-        const dongY = confirm(`Kỳ thủ [${invite.fromName}] mời bạn vào solo giao lưu! Bạn có đồng ý không?`);
+        const dongY = confirm(`Kỳ thủ [${invite.fromPlayerName}] mời bạn vào solo giao lưu! Bạn có đồng ý không?`);
         
         if (dongY) {
-            const roomId = invite.roomId;
+            const roomId = invite.fromRoomId;
             // Xóa lời mời trước để tránh lặp popup
-            db.ref(`users/${userId}/invitation`).remove();
+            db.ref(`invitations/${userId}`).remove();
             
             // Tiến hành vào phòng trực tiếp và kích hoạt đầy đủ tiến trình game
             currentRoomId = roomId;
@@ -390,6 +383,8 @@ function langNgheLoiMoiDen() {
                     
                     // Lắng nghe thay đổi của bàn cờ
                     listenToRoomChanges(roomId);
+                    // Lắng nghe tin nhắn chat
+                    langNgheTinNhanChat(roomId);
                     // Đặt trạng thái ngắt kết nối
                     db.ref(`rooms/${roomId}/playerO_status`).onDisconnect().set('offline');
                     // Chuyển trạng thái cá nhân sang đang chơi
@@ -398,7 +393,7 @@ function langNgheLoiMoiDen() {
             });
         } else {
             // Từ chối thì xóa lời mời đi
-            db.ref(`users/${userId}/invitation`).remove();
+            db.ref(`invitations/${userId}`).remove();
         }
     });
 }
@@ -426,7 +421,27 @@ function setupEventListeners() {
         document.addEventListener('touchmove', preventMobileScroll, { passive: false });
         
         isOnlineMode = true;
-        lobbyScreen.style.display = "none";     
+        lobbyScreen.style.display = "none";
+        
+        // ══════════════════════════════════════════════════════════════════
+        // 🖥️ TỐI ƯU GIAO DIỆN: ẨN MỌI THỨ THỪA THÃI KHI VÀO TRẬN ĐẤU
+        // ══════════════════════════════════════════════════════════════════
+        if (document.getElementById('game-title')) document.getElementById('game-title').style.display = 'none';
+        if (document.querySelector('.control-wrapper')) document.querySelector('.control-wrapper').style.display = 'none';
+        if (document.querySelector('.panels-wrapper')) document.querySelector('.panels-wrapper').style.display = 'none';
+        if (document.getElementById('ui-btn-restart')) document.getElementById('ui-btn-restart').style.display = 'none';
+        if (document.getElementById('user-logged-in')) document.getElementById('user-logged-in').style.display = 'none';
+        if (document.querySelector('div[style*="Phím tắt:"]')) document.querySelector('div[style*="Phím tắt:"]').style.display = 'none';
+        // ════════════════════════════════════════════════════════════════════
+        // Ẩn bot avatar khi vào phòng online
+        const botAvatar = document.getElementById('bot-avatar');
+        if (botAvatar) botAvatar.style.display = 'none';
+        // ══════════════════════════════════════════════════════════════════
+
+        // Hiện giao diện phòng đấu chuyên nghiệp
+        const gameMatchScreen = document.getElementById('game-match-screen');
+        if (gameMatchScreen) gameMatchScreen.style.display = "block";
+        
         onlineBanner.style.display = "block";   
         if (typeof window.xoaBanCoCu === "function") window.xoaBanCoCu(); 
         const khuVucBot = document.getElementById('ui-config-panel');
@@ -439,7 +454,6 @@ function setupEventListeners() {
         window.history.pushState(null, null, window.location.href);
         window.onpopstate = function() {
             if (document.body.classList.contains('in-game-active')) {
-                // Đẩy lại state để giữ họ ở lại trang
                 window.history.pushState(null, null, window.location.href);
                 
                 if (myRole === 'viewer') {
@@ -448,7 +462,6 @@ function setupEventListeners() {
                     }
                 } else {
                     if (confirm("Bạn đang trong trận đấu! Bạn có chắc chắn muốn bỏ cuộc và thoát ra không?")) {
-                        // Gọi hàm xử lý chịu thua / rời phòng
                         if (typeof hangTran === 'function') {
                             hangTran();
                         } else {
@@ -460,12 +473,17 @@ function setupEventListeners() {
         };
     }
 
-    // Hàm bổ trợ chặn sự kiện cuộn
+    // Hàm bổ trợ chặn sự kiện cuộn màn hình ngoài, nhưng KHÔNG chặn cuộn bên trong bàn cờ
     function preventMobileScroll(e) {
-        // Nếu sự kiện vuốt chạm diễn ra ngoài khu vực bàn cờ, chặn hoàn toàn để không bị lướt thoát trang
-        if (!e.target.closest('#ui-game-container')) {
-            e.preventDefault();
+        // Nếu điểm vuốt/cuộn nằm TRONG bàn cờ hoặc các nút chức năng của bàn cờ thì CHO PHÉP cuộn
+        if (e.target.closest('.ban-co-wrapper') || 
+            e.target.closest('#game-match-screen') || 
+            e.target.closest('canvas')) {
+            return; // Không chặn, cho cuộn bình thường
         }
+        
+        // Ngược lại, nếu vuốt ra vùng nền ngoài thì mới chặn không cho cuộn màn hình
+        e.preventDefault();
     }
 
     document.getElementById('btn-quit-match').addEventListener('click', () => {
@@ -490,11 +508,42 @@ function setupEventListeners() {
         myRole = null;
         onlineBanner.style.display = "none";
         
+        // ══════════════════════════════════════════════════════════════════
+        // 🖥️ KHÔI PHỤC GIAO DIỆN: HIỆN LẠI CÁC THÀNH PHẦN KHI RỜI BÀN
+        // ══════════════════════════════════════════════════════════════════
+        if (document.getElementById('game-title')) document.getElementById('game-title').style.display = 'block';
+        if (document.querySelector('.control-wrapper')) document.querySelector('.control-wrapper').style.display = 'block';
+        if (document.querySelector('.panels-wrapper')) document.querySelector('.panels-wrapper').style.display = 'flex';
+        if (document.getElementById('ui-btn-restart')) document.getElementById('ui-btn-restart').style.display = 'block';
+        if (document.getElementById('user-logged-in')) document.getElementById('user-logged-in').style.display = 'block';
+        if (document.querySelector('div[style*="Phím tắt:"]')) document.querySelector('div[style*="Phím tắt:"]').style.display = 'block';
+        // ══════════════════════════════════════════════════════════════════
+        // Hiện lại bot avatar khi thoát online
+        const botAvatarRestore = document.getElementById('bot-avatar');
+        if (botAvatarRestore) botAvatarRestore.style.display = 'flex';
+        // ══════════════════════════════════════════════════════════════════
+
+        // Ẩn giao diện phòng đấu chuyên nghiệp
+        const gameMatchScreen = document.getElementById('game-match-screen');
+        if (gameMatchScreen) gameMatchScreen.style.display = "none";
+        
+        // Reset turn indicator
+        const turnEl = document.getElementById('turn-indicator');
+        if (turnEl) { turnEl.textContent = '⏳ Đang chờ bắt đầu...'; turnEl.className = ''; }
+        
         document.getElementById('panel-playerX').style.display = 'none';
         document.getElementById('panel-playerO').style.display = 'none';
         
         alert("Đã quay trở lại chế độ đấu Bot!");
+        
+        // Xóa bàn cờ online và khởi tạo lại bàn cờ bot offline
         if (typeof window.xoaBanCoCu === "function") window.xoaBanCoCu(); 
+        
+        // Khởi tạo lại bàn cờ mới cho chế độ bot
+        if (typeof window.khoiTaoBanCo === "function") window.khoiTaoBanCo();
+        
+        // Reset các biến game về trạng thái ban đầu
+        if (typeof window.resetGame === "function") window.resetGame();
 
         const khuVucBot = document.getElementById('ui-config-panel');
         if (khuVucBot) khuVucBot.style.pointerEvents = "auto";
@@ -529,7 +578,7 @@ function setupEventListeners() {
         if (invitationListener) {
             const userId = localStorage.getItem('current_user_id');
             if (userId) {
-                db.ref(`users/${userId}/invitation`).off('value', invitationListener);
+                db.ref(`invitations/${userId}`).off('value', invitationListener);
             }
             invitationListener = null;
         }
@@ -606,14 +655,20 @@ function setupEventListeners() {
             // 🧹 TỐI ƯU: Đặt lệnh tự động dọn dẹp nếu chủ phòng đột ngột tắt tab khi đang chờ
             newRoomRef.onDisconnect().remove();
 
-            // 3. Chuyển sang giao diện bàn cờ và bắt đầu lắng nghe thay đổi
-            if (typeof startOnlineMatch === 'function') {
-                startOnlineMatch();
-            }
-            listenToRoomChanges(roomId);
-
             // Cập nhật trạng thái cá nhân sang free để người khác thấy trong danh sách online
             setMyOnlineStatus('free');
+            
+            // Chuyển đổi giao diện: Ẩn Sảnh, Hiện Phòng Đấu
+            document.getElementById('lobby-screen').style.display = 'none';
+            const gameMatchScreen = document.getElementById('game-match-screen');
+            if (gameMatchScreen) gameMatchScreen.style.display = 'block';
+            
+            // Kích hoạt lắng nghe dữ liệu phòng theo thời gian thực
+            langNgheDuLieuTrongPhong(roomId);
+            // Kích hoạt lắng nghe danh sách người online để mời
+            langNgheNguoiOnlineDeMoi();
+            // Kích hoạt lắng nghe tin nhắn chat
+            langNgheTinNhanChat(roomId);
             
             alert(`Tạo phòng thành công! Hãy dùng tính năng Mời để gọi bạn chơi.`);
         }).catch((error) => {
@@ -622,16 +677,7 @@ function setupEventListeners() {
     });
 
     document.getElementById('btn-cancel-room').addEventListener('click', () => {
-        if (currentRoomId) {
-            db.ref(`rooms/${currentRoomId}`).set(null).then(() => {
-                currentRoomId = null;
-                myRole = null;
-                daXoaBanCoTranNay = false;
-                lobbyWaitingArea.style.display = "none";
-                lobbySetupArea.style.display = "block";
-                anGiaoDienVaThoaiCuaBot(false); 
-            });
-        }
+        thoatPhongDau();
     });
 
     function xoaPhongMaTuDong(allRooms) {
@@ -742,6 +788,7 @@ function setupEventListeners() {
                 db.ref(`rooms/${roomId}/playerX_status`).onDisconnect().set('offline');
                 startOnlineMatch();
                 listenToRoomChanges(roomId);
+                langNgheTinNhanChat(roomId);
             } else if (playerId === room.playerO_id) {
                 myRole = 'O'; 
                 localStorage.setItem('current_room_id', roomId);
@@ -749,6 +796,7 @@ function setupEventListeners() {
                 db.ref(`rooms/${roomId}/playerO_status`).onDisconnect().set('offline');
                 startOnlineMatch();
                 listenToRoomChanges(roomId);
+                langNgheTinNhanChat(roomId);
             } else if (room.playerO && room.playerO_id) {
                 alert("Phòng này đã đầy!");
                 return;
@@ -773,6 +821,309 @@ function setupEventListeners() {
     // Biến lưu trữ tọa độ nước cuối cùng để so khớp tránh vẽ lặp lại
     let locallyAppliedLastMove = { row: -2, col: -2 };
 
+    /**
+     * LẲNG NGHE DỮ LIỆU PHÒNG - XỬ LÝ CÁC GHẾ, ĐUỔI & BẮT ĐẦU
+     */
+    function langNgheDuLieuTrongPhong(roomId) {
+        if (roomListener) { db.ref(`rooms/${currentRoomId}`).off('value', roomListener); }
+        
+        const roomRef = db.ref(`rooms/${roomId}`);
+        roomListener = roomRef.on('value', (snapshot) => {
+            const room = snapshot.val();
+            if (!room) {
+                // Nếu phòng không tồn tại (Bị hủy hoặc bị kick), tự động reset về sảnh
+                cuongCheVeSanh("Phòng đấu đã bị hủy hoặc bạn đã bị mời ra ngoài!");
+                return;
+            }
+
+            const currentUserId = localStorage.getItem('current_user_id') || myPlayerId;
+
+            document.getElementById('txt-room-title').innerText = `Phòng: ${room.name}`;
+            document.getElementById('name-pX').innerText = room.playerX_name || "Đang chờ...";
+            document.getElementById('name-pO').innerText = room.playerO_name || "Đang chờ đối thủ...";
+
+            const laChuPhong = (currentUserId === room.playerX_id);
+            const coDoiThu = (room.playerO_id !== "");
+
+            // Hiển thị quyền điều khiển cho Chủ Phòng (Player X)
+            if (laChuPhong) {
+                // Nếu có đối thủ vào ngồi ghế O -> Hiện nút Đuổi và nút Bắt đầu
+                if (coDoiThu && room.status === "waiting") {
+                    document.getElementById('btn-kick-player').style.display = "inline-block";
+                    document.getElementById('btn-start-game').style.display = "inline-block";
+                    document.getElementById('status-pO').innerText = "Đang chờ bạn bắt đầu...";
+                } else {
+                    document.getElementById('btn-kick-player').style.display = "none";
+                    document.getElementById('btn-start-game').style.display = "none";
+                }
+            } else {
+                // Đối với khách (Player O hoặc Viewer) ẩn hết các nút quản trị này đi
+                document.getElementById('btn-kick-player').style.display = "none";
+                document.getElementById('btn-start-game').style.display = "none";
+            }
+
+            // Nếu trận đấu đã được bấm Bắt đầu (`status: "playing"`)
+            if (room.status === "playing") {
+                document.getElementById('status-pX').innerText = "Đang chiến đấu ⚔️";
+                document.getElementById('status-pO').innerText = "Đang chiến đấu ⚔️";
+                document.getElementById('btn-kick-player').style.display = "none";
+                document.getElementById('btn-start-game').style.display = "none";
+                
+                // Khởi tạo bàn cờ và kích hoạt giao diện chơi
+                if (!daXoaBanCoTranNay) {
+                    if (typeof window.xoaBanCoCu === "function") { window.xoaBanCoCu(); }
+                    daXoaBanCoTranNay = true; 
+                    
+                    if (myRole === 'X') { db.ref(`rooms/${roomId}/playerX_status`).onDisconnect().set('offline'); }
+                    else if (myRole === 'O') { db.ref(`rooms/${roomId}/playerO_status`).onDisconnect().set('offline'); }
+                    
+                    locallyAppliedLastMove = { row: -2, col: -2 };
+                }
+                
+                // Kích hoạt giao diện chơi
+                if (typeof startOnlineMatch === 'function') {
+                    startOnlineMatch();
+                }
+            }
+        });
+    }
+
+    /**
+     * HÀM ĐUỔI ĐỐI THỦ (KICK) DÀNH CHO CHỦ PHÒNG
+     */
+    function kickDoiThu() {
+        if (!currentRoomId) return;
+        if (confirm("Bạn có chắc chắn muốn đuổi người chơi này ra khỏi phòng không?")) {
+            // Reset thông tin Player O về rỗng
+            db.ref(`rooms/${currentRoomId}`).update({
+                playerO: "",
+                playerO_id: "",
+                playerO_name: "",
+                playerO_status: "offline",
+                status: "waiting"
+            });
+        }
+    }
+
+    /**
+     * HÀM BẮT ĐẦU GAME DÀNH CHO CHỦ PHÒNG
+     */
+    function chuPhongBatDauGame() {
+        if (!currentRoomId) return;
+        // Chuyển trạng thái phòng sang chơi để kích hoạt bàn cờ cho cả 2 bên
+        db.ref(`rooms/${currentRoomId}`).update({
+            status: "playing"
+        });
+    }
+
+    /**
+     * LẲNG NGHE & HIỂN THỊ DANH SÁCH NGƯỜI ONLINE ĐỂ MỜI
+     */
+    function langNgheNguoiOnlineDeMoi() {
+        db.ref('online_users').on('value', (snapshot) => {
+            const users = snapshot.val();
+            const listEl = document.getElementById('room-online-users-list');
+            if (!listEl) return;
+            
+            listEl.innerHTML = "";
+            
+            if (!users) {
+                listEl.innerHTML = `<div style="color:#aaa; text-align:center; padding-top:20px;">Không có kỳ thủ nào đang rảnh.</div>`;
+                return;
+            }
+
+            const currentUserId = localStorage.getItem('current_user_id') || myPlayerId;
+            let hasUser = false;
+
+            Object.keys(users).forEach(uid => {
+                // Không tự mời chính mình và chỉ mời những ai đang rảnh (`status: "free"`) ở ngoài sảnh
+                if (uid !== currentUserId && users[uid].status === "free") {
+                    hasUser = true;
+                    const row = document.createElement('div');
+                    row.className = "invite-user-row";
+                    row.innerHTML = `
+                        <span>🟢 ${users[uid].name || 'Unknown'}</span>
+                        <button class="btn-invite-action" onclick="guiLoiMoiThachDau('${uid}', '${users[uid].name || 'Unknown'}')">Mời Solo</button>
+                    `;
+                    listEl.appendChild(row);
+                }
+            });
+            
+            if (!hasUser) {
+                listEl.innerHTML = `<div style="color:#aaa; text-align:center; padding-top:20px;">Không có kỳ thủ nào đang rảnh.</div>`;
+            }
+        });
+    }
+
+    /**
+     * GỬI LỜI MỜI THÁCH ĐẤU VÀO FIREBASE
+     */
+    function guiLoiMoiThachDau(targetUid, targetName) {
+        if (!currentRoomId) return;
+        
+        const currentUserId = localStorage.getItem('current_user_id') || myPlayerId;
+        const myPlayerName = currentUserData ? currentUserData.displayName : currentUsername;
+        
+        // Đẩy thông tin mời vào nhánh invitations của người nhận
+        db.ref(`invitations/${targetUid}`).set({
+            fromRoomId: currentRoomId,
+            fromPlayerId: currentUserId,
+            fromPlayerName: myPlayerName,
+            timestamp: Date.now()
+        }).then(() => {
+            alert(`Đã gửi lời mời thách đấu tới kỳ thủ [${targetName}]!`);
+        }).catch((error) => {
+            alert("Lỗi gửi lời mời: " + error.message);
+        });
+    }
+
+    /**
+     * HÀM CƯỠNG CHẾ QUAY VỀ SẢNH KHI THOÁT HOẶC BỊ KICK
+     */
+    function cuongCheVeSanh(thongBao) {
+        if (thongBao) alert(thongBao);
+        
+        // Hủy lắng nghe
+        if (currentRoomId) {
+            db.ref(`rooms/${currentRoomId}`).off();
+            currentRoomId = null;
+        }
+        db.ref('online_users').off();
+        
+        // Cập nhật lại trạng thái tự do ngoài sảnh
+        const currentUserId = localStorage.getItem('current_user_id') || myPlayerId;
+        db.ref(`online_users/${currentUserId}/status`).set("free");
+        
+        // Đổi giao diện về sảnh chờ
+        const gameMatchScreen = document.getElementById('game-match-screen');
+        if (gameMatchScreen) gameMatchScreen.style.display = 'none';
+        document.getElementById('lobby-screen').style.display = 'block';
+    }
+
+    /**
+     * HÀM THOÁT PHÒNG ĐẤU
+     */
+    function thoatPhongDau() {
+        if (!currentRoomId) return;
+        
+        const currentUserId = localStorage.getItem('current_user_id') || myPlayerId;
+        
+        db.ref(`rooms/${currentRoomId}`).once('value', (snapshot) => {
+            const room = snapshot.val();
+            if (room) {
+                if (currentUserId === room.playerX_id) {
+                    // Nếu chủ phòng thoát -> Xóa hẳn phòng đấu
+                    db.ref(`rooms/${currentRoomId}`).remove();
+                } else if (currentUserId === room.playerO_id) {
+                    // Nếu đối thủ ghế O thoát -> Giải phóng ghế O, trả phòng về trạng thái đợi
+                    db.ref(`rooms/${currentRoomId}`).update({
+                        playerO: "",
+                        playerO_id: "",
+                        playerO_name: "",
+                        playerO_status: "offline",
+                        status: "waiting"
+                    });
+                }
+            }
+            cuongCheVeSanh();
+        });
+    }
+
+    /**
+     * HÀM GỬI TIN NHẮN ONLINE
+     */
+    function guiTinNhanOnline() {
+        if (!currentRoomId) return;
+        
+        const chatInput = document.getElementById('chat-input');
+        if (!chatInput) return;
+        
+        const noiDungText = chatInput.value.trim();
+        if (!noiDungText) return;
+
+        // Lấy tên người gửi
+        const tenNguoiGui = currentUserData ? currentUserData.displayName : currentUsername;
+
+        db.ref(`rooms/${currentRoomId}/chats`).push({
+            sender: tenNguoiGui,
+            message: noiDungText,
+            timestamp: Date.now()
+        }).then(() => {
+            chatInput.value = ""; // Xóa ô nhập sau khi gửi
+        }).catch((error) => {
+            alert("Lỗi gửi tin nhắn: " + error.message);
+        });
+    }
+
+    /**
+     * LẲNG NGHE TIN NHẮN CHAT TRONG PHÒNG
+     */
+    function langNgheTinNhanChat(roomId) {
+        db.ref(`rooms/${roomId}/chats`).on('child_added', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            const khungHienThiChat = document.getElementById('chat-messages');
+            if (!khungHienThiChat) return;
+
+            // Tạo phần tử tin nhắn mới
+            const messageElement = document.createElement('div');
+            messageElement.className = 'chat-message-line';
+
+            // 🌟 ĐỊNH DẠNG: Bôi đậm tên người chơi (sender) trước nội dung tin nhắn
+            messageElement.innerHTML = `<strong>${data.sender}:</strong> ${data.message}`;
+
+            // Thêm vào khung chat và tự động cuộn xuống dưới cùng
+            khungHienThiChat.appendChild(messageElement);
+            khungHienThiChat.scrollTop = khungHienThiChat.scrollHeight;
+        });
+    }
+
+    // Hàm cập nhật giao diện phòng đấu chuyên nghiệp
+    function capNhatGiaoDienPhongDau(roomData) {
+        // 1. Cập nhật tên người chơi chính
+        const namePX = document.getElementById('name-pX');
+        const namePO = document.getElementById('name-pO');
+        const statusPX = document.getElementById('status-pX');
+        const statusPO = document.getElementById('status-pO');
+        const roomTitle = document.getElementById('txt-room-title');
+
+        if (namePX) namePX.innerText = roomData.playerX_name || "Đang chờ...";
+        if (namePO) namePO.innerText = roomData.playerO_name || "Đang chờ...";
+        
+        if (statusPX) statusPX.innerText = roomData.playerX_status === 'online' ? 'Sẵn sàng' : 'Offline';
+        if (statusPO) statusPO.innerText = roomData.playerO_status === 'online' ? 'Sẵn sàng' : 'Offline';
+        
+        if (roomTitle) {
+            const xName = roomData.playerX_name || "Đang chờ...";
+            const oName = roomData.playerO_name || "Đang chờ...";
+            roomTitle.innerText = `Phòng: ${xName} vs ${oName}`;
+        }
+        
+        // 2. Xử lý hiển thị danh sách Khán giả đang xem
+        const viewerListEl = document.getElementById('viewer-list');
+        const viewerCountEl = document.getElementById('viewer-count');
+        
+        if (viewerListEl && viewerCountEl) {
+            viewerListEl.innerHTML = ""; // Xóa dữ liệu cũ đi để vẽ lại
+            
+            if (roomData.viewers) {
+                const danhSachViewers = Object.values(roomData.viewers);
+                viewerCountEl.innerText = danhSachViewers.length;
+                
+                danhSachViewers.forEach(tenViewer => {
+                    const item = document.createElement('div');
+                    item.style.padding = "3px 0";
+                    item.innerHTML = `👁️ <span style="color:#555;">${tenViewer}</span> đang xem...`;
+                    viewerListEl.appendChild(item);
+                });
+            } else {
+                viewerCountEl.innerText = "0";
+                viewerListEl.innerHTML = `<div style="color:#aaa; text-align:center; padding-top:20px;">Chưa có khán giả nào.</div>`;
+            }
+        }
+    }
+
     function listenToRoomChanges(roomId) {
         if (roomListener) { db.ref(`rooms/${currentRoomId}`).off('value', roomListener); }
         
@@ -792,8 +1143,11 @@ function setupEventListeners() {
                 myRole = 'viewer'; // Ai trùng ID với 2 ghế trên thì là Khán giả
             }
 
+            // Cập nhật giao diện phòng đấu chuyên nghiệp
+            capNhatGiaoDienPhongDau(room);
+
             const botElement = document.getElementById('bot-avatar');
-            if (botElement) { botElement.style.display = room.isBotHidden ? 'none' : 'block'; }
+            if (botElement) { botElement.style.display = room.isBotHidden ? 'none' : 'flex'; }
 
             currentTurn = room.turn;
             currentRule = room.chan2Dau ? 'chan_2_dau' : 'tu_do';
@@ -838,10 +1192,13 @@ function setupEventListeners() {
                 if (blockBothEndsCheckbox) blockBothEndsCheckbox.checked = room.chan2Dau;
                 
                 const displayLuat = `Đủ ${room.winCount || 5} quân ${room.chan2Dau ? '(Chặn 2 đầu)' : ''}`;
+                const turnEl = document.getElementById('turn-indicator');
                 if (currentTurn === myRole) {
                     gameInfo.innerHTML = `<span style='color:#28a745; font-weight:bold;'>Lượt của bạn (${myRole})</span> - Luật: ${displayLuat}`;
+                    if (turnEl) { turnEl.textContent = `🟢 Lượt của bạn (${myRole}) — hãy đánh!`; turnEl.className = 'my-turn'; }
                 } else {
                     gameInfo.innerHTML = `<span style='color:#dc3545;'>Chờ đối thủ (${currentTurn}) đánh...</span> - Luật: ${displayLuat}`;
+                    if (turnEl) { turnEl.textContent = `⏳ Đang chờ đối thủ (${currentTurn}) đánh...`; turnEl.className = 'opponent-turn'; }
                 }
 
                 if (room.playerX_id) {

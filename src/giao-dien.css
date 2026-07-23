@@ -782,3 +782,331 @@ body.in-game-active {
         flex-direction: column;
     }
 }
+
+/* ===== BOARD ZOOM CONTROLS ===== */
+/* KHU VỰC ĐIỀU KHIỂN ZOOM */
+.board-zoom-controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 10px 0;
+}
+.btn-zoom {
+    padding: 6px 14px;
+    background: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 14px;
+    cursor: pointer;
+}
+.btn-zoom-in {
+    background: #28a745;
+}
+
+/* KHU VỰC CHỨA BÀN CỜ */
+#game-board-container {
+    width: 95%;
+    max-width: 600px;         /* Giới hạn độ rộng tối đa trên PC */
+    height: auto;             /* Cho phép chiều cao tự động theo nội dung */
+    max-height: none;         /* Không giới hạn chiều cao tối đa */
+    margin: 15px auto;        /* Căn giữa khung theo chiều ngang */
+    border: 2px solid #3b82f6;/* Viền xanh làm nổi bật khu vực bàn cờ */
+    border-radius: 8px;
+    background-color: #ffffff;
+    
+    /* Cho phép hiển thị tràn ra ngoài, không thanh cuộn */
+    overflow: visible !important; 
+    
+    /* Vừa cho phép di chuyển ô cờ (pan), vừa hỗ trợ nhúm 2 ngón tay thu phóng (pinch-zoom) */
+    touch-action: pan-x pan-y pinch-zoom !important; 
+}
+
+/* Đảm bảo bàn cờ thực tế bên trong luôn căn giữa nếu nhỏ hơn khung chứa */
+#game-board-container table, 
+#game-board-container canvas {
+    margin: 0 auto;
+    display: block;
+}
+
+/* ===== GAME MATCH SCREEN STYLES ===== */
+#game-match-screen {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 8px;
+    font-family: Arial, sans-serif;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+/* Header phòng */
+.match-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    background: #1e293b;
+    color: white;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 14px;
+}
+.match-header span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.match-header > div {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.btn-danger {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 7px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    min-width: 44px;
+    min-height: 36px;
+}
+.btn-success {
+    background: #22c55e;
+    color: white;
+    border: none;
+    padding: 7px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 13px;
+    min-height: 36px;
+}
+.btn-kick {
+    background: #f97316;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-left: 10px;
+}
+.invite-panel {
+    flex: 1;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px;
+}
+.invite-user-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 4px;
+    border-bottom: 1px dashed #e2e8f0;
+}
+.btn-invite-action {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    min-height: 32px;
+}
+
+/* Khu vực 2 đấu thủ VS */
+.versus-container {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 8px;
+    margin: 8px 0;
+}
+.player-slot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+    max-width: 42%;
+}
+.avatar-circle {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    background: #3b82f6;
+    color: white;
+    font-size: 20px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+.avatar-o { background: #ef4444; }
+.player-info { min-width: 0; }
+.player-name {
+    font-weight: bold;
+    font-size: 14px;
+    color: #334155;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100px;
+}
+.player-status { font-size: 11px; color: #64748b; margin-top: 2px; }
+.vs-text {
+    font-size: 20px;
+    font-weight: bold;
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+
+/* Lượt đi indicator */
+#turn-indicator {
+    text-align: center;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 13px;
+    margin: 6px 0;
+    transition: background 0.3s, color 0.3s;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+#turn-indicator.my-turn {
+    background: #dcfce7;
+    color: #15803d;
+    border-color: #86efac;
+    animation: turnPulse 1s ease-in-out infinite alternate;
+}
+#turn-indicator.opponent-turn {
+    background: #fef9c3;
+    color: #854d0e;
+    border-color: #fde68a;
+}
+@keyframes turnPulse {
+    from { box-shadow: 0 0 0 0 rgba(21,128,61,0.3); }
+    to   { box-shadow: 0 0 0 6px rgba(21,128,61,0); }
+}
+
+/* Bàn cờ */
+.match-board-section {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px;
+}
+
+/* Khu vực dưới: Mời và Chat */
+.match-footer-panels {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+.invite-panel, .chat-panel {
+    flex: 1;
+    min-width: 240px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px;
+    box-sizing: border-box;
+}
+.invite-panel h4, .chat-panel h4 {
+    margin: 0 0 8px 0;
+    color: #1e293b;
+    border-bottom: 1px solid #cbd5e1;
+    padding-bottom: 4px;
+    font-size: 13px;
+}
+.scroll-list {
+    height: 100px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 6px;
+    font-size: 13px;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Ô nhập chat */
+.chat-input-row {
+    display: flex;
+    margin-top: 8px;
+    gap: 5px;
+}
+.chat-input-row input {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-size: 14px;
+    min-height: 36px;
+}
+.chat-input-row button {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 0 14px;
+    border-radius: 4px;
+    min-width: 52px;
+    min-height: 36px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+/* Mobile: chat thu gọn, footer dọc */
+@media (max-width: 600px) {
+    #game-match-screen { padding: 6px; }
+
+    .match-header { font-size: 12px; padding: 8px 10px; }
+
+    .versus-container { padding: 8px 6px; gap: 4px; }
+    .player-slot { max-width: 40%; gap: 6px; }
+    .avatar-circle { width: 34px; height: 34px; min-width: 34px; font-size: 16px; }
+    .player-name { font-size: 12px; max-width: 80px; }
+    .vs-text { font-size: 16px; }
+
+    .match-footer-panels {
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 8px;
+    }
+    .invite-panel, .chat-panel { min-width: unset; }
+    .scroll-list { height: 80px; }
+
+    #game-board-container {
+        max-width: 100% !important;
+        margin: 8px auto;
+    }
+}
+
+/* Chat message styling */
+.chat-message-line {
+    margin-bottom: 5px;
+    font-size: 13px;
+    line-height: 1.4;
+    word-break: break-word;
+}
+.chat-message-line strong {
+    color: #007bff;
+    margin-right: 4px;
+}
