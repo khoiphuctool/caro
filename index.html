@@ -324,67 +324,65 @@
     </div>
 
     <!-- SẢNH CHỜ ONLINE (ẨN MẶC ĐỊNH) -->
-    <div id="lobby-screen" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0px 0px 15px rgba(0,0,0,0.3); z-index: 9999; font-family: Arial;">
+    <div id="lobby-screen" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95%; max-width: 1200px; max-height: 90vh; background: white; padding: 20px; border-radius: 8px; box-shadow: 0px 0px 15px rgba(0,0,0,0.3); z-index: 9999; font-family: Arial; overflow-y: auto;">
         
-        <!-- KHU VỰC 1: CÀI ĐẶT TẠO PHÒNG (MẶC ĐỊNH HIỂN THỊ) -->
-        <div id="lobby-setup-area">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h2 style="margin: 0; color: #333;">TẠO PHÒNG SOLO</h2>
-                <button id="btn-close-lobby" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #999;">&times;</button>
-            </div>
+        <!-- KHUNG DÀN TRANG NẰM NGANG CHO PC -->
+        <div class="lobby-layout">
             
-            <div style="margin-bottom: 12px;">
-                <label><b>Tên của bạn:</b></label>
-                <input type="text" id="player-name" placeholder="Nhập tên của bạn..." style="width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box;">
-            </div>
+            <!-- CỘT CHÍNH 1: TẠO PHÒNG & DANH SÁCH PHÒNG -->
+            <div class="lobby-column-left">
+                <div class="panel-box">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h2 class="panel-title" style="margin: 0; border: none;">TẠO PHÒNG SOLO</h2>
+                        <button id="btn-close-lobby" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">&times;</button>
+                    </div>
+                    
+                    <div style="margin-bottom: 12px;">
+                        <label><b>Tên phòng:</b></label>
+                        <input type="text" id="room-name" placeholder="Nhập tên phòng..." style="width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
 
-            <div style="margin-bottom: 12px;">
-                <label><b>Tên phòng:</b></label>
-                <input type="text" id="room-name" placeholder="Nhập tên phòng..." style="width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box;">
-            </div>
-
-            <!-- TÁCH BIỆT 2 CÀI ĐẶT LUẬT CHƠI -->
-            <div style="margin-bottom: 12px; display: flex; gap: 15px; align-items: center;">
-                <div>
-                    <label><b>Số quân thắng:</b></label>
-                    <select id="game-win-count" style="padding: 6px; margin-top: 5px; display: block;">
-                        <option value="5">5 quân</option>
-                        <option value="6">6 quân</option>
-                    </select>
+                    <div class="setup-row">
+                        <label><b>Số quân thắng:</b></label>
+                        <select id="game-win-count" style="padding: 6px;">
+                            <option value="5">5 quân</option>
+                            <option value="6">6 quân</option>
+                        </select>
+                        <label style="margin-left: 15px; cursor: pointer;">
+                            <input type="checkbox" id="game-chan-2-dau"> <b>Chặn 2 đầu KHÔNG THẮNG</b>
+                        </label>
+                    </div>
+                    
+                    <button id="btn-create" class="btn-blue">TẠO PHÒNG MỚI</button>
                 </div>
-                <div style="margin-top: 20px;">
-                    <label style="cursor: pointer;">
-                        <input type="checkbox" id="game-chan-2-dau"> <b>Chặn 2 đầu KHÔNG THẮNG</b>
-                    </label>
+
+                <div class="panel-box">
+                    <h3 class="panel-title">Danh sách phòng trống:</h3>
+                    <div id="room-list" style="max-height: 250px; overflow-y: auto;">Đang tải danh sách...</div>
+                </div>
+                
+                <!-- Thêm phần Kỳ thủ trực tuyến vào dưới này luôn cho gọn -->
+                <div id="online-users-panel" class="panel-box">
+                    <h3 class="panel-title">👥 Kỳ thủ đang trực tuyến</h3>
+                    <div id="danh-sach-online" style="max-height: 150px; overflow-y: auto;">
+                        <p style='color:#888; font-size:13px;'>Đang tải danh sách...</p>
+                    </div>
                 </div>
             </div>
-            
-            <button id="btn-create" style="width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px;">TẠO PHÒNG MỚI</button>
 
-            <h3 style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px; font-size: 15px;">Danh sách phòng trống:</h3>
-            <div id="room-list" style="max-height: 150px; overflow-y: auto;">Đang tải danh sách...</div>
-        </div>
+            <!-- CỘT CHÍNH 2: BẢNG XẾP HẠNG & LỊCH SỬ -->
+            <div class="lobby-column-right">
+                <div class="panel-box">
+                    <h3 class="panel-title">🏆 BẢNG XẾP HẠNG TRỰC TUYẾN</h3>
+                    <div id="bxh-online-container"> Đang tải bảng xếp hạng... </div>
+                </div>
 
-        <!-- BẢNG XẾP HẠNG TRỰC TUYẾN -->
-        <div style="margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa;">
-            <h3>🏆 BẢNG XẾP HẠNG TRỰC TUYẾN</h3>
-            <div id="bxh-online-container"> Đang tải bảng xếp hạng... </div>
-        </div>
-
-        <!-- LỊCH SỬ TRẬN ĐẤU TRỰC TUYẾN -->
-        <div style="margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa;">
-            <h3>📜 LỊCH SỬ TRẬN ĐẤU TRỰC TUYẾN</h3>
-            <div id="lich-su-online-container"> Đang tải lịch sử... </div>
-        </div>
-
-        <!-- BẢNG DANH SÁCH NGƯỜI CHƠI ĐANG ONLINE ĐỂ MỜI -->
-        <div id="online-users-panel" style="margin-top: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background: #fff;">
-            <h3 style="margin-top: 0; color: #007bff; font-size: 16px; border-bottom: 2px solid #007bff; padding-bottom: 5px;">
-                👥 Kỳ thủ đang trực tuyến
-            </h3>
-            <div id="danh-sach-online" style="max-height: 200px; overflow-y: auto;">
-                <p style='color:#888; font-size:13px;'>Đang tải danh sách...</p>
+                <div class="panel-box">
+                    <h3 class="panel-title">📜 LỊCH SỬ TRẬN ĐẤU TRỰC TUYẾN</h3>
+                    <div id="lich-su-online-container" style="max-height: 250px; overflow-y: auto;"> Đang tải lịch sử... </div>
+                </div>
             </div>
+
         </div>
 
         <!-- KHU VỰC 2: MÀN HÌNH BÁO CHỜ NGƯỜI CHƠI (MẶC ĐỊNH ẨN) -->
