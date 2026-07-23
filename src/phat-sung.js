@@ -142,6 +142,12 @@ function closeWinAndRestart() {
 }
 
 function reviewGame() {
+    // Chặn review khi đang chơi online
+    if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+        alert("Bạn đang trong trận đấu Online, không thể xem lại ván cờ!");
+        return;
+    }
+    
     document.getElementById('win-overlay').classList.remove('show');
     stopConfetti();
     if (isInfinite && winningCellCoords.length > 0) {

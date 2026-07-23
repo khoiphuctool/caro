@@ -36,6 +36,11 @@ function startPlayerTurnTimer() {
                 'Còn đây không? Hay đã bỏ trốn rồi? 👀',
                 'Suy nghĩ hay đang gọi viện binh vậy? 📞',
             ];
+            // CHẶN LỜI THOẠI: Nếu chơi Online thì không cho xuất chữ ra khung chat nữa
+            if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+                return; 
+            }
+
             const randomMsg = messages[Math.floor(Math.random() * messages.length)];
             const botMessage = document.getElementById('bot-message');
             const botBubble  = document.getElementById('bot-bubble');
@@ -54,6 +59,11 @@ function startPlayerTurnTimer() {
                 'Bạn đang thiền à? Thiền bàn cờ kiểu mới? 🧘',
                 'Nước cờ không phải rượu, ngâm lâu không ngon hơn đâu! 🍷',
             ];
+            // CHẶN LỜI THOẠI: Nếu chơi Online thì không cho xuất chữ ra khung chat nữa
+            if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+                return; 
+            }
+
             const randomMsg = messages[Math.floor(Math.random() * messages.length)];
             const botMessage = document.getElementById('bot-message');
             const botBubble  = document.getElementById('bot-bubble');
@@ -72,6 +82,11 @@ function startPlayerTurnTimer() {
                 'Cứ từ từ đi, tôi không đi đâu cả... ngoại trừ lên bục chiến thắng 😈',
                 'OK OK tôi hiểu rồi, bạn đang cố làm tôi mất tập trung phải không 🤔',
             ];
+            // CHẶN LỜI THOẠI: Nếu chơi Online thì không cho xuất chữ ra khung chat nữa
+            if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+                return; 
+            }
+
             const randomMsg = messages[Math.floor(Math.random() * messages.length)];
             const botMessage = document.getElementById('bot-message');
             const botBubble  = document.getElementById('bot-bubble');
@@ -89,6 +104,11 @@ function startPlayerTurnTimer() {
                 'Bao lâu nữa? Tôi đặt hẹn cắt tóc chiều nay rồi 💈',
                 'Thôi được, tôi sẽ tweet về trận này: "Đối thủ đang thiền định" 🐦',
             ];
+            // CHẶN LỜI THOẠI: Nếu chơi Online thì không cho xuất chữ ra khung chat nữa
+            if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+                return; 
+            }
+
             const randomMsg = messages[Math.floor(Math.random() * messages.length)];
             const botMessage = document.getElementById('bot-message');
             const botBubble  = document.getElementById('bot-bubble');
@@ -103,6 +123,12 @@ function startPlayerTurnTimer() {
 
 // ===== INIT GAME =====
 function initGame() {
+    // Chặn restart khi đang chơi online
+    if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+        alert("Bạn đang trong trận đấu Online, không thể tự làm mới ván cờ!");
+        return;
+    }
+    
     isInfinite = true;
     gameMode   = modeSelect.value;
 
@@ -452,6 +478,43 @@ function checkWinSilent(r, c) {
     }
     return false;
 }
+
+// ĐỊNH NGHĨA HÀM XÓA SẠCH BÀN CỜ CHO VÁN MỚI TINH
+window.xoaBanCoCu = function() {
+    console.log("Hệ thống đang làm sạch bàn cờ cũ để vào ván mới...");
+    
+    // Reset mảng dữ liệu logic cờ
+    if (typeof infiniteMap !== 'undefined') {
+        infiniteMap.clear();
+    }
+    if (typeof moveHistory !== 'undefined') {
+        moveHistory.length = 0;
+    }
+    if (typeof lastMoveR !== 'undefined') {
+        lastMoveR = -1;
+        lastMoveC = -1;
+    }
+    if (typeof currentPlayer !== 'undefined') {
+        currentPlayer = 'X';
+    }
+    if (typeof winningCellCoords !== 'undefined') {
+        winningCellCoords.length = 0;
+    }
+    
+    // Xóa sạch hình ảnh quân cờ trên HTML giao diện
+    document.querySelectorAll('.cell').forEach(cell => {
+        cell.innerHTML = "";
+        cell.classList.remove('winning-cell');
+    });
+    
+    // Re-render board
+    if (typeof renderInfiniteBoard === 'function') {
+        renderInfiniteBoard();
+    }
+    if (typeof renderFixedBoard === 'function') {
+        renderFixedBoard();
+    }
+};
 
 // checkWinLogicOld: Hàm kiểm tra thắng thua hỗ trợ cả Online và Offline với tham số luật chơi tùy chỉnh
 window.checkWinLogicOld = function(row, col, playerRole, customRule, customWinCount) {
