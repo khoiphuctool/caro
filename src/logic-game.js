@@ -376,9 +376,11 @@ function makeMove(r, c) {
             } else {
                 statusPanel.innerHTML = `🏆 KINH ĐIỂM! Bạn đã chiến thắng BOT của PRO PRO, bạn rất là kinh, bái phục`;
                 recordMatch('win', humanPiece);
-                // Cập nhật thống kê winBot cho user nếu đã đăng nhập
-                if (typeof window.updateUserStats === 'function') {
+                // Cập nhật thống kê winBot cho user nếu đã đăng nhập - chỉ tính khi winCount >= 5
+                if (typeof window.updateUserStats === 'function' && winCount >= 5) {
                     window.updateUserStats('winBot', 1);
+                } else if (winCount < 5) {
+                    console.log("Trận thắng Bot ở chế độ dưới 5 quân không được tính vào điểm Rank!");
                 }
                 // Người thắng → bot học pattern của người thắng để tránh bị đánh bại tương tự
                 if (typeof onBotLoss === 'function') {
