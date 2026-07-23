@@ -376,6 +376,10 @@ function makeMove(r, c) {
             } else {
                 statusPanel.innerHTML = `🏆 KINH ĐIỂM! Bạn đã chiến thắng BOT của PRO PRO, bạn rất là kinh, bái phục`;
                 recordMatch('win', humanPiece);
+                // Cập nhật thống kê winBot cho user nếu đã đăng nhập
+                if (typeof window.updateUserStats === 'function') {
+                    window.updateUserStats('winBot', 1);
+                }
                 // Người thắng → bot học pattern của người thắng để tránh bị đánh bại tương tự
                 if (typeof onBotLoss === 'function') {
                     onBotLoss([...moveHistory], humanPiece);

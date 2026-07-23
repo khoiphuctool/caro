@@ -41,6 +41,14 @@
                     Solo Online 🌐
                 </button>
             </div>
+            <div class="config-group" style="display: flex; gap: 8px;">
+                <button id="btn-show-login" style="flex: 1; padding: 8px 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                    Đăng Nhập
+                </button>
+                <button id="btn-show-register" style="flex: 1; padding: 8px 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                    Đăng Ký
+                </button>
+            </div>
             <div class="config-group">
                 <label for="win-count">🏆 Số quân thắng:</label>
                 <select id="win-count" onchange="initGame()">
@@ -173,14 +181,26 @@
     </div>
 
     <div class="main-layout">
-        <div class="game-container" id="ui-game-container">
-            <!-- Bot Avatar -->
-            <div id="bot-avatar" class="bot-avatar">
-                <div class="bot-face">🤖</div>
-                <div class="bot-bubble" id="bot-bubble">
-                    <div class="bot-message" id="bot-message">Xin chào! Tôi là Bot của anh Chần</div>
-                </div>
+        <div class="game-container" id="ui-game-container" style="display: flex; justify-content: space-between; align-items: center; gap: 20px;">
+            
+            <!-- BÊN TRÁI: THÔNG TIN NGƯỜI CHƠI X (CHỦ PHÒNG) -->
+            <div id="panel-playerX" class="player-card" style="display: none; width: 180px; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                <h4 id="view-name-X" style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold;">Đang chờ...</h4>
+                <div class="badge-role" style="background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-bottom: 10px; font-weight: bold;">🔴 Quân X (Đi trước)</div>
+                <p style="margin: 5px 0; font-size: 13px;">🤖 Thắng Bot: <span id="view-winbot-X" style="font-weight: bold;">0</span></p>
+                <p style="margin: 5px 0; font-size: 13px;">⚔️ Thắng Solo: <span id="view-winsolo-X" style="font-weight: bold;">0</span></p>
+                <p style="margin: 5px 0; font-size: 13px;">📉 Thua Solo: <span id="view-losesolo-X" style="font-weight: bold;">0</span></p>
             </div>
+
+            <!-- Ở GIỮA: BÀN CỜ VÀ BOT AVATAR -->
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
+                <!-- Bot Avatar -->
+                <div id="bot-avatar" class="bot-avatar">
+                    <div class="bot-face">🤖</div>
+                    <div class="bot-bubble" id="bot-bubble">
+                        <div class="bot-message" id="bot-message">Xin chào! Tôi là Bot của anh Chần</div>
+                    </div>
+                </div>
 
             <div id="inf-nav" style="display:none; text-align:center; padding:4px 0 6px; font-size:0.75rem; opacity:0.7;">
                 📍 <span id="inf-coords"></span>
@@ -207,6 +227,16 @@
                 <button class="zoom-btn zoom-in"   onclick="zoomBoard(1)"   title="Phóng to">+</button>
                 <button class="zoom-btn zoom-out"  onclick="zoomBoard(-1)"  title="Thu nhỏ">−</button>
                 <button class="zoom-btn zoom-undo" onclick="undoMove()"     title="Thu lại nước đi">↩</button>
+            </div>
+            </div>
+
+            <!-- BÊN PHẢI: THÔNG TIN NGƯỜI CHƠI O (KHÁCH) -->
+            <div id="panel-playerO" class="player-card" style="display: none; width: 180px; padding: 15px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 12px; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                <h4 id="view-name-O" style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold;">Đang chờ...</h4>
+                <div class="badge-role" style="background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-bottom: 10px; font-weight: bold;">🔵 Quân O (Đi sau)</div>
+                <p style="margin: 5px 0; font-size: 13px;">🤖 Thắng Bot: <span id="view-winbot-O" style="font-weight: bold;">0</span></p>
+                <p style="margin: 5px 0; font-size: 13px;">⚔️ Thắng Solo: <span id="view-winsolo-O" style="font-weight: bold;">0</span></p>
+                <p style="margin: 5px 0; font-size: 13px;">📉 Thua Solo: <span id="view-losesolo-O" style="font-weight: bold;">0</span></p>
             </div>
         </div>
 
@@ -245,6 +275,49 @@
     <div id="online-status-banner" style="display: none; text-align: center; background: #fff3cd; padding: 8px; font-weight: bold; color: #856404;">
         <span id="game-info">Đang kết nối phòng...</span>
         <button id="btn-quit-match" style="margin-left: 15px; padding: 2px 8px; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">Thoát Online</button>
+    </div>
+
+    <!-- AUTHENTICATION UI (ĐĂNG NHẬP/ĐĂNG KÝ) -->
+    <div id="auth-container" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 400px; background: white; padding: 25px; border-radius: 10px; box-shadow: 0px 0px 20px rgba(0,0,0,0.3); z-index: 10000; font-family: Arial;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="margin: 0; color: #333;" id="auth-title">🔐 ĐĂNG NHẬP</h2>
+            <button id="btn-close-auth" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">&times;</button>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+            <label><b>Tên đăng nhập:</b></label>
+            <input type="text" id="auth-username" placeholder="Nhập tên đăng nhập..." style="width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+            <label><b>Mật khẩu:</b></label>
+            <input type="password" id="auth-password" placeholder="Nhập mật khẩu..." style="width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button id="btn-login" style="flex: 1; padding: 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Đăng Nhập</button>
+            <button id="btn-register" style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Đăng Ký</button>
+        </div>
+        
+        <p style="text-align: center; margin-top: 15px; font-size: 13px; color: #666;">
+            💡 Chỉ cần tên đăng nhập và mật khẩu để chơi
+        </p>
+    </div>
+
+    <!-- USER INFO PANEL (HIỂN THỊ KHI ĐÃ ĐĂNG NHẬP) -->
+    <div id="user-logged-in" style="display: none; padding: 10px; background: #f8f9fa; border-radius: 8px; margin: 10px 0; border: 1px solid #ddd;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <span style="font-weight: bold; color: #333;">Chào </span>
+                <span id="user-display-name" style="font-weight: bold; color: #007bff;">...</span>
+            </div>
+            <button id="btn-logout" style="padding: 5px 10px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Đăng xuất</button>
+        </div>
+        <div style="margin-top: 8px; font-size: 14px; color: #555;">
+            🤖 Thắng Bot: <span id="my-win-bot" style="font-weight: bold; color: #28a745;">0</span> | 
+            ⚔️ Thắng Solo: <span id="my-win-solo" style="font-weight: bold; color: #007bff;">0</span> | 
+            📉 Thua Solo: <span id="my-lose-solo" style="font-weight: bold; color: #dc3545;">0</span>
+        </div>
     </div>
 
     <!-- SẢNH CHỜ ONLINE (ẨN MẶC ĐỊNH) -->

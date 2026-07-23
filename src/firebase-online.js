@@ -23,6 +23,10 @@ let isOnlineMode = false;
 let daXoaBanCoTranNay = false; // Cờ hiệu dọn bàn cờ
 const myClientId = 'user_' + Math.random().toString(36).substr(2, 9);
 
+// Authentication variables
+let currentUsername = null; // Username for custom auth
+let currentUserData = null; // User data from Firebase Database
+
 // Lấy ID cũ hoặc tạo mới nếu chưa có
 if (!localStorage.getItem('my_player_id')) {
     const randomId = 'pl_' + Math.random().toString(36).substr(2, 9);
@@ -51,8 +55,214 @@ function initFirebase() {
     firebase.initializeApp(firebaseConfig);
     db = firebase.database();
 
+    setupAuthListeners();
     setupEventListeners();
 }
+
+// ══════════════════════════════════════════════════════════════════
+// 🔐 AUTHENTICATION FUNCTIONS (CUSTOM DATABASE-BASED)
+// ══════════════════════════════════════════════════════════════════
+
+function setupAuthListeners() {
+    // Auth UI event listeners
+    const authContainer = document.getElementById('auth-container');
+    const userLoggedIn = document.getElementById('user-logged-in');
+    const authTitle = document.getElementById('auth-title');
+    
+    // Close auth button
+    document.getElementById('btn-close-auth').addEventListener('click', () => {
+        authContainer.style.display = 'none';
+    });
+    
+    // Homepage Login button
+    document.getElementById('btn-show-login').addEventListener('click', () => {
+        authTitle.innerText = '🔐 ĐĂNG NHẬP';
+        authContainer.style.display = 'block';
+    });
+    
+    // Homepage Register button
+    document.getElementById('btn-show-register').addEventListener('click', () => {
+        authTitle.innerText = '📝 ĐĂNG KÝ';
+        authContainer.style.display = 'block';
+    });
+    
+    // Login button in auth form
+    document.getElementById('btn-login').addEventListener('click', dangNhap);
+    
+    // Register button in auth form
+    document.getElementById('btn-register').addEventListener('click', dangKy);
+    
+    // Logout button
+    document.getElementById('btn-logout').addEventListener('click', dangXuat);
+    
+    // Show auth container when clicking "Solo Online" if not logged in
+    document.getElementById('btn-go-online').addEventListener('click', (e) => {
+        if (!currentUsername) {
+            e.preventDefault();
+            e.stopPropagation();
+            authTitle.innerText = '🔐 ĐĂNG NHẬP';
+            authContainer.style.display = 'block';
+            alert('Vui lòng đăng nhập để chơi Online!');
+        }
+    });
+    
+    // Check for existing session on page load
+    const savedUsername = localStorage.getItem('current_username');
+    const savedUserId = localStorage.getItem('current_user_id');
+    if (savedUsername && savedUserId) {
+        currentUsername = savedUsername;
+        fetchUserData(savedUserId);
+        userLoggedIn.style.display = 'block';
+    }
+}
+
+// 1. ĐĂNG KÝ
+function dangKy() {
+    const username = document.getElementById('auth-username').value.trim();
+    const password = document.getElementById('auth-password').value.trim();
+    
+    if (!username || !password) {
+        alert('Vui lòng nhập tên đăng nhập và mật khẩu!');
+        return;
+    }
+    
+    if (username.length < 3) {
+        alert('Tên đăng nhập phải có ít nhất 3 ký tự!');
+        return;
+    }
+    
+    if (password.length < 4) {
+        alert('Mật khẩu phải có ít nhất 4 ký tự!');
+        return;
+    }
+    
+    // Check if username already exists
+    db.ref('users').orderByChild('username').equalTo(username).once('value').then((snapshot) => {
+        if (snapshot.exists()) {
+            alert('Tên đăng nhập đã tồn tại! Vui lòng chọn tên khác.');
+            return;
+        }
+        
+        // Create new user
+        const newUserRef = db.ref('users').push();
+        const userId = newUserRef.key;
+        
+        newUserRef.set({
+            username: username,
+            password: password, // Note: In production, this should be hashed!
+            displayName: username,
+            winBot: 0,
+            winSolo: 0,
+            loseSolo: 0,
+            createdAt: Date.now()
+        }).then(() => {
+            alert("Đăng ký tài khoản thành công!");
+            document.getElementById('auth-container').style.display = 'none';
+            
+            // Auto login after registration
+            currentUsername = username;
+            localStorage.setItem('current_username', username);
+            fetchUserData(userId);
+            
+            const userLoggedIn = document.getElementById('user-logged-in');
+            const authContainer = document.getElementById('auth-container');
+            userLoggedIn.style.display = 'block';
+            authContainer.style.display = 'none';
+        }).catch((error) => {
+            console.error("Lỗi đăng ký:", error);
+            alert("Lỗi đăng ký: " + error.message);
+        });
+    });
+}
+
+// 2. ĐĂNG NHẬP
+function dangNhap() {
+    const username = document.getElementById('auth-username').value.trim();
+    const password = document.getElementById('auth-password').value.trim();
+    
+    if (!username || !password) {
+        alert('Vui lòng nhập tên đăng nhập và mật khẩu!');
+        return;
+    }
+    
+    // Find user by username
+    db.ref('users').orderByChild('username').equalTo(username).once('value').then((snapshot) => {
+        if (!snapshot.exists()) {
+            alert('Tên đăng nhập không tồn tại!');
+            return;
+        }
+        
+        const users = snapshot.val();
+        const userId = Object.keys(users)[0];
+        const userData = users[userId];
+        
+        // Check password
+        if (userData.password !== password) {
+            alert('Mật khẩu không đúng!');
+            return;
+        }
+        
+        // Login successful
+        currentUsername = username;
+        localStorage.setItem('current_username', username);
+        localStorage.setItem('current_user_id', userId);
+        
+        alert("Đăng nhập thành công!");
+        document.getElementById('auth-container').style.display = 'none';
+        
+        const userLoggedIn = document.getElementById('user-logged-in');
+        userLoggedIn.style.display = 'block';
+        
+        fetchUserData(userId);
+    }).catch((error) => {
+        console.error("Lỗi đăng nhập:", error);
+        alert("Lỗi đăng nhập: " + error.message);
+    });
+}
+
+// 3. ĐĂNG XUẤT
+function dangXuat() {
+    currentUsername = null;
+    currentUserData = null;
+    localStorage.removeItem('current_username');
+    localStorage.removeItem('current_user_id');
+    
+    const userLoggedIn = document.getElementById('user-logged-in');
+    userLoggedIn.style.display = 'none';
+    
+    alert("Đã đăng xuất!");
+}
+
+// 4. LẤY DỮ LIỆU USER TỪ DATABASE
+function fetchUserData(userId) {
+    db.ref('users/' + userId).on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            currentUserData = data;
+            localStorage.setItem('current_user_id', userId);
+            
+            // Cập nhật UI user info panel
+            document.getElementById('user-display-name').innerText = data.displayName || data.username;
+            document.getElementById('my-win-bot').innerText = data.winBot || 0;
+            document.getElementById('my-win-solo').innerText = data.winSolo || 0;
+            document.getElementById('my-lose-solo').innerText = data.loseSolo || 0;
+        }
+    });
+}
+
+// 5. CẬP NHẬT THỐNG KÊ USER (WIN BOT, WIN SOLO, LOSE SOLO)
+function updateUserStats(statType, increment = 1) {
+    const userId = localStorage.getItem('current_user_id');
+    if (!userId) return;
+    
+    const statPath = `users/${userId}/${statType}`;
+    db.ref(statPath).transaction((currentValue) => {
+        return (currentValue || 0) + increment;
+    });
+}
+
+// Expose function globally for game logic to call when bot wins occur
+window.updateUserStats = updateUserStats;
 
 function setupEventListeners() {
     const lobbyScreen = document.getElementById('lobby-screen');
@@ -101,6 +311,11 @@ function setupEventListeners() {
         currentRoomId = null;
         myRole = null;
         onlineBanner.style.display = "none";
+        
+        // ẨN PLAYER PANELS KHI THOÁT ONLINE
+        document.getElementById('panel-playerX').style.display = 'none';
+        document.getElementById('panel-playerO').style.display = 'none';
+        
         alert(" Đã quay trở lại chế độ đấu Bot!");
         if (typeof window.xoaBanCoCu === "function") window.xoaBanCoCu(); // Reset bàn cờ về đấu bot
 
@@ -133,7 +348,8 @@ function setupEventListeners() {
 
     // 1. KHI BẤM TẠO PHÒNG MỚI (TẠO ID RIÊNG BIỆT KHÔNG TRÙNG LẶP)
     document.getElementById('btn-create').addEventListener('click', () => {
-        const playerName = document.getElementById('player-name').value.trim() || "Cơ thủ Caro";
+        // Sử dụng displayName từ user data đã đăng nhập
+        const playerName = currentUserData ? currentUserData.displayName : "Cơ thủ Caro";
         const inputRoomName = document.getElementById('room-name').value.trim() || `Phòng của ${playerName}`;
         
         // LẤY RIÊNG BIỆT 2 GIÁ TRỊ LUẬT CHƠI ĐỂ GỬI LÊN SERVER
@@ -147,6 +363,8 @@ function setupEventListeners() {
         currentWinCount = winCount; // Lưu số quân thắng hiện tại
         daXoaBanCoTranNay = false; // Reset cờ hiệu cho ván mới
 
+        const userId = localStorage.getItem('current_user_id') || myPlayerId;
+
         const roomData = {
             id: currentRoomId,
             name: inputRoomName,
@@ -154,9 +372,11 @@ function setupEventListeners() {
             chan2Dau: isChan2Dau,        // Lưu trạng thái checkbox lên Firebase
             status: "waiting",
             playerX: myClientId,
-            playerX_id: myPlayerId,     // Lưu ID của chủ phòng
+            playerX_id: userId,     // Lưu custom user ID của chủ phòng
+            playerX_name: playerName,  // Lưu tên hiển thị
             playerO: "",
             playerO_id: "",
+            playerO_name: "",
             turn: "X",
             winner: "",
             lastMove: { row: -1, col: -1, by: "" },
@@ -180,11 +400,10 @@ function setupEventListeners() {
             // Ẩn các thành phần của Bot khi bắt đầu vào trạng thái Online
             anGiaoDienVaThoaiCuaBot(true);
             
-            // Thiết lập onDisconnect cho chủ phòng
-            db.ref(`rooms/${currentRoomId}/playerX_status`).onDisconnect().set('offline');
+            // 🔥 LỆNH QUAN TRỌNG: Nếu chủ phòng ngắt kết nối/tắt tab khi đang đợi, tự động xóa phòng luôn
+            newRoomRef.onDisconnect().remove();
             
             listenToRoomChanges(currentRoomId);
-            newRoomRef.onDisconnect().remove(); // Mất mạng tự hủy phòng chờ
         });
     });
 
@@ -202,15 +421,29 @@ function setupEventListeners() {
         }
     });
 
-    // Hàm tự động xóa phòng trống quá hạn
+    // Hàm tự động xóa phòng trống quá hạn và phòng ma
     function xoaPhongMaTuDong(allRooms) {
         const now = Date.now();
         Object.keys(allRooms).forEach(roomId => {
             const room = allRooms[roomId];
+            
+            // 1. Xóa phòng ma: Phòng không có dữ liệu người chơi hoặc dữ liệu không hoàn chỉnh
+            if (!room.playerX_id || !room.playerX || (!room.playerO_id && room.status === 'playing')) {
+                db.ref(`rooms/${roomId}`).remove();
+                console.log(`Đã dọn dẹp phòng ma (không có dữ liệu người chơi): ${roomId}`);
+                return;
+            }
+            
+            // 2. Xóa phòng quá hạn: Cả 2 người đều offline quá 1 phút
             if (room.deleteTimeoutTimestamp && now > room.deleteTimeoutTimestamp) {
-                // Đã quá 1 phút không có ai quay lại -> Xóa sạch phòng và bàn cờ trên Firebase
                 db.ref(`rooms/${roomId}`).remove();
                 console.log(`Đã dọn dẹp phòng trống quá hạn: ${roomId}`);
+            }
+            
+            // 3. Xóa phòng đang chờ nhưng chủ phòng đã offline
+            if (room.status === 'waiting' && room.playerX_status === 'offline') {
+                db.ref(`rooms/${roomId}`).remove();
+                console.log(`Đã dọn dẹp phòng chờ (chủ phòng offline): ${roomId}`);
             }
         });
     }
@@ -303,8 +536,12 @@ function setupEventListeners() {
                 return;
             }
 
+            // Sử dụng custom user ID nếu có, nếu không thì dùng myPlayerId cũ
+            const playerId = localStorage.getItem('current_user_id') || myPlayerId;
+            const playerName = currentUserData ? currentUserData.displayName : "Cơ thủ Caro";
+
             // Kiểm tra xem người chơi đã có trong phòng chưa
-            if (myPlayerId === room.playerX_id) {
+            if (playerId === room.playerX_id) {
                 myRole = 'X'; // Nhận lại vai chủ phòng
                 console.log("Bạn đã quay lại phòng với tư cách quân X");
                 localStorage.setItem('current_room_id', roomId);
@@ -312,7 +549,7 @@ function setupEventListeners() {
                 db.ref(`rooms/${roomId}/playerX_status`).onDisconnect().set('offline');
                 startOnlineMatch();
                 listenToRoomChanges(roomId);
-            } else if (myPlayerId === room.playerO_id) {
+            } else if (playerId === room.playerO_id) {
                 myRole = 'O'; // Nhận lại vai khách
                 console.log("Bạn đã quay lại phòng với tư cách quân O");
                 localStorage.setItem('current_room_id', roomId);
@@ -329,7 +566,8 @@ function setupEventListeners() {
                 myRole = 'O';
                 roomRef.update({ 
                     playerO: myClientId, 
-                    playerO_id: myPlayerId,
+                    playerO_id: playerId,
+                    playerO_name: playerName,
                     status: "playing",
                     playerO_status: 'online'
                 }).then(() => {
@@ -338,7 +576,7 @@ function setupEventListeners() {
                     
                     startOnlineMatch();
                     listenToRoomChanges(roomId);
-                    roomRef.onDisconnect().update({ status: "ended", winner: "X (Đối thủ thoát)" });
+                    // Khi trận đấu bắt đầu, chỉ set status offline cho playerO, không xóa cả phòng
                     db.ref(`rooms/${roomId}/playerO_status`).onDisconnect().set('offline');
                 });
             }
@@ -402,6 +640,19 @@ function setupEventListeners() {
                         window.xoaBanCoCu(); 
                     }
                     daXoaBanCoTranNay = true; 
+                    
+                    // 🔥 QUAN TRỌNG: Khi trận đấu bắt đầu, hủy lệnh xóa phòng và thay bằng set status offline
+                    // Hủy lệnh onDisconnect().remove() cũ của chủ phòng
+                    db.ref(`rooms/${roomId}`).onDisconnect().cancel();
+                    
+                    // Thiết lập onDisconnect mới: chỉ set status offline cho từng người chơi
+                    if (myRole === 'X') {
+                        // Chủ phòng: set status offline khi mất kết nối
+                        db.ref(`rooms/${roomId}/playerX_status`).onDisconnect().set('offline');
+                    } else if (myRole === 'O') {
+                        // Khách: set status offline khi mất kết nối  
+                        db.ref(`rooms/${roomId}/playerO_status`).onDisconnect().set('offline');
+                    }
                 }
 
                 // TẮT TOÀN BỘ SẢNH CHỜ VÀ BẮT ĐẦU VÀO TRẬN ĐẤU ONLINE
@@ -411,6 +662,10 @@ function setupEventListeners() {
                 
                 isOnlineMode = true;
                 onlineBanner.style.display = "block";
+                
+                // HIỂN THỊ PLAYER PANELS KHI VÀO TRẬN ONLINE
+                document.getElementById('panel-playerX').style.display = 'block';
+                document.getElementById('panel-playerO').style.display = 'block';
                 
                 // Đồng bộ UI với cấu hình phòng từ Firebase
                 const winCountSelect = document.getElementById('win-count');
@@ -423,6 +678,45 @@ function setupEventListeners() {
                     gameInfo.innerHTML = `<span style='color:#28a745; font-weight:bold;'>Lượt của bạn (${myRole})</span> - Luật: ${displayLuat}`;
                 } else {
                     gameInfo.innerHTML = `<span style='color:#dc3545;'>Chờ đối thủ (${currentTurn}) đánh...</span> - Luật: ${displayLuat}`;
+                }
+
+                // LẤY VÀ HIỂN THỊ DỮ LIỆU USER CHO 2 NGƯỜI CHƠI
+                // 1. Lấy dữ liệu quân X (Chủ phòng)
+                if (room.playerX_id) {
+                    db.ref('users/' + room.playerX_id).once('value').then((userSnap) => {
+                        const userX = userSnap.val();
+                        if (userX) {
+                            document.getElementById('view-name-X').innerText = userX.displayName || userX.username;
+                            document.getElementById('view-winbot-X').innerText = userX.winBot || 0;
+                            document.getElementById('view-winsolo-X').innerText = userX.winSolo || 0;
+                            document.getElementById('view-losesolo-X').innerText = userX.loseSolo || 0;
+                        } else {
+                            // Fallback nếu chưa có user data
+                            document.getElementById('view-name-X').innerText = room.playerX_name || "Người chơi X";
+                        }
+                    });
+                }
+
+                // 2. Lấy dữ liệu quân O (Khách)
+                if (room.playerO_id) {
+                    db.ref('users/' + room.playerO_id).once('value').then((userSnap) => {
+                        const userO = userSnap.val();
+                        if (userO) {
+                            document.getElementById('view-name-O').innerText = userO.displayName || userO.username;
+                            document.getElementById('view-winbot-O').innerText = userO.winBot || 0;
+                            document.getElementById('view-winsolo-O').innerText = userO.winSolo || 0;
+                            document.getElementById('view-losesolo-O').innerText = userO.loseSolo || 0;
+                        } else {
+                            // Fallback nếu chưa có user data
+                            document.getElementById('view-name-O').innerText = room.playerO_name || "Người chơi O";
+                        }
+                    });
+                } else {
+                    // Nếu chưa có khách vào, reset UI bên phải về trạng thái chờ
+                    document.getElementById('view-name-O').innerText = "Đang chờ đối thủ...";
+                    document.getElementById('view-winbot-O').innerText = "0";
+                    document.getElementById('view-winsolo-O').innerText = "0";
+                    document.getElementById('view-losesolo-O').innerText = "0";
                 }
 
                 // Đồng bộ nước đi từ Firebase
@@ -441,20 +735,31 @@ function setupEventListeners() {
                 gameInfo.innerHTML = `<b style='color:#d9534f;'>Trận đấu kết thúc! Thắng: ${room.winner}</b>`;
                 daXoaBanCoTranNay = false; // Chuẩn bị cờ hiệu cho ván tiếp theo
                 
-                // Cập nhật bảng xếp hạng khi có người thắng
+                // Cập nhật bảng xếp hạng và user stats khi có người thắng
                 if (room.winner && room.winner !== "Đối thủ bỏ cuộc") {
                     // Lấy tên người chơi tương ứng với quân thắng
                     const winnerName = room.winner === 'X' ? 
-                        (room.playerX === myClientId ? document.getElementById('player-name').value : "Người chơi X") :
-                        (room.playerO === myClientId ? document.getElementById('player-name').value : "Người chơi O");
+                        (room.playerX_name || "Người chơi X") :
+                        (room.playerO_name || "Người chơi O");
                     
                     const loserName = room.winner === 'X' ? 
-                        (room.playerO === myClientId ? document.getElementById('player-name').value : "Người chơi O") :
-                        (room.playerX === myClientId ? document.getElementById('player-name').value : "Người chơi X");
+                        (room.playerO_name || "Người chơi O") :
+                        (room.playerX_name || "Người chơi X");
                     
                     if (winnerName && loserName) {
                         capNhatBangXepHangOnline(winnerName);
                         ghiLichSuTranDauOnline(room.name, winnerName, loserName, room.winner);
+                        
+                        // Cập nhật user stats (winSolo, loseSolo)
+                        const winnerId = room.winner === 'X' ? room.playerX_id : room.playerO_id;
+                        const loserId = room.winner === 'X' ? room.playerO_id : room.playerX_id;
+                        
+                        if (winnerId) {
+                            db.ref(`users/${winnerId}/winSolo`).transaction((current) => (current || 0) + 1);
+                        }
+                        if (loserId) {
+                            db.ref(`users/${loserId}/loseSolo`).transaction((current) => (current || 0) + 1);
+                        }
                     }
                 }
             }
