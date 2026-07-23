@@ -67,6 +67,10 @@ function setupEventListeners() {
         
         // Tùy chọn: Gọi hàm reset bàn cờ cũ của anh ở đây để chuẩn bị chơi mới
         if (typeof window.xoaBanCoCu === "function") window.xoaBanCoCu(); 
+
+        // ẨN PHẦN CHỌN CHẾ ĐỘ BOT TRÊN UI
+        const khuVucBot = document.getElementById('ui-config-panel');
+        if (khuVucBot) khuVucBot.style.pointerEvents = "none"; // Khóa không cho bấm chọn mức Bot nữa
     }
 
     // Khi ấn nút "Thoát Online" để quay về đấu Bot
@@ -85,6 +89,10 @@ function setupEventListeners() {
         onlineBanner.style.display = "none";
         alert(" Đã quay trở lại chế độ đấu Bot!");
         if (typeof window.xoaBanCoCu === "function") window.xoaBanCoCu(); // Reset bàn cờ về đấu bot
+
+        // MỞ LẠI CHO CHỌN BOT
+        const khuVucBot = document.getElementById('ui-config-panel');
+        if (khuVucBot) khuVucBot.style.pointerEvents = "auto";
     }
 
     // 1. KHI BẤM TẠO PHÒNG MỚI
@@ -323,4 +331,9 @@ function setupEventListeners() {
     window.isOnlineModeActive = function() {
         return isOnlineMode;
     };
+
+    // Dòng mới thêm: Giúp giao diện biết anh đang cầm quân gì để vẽ cho đúng
+    Object.defineProperty(window, 'myOnlineRole', {
+        get: function() { return myRole; }
+    });
 }

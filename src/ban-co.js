@@ -357,6 +357,55 @@ function infOnClick(e) {
     if (e.button !== 0) return;
     if (panMoved) { panMoved = false; return; }
     if (!isGameActive) return;
+    
+    // 1. CÓ PHẢI CHẾ ĐỘ ONLINE KHÔNG?
+    if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+        const rect = infCanvas.getBoundingClientRect();
+        const { r, c } = canvasPixelToCell(e.clientX - rect.left, e.clientY - rect.top);
+        if (getCell(r, c) !== '') return;
+        
+        // Gửi nước đi lên Firebase để kiểm tra lượt
+        let hopLe = window.guiNuocDiLenFirebase(r, c);
+        if (!hopLe) return; // Nếu sai lượt, Firebase sẽ alert và chặn tại đây luôn
+
+        // LẤY CHÍNH XÁC QUÂN CỜ CỦA ANH TRONG PHÒNG ONLINE (X hoặc O)
+        let quanCoCuaToi = window.myOnlineRole; 
+
+        // GỌI HÀM VẼ UI CỦA ANH: Vẽ chính xác quân cờ của anh lên màn hình
+        if (typeof setCell === 'function') {
+            setCell(r, c, quanCoCuaToi);
+        }
+        
+        // Update move history
+        if (typeof moveHistory !== 'undefined') {
+            moveHistory.push({ r: r, c: c, player: quanCoCuaToi });
+        }
+        
+        // Update last move tracking
+        if (typeof lastMoveR !== 'undefined') {
+            lastMoveR = r;
+            lastMoveC = c;
+        }
+        
+        // Update current player
+        if (typeof currentPlayer !== 'undefined') {
+            currentPlayer = quanCoCuaToi;
+        }
+        
+        // Re-render the board
+        if (typeof renderInfiniteBoard === 'function') {
+            renderInfiniteBoard();
+        }
+        
+        // Update status
+        if (typeof updateStatus === 'function') {
+            updateStatus();
+        }
+
+        return; // DỪNG LẠI TẠI ĐÂY, KHÔNG CHO CHẠY LOGIC ĐẤU BOT Ở DƯỚI!
+    }
+
+    // --- 2. GIỮ NGUYÊN LOGIC ĐẤU BOT TỰ ĐỘNG CŨ CỦA ANH Ở DƯỚI ĐÂY ---
     if (gameMode.startsWith('ai') && currentPlayer === botPiece) return;
     const rect = infCanvas.getBoundingClientRect();
     const { r, c } = canvasPixelToCell(e.clientX - rect.left, e.clientY - rect.top);
@@ -547,6 +596,57 @@ let isDragging = false, panMoved = false;
 function handleCellClick(e) {
     if (panMoved) return;
     if (!isGameActive) return;
+    
+    // 1. CÓ PHẢI CHẾ ĐỘ ONLINE KHÔNG?
+    if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+        let target = e.target;
+        if (!target.classList.contains('cell')) target = target.parentElement;
+        const r = parseInt(target.getAttribute('data-row'));
+        const c = parseInt(target.getAttribute('data-col'));
+        if (getCell(r, c) !== "") return;
+        
+        // Gửi nước đi lên Firebase để kiểm tra lượt
+        let hopLe = window.guiNuocDiLenFirebase(r, c);
+        if (!hopLe) return; // Nếu sai lượt, Firebase sẽ alert và chặn tại đây luôn
+
+        // LẤY CHÍNH XÁC QUÂN CỜ CỦA ANH TRONG PHÒNG ONLINE (X hoặc O)
+        let quanCoCuaToi = window.myOnlineRole; 
+
+        // GỌI HÀM VẼ UI CỦA ANH: Vẽ chính xác quân cờ của anh lên màn hình
+        if (typeof setCell === 'function') {
+            setCell(r, c, quanCoCuaToi);
+        }
+        
+        // Update move history
+        if (typeof moveHistory !== 'undefined') {
+            moveHistory.push({ r: r, c: c, player: quanCoCuaToi });
+        }
+        
+        // Update last move tracking
+        if (typeof lastMoveR !== 'undefined') {
+            lastMoveR = r;
+            lastMoveC = c;
+        }
+        
+        // Update current player
+        if (typeof currentPlayer !== 'undefined') {
+            currentPlayer = quanCoCuaToi;
+        }
+        
+        // Re-render the board
+        if (typeof renderFixedBoard === 'function') {
+            renderFixedBoard();
+        }
+        
+        // Update status
+        if (typeof updateStatus === 'function') {
+            updateStatus();
+        }
+
+        return; // DỪNG LẠI TẠI ĐÂY, KHÔNG CHO CHẠY LOGIC ĐẤU BOT Ở DƯỚI!
+    }
+
+    // --- 2. GIỮ NGUYÊN LOGIC ĐẤU BOT TỰ ĐỘNG CŨ CỦA ANH Ở DƯỚI ĐÂY ---
     if (gameMode.startsWith('ai') && currentPlayer === botPiece) return;
     let target = e.target;
     if (!target.classList.contains('cell')) target = target.parentElement;
