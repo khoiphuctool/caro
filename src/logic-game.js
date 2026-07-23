@@ -453,6 +453,56 @@ function checkWinSilent(r, c) {
     return false;
 }
 
+// checkWinLogicOld: Hàm kiểm tra thắng thua hỗ trợ cả Online và Offline với tham số luật chơi tùy chỉnh
+window.checkWinLogicOld = function(row, col, playerRole, customRule, customWinCount) {
+    const directions = [{ dr:0,dc:1 },{ dr:1,dc:0 },{ dr:1,dc:1 },{ dr:1,dc:-1 }];
+    const player = playerRole || getCell(row, col);
+    const opp    = player === "X" ? "O" : "X";
+    
+    // 1. Xác định luật chơi đang áp dụng
+    let blockBothEndsEnabled = false;
+    let currentWinCount = winCount; // Mặc định dùng biến global
+    
+    if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+        // Nếu đang chơi Online: Lấy luật từ Firebase truyền sang
+        blockBothEndsEnabled = (customRule === 'chan_2_dau');
+        if (customWinCount) currentWinCount = customWinCount;
+    } else {
+        // Nếu đang đấu Bot: Lấy luật từ ô Checkbox trên giao diện cũ của anh
+        const checkboxCu = document.getElementById('block-both-ends');
+        blockBothEndsEnabled = checkboxCu ? checkboxCu.checked : false;
+    }
+
+    for (let { dr, dc } of directions) {
+        const cells = [[row, col]];
+        let fwd = 0, bwd = 0;
+        while (getCell(row+dr*(fwd+1), col+dc*(fwd+1)) === player) { fwd++; cells.push([row+dr*fwd, col+dc*fwd]); }
+        while (getCell(row-dr*(bwd+1), col-dc*(bwd+1)) === player) { bwd++; cells.push([row-dr*bwd, col-dc*bwd]); }
+        if (cells.length < currentWinCount) continue;
+
+        if (blockBothEndsEnabled) {
+            let headBlocked = false, headDist = 1;
+            while (!headBlocked && headDist <= 50) {
+                const val = getCell(row + dr*(fwd+headDist), col + dc*(fwd+headDist));
+                if (val === opp) { headBlocked = true; break; }
+                if (val === player) break;
+                headDist++;
+            }
+            let tailBlocked = false, tailDist = 1;
+            while (!tailBlocked && tailDist <= 50) {
+                const val = getCell(row - dr*(bwd+tailDist), col - dc*(tailDist+bwd));
+                if (val === opp) { tailBlocked = true; break; }
+                if (val === player) break;
+                tailDist++;
+            }
+            if (headBlocked && tailBlocked) continue;
+        }
+        highlightWinners(cells);
+        return true;
+    }
+    return false;
+};
+
 function highlightWinners(winningCells) {
     if (isInfinite) winningCellCoords = winningCells.slice();
     winningCells.forEach(([r, c]) => {
