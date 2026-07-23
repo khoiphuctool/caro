@@ -204,74 +204,72 @@ function updateStatus() {
 
 // ===== MAKE MOVE =====
 function makeMove(r, c) {
-    // Nếu đang ở chế độ online
-    if (window.guiNuocDiLenFirebase) {
-        let hopLe = window.guiNuocDiLenFirebase(r, c);
-        if (!hopLe) return; // Nếu hàm trả về false (không đúng lượt online) thì chặn không cho click tiếp
-    }
-
-    // NẾU LÀ ĐANG CHƠI ONLINE -> chặn không cho hàm kích hoạt Bot (AI) chạy
+    // NẾU ĐANG CHƠI ONLINE
     if (window.isOnlineModeActive && window.isOnlineModeActive()) {
-        // Vẽ quân cờ cho người chơi hiện tại trong chế độ online
-        moveCount++;
-        setCell(r, c, currentPlayer);
-        moveHistory.push({ r, c, player: currentPlayer });
+        // Kiểm tra đúng lượt trước
+        if (typeof currentTurn !== 'undefined' && typeof myRole !== 'undefined') {
+            // currentTurn và myRole là biến trong firebase-online.js scope
+        }
 
-        // Invalidate neural cache khi board state thay đổi
+        const quanToi = window.myOnlineRole || currentPlayer;
+
+        // Vẽ quân lên bàn trước (optimistic update)
+        moveCount++;
+        setCell(r, c, quanToi);
+        moveHistory.push({ r, c, player: quanToi });
+
         if (typeof neuralEvaluator !== 'undefined' && neuralEvaluator.invalidateCache) {
             neuralEvaluator.invalidateCache();
         }
 
         keyboardCursorR = r; keyboardCursorC = c;
         keyboardCursorVisible = true;
-
         if (playerTurnTimer) clearInterval(playerTurnTimer);
-        updateCursorByTurn();
 
         if (isInfinite) {
             lastMoveR = r; lastMoveC = c;
-            const cols  = infCanvasW / INF_CS;
-            const rows  = infCanvasH / INF_CS;
-            const distR = Math.abs((r - vRowF) - rows / 2);
-            const distC = Math.abs((c - vColF) - cols / 2);
-            if (distR > rows * 0.35 || distC > cols * 0.35) {
-                vRowF = r - rows / 2;
-                vColF = c - cols / 2;
+            const cols = infCanvasW / INF_CS, rows = infCanvasH / INF_CS;
+            if (Math.abs((r - vRowF) - rows / 2) > rows * 0.35 || Math.abs((c - vColF) - cols / 2) > cols * 0.35) {
+                vRowF = r - rows / 2; vColF = c - cols / 2;
             }
             renderInfiniteBoard();
         } else {
             if (lastMoveCell) lastMoveCell.classList.remove('last-move');
-            let cell = document.querySelector(`[data-row='${r}'][data-col='${c}']`);
-            if (cell) { cell.classList.add(currentPlayer); cell.classList.add('last-move'); lastMoveCell = cell; }
+            const cell = document.querySelector(`[data-row='${r}'][data-col='${c}']`);
+            if (cell) { cell.classList.add(quanToi); cell.classList.add('last-move'); lastMoveCell = cell; }
         }
 
-        // Check win trong chế độ online
+        // Gửi lên Firebase SAU KHI đã setCell (để checkWin trong guiNuocDiLenFirebase đọc đúng board)
+        if (window.guiNuocDiLenFirebase) {
+            const hopLe = window.guiNuocDiLenFirebase(r, c);
+            if (!hopLe) {
+                // Sai lượt — rollback quân vừa vẽ
+                setCell(r, c, '');
+                moveHistory.pop();
+                moveCount--;
+                renderInfiniteBoard();
+                return;
+            }
+        }
+
+        // Kiểm tra thắng phía client để hiện UI ngay
         if (checkWin(r, c)) {
             isGameActive = false;
-            if (lastMoveCell) lastMoveCell.classList.remove('last-move');
-            const boardLabel = '♾️ Vô Hạn';
-            
-            if (gameMode === 'solo') {
-                statusPanel.innerHTML = `🏆 Người <strong>${currentPlayer}</strong> chiến thắng!`;
-                recordMatch('win', currentPlayer);
-                setTimeout(() => {
-                    showWinOverlay(currentPlayer, false, '', '');
-                    if (gameTotalTimer) clearInterval(gameTotalTimer);
-                    if (playerTurnTimer) clearInterval(playerTurnTimer);
-                    const timerPanel = document.getElementById('timer-panel');
-                    if (timerPanel) timerPanel.style.display = 'none';
-                }, 500);
-            }
+            statusPanel.innerHTML = `🏆 <strong>${quanToi}</strong> chiến thắng!`;
+            setTimeout(() => {
+                showWinOverlay(quanToi, false, '', '');
+                if (gameTotalTimer) clearInterval(gameTotalTimer);
+                if (playerTurnTimer) clearInterval(playerTurnTimer);
+            }, 500);
             return;
         }
 
-        currentPlayer = currentPlayer === "X" ? "O" : "X";
+        // Chuyển lượt local (Firebase sẽ sync lại đúng)
+        currentPlayer = quanToi === 'X' ? 'O' : 'X';
         updateCursorByTurn();
         updateStatus();
-        
-        return; // Dừng lại ở đây, KHÔNG CHO CHẠY LOGIC ĐẤU BOT XUỐNG DƯỚI!
+        return;
     }
-    
     // --- GIỮ NGUYÊN LOGIC ĐẤU BOT TỰ ĐỘNG CŨ CỦA ANH Ở DƯỚI ĐÂY ---
     
     moveCount++;

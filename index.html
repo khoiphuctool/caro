@@ -179,15 +179,20 @@
     </div>
 
     <div class="main-layout">
-        <div class="game-container" id="ui-game-container" style="display: flex; justify-content: space-between; align-items: center; gap: 20px;">
+        <div class="game-container" id="ui-game-container" style="display: flex; justify-content: center; align-items: center; gap: 12px;">
             
             <!-- BÊN TRÁI: THÔNG TIN NGƯỜI CHƠI X (CHỦ PHÒNG) -->
-            <div id="panel-playerX" class="player-card" style="display: none; width: 180px; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-                <h4 id="view-name-X" style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold;">Đang chờ...</h4>
-                <div class="badge-role" style="background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-bottom: 10px; font-weight: bold;">🔴 Quân X (Đi trước)</div>
-                <p style="margin: 5px 0; font-size: 13px;">🤖 Thắng Bot: <span id="view-winbot-X" style="font-weight: bold;">0</span></p>
-                <p style="margin: 5px 0; font-size: 13px;">⚔️ Thắng Solo: <span id="view-winsolo-X" style="font-weight: bold;">0</span></p>
-                <p style="margin: 5px 0; font-size: 13px;">📉 Thua Solo: <span id="view-losesolo-X" style="font-weight: bold;">0</span></p>
+            <div id="panel-playerX" class="player-card player-card-x" style="display: none;">
+                <div class="pc-avatar pc-avatar-x">X</div>
+                <div class="pc-info">
+                    <div class="pc-name" id="view-name-X">Đang chờ...</div>
+                    <div class="pc-badge">🔴 Quân X · Đi trước</div>
+                    <div class="pc-stats">
+                        <span>🤖 <b id="view-winbot-X">0</b></span>
+                        <span>⚔️ <b id="view-winsolo-X">0</b></span>
+                        <span>📉 <b id="view-losesolo-X">0</b></span>
+                    </div>
+                </div>
             </div>
 
             <!-- Ở GIỮA: BÀN CỜ VÀ BOT AVATAR -->
@@ -237,12 +242,17 @@
             </div>
 
             <!-- BÊN PHẢI: THÔNG TIN NGƯỜI CHƠI O (KHÁCH) -->
-            <div id="panel-playerO" class="player-card" style="display: none; width: 180px; padding: 15px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 12px; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-                <h4 id="view-name-O" style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold;">Đang chờ...</h4>
-                <div class="badge-role" style="background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-bottom: 10px; font-weight: bold;">🔵 Quân O (Đi sau)</div>
-                <p style="margin: 5px 0; font-size: 13px;">🤖 Thắng Bot: <span id="view-winbot-O" style="font-weight: bold;">0</span></p>
-                <p style="margin: 5px 0; font-size: 13px;">⚔️ Thắng Solo: <span id="view-winsolo-O" style="font-weight: bold;">0</span></p>
-                <p style="margin: 5px 0; font-size: 13px;">📉 Thua Solo: <span id="view-losesolo-O" style="font-weight: bold;">0</span></p>
+            <div id="panel-playerO" class="player-card player-card-o" style="display: none;">
+                <div class="pc-avatar pc-avatar-o">O</div>
+                <div class="pc-info">
+                    <div class="pc-name" id="view-name-O">Đang chờ...</div>
+                    <div class="pc-badge">🔵 Quân O · Đi sau</div>
+                    <div class="pc-stats">
+                        <span>🤖 <b id="view-winbot-O">0</b></span>
+                        <span>⚔️ <b id="view-winsolo-O">0</b></span>
+                        <span>📉 <b id="view-losesolo-O">0</b></span>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -422,8 +432,12 @@
             <div class="player-slot" id="slot-playerX">
                 <div class="avatar-circle">X</div>
                 <div class="player-info">
-                    <div class="player-name" id="name-pX">Đang chờ...</div>
+                    <div class="player-name" id="name-pX">Đang chờ...
+                        <span class="ping-led" id="led-pX" title="Trạng thái kết nối"></span>
+                    </div>
                     <div class="player-status" id="status-pX">Chủ phòng</div>
+                    <button id="btn-ready-X" onclick="setReady('X')" class="btn-ready" style="display: none;">✅ Sẵn sàng</button>
+                    <div id="ready-indicator-X" class="ready-indicator" style="display: none;">🟢 Đã sẵn sàng</div>
                 </div>
             </div>
 
@@ -432,22 +446,31 @@
             <div class="player-slot" id="slot-playerO">
                 <div class="avatar-circle avatar-o">O</div>
                 <div class="player-info">
-                    <div class="player-name" id="name-pO">Đang chờ đối thủ...</div>
+                    <div class="player-name" id="name-pO">Đang chờ đối thủ...
+                        <span class="ping-led" id="led-pO" title="Trạng thái kết nối"></span>
+                    </div>
                     <div class="player-status" id="status-pO">Trống ghế</div>
+                    <button id="btn-ready-O" onclick="setReady('O')" class="btn-ready" style="display: none;">✅ Sẵn sàng</button>
+                    <div id="ready-indicator-O" class="ready-indicator" style="display: none;">🟢 Đã sẵn sàng</div>
                 </div>
                 <button id="btn-kick-player" onclick="kickDoiThu()" class="btn-kick" style="display: none;">Đuổi ❌</button>
             </div>
         </div>
 
-        <!-- BÀN CỜ PHÒNG ĐẤU ONLINE (Có chứa khung bọc riêng biệt cho chế độ online) -->
+        <!-- DISCONNECT COUNTDOWN OVERLAY -->
+        <div id="disconnect-overlay" style="display:none; background:#fff3cd; border:1px solid #ffc107; border-radius:8px; padding:10px 14px; margin:6px 0; text-align:center; font-size:13px; font-weight:bold; color:#856404;">
+            ⚠️ <span id="disconnect-name">Đối thủ</span> mất kết nối — xử lý thua sau <span id="disconnect-countdown" style="color:#dc3545; font-size:16px;">15</span>s
+            <button onclick="boQuaDisconnect()" style="margin-left:10px; padding:3px 8px; border:none; border-radius:4px; background:#6c757d; color:#fff; cursor:pointer; font-size:11px;">Bỏ qua</button>
+        </div>
+
+        <!-- BÀN CỜ PHÒNG ĐẤU ONLINE — dùng chung bàn cờ từ main-layout -->
         <div class="match-board-section">
             <div class="board-zoom-controls">
                 <button type="button" class="btn-zoom" onclick="thayDoiKichThuocCo(-2)"> Thu nhỏ</button>
                 <button type="button" class="btn-zoom btn-zoom-in" onclick="thayDoiKichThuocCo(2)">Phóng to</button>
             </div>
-            <div id="game-board-container">
-                <table id="board"></table>
-            </div>
+            <!-- #unified-board-slot: bàn cờ thật sẽ được JS move vào đây khi online -->
+            <div id="unified-board-slot"></div>
         </div>
 
         <!-- KHU VỰC KHÁN GIẢ, CHAT & MỜI ONLINE -->
@@ -460,6 +483,28 @@
             <div class="chat-panel">
                 <h4>💬 Trò chuyện</h4>
                 <div id="chat-messages" class="scroll-list"></div>
+
+                <!-- QUICK CHAT BUBBLES -->
+                <div class="quick-chat-bar">
+                    <button class="qc-btn" onclick="guiQuickChat('👍 Hay đó!')">👍</button>
+                    <button class="qc-btn" onclick="guiQuickChat('😂 Haha!')">😂</button>
+                    <button class="qc-btn" onclick="guiQuickChat('😤 Sơ rồi!')">😤</button>
+                    <button class="qc-btn" onclick="guiQuickChat('🤔 Khó nhằn!')">🤔</button>
+                    <button class="qc-btn" onclick="guiQuickChat('🔥 Nóng rồi!')">🔥</button>
+                    <button class="qc-btn qc-more" onclick="toggleQuickChatMenu()" title="Thêm">＋</button>
+                </div>
+                <!-- QUICK CHAT MENU MỞ RỘNG -->
+                <div id="quick-chat-menu" style="display:none;">
+                    <button class="qc-full" onclick="guiQuickChat('Hay quá! 🎉')">Hay quá! 🎉</button>
+                    <button class="qc-full" onclick="guiQuickChat('Đợi tí nhé... ⏳')">Đợi tí nhé... ⏳</button>
+                    <button class="qc-full" onclick="guiQuickChat('Nước đó hay thật! 👏')">Nước đó hay thật! 👏</button>
+                    <button class="qc-full" onclick="guiQuickChat('Sơ rồi bạn ơi! 😬')">Sơ rồi bạn ơi! 😬</button>
+                    <button class="qc-full" onclick="guiQuickChat('Chơi lại nhé! 🔄')">Chơi lại nhé! 🔄</button>
+                    <button class="qc-full" onclick="guiQuickChat('Chúc mừng! 🏆')">Chúc mừng! 🏆</button>
+                    <button class="qc-full" onclick="guiQuickChat('Ăn hên thôi! 😜')">Ăn hên thôi! 😜</button>
+                    <button class="qc-full" onclick="guiQuickChat('Mình cần nghĩ tí... 🧠')">Mình cần nghĩ tí... 🧠</button>
+                </div>
+
                 <div class="chat-input-row">
                     <input type="text" id="chat-input" placeholder="Nhập tin nhắn..." onkeydown="if(event.key==='Enter') guiTinNhanOnline()">
                     <button onclick="guiTinNhanOnline()">Gửi</button>
