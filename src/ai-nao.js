@@ -1962,15 +1962,30 @@ function godEngineMove(bp, hp, validCands, isGod) {
     // 1d. Block Forced Four (địch)
     {
         let bestBlock=null, bestS=-Infinity;
+        let bestEffectiveBlock=null, bestEffectiveS=-Infinity;
         for (const {r,c} of allEmpty) {
             if (getCell(r,c)!=='') continue;
             const t = ThreatDetector.evaluateDefenseThreat(r,c,hp,wc,bbe);
             if (t.maxThreat >= ThreatDetector.THREAT.CRITICAL) {
                 const s = t.patternScores.reduce((acc,p)=>acc+p.score,0);
-                if (s>bestS) { bestS=s; bestBlock={r,c}; }
+                // Kiểm tra chặn hiệu quả: sau khi bot đặt vào đây, chuỗi FOUR địch bị khóa 2 đầu
+                setCell(r,c,bp);
+                let makesDeadFour = false;
+                for (const {dr,dc} of DIRECTIONS) {
+                    const {count, blockedBoth} = countLineAndBlocked(r,c,dr,dc,hp);
+                    if (count >= wc-1 && blockedBoth) { makesDeadFour=true; break; }
+                }
+                setCell(r,c,'');
+                if (makesDeadFour) {
+                    if (s>bestEffectiveS) { bestEffectiveS=s; bestEffectiveBlock={r,c}; }
+                } else {
+                    if (s>bestS) { bestS=s; bestBlock={r,c}; }
+                }
             }
         }
-        if (bestBlock) return { move:bestBlock, reason:'block_forced_four' };
+        // Ưu tiên chặn hiệu quả (khóa dead four), fallback sang chặn thường
+        const chosenBlock = bestEffectiveBlock || bestBlock;
+        if (chosenBlock) return { move:chosenBlock, reason:'block_forced_four' };
     }
 
     // 1e. Forced Double Threat (bot) — Double Four / Four+Three
@@ -1993,7 +2008,34 @@ function godEngineMove(bp, hp, validCands, isGod) {
 
     // 1g. Lookahead: địch tạo FOUR lượt sau? / Double Three lượt sau?
     // Dùng getAllTacticalCells() — không bị giới hạn 50
+    // Đặc biệt: nếu địch có FOUR_OPEN (2 đầu thoáng) → kiểm tra cả 2 đầu,
+    // ưu tiên đầu nào mà khi bot chặn sẽ khóa được chuỗi (dead four).
+    // Nếu không khóa được đầu nào → địch FOUR_OPEN thực sự → tìm cách tấn công.
     {
+        // 1g-extra: FOUR_OPEN của địch (chuỗi (wc-1) quân, 2 đầu trống)
+        // Phát hiện sớm trước khi PVS để tránh bỏ sót
+        const liveThreatsNow = findLiveThreats(hp, winCount - 1);
+        if (liveThreatsNow.length >= 2) {
+            // Tìm xem có đầu nào chặn hiệu quả không
+            let effectiveBlock=null, effectiveS=-Infinity;
+            for (const {r,c} of liveThreatsNow) {
+                if (getCell(r,c)!=='') continue;
+                setCell(r,c,bp);
+                let makesDeadFour=false;
+                for (const {dr,dc} of DIRECTIONS) {
+                    const {count,blockedBoth} = countLineAndBlocked(r,c,dr,dc,hp);
+                    if (count >= wc-1 && blockedBoth) { makesDeadFour=true; break; }
+                }
+                setCell(r,c,'');
+                if (makesDeadFour) {
+                    const s = quickScore(r,c,bp);
+                    if (s>effectiveS) { effectiveS=s; effectiveBlock={r,c}; }
+                }
+            }
+            if (effectiveBlock) return { move:effectiveBlock, reason:'block_four_open_effective' };
+            // Không có đầu nào chặn được FOUR_OPEN → ghi nhận để PVS xử lý (không return sớm)
+        }
+
         let preFour=null, preFourS=-Infinity, preDT=null, preDTS=-Infinity;
         const lookaheadCells = getAllTacticalCells();
         for (const {r,c} of lookaheadCells) {
@@ -2137,19 +2179,46 @@ function getBotMove() {
 
     // ══ 4. ĐỊCH CÓ FOUR — tìm đầu thoáng đúng ══
     let enemyFour = null;
+    let enemyFourIsOpen = false; // FOUR_OPEN = cả 2 đầu thoáng (không thể chặn đủ bằng 1 nước)
     if (!isEasy) {
         const threats = findLiveThreats(hp, winCount - 1);
         if (threats.length > 0) {
+            // Kiểm tra có phải FOUR_OPEN không (threats chứa 2 đầu của cùng 1 chuỗi)
+            // FOUR_OPEN: sau khi chặn 1 đầu, đầu còn lại vẫn thoáng → địch thắng ngay lượt sau
+            // Cần ưu tiên chặn đầu nào mà SAU KHI CHẶN, chuỗi FOUR bị "chặn 2 đầu" (dead)
             let best = null, bestS = -Infinity;
+            let bestEffective = null, bestEffectiveS = -Infinity;
+
             for (const { r, c } of threats) {
                 if (getCell(r, c) !== '') continue;
+
+                // Kiểm tra: nếu bot chặn tại (r,c), liệu chuỗi FOUR của địch có bị chặn 2 đầu không?
+                setCell(r, c, bp);
+                let makesDeadFour = false;
+                for (const { dr, dc } of DIRECTIONS) {
+                    const { count, blockedBoth } = countLineAndBlocked(r, c, dr, dc, hp);
+                    if (count >= winCount - 1 && blockedBoth) { makesDeadFour = true; break; }
+                }
+                setCell(r, c, '');
+
+                // Tính điểm phòng thủ của ô này
                 setCell(r, c, hp);
                 let s = 0;
                 for (const { dr, dc } of DIRECTIONS) s += scoreFromTL(evalLine(r, c, dr, dc, hp), false);
                 setCell(r, c, '');
+
+                if (makesDeadFour) {
+                    // Ô này chặn hiệu quả (sau khi chặn, chuỗi FOUR bị khóa 2 đầu)
+                    if (s > bestEffectiveS) { bestEffectiveS = s; bestEffective = { r, c }; }
+                } else {
+                    // Ô này chặn nhưng chuỗi vẫn còn đầu kia → FOUR_OPEN
+                    enemyFourIsOpen = true;
+                }
                 if (s > bestS) { bestS = s; best = { r, c }; }
             }
-            enemyFour = best;
+
+            // Ưu tiên ô chặn hiệu quả (khóa 2 đầu), nếu không có thì dùng best
+            enemyFour = bestEffective || best;
         }
         if (!enemyFour) {
             for (const { r, c } of validCands) {
@@ -2166,8 +2235,15 @@ function getBotMove() {
     }
 
     // Quyết định FOUR
+    // Nếu địch có FOUR_OPEN (không thể chặn đủ): ưu tiên tấn công nếu bot có FOUR,
+    // vì chặn 1 đầu = địch vẫn điền đầu kia thắng ngay → tấn công là cách duy nhất thoát
     if (botWinningMove && enemyFour) { updateBotThinking('Cả 2 có 4! Tấn công! ⚔️'); return botWinningMove; }
     if (botWinningMove)              { updateBotThinking('Tạo FOUR! ⚔️');              return botWinningMove; }
+    if (enemyFour && enemyFourIsOpen && !botWinningMove) {
+        // FOUR_OPEN của địch: chặn vẫn cần thiết (dù thua) — nhưng log rõ để debug
+        updateBotThinking('Chặn FOUR OPEN địch! ⚠️🛡️');
+        return enemyFour;
+    }
     if (enemyFour)                   { updateBotThinking('Chặn 4 địch! 🛡️');          return enemyFour; }
 
     // ══ 4b. PHÂN TÍCH ĐẦY ĐỦ TẤT CẢ MỐI ĐE DỌA NGUY HIỂM (kể cả broken patterns) ══
