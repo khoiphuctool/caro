@@ -101,16 +101,13 @@ function taoDataPhongRong(so) {
 // 🔐 AUTHENTICATION
 // ══════════════════════════════════════════════════════════════════
 function updateAuthUI(isLoggedIn) {
-    const btnLogin    = document.getElementById('btn-show-login');
-    const btnRegister = document.getElementById('btn-show-register');
+    const topAuthBtns = document.getElementById('top-auth-buttons');
     const userArea    = document.getElementById('user-logged-in');
     if (isLoggedIn) {
-        if (btnLogin)    btnLogin.style.display    = 'none';
-        if (btnRegister) btnRegister.style.display = 'none';
-        if (userArea)    userArea.style.display    = 'block';
+        if (topAuthBtns) topAuthBtns.style.display = 'none';
+        if (userArea)    userArea.style.display    = 'flex';
     } else {
-        if (btnLogin)    btnLogin.style.display    = 'inline-block';
-        if (btnRegister) btnRegister.style.display = 'inline-block';
+        if (topAuthBtns) topAuthBtns.style.display = 'flex';
         if (userArea)    userArea.style.display    = 'none';
     }
 }
@@ -192,8 +189,26 @@ function dangNhap() {
 }
 
 function dangXuat() {
-    // Nếu đang ngồi trong phòng, giải phóng ghế
-    if (currentRoomId && myRole) roiKhoiPhong();
+    if (currentRoomId && myRole && isOnlineMode) {
+        // Đang trong phòng — thoát phòng trước rồi mới đăng xuất
+        // Ghi nhớ ý định đăng xuất để thực hiện sau khi thoát phòng xong
+        const _doLogout = () => {
+            currentUsername = null;
+            currentUserData = null;
+            localStorage.removeItem('current_username');
+            localStorage.removeItem('current_user_id');
+            localStorage.removeItem('current_room_id');
+            updateAuthUI(false);
+            setMyOnlineStatus(null);
+        };
+        // roiKhoiPhong có confirm nếu đang chơi — không thể chain trực tiếp
+        // Chỉ đăng xuất nếu không đang trong ván (waiting/ended)
+        if (!isOnlineMode) { _doLogout(); return; }
+        roiKhoiPhong();
+        // Đặt timeout ngắn để đợi roiKhoiPhong xử lý xong
+        setTimeout(_doLogout, 500);
+        return;
+    }
     currentUsername = null;
     currentUserData = null;
     localStorage.removeItem('current_username');
@@ -204,6 +219,9 @@ function dangXuat() {
 }
 
 function fetchUserData(userId) {
+    // Dùng on() để cập nhật realtime khi stats thay đổi (winSolo, winBot...)
+    // nhưng chỉ gọi setMyOnlineStatus và đăng ký listeners 1 lần
+    let firstLoad = true;
     db.ref('users/' + userId).on('value', snap => {
         const data = snap.val();
         if (!data) return;
@@ -216,9 +234,26 @@ function fetchUserData(userId) {
         document.getElementById('my-lose-solo').innerText = data.loseSolo || 0;
         const myRankEl = document.getElementById('my-rank');
         if (myRankEl) { myRankEl.innerText = rank; myRankEl.style.color = '#ff8c00'; }
-        setMyOnlineStatus('free');
-        langNgheDanhSachOnline();
-        langNgheLoiMoiDen();
+
+        // Cập nhật avatar top-bar
+        const avEl = document.getElementById('user-avatar-display');
+        if (avEl) {
+            if (data.avatar) {
+                avEl.textContent = data.avatar;
+                avEl.style.fontSize = '22px';
+            } else {
+                avEl.textContent = (data.displayName || data.username || '?')[0].toUpperCase();
+                avEl.style.fontSize = '16px';
+            }
+        }
+
+        // Chỉ setup listeners lần đầu
+        if (firstLoad) {
+            firstLoad = false;
+            setMyOnlineStatus('free');
+            langNgheDanhSachOnline();
+            langNgheLoiMoiDen();
+        }
     });
 }
 
@@ -337,11 +372,16 @@ function langNgheLoiMoiDen() {
         if (!invite) return;
         if (Date.now() - invite.timestamp > 30000) { db.ref(`invitations/${userId}`).remove(); return; }
 
+        // Đang trong phòng rồi thì bỏ qua lời mời, xóa đi
+        if (currentRoomId && isOnlineMode) {
+            db.ref(`invitations/${userId}`).remove();
+            return;
+        }
+
         const dongY = confirm(`🎮 [${invite.fromPlayerName}] mời bạn vào phòng solo! Chấp nhận?`);
         db.ref(`invitations/${userId}`).remove();
         if (!dongY) return;
 
-        // Vào phòng với tư cách O
         vaoPhongLaO(invite.fromRoomId);
     });
 }
@@ -368,36 +408,13 @@ function setupEventListeners() {
     document.getElementById('btn-quit-match').addEventListener('click', xuLyThoatPhong);
     document.getElementById('btn-leave-match').addEventListener('click', xuLyThoatPhong);
 
-    // Nút Bắt đầu game (chỉ chủ phòng)
-    const btnStart = document.getElementById('btn-start-game');
-    if (btnStart) btnStart.addEventListener('click', chuPhongBatDauGame);
-
-    // Nút kick player O
-    const btnKick = document.getElementById('btn-kick-player');
-    if (btnKick) btnKick.addEventListener('click', kickDoiThu);
-
-    // Nút ready
-    const btnReadyX = document.getElementById('btn-ready-X');
-    if (btnReadyX) btnReadyX.addEventListener('click', () => setReady('X'));
-    const btnReadyO = document.getElementById('btn-ready-O');
-    if (btnReadyO) btnReadyO.addEventListener('click', () => setReady('O'));
-
-    // beforeunload — dọn ghế ngay khi đóng tab
+    // beforeunload — đánh dấu offline qua REST API trước khi tab đóng
     window.addEventListener('beforeunload', () => {
-        if (currentRoomId && myRole && myRole !== 'viewer') {
-            const sf = myRole === 'X' ? 'playerX_status' : 'playerO_status';
-            db.ref(`rooms/${currentRoomId}/${sf}`).set('offline');
-            // Nếu đang chờ (waiting) thì giải phóng ghế ngay
-            // (không dùng await vì beforeunload không hỗ trợ async)
-            const rid = currentRoomId;
-            const role = myRole;
-            const uid = localStorage.getItem('current_user_id');
-            if (!isOnlineMode) return;
-            // Dùng sendBeacon để đảm bảo request được gửi đi trước khi tab đóng
-            // Firebase REST API để set offline ngay
-            const dbUrl = `https://caro-fa824-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${rid}/${sf}.json`;
-            navigator.sendBeacon && navigator.sendBeacon(dbUrl, JSON.stringify('offline'));
-        }
+        if (!currentRoomId || !myRole || myRole === 'viewer' || !isOnlineMode) return;
+        const sf  = myRole === 'X' ? 'playerX_status' : 'playerO_status';
+        const url = `https://caro-fa824-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${currentRoomId}/${sf}.json`;
+        // sendBeacon đảm bảo request được gửi dù tab đang đóng
+        navigator.sendBeacon && navigator.sendBeacon(url, JSON.stringify('offline'));
     });
 
     // Reconnect khi load lại trang
@@ -508,13 +525,17 @@ function hienDanhSachPhong() {
             el.style.borderColor     = borderColor;
             const xN = room.playerX_name || '---';
             const oN = room.playerO_name || '---';
-            const luatTxt = room.winCount ? `${room.winCount} quân${room.chan2Dau ? ' · Chặn 2 đầu' : ''}` : '';
+            // Phòng cũ chưa có winCount/chan2Dau → patch lên Firebase
+            const wc = room.winCount || 5;
+            const c2d = room.chan2Dau ?? true;
+            if (!room.winCount) db.ref(`rooms/${roomId}`).update({ winCount: 5, chan2Dau: true });
+            const luatTxt = `${wc} quân${c2d ? ' · Chặn 2 đầu' : ''}`;
             el.innerHTML = `
                 <div>
                     <div style="font-weight:bold;font-size:14px;">Phòng ${i}</div>
                     <div style="font-size:12px;color:#555;margin-top:2px;">
                         🔴 ${xN} vs 🔵 ${oN}
-                        ${luatTxt ? `&nbsp;·&nbsp;<span style="color:#888;">${luatTxt}</span>` : ''}
+                        &nbsp;·&nbsp;<span style="color:#888;">${luatTxt}</span>
                         &nbsp;·&nbsp;<b>${statusTxt}</b>
                     </div>
                 </div>
@@ -695,7 +716,8 @@ function batDauGiaoDienOnline() {
     if (document.querySelector('.control-wrapper')) document.querySelector('.control-wrapper').style.display = 'none';
     if (document.querySelector('.panels-wrapper')) document.querySelector('.panels-wrapper').style.display = 'none';
     if (document.getElementById('ui-btn-restart')) document.getElementById('ui-btn-restart').style.display = 'none';
-    if (document.getElementById('user-logged-in')) document.getElementById('user-logged-in').style.display = 'none';
+    const topBar = document.getElementById('top-bar');
+    if (topBar) topBar.style.display = 'none';
     const botAv = document.getElementById('bot-avatar');
     if (botAv) botAv.style.display = 'none';
 
@@ -703,6 +725,8 @@ function batDauGiaoDienOnline() {
     if (gms) gms.style.display = 'block';
 
     if (typeof window.xoaBanCoCu === 'function' && !daXoaBanCoTranNay) window.xoaBanCoCu();
+    // Reset hover ngay khi vào phòng
+    if (typeof infHoverR !== 'undefined') { infHoverR = null; infHoverC = null; }
 
     // Mobile back button
     window.history.pushState(null, null, window.location.href);
@@ -728,7 +752,8 @@ function thoatGiaoDienOnline() {
     if (document.querySelector('.control-wrapper')) document.querySelector('.control-wrapper').style.display = 'block';
     if (document.querySelector('.panels-wrapper')) document.querySelector('.panels-wrapper').style.display = 'flex';
     if (document.getElementById('ui-btn-restart')) document.getElementById('ui-btn-restart').style.display = 'block';
-    if (document.getElementById('user-logged-in')) document.getElementById('user-logged-in').style.display = 'block';
+    const topBarRestore = document.getElementById('top-bar');
+    if (topBarRestore) topBarRestore.style.display = 'flex';
     const botAv = document.getElementById('bot-avatar');
     if (botAv) botAv.style.display = 'flex';
 
@@ -897,23 +922,12 @@ function kickDoiThu() {
     if (!confirm('Đuổi người chơi này ra khỏi phòng?')) return;
     db.ref(`rooms/${currentRoomId}`).update({
         playerO_id: '', playerO_name: '', playerO_status: 'offline',
-        playerO_ready: false, updatedAt: Date.now()
+        updatedAt: Date.now()
     });
 }
 window.kickDoiThu = kickDoiThu;
 
-function setReady(role) {
-    if (!currentRoomId) return;
-    const myId = localStorage.getItem('current_user_id');
-    db.ref(`rooms/${currentRoomId}`).once('value').then(snap => {
-        const room = snap.val();
-        if (!room) return;
-        const ok = (role === 'X' && myId === room.playerX_id) || (role === 'O' && myId === room.playerO_id);
-        if (!ok) { alert('Không phải ghế của bạn!'); return; }
-        const field = role === 'X' ? 'playerX_ready' : 'playerO_ready';
-        db.ref(`rooms/${currentRoomId}/${field}`).set(!room[field]);
-    });
-}
+function setReady(role) {} // Không dùng nữa — chủ phòng bấm Bắt đầu trực tiếp
 window.setReady = setReady;
 
 // ══════════════════════════════════════════════════════════════════
@@ -958,16 +972,21 @@ function langNgheThayDoiPhong(roomId) {
         const gameInfo = document.getElementById('game-info');
 
         if (room.status === 'playing') {
-            // Lần đầu vào trận HOẶC ván mới bắt đầu
+            // Lần đầu vào trận HOẶC ván mới bắt đầu (daXoaBanCoTranNay = false)
             if (!daXoaBanCoTranNay) {
                 daXoaBanCoTranNay = true;
-                if (typeof window.xoaBanCoCu === 'function') window.xoaBanCoCu();
                 locallyAppliedLastMove = { row: -2, col: -2 };
                 _lastProcessedWinner = '';
-                // Ẩn overlay ván mới nếu còn hiện
+                if (typeof window.xoaBanCoCu === 'function') window.xoaBanCoCu();
+                // Ẩn overlay và nút xem lại
                 const old = document.getElementById('van-moi-overlay');
                 if (old) old.remove();
+                const btnBack = document.getElementById('btn-back-to-result');
+                if (btnBack) btnBack.remove();
                 setMyOnlineStatus('playing');
+                // Load thông tin người chơi đúng 1 lần khi bắt đầu ván
+                if (room.playerX_id) loadPlayerInfo(room.playerX_id, 'X');
+                if (room.playerO_id) loadPlayerInfo(room.playerO_id, 'O');
             }
 
             document.getElementById('panel-playerX').style.display = 'flex';
@@ -992,14 +1011,21 @@ function langNgheThayDoiPhong(roomId) {
                     thucHienVeNuocDi(room.lastMove.row, room.lastMove.col, room.lastMove.by);
                 }
             }
-
-            // Load thông tin người chơi
-            if (room.playerX_id) loadPlayerInfo(room.playerX_id, 'X');
-            if (room.playerO_id) loadPlayerInfo(room.playerO_id, 'O');
         }
 
         if (room.status === 'ended' || room.winner) {
             xuLyKetThucVan(room);
+        }
+
+        // Chủ phòng set về waiting (chuẩn bị ván mới) → O reset daXoaBanCoTranNay để sẵn sàng nhận ván mới
+        if (room.status === 'waiting' && daXoaBanCoTranNay && isOnlineMode && myRole !== 'viewer') {
+            daXoaBanCoTranNay = false;
+            locallyAppliedLastMove = { row: -2, col: -2 };
+            _lastProcessedWinner = '';
+            const vmOld = document.getElementById('van-moi-overlay');
+            if (vmOld) vmOld.remove();
+            const btnBack = document.getElementById('btn-back-to-result');
+            if (btnBack) btnBack.remove();
         }
 
         // Phòng bị reset về empty → tự thoát ra sảnh không cần alert
@@ -1071,32 +1097,32 @@ function langNgheThayDoiPhong(roomId) {
 }
 
 function capNhatUIPhong(room) {
-    const txtTitle  = document.getElementById('txt-room-title');
-    const namePX    = document.getElementById('name-pX');
-    const namePO    = document.getElementById('name-pO');
-    const statusPX  = document.getElementById('status-pX');
-    const statusPO  = document.getElementById('status-pO');
-    const btnStart  = document.getElementById('btn-start-game');
-    const btnKick   = document.getElementById('btn-kick-player');
-    const btnReadyX = document.getElementById('btn-ready-X');
-    const btnReadyO = document.getElementById('btn-ready-O');
-    const rdIndX    = document.getElementById('ready-indicator-X');
-    const rdIndO    = document.getElementById('ready-indicator-O');
+    const txtTitle = document.getElementById('txt-room-title');
+    const namePX   = document.getElementById('name-pX');
+    const namePO   = document.getElementById('name-pO');
+    const statusPX = document.getElementById('status-pX');
+    const statusPO = document.getElementById('status-pO');
+    const btnStart = document.getElementById('btn-start-game');
+    const btnKick  = document.getElementById('btn-kick-player');
 
     if (txtTitle) txtTitle.innerText = `Phòng ${room.roomNumber || '?'}`;
     if (namePX)   namePX.innerText   = room.playerX_name || 'Đang chờ...';
     if (namePO)   namePO.innerText   = room.playerO_name || 'Chờ đối thủ...';
 
-    const myId      = localStorage.getItem('current_user_id');
-    const laChuX    = myId === room.playerX_id;
-    const laKhachO  = myId === room.playerO_id;
-    const coDoiThu  = !!room.playerO_id;
-    const bothReady = room.playerX_ready && room.playerO_ready;
+    const myId     = localStorage.getItem('current_user_id');
+    const laChuX   = myId === room.playerX_id;
+    const coDoiThu = !!room.playerO_id;
 
     if (statusPX) statusPX.innerText = room.playerX_status === 'online' ? 'Sẵn sàng' : 'Offline';
     if (statusPO) statusPO.innerText = coDoiThu ? (room.playerO_status === 'online' ? 'Sẵn sàng' : 'Offline') : 'Trống ghế';
 
-    // Panel luật — chỉ chủ phòng thấy khi waiting, đồng bộ giá trị từ Firebase
+    // LED kết nối
+    const ledX = document.getElementById('led-pX');
+    const ledO = document.getElementById('led-pO');
+    if (ledX) ledX.style.background = room.playerX_status === 'online' ? '#28a745' : '#dc3545';
+    if (ledO) ledO.style.background = coDoiThu && room.playerO_status === 'online' ? '#28a745' : '#aaa';
+
+    // Panel luật — chỉ X thấy khi waiting
     const rulesPanel = document.getElementById('room-rules-panel');
     if (rulesPanel) {
         const showRules = laChuX && room.status === 'waiting';
@@ -1104,47 +1130,49 @@ function capNhatUIPhong(room) {
         if (showRules) {
             const selWin  = document.getElementById('room-win-count');
             const chkChan = document.getElementById('room-chan-2-dau');
-            // Chỉ đồng bộ nếu người dùng chưa đang thao tác (tránh giật)
-            if (selWin  && document.activeElement !== selWin)  selWin.value   = room.winCount  || 5;
+            if (selWin  && document.activeElement !== selWin)  selWin.value    = room.winCount || 5;
             if (chkChan && document.activeElement !== chkChan) chkChan.checked = room.chan2Dau ?? true;
         }
     }
 
-    // LED trạng thái kết nối
-    const ledX = document.getElementById('led-pX');
-    const ledO = document.getElementById('led-pO');
-    if (ledX) { ledX.style.background = room.playerX_status === 'online' ? '#28a745' : '#dc3545'; }
-    if (ledO) { ledO.style.background = coDoiThu && room.playerO_status === 'online' ? '#28a745' : '#aaa'; }
-
-    if (room.status === 'waiting') {
-        // Nút ready
-        if (btnReadyX) btnReadyX.style.display = laChuX  && !room.playerX_ready ? 'inline-block' : 'none';
-        if (btnReadyO) btnReadyO.style.display = laKhachO && !room.playerO_ready ? 'inline-block' : 'none';
-        if (rdIndX)    rdIndX.style.display    = laChuX  && room.playerX_ready  ? 'block' : 'none';
-        if (rdIndO)    rdIndO.style.display    = laKhachO && room.playerO_ready  ? 'block' : 'none';
-
-        // Nút Bắt đầu & Kick — chỉ chủ phòng
-        if (btnKick)  btnKick.style.display  = laChuX && coDoiThu ? 'inline-block' : 'none';
-        if (btnStart) btnStart.style.display = laChuX && coDoiThu ? 'inline-block' : 'none';
-    } else {
-        if (btnReadyX) btnReadyX.style.display = 'none';
-        if (btnReadyO) btnReadyO.style.display = 'none';
-        if (rdIndX)    rdIndX.style.display    = 'none';
-        if (rdIndO)    rdIndO.style.display    = 'none';
-        if (btnKick)   btnKick.style.display   = 'none';
-        if (btnStart)  btnStart.style.display  = 'none';
-    }
+    // Nút Bắt đầu & Kick — chỉ X khi waiting có đối thủ
+    const showControls = laChuX && coDoiThu && room.status === 'waiting';
+    if (btnKick)  btnKick.style.display  = showControls ? 'inline-block' : 'none';
+    if (btnStart) btnStart.style.display = showControls ? 'inline-block' : 'none';
 }
 
 function loadPlayerInfo(userId, role) {
     db.ref('users/' + userId).once('value').then(snap => {
         const u = snap.val();
         if (!u) return;
-        const rank = getRankName(u.winBot, u.winSolo);
-        document.getElementById(`view-name-${role}`).innerText    = (u.displayName || u.username) + ` (${rank})`;
-        document.getElementById(`view-winbot-${role}`).innerText  = u.winBot   || 0;
-        document.getElementById(`view-winsolo-${role}`).innerText = u.winSolo  || 0;
-        document.getElementById(`view-losesolo-${role}`).innerText= u.loseSolo || 0;
+        const rank        = getRankName(u.winBot, u.winSolo);
+        const displayName = u.displayName || u.username;
+        const avatar      = u.avatar || displayName[0].toUpperCase();
+        const isEmoji     = avatar.length <= 2 && /\p{Emoji}/u.test(avatar);
+
+        // Panel bên cạnh bàn cờ (panel-playerX/O)
+        const nameEl = document.getElementById(`view-name-${role}`);
+        if (nameEl) nameEl.innerText = displayName + ` (${rank})`;
+        const wbEl = document.getElementById(`view-winbot-${role}`);
+        if (wbEl) wbEl.innerText = u.winBot || 0;
+        const wsEl = document.getElementById(`view-winsolo-${role}`);
+        if (wsEl) wsEl.innerText = u.winSolo || 0;
+        const lsEl = document.getElementById(`view-losesolo-${role}`);
+        if (lsEl) lsEl.innerText = u.loseSolo || 0;
+
+        // Avatar trên panel bên cạnh bàn cờ
+        const pcAv = document.querySelector(`#panel-player${role} .pc-avatar`);
+        if (pcAv) {
+            pcAv.textContent = avatar;
+            pcAv.style.fontSize = isEmoji ? '28px' : '20px';
+        }
+
+        // Avatar trong versus-container (slot-playerX/O)
+        const slotAv = document.querySelector(`#slot-player${role} .avatar-circle`);
+        if (slotAv) {
+            slotAv.textContent = avatar;
+            slotAv.style.fontSize = isEmoji ? '26px' : '18px';
+        }
     });
 }
 
@@ -1277,15 +1305,21 @@ function xuLyKetThucVan(room) {
     if (_lastProcessedWinner === vanId) return;
     _lastProcessedWinner = vanId;
 
-    const winnerId = room.winner === 'X' ? room.playerX_id : room.playerO_id;
-    const loserId  = room.winner === 'X' ? room.playerO_id : room.playerX_id;
-    const myId     = localStorage.getItem('current_user_id');
+    const winnerId  = room.winner === 'X' ? room.playerX_id : room.playerO_id;
+    const loserId   = room.winner === 'X' ? room.playerO_id : room.playerX_id;
+    const myId      = localStorage.getItem('current_user_id');
+    // Thắng thực sự = không có endReason "bỏ cuộc" (tức là thắng bằng nước cờ)
+    const thangThucSu = !endReason.includes('bỏ cuộc');
 
-    // Chỉ người thắng hoặc thua mới ghi — ưu tiên người thắng ghi
+    // Chỉ người thắng ghi rank — ưu tiên người thắng ghi để tránh trùng
     if (myId === winnerId) {
-        db.ref(`users/${winnerId}/winSolo`).transaction(c => (c || 0) + 1);
+        // Chỉ +winSolo khi thắng bằng nước cờ thực sự
+        if (thangThucSu) {
+            db.ref(`users/${winnerId}/winSolo`).transaction(c => (c || 0) + 1);
+            capNhatBXH(winName, winnerId);
+        }
+        // Thua do bỏ cuộc vẫn tính loseSolo cho người thua
         if (loserId) db.ref(`users/${loserId}/loseSolo`).transaction(c => (c || 0) + 1);
-        capNhatBXH(winName, winnerId);
         ghiLichSu(`Phòng ${room.roomNumber || '?'}`, xName, oName, room.winner);
     } else if (myId === loserId && !winnerId) {
         // Fallback nếu winner không online
@@ -1299,6 +1333,9 @@ function xuLyKetThucVan(room) {
 function hienUIVanMoi(msg) {
     const old = document.getElementById('van-moi-overlay');
     if (old) old.remove();
+    // Xóa nút xem lại nếu còn
+    const btnBack = document.getElementById('btn-back-to-result');
+    if (btnBack) btnBack.remove();
 
     const winOv = document.getElementById('win-overlay');
     if (winOv) winOv.classList.remove('show');
@@ -1308,21 +1345,25 @@ function hienUIVanMoi(msg) {
     overlay.id = 'van-moi-overlay';
     overlay.style.cssText = `
         position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
-        background:white; padding:24px 32px; border-radius:14px;
+        background:white; padding:24px 28px; border-radius:14px;
         box-shadow:0 8px 32px rgba(0,0,0,0.3); z-index:99999;
-        font-family:Arial; text-align:center; min-width:260px; max-width:340px;
+        font-family:Arial; text-align:center; min-width:260px; max-width:360px;
     `;
 
     const isX = myRole === 'X';
     const actHTML = isX ? `
-        <p style="margin:10px 0 16px;color:#555;font-size:13px;">Chỉnh luật ở thanh phòng rồi bấm Ván Mới</p>
-        <div style="display:flex;gap:10px;justify-content:center;">
-            <button onclick="batDauVanMoi()" style="padding:10px 24px;background:#28a745;color:white;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:bold;">▶ Ván Mới</button>
-            <button onclick="thoatPhongSauVan()" style="padding:10px 16px;background:#6c757d;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Thoát</button>
+        <p style="margin:10px 0 14px;color:#555;font-size:13px;">Chỉnh luật ở thanh phòng rồi bấm Ván Mới</p>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+            <button onclick="xemLaiBanCo()" style="padding:9px 14px;background:#6c757d;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;">🔍 Xem lại</button>
+            <button onclick="batDauVanMoi()" style="padding:9px 20px;background:#28a745;color:white;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:bold;">▶ Ván Mới</button>
+            <button onclick="thoatPhongSauVan()" style="padding:9px 12px;background:#dc3545;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Thoát</button>
         </div>
     ` : `
-        <p style="margin:12px 0;color:#666;font-size:14px;">Chờ chủ phòng bắt đầu ván mới...</p>
-        <button onclick="thoatPhongSauVan()" style="padding:10px 20px;background:#6c757d;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Thoát phòng</button>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px;">
+            <button onclick="xemLaiBanCo()" style="padding:9px 14px;background:#6c757d;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;">🔍 Xem lại</button>
+            <button onclick="thoatPhongSauVan()" style="padding:9px 14px;background:#dc3545;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Thoát</button>
+        </div>
+        <p style="margin:10px 0 0;color:#888;font-size:12px;">Chờ chủ phòng bắt đầu ván mới...</p>
     `;
 
     overlay.innerHTML = `
@@ -1332,12 +1373,36 @@ function hienUIVanMoi(msg) {
     `;
     document.body.appendChild(overlay);
 
-    // Hiện lại panel luật cho chủ phòng chỉnh trước khi bắt đầu ván mới
     if (isX) {
         const rulesPanel = document.getElementById('room-rules-panel');
         if (rulesPanel) rulesPanel.style.display = 'block';
     }
 }
+
+function xemLaiBanCo() {
+    const old = document.getElementById('van-moi-overlay');
+    if (old) old.remove();
+    // Nút nhỏ góc trên phải để quay lại kết quả
+    const existing = document.getElementById('btn-back-to-result');
+    if (existing) return;
+    const btn = document.createElement('button');
+    btn.id = 'btn-back-to-result';
+    btn.textContent = '↩ Kết quả ván';
+    btn.style.cssText = `
+        position:fixed; top:12px; right:12px; z-index:99998;
+        padding:8px 14px; background:#6366f1; color:white;
+        border:none; border-radius:8px; cursor:pointer;
+        font-size:13px; font-weight:bold;
+        box-shadow:0 2px 8px rgba(0,0,0,0.25);
+    `;
+    btn.onclick = () => {
+        btn.remove();
+        const turnEl = document.getElementById('turn-indicator');
+        hienUIVanMoi(turnEl ? turnEl.textContent : '');
+    };
+    document.body.appendChild(btn);
+}
+window.xemLaiBanCo = xemLaiBanCo;
 
 function batDauVanMoi() {
     if (!currentRoomId || myRole !== 'X') return;
@@ -1346,24 +1411,38 @@ function batDauVanMoi() {
     const winCnt  = selWin  ? parseInt(selWin.value) : 5;
     const chan2D  = chkChan ? chkChan.checked         : true;
 
+    // Bước 1: reset daXoaBanCoTranNay của mình trước
+    daXoaBanCoTranNay = false;
+    locallyAppliedLastMove = { row: -2, col: -2 };
+    _lastProcessedWinner = '';
+
+    // Bước 2: Xóa overlay và nút xem lại
+    const old = document.getElementById('van-moi-overlay');
+    if (old) old.remove();
+    const btnBack = document.getElementById('btn-back-to-result');
+    if (btnBack) btnBack.remove();
+
+    // Bước 3: Xóa bàn cũ local ngay
+    if (typeof window.xoaBanCoCu === 'function') window.xoaBanCoCu();
+
+    // Bước 4: Ghi lên Firebase — set status waiting trước để O cũng reset daXoaBanCoTranNay
+    // rồi mới set playing để cả 2 đồng thời bắt đầu ván mới sạch
     db.ref(`rooms/${currentRoomId}`).update({
-        status:   'playing',
-        turn:     'X',
-        winner:   '',
-        endReason:'',
+        status:    'waiting',  // Tạm về waiting để O reset
+        winner:    '',
+        endReason: '',
         winCount:  winCnt,
         chan2Dau:  chan2D,
-        moves:    { init: true },
-        lastMove: { row: -1, col: -1, by: '' },
-        endedAt:  null,
+        moves:     { init: true },
+        lastMove:  { row: -1, col: -1, by: '' },
+        endedAt:   null,
+        turn:      'X',
         updatedAt: Date.now()
     }).then(() => {
-        const old = document.getElementById('van-moi-overlay');
-        if (old) old.remove();
-        daXoaBanCoTranNay = false;
-        locallyAppliedLastMove = { row: -2, col: -2 };
-        _lastProcessedWinner = '';
-        if (typeof window.xoaBanCoCu === 'function') window.xoaBanCoCu();
+        // Sau 100ms set playing để cả 2 client đã reset xong
+        setTimeout(() => {
+            db.ref(`rooms/${currentRoomId}`).update({ status: 'playing', updatedAt: Date.now() });
+        }, 150);
     });
 }
 window.batDauVanMoi = batDauVanMoi;
@@ -1515,19 +1594,20 @@ function langNgheLichSuOnline() {
         if (!box) return;
         if (!d) { box.innerHTML = '<p style="color:#888;">Chưa có lịch sử.</p>'; return; }
         const list = Object.values(d).sort((a, b) => b.timestamp - a.timestamp);
-        let html = '<div style="max-height:250px;overflow-y:auto;">';
+        // Không bọc thêm div overflow — container HTML đã có max-height + overflow-y
+        let html = '';
         list.slice(0, 15).forEach(m => {
             const kq = m.winner === 'X'
                 ? `🏆 <span style="color:blue;font-weight:bold;">${m.playerX}</span> thắng <span style="color:red;">${m.playerO}</span>`
                 : m.winner === 'O'
                 ? `🏆 <span style="color:red;font-weight:bold;">${m.playerO}</span> thắng <span style="color:blue;">${m.playerX}</span>`
                 : '🤝 Hòa';
-            html += `<div style="padding:8px;margin-bottom:6px;border-bottom:1px dashed #eee;font-size:14px;display:flex;justify-content:space-between;">
+            html += `<div style="padding:6px 0;border-bottom:1px dashed #eee;font-size:13px;display:flex;justify-content:space-between;gap:8px;">
                 <div><strong>[${m.roomName}]</strong> ${kq}</div>
-                <div style="color:#666;font-size:12px;">${m.time}</div>
+                <div style="color:#999;font-size:11px;white-space:nowrap;">${m.time}</div>
             </div>`;
         });
-        box.innerHTML = html + '</div>';
+        box.innerHTML = html;
     });
 }
 
@@ -1601,3 +1681,116 @@ function guiChatTheGioi() {
     });
 }
 window.guiChatTheGioi = guiChatTheGioi;
+
+// ══════════════════════════════════════════════════════════════════
+// ⚙️ CÀI ĐẶT TÀI KHOẢN
+// ══════════════════════════════════════════════════════════════════
+const AVATAR_LIST = [
+    '😀','😎','🥷','👾','🤖','🦁','🐯','🐼','🦊','🐸',
+    '🐲','🦅','🔥','⚡','💎','🌟','🎯','🏆','👑','🎮'
+];
+
+function moCapNhatTaiKhoan() {
+    const modal = document.getElementById('account-settings-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+
+    // Điền thông tin hiện tại
+    if (currentUserData) {
+        const dn = document.getElementById('settings-display-name');
+        if (dn) dn.value = currentUserData.displayName || currentUserData.username || '';
+
+        const av = document.getElementById('settings-avatar-display');
+        if (av) av.textContent = currentUserData.avatar || (currentUserData.displayName || '?')[0].toUpperCase();
+
+        document.getElementById('st-win-bot').textContent  = currentUserData.winBot   || 0;
+        document.getElementById('st-win-solo').textContent = currentUserData.winSolo  || 0;
+        document.getElementById('st-lose-solo').textContent= currentUserData.loseSolo || 0;
+        document.getElementById('st-rank').textContent     = getRankName(currentUserData.winBot, currentUserData.winSolo);
+    }
+
+    // Build avatar picker
+    const pickerGrid = document.querySelector('#avatar-picker > div');
+    if (pickerGrid && pickerGrid.children.length === 0) {
+        AVATAR_LIST.forEach(emoji => {
+            const btn = document.createElement('button');
+            btn.textContent = emoji;
+            btn.style.cssText = 'font-size:22px; background:none; border:2px solid transparent; border-radius:8px; cursor:pointer; padding:4px; transition:border-color .15s;';
+            btn.onmouseover = () => btn.style.borderColor = '#6366f1';
+            btn.onmouseout  = () => btn.style.borderColor = 'transparent';
+            btn.onclick = () => chonAvatar(emoji);
+            pickerGrid.appendChild(btn);
+        });
+    }
+}
+window.moCapNhatTaiKhoan = moCapNhatTaiKhoan;
+
+function dongCapNhatTaiKhoan() {
+    const modal = document.getElementById('account-settings-modal');
+    if (modal) modal.style.display = 'none';
+    // Xóa input mật khẩu khi đóng
+    ['settings-old-pass','settings-new-pass','settings-confirm-pass'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    document.getElementById('avatar-picker').style.display = 'none';
+}
+window.dongCapNhatTaiKhoan = dongCapNhatTaiKhoan;
+
+function moChonAvatar() {
+    const picker = document.getElementById('avatar-picker');
+    if (picker) picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+}
+window.moChonAvatar = moChonAvatar;
+
+function chonAvatar(emoji) {
+    const userId = localStorage.getItem('current_user_id');
+    if (!userId) return;
+    db.ref(`users/${userId}`).update({ avatar: emoji }).then(() => {
+        const av1 = document.getElementById('settings-avatar-display');
+        if (av1) av1.textContent = emoji;
+        const av2 = document.getElementById('user-avatar-display');
+        if (av2) av2.textContent = emoji;
+        document.getElementById('avatar-picker').style.display = 'none';
+    });
+}
+window.chonAvatar = chonAvatar;
+
+function luuTenHienThi() {
+    const userId = localStorage.getItem('current_user_id');
+    if (!userId) return;
+    const inp = document.getElementById('settings-display-name');
+    const newName = inp ? inp.value.trim() : '';
+    if (!newName) { alert('Tên không được để trống!'); return; }
+    if (newName.length < 2) { alert('Tên ít nhất 2 ký tự!'); return; }
+    if (newName.length > 20) { alert('Tên tối đa 20 ký tự!'); return; }
+
+    db.ref(`users/${userId}`).update({ displayName: newName }).then(() => {
+        alert('✅ Đã cập nhật tên!');
+        // Cập nhật online_users nếu đang online
+        setMyOnlineStatus(isOnlineMode ? 'playing' : 'free');
+    });
+}
+window.luuTenHienThi = luuTenHienThi;
+
+function luuMatKhau() {
+    const userId = localStorage.getItem('current_user_id');
+    if (!userId || !currentUserData) return;
+    const oldPass  = document.getElementById('settings-old-pass').value;
+    const newPass  = document.getElementById('settings-new-pass').value;
+    const confPass = document.getElementById('settings-confirm-pass').value;
+
+    if (!oldPass || !newPass || !confPass) { alert('Vui lòng nhập đủ thông tin!'); return; }
+    if (oldPass !== currentUserData.password) { alert('❌ Mật khẩu hiện tại không đúng!'); return; }
+    if (newPass.length < 4) { alert('Mật khẩu mới phải ít nhất 4 ký tự!'); return; }
+    if (newPass !== confPass) { alert('❌ Mật khẩu mới không khớp!'); return; }
+
+    db.ref(`users/${userId}`).update({ password: newPass }).then(() => {
+        alert('✅ Đã đổi mật khẩu thành công!');
+        ['settings-old-pass','settings-new-pass','settings-confirm-pass'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+    });
+}
+window.luuMatKhau = luuMatKhau;

@@ -484,39 +484,23 @@ function checkWinSilent(r, c) {
 
 // ĐỊNH NGHĨA HÀM XÓA SẠCH BÀN CỜ CHO VÁN MỚI TINH
 window.xoaBanCoCu = function() {
-    console.log("Hệ thống đang làm sạch bàn cờ cũ để vào ván mới...");
-    
     // Reset mảng dữ liệu logic cờ
-    if (typeof infiniteMap !== 'undefined') {
-        infiniteMap.clear();
-    }
-    if (typeof moveHistory !== 'undefined') {
-        moveHistory.length = 0;
-    }
-    if (typeof lastMoveR !== 'undefined') {
-        lastMoveR = -1;
-        lastMoveC = -1;
-    }
-    if (typeof currentPlayer !== 'undefined') {
-        currentPlayer = 'X';
-    }
-    if (typeof winningCellCoords !== 'undefined') {
-        winningCellCoords.length = 0;
-    }
-    
-    // Xóa sạch hình ảnh quân cờ trên HTML giao diện
+    if (typeof infiniteMap !== 'undefined') infiniteMap.clear();
+    if (typeof moveHistory !== 'undefined') moveHistory.length = 0;
+    if (typeof lastMoveR   !== 'undefined') { lastMoveR = null; lastMoveC = null; }
+    if (typeof currentPlayer !== 'undefined') currentPlayer = 'X';
+    if (typeof winningCellCoords !== 'undefined') winningCellCoords.length = 0;
+    if (typeof isGameActive !== 'undefined') isGameActive = true;
+    // Reset hover để không còn chấm xanh
+    if (typeof infHoverR !== 'undefined') { infHoverR = null; infHoverC = null; }
+
     document.querySelectorAll('.cell').forEach(cell => {
-        cell.innerHTML = "";
+        cell.innerHTML = '';
         cell.classList.remove('winning-cell');
     });
-    
-    // Re-render board
-    if (typeof renderInfiniteBoard === 'function') {
-        renderInfiniteBoard();
-    }
-    if (typeof renderFixedBoard === 'function') {
-        renderFixedBoard();
-    }
+
+    if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
+    if (typeof renderFixedBoard    === 'function') renderFixedBoard();
 };
 
 // checkWinLogicOld: Hàm kiểm tra thắng thua hỗ trợ cả Online và Offline với tham số luật chơi tùy chỉnh
