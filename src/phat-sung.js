@@ -138,7 +138,11 @@ function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
 function closeWinAndRestart() {
     document.getElementById('win-overlay').classList.remove('show');
     stopConfetti();
-    initGame();
+    
+    // Sử dụng requestAnimationFrame để chuyển đổi mượt hơn
+    requestAnimationFrame(() => {
+        initGame();
+    });
 }
 
 function reviewGame() {
@@ -150,11 +154,15 @@ function reviewGame() {
     
     document.getElementById('win-overlay').classList.remove('show');
     stopConfetti();
-    if (isInfinite && winningCellCoords.length > 0) {
-        const [wr, wc] = winningCellCoords[Math.floor(winningCellCoords.length / 2)];
-        vRowF = wr - (infCanvasH / INF_CS) / 2;
-        vColF = wc - (infCanvasW / INF_CS) / 2;
-        renderInfiniteBoard();
-    }
-    statusPanel.innerHTML = `⬆️ Đang xem lại ván đấu &nbsp;|&nbsp; <button onclick="closeWinAndRestart()" style="padding:4px 16px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:0.9rem;">🔄 Đấu Lại</button>`;
+    
+    // Sử dụng requestAnimationFrame để render mượt hơn
+    requestAnimationFrame(() => {
+        if (isInfinite && winningCellCoords.length > 0) {
+            const [wr, wc] = winningCellCoords[Math.floor(winningCellCoords.length / 2)];
+            vRowF = wr - (infCanvasH / INF_CS) / 2;
+            vColF = wc - (infCanvasW / INF_CS) / 2;
+            renderInfiniteBoard();
+        }
+        statusPanel.innerHTML = `⬆️ Đang xem lại ván đấu &nbsp;|&nbsp; <button onclick="closeWinAndRestart()" style="padding:4px 16px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:0.9rem;">🔄 Đấu Lại</button>`;
+    });
 }

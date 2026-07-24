@@ -355,6 +355,8 @@ function renderInfiniteBoard() {
 // ===== HOVER =====
 let infHoverR = null, infHoverC = null;
 let _rafPending = false;
+let _lastMouseMoveTime = 0;
+const MOUSE_MOVE_THROTTLE = 16; // ~60fps
 
 function scheduleRender() {
     if (_rafPending) return;
@@ -397,6 +399,12 @@ function infOnMouseMove(e) {
         scheduleRender();
         return;
     }
+    
+    // Throttle mousemove để giảm tải render
+    const now = performance.now();
+    if (now - _lastMouseMoveTime < MOUSE_MOVE_THROTTLE) return;
+    _lastMouseMoveTime = now;
+    
     const rect = infCanvas.getBoundingClientRect();
     const { r, c } = canvasPixelToCell(e.clientX - rect.left, e.clientY - rect.top);
     if (r !== infHoverR || c !== infHoverC) {

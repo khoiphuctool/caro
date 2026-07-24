@@ -182,14 +182,17 @@ function initGame() {
 
     zobristHash = 0;
 
-    renderInfiniteBoard();
-    updateStatus();
+    // Sử dụng requestAnimationFrame để render mượt hơn
+    requestAnimationFrame(() => {
+        renderInfiniteBoard();
+        updateStatus();
 
-    if (isGameActive && !isSolo && gameMode.startsWith('ai') && currentPlayer === botPiece) {
-        const thinkTime = gameMode === 'ai-god' ? 500 : gameMode === 'ai-hard' ? 300 : 180;
-        statusPanel.innerHTML = `🤖 <span style="opacity:0.7">Đang tính toán</span> <span class="think-dots">...</span>`;
-        setTimeout(makeAIMove, thinkTime);
-    }
+        if (isGameActive && !isSolo && gameMode.startsWith('ai') && currentPlayer === botPiece) {
+            const thinkTime = gameMode === 'ai-god' ? 500 : gameMode === 'ai-hard' ? 300 : 180;
+            statusPanel.innerHTML = `🤖 <span style="opacity:0.7">Đang tính toán</span> <span class="think-dots">...</span>`;
+            setTimeout(makeAIMove, thinkTime);
+        }
+    });
 }
 
 // ===== STATUS =====

@@ -12,6 +12,69 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
+/* ===== NOTIFICATION TICKER ===== */
+@keyframes ticker-scroll {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
+}
+
+#notification-ticker {
+    position: relative;
+}
+
+#notification-ticker:hover #ticker-content {
+    animation-play-state: paused;
+}
+
+.ticker-item {
+    display: inline-block;
+    margin-right: 40px;
+    padding: 4px 12px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.1);
+    color: #333;
+}
+
+.ticker-item.online {
+    background: rgba(34, 197, 94, 0.15);
+    color: #1a5c1a;
+}
+
+.ticker-item.win {
+    background: rgba(245, 158, 11, 0.15);
+    color: #92400e;
+}
+
+.ticker-item.chat {
+    background: rgba(99, 102, 241, 0.15);
+    color: #3730a3;
+}
+
+/* Responsive cho mobile */
+@media (max-width: 768px) {
+    #ticker-content {
+        font-size: 0.75rem !important;
+        padding: 6px 12px !important;
+    }
+    
+    .ticker-item {
+        margin-right: 30px;
+        padding: 3px 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    #ticker-content {
+        font-size: 0.7rem !important;
+        padding: 4px 10px !important;
+    }
+    
+    .ticker-item {
+        margin-right: 20px;
+        padding: 2px 6px;
+    }
+}
+
 h1 {
     margin: 4px 0;
     font-size: 1.4rem;
@@ -184,6 +247,9 @@ input[type="checkbox"] {
     display: block;
     touch-action: none;
     cursor: default;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
 }
 
 /* ===== RESIZE HANDLES CHO BÀN CỜ VÔ HẠN ===== */
@@ -220,9 +286,8 @@ input[type="checkbox"] {
     box-sizing: border-box;
     font-weight: 900;
     font-size: 0.55rem;
-    transition: background 0.08s;
+    transition: background 0.15s ease-out;
     position: relative;
-    will-change: background;
 }
 .cell.X, .cell.O {
     cursor: default;

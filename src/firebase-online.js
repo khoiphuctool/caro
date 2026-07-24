@@ -25,6 +25,7 @@ let isOnlineMode    = false;
 let daXoaBanCoTranNay = false;
 let currentUsername = null;
 let currentUserData = null;
+let welcomeNotificationShown = false; // Flag để chỉ hiển thị thông báo chào mừng 1 lần
 
 // Listeners
 let roomListener        = null;
@@ -253,6 +254,14 @@ function fetchUserData(userId) {
             setMyOnlineStatus('free');
             langNgheDanhSachOnline();
             langNgheLoiMoiDen();
+            kiemTraLoiMoiCho(userId); // Kiểm tra lời mời đang chờ
+            
+            // Thông báo chào mừng khi đăng nhập (chỉ 1 lần)
+            if (!welcomeNotificationShown && typeof addNotification === 'function') {
+                const displayName = data.displayName || data.username || 'Bạn';
+                addNotification('online', `Chào mừng🎉 ${displayName} đã tham gia chò trơi! Chúc ${displayName} có 1 ngày vui vẻ!`);
+                welcomeNotificationShown = true;
+            }
         }
     });
 }
@@ -353,12 +362,32 @@ function guiLoiMoiThachDau(targetUid, targetName) {
     if (!currentRoomId) return;
     const myId   = localStorage.getItem('current_user_id');
     const myName = currentUserData ? currentUserData.displayName : currentUsername;
-    db.ref(`invitations/${targetUid}`).set({
-        fromRoomId:     currentRoomId,
-        fromPlayerId:   myId,
-        fromPlayerName: myName,
-        timestamp:      Date.now()
-    }).then(() => alert(`Đã gửi lời mời tới [${targetName}]!`));
+    
+    // Kiểm tra xem người nhận có online không
+    db.ref(`online_users/${targetUid}`).once('value').then(snap => {
+        const isOnline = snap.exists();
+        
+        // Gửi lời mời realtime (nếu người đang online sẽ nhận ngay)
+        db.ref(`invitations/${targetUid}`).set({
+            fromRoomId:     currentRoomId,
+            fromPlayerId:   myId,
+            fromPlayerName: myName,
+            timestamp:      Date.now()
+        }).then(() => {
+            alert(`Đã gửi lời mời tới [${targetName}]!${isOnline ? '' : ' (Người này hiện offline, sẽ nhận khi online)'}`);
+            
+            // Luôn lưu lời mời vào danh sách chờ (để họ xem lại khi online)
+            db.ref(`pending_invites/${targetUid}`).push({
+                fromRoomId:     currentRoomId,
+                fromPlayerId:   myId,
+                fromPlayerName: myName,
+                timestamp:      Date.now(),
+                status:         'pending'
+            });
+        }).catch(err => {
+            alert('Lỗi gửi lời mời: ' + err.message);
+        });
+    });
 }
 window.guiLoiMoiThachDau = guiLoiMoiThachDau;
 
@@ -383,6 +412,32 @@ function langNgheLoiMoiDen() {
         if (!dongY) return;
 
         vaoPhongLaO(invite.fromRoomId);
+    });
+}
+
+function kiemTraLoiMoiCho(userId) {
+    // Kiểm tra các lời mời đang chờ trong vòng 5 phút
+    const fiveMinutesAgo = Date.now() - 300000;
+    db.ref(`pending_invites/${userId}`).once('value').then(snap => {
+        const invites = snap.val();
+        if (!invites) return;
+        
+        let count = 0;
+        for (const key in invites) {
+            const invite = invites[key];
+            if (invite.status === 'pending' && invite.timestamp > fiveMinutesAgo) {
+                count++;
+                // Xóa lời mời đã xử lý
+                db.ref(`pending_invites/${userId}/${key}`).update({ status: 'seen' });
+                
+                setTimeout(() => {
+                    const dongY = confirm(`🎮 [${invite.fromPlayerName}] đã mời bạn vào phòng solo! Chấp nhận?`);
+                    if (dongY) {
+                        vaoPhongLaO(invite.fromRoomId);
+                    }
+                }, count * 500); // Delay giữa các lời mời
+            }
+        }
     });
 }
 
