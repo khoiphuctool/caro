@@ -505,13 +505,13 @@ function ngoimVaoPhong(roomId) {
     const myName = currentUserData ? currentUserData.displayName : currentUsername;
     const roomRef = db.ref(`rooms/${roomId}`);
 
-    // Dùng transaction để tránh race condition 2 người cùng vào
     roomRef.transaction(room => {
-        if (!room) return;
-        if (room.status === 'playing') return; // Đang chơi, không được vào ghế
+        // Firebase gọi lần đầu với null — trả null để retry với dữ liệu thực
+        if (!room) return null;
+        if (room.status === 'playing') return; // abort — đang chơi
 
         if (!room.playerX_id || room.status === 'empty') {
-            // Ngồi ghế X (chủ phòng)
+            // Ngồi ghế X
             room.playerX_id     = myId;
             room.playerX_name   = myName;
             room.playerX_status = 'online';
@@ -526,13 +526,13 @@ function ngoimVaoPhong(roomId) {
             room.updatedAt      = Date.now();
             return room;
         }
-        // Không còn ghế trống
+        // Cả 2 ghế đầy hoặc mình đã ngồi — abort
         return;
     }).then(result => {
         if (!result.committed) { alert('Phòng đã đầy hoặc không thể vào!'); return; }
         const room = result.snapshot.val();
-        currentRoomId = roomId;
-        myRole        = room.playerX_id === myId ? 'X' : 'O';
+        currentRoomId     = roomId;
+        myRole            = room.playerX_id === myId ? 'X' : 'O';
         daXoaBanCoTranNay = false;
         localStorage.setItem('current_room_id', roomId);
 
@@ -542,7 +542,7 @@ function ngoimVaoPhong(roomId) {
         langNgheThayDoiPhong(roomId);
         langNgheTinNhan(roomId);
         setMyOnlineStatus('free');
-    });
+    }).catch(err => { alert('Lỗi kết nối: ' + err.message); });
 }
 window.ngoimVaoPhong = ngoimVaoPhong;
 
@@ -587,9 +587,9 @@ function vaoPhongLaO(roomId) {
     const roomRef = db.ref(`rooms/${roomId}`);
 
     roomRef.transaction(room => {
-        if (!room) return;
-        if (room.playerO_id && room.playerO_id !== myId) return; // Ghế O đã có người
-        if (room.playerX_id === myId) return; // Không tự đấu mình
+        if (!room) return null; // retry
+        if (room.playerO_id && room.playerO_id !== myId) return; // abort — ghế O đã có
+        if (room.playerX_id === myId) return; // abort — không tự đấu mình
         room.playerO_id     = myId;
         room.playerO_name   = myName;
         room.playerO_status = 'online';
@@ -977,7 +977,7 @@ window.guiNuocDiLenFirebase = function(row, col) {
     const isWin    = (typeof checkWin === 'function') ? checkWin(row, col) : false;
 
     roomRef.transaction(data => {
-        if (!data) return null;
+        if (!data) return null; // retry
         if (data.turn !== myRole) return null;
         if (data.status !== 'playing') return null;
         // Kiểm tra ô đã bị đánh chưa
