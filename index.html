@@ -344,36 +344,20 @@
         
         <div class="lobby-layout">
             
-            <!-- CỘT CHÍNH 1: TẠO PHÒNG & DANH SÁCH PHÒNG -->
+            <!-- CỘT CHÍNH 1: DANH SÁCH 20 PHÒNG CỐ ĐỊNH -->
             <div class="lobby-column-left">
                 <div class="panel-box">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h2 class="panel-title" style="margin: 0; border: none;">TẠO PHÒNG SOLO</h2>
+                        <h2 class="panel-title" style="margin: 0; border: none;">🎮 SOLO ONLINE</h2>
                         <button id="btn-close-lobby" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">&times;</button>
                     </div>
-                    
-                    <div style="margin-bottom: 12px;">
-                        <label><b>Tên phòng:</b></label>
-                        <input type="text" id="room-name" placeholder="Nhập tên phòng..." style="width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px;">
-                    </div>
-
-                    <div class="setup-row">
-                        <label><b>Số quân thắng:</b></label>
-                        <select id="game-win-count" style="padding: 6px;">
-                            <option value="5">5 quân</option>
-                            <option value="6">6 quân</option>
-                        </select>
-                        <label style="margin-left: 15px; cursor: pointer;">
-                            <input type="checkbox" id="game-chan-2-dau"> <b>Chặn 2 đầu KHÔNG THẮNG</b>
-                        </label>
-                    </div>
-                    
-                    <button id="btn-create" class="btn-blue">TẠO PHÒNG MỚI</button>
+                    <p style="font-size:13px;color:#666;margin:0 0 10px;">Chọn phòng trống để ngồi vào. Ai vào trước là chủ phòng (X), người kia là khách (O). Chủ phòng mời người chơi rảnh rồi bấm Bắt đầu.</p>
+                    <button onclick="hienDanhSachPhong()" style="padding:6px 14px;background:#007bff;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;">🔄 Làm mới danh sách</button>
                 </div>
 
                 <div class="panel-box">
-                    <h3 class="panel-title">Danh sách phòng trống:</h3>
-                    <div id="room-list" style="max-height: 250px; overflow-y: auto;">Đang tải danh sách...</div>
+                    <h3 class="panel-title">20 Phòng đấu:</h3>
+                    <div id="room-list" style="max-height: 380px; overflow-y: auto;">Đang tải...</div>
                 </div>
                 
                 <div id="online-users-panel" class="panel-box">
@@ -399,17 +383,8 @@
 
         </div>
 
-        <!-- KHU VỰC 2: MÀN HÌNH BÁO CHỜ NGƯỜI CHƠI (MẶC ĐỊNH ẨN) -->
-        <div id="lobby-waiting-area" style="display: none; text-align: center; padding: 20px 0;">
-            <div style="margin-bottom: 15px;">
-                <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
-            </div>
-            <h3 style="color: #007bff; margin-bottom: 5px;">Đang chờ người chơi khác vào phòng...</h3>
-            <p style="color: #666; font-size: 14px; margin-top: 0;">Bạn đang là Chủ Phòng (Quân X)</p>
-            <p id="waiting-room-info" style="background: #f8f9fa; padding: 8px; border-radius: 4px; font-size: 13px; color: #555;"></p>
-            <button id="btn-cancel-room" style="padding: 8px 20px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px;">Hủy phòng</button>
-        </div>
+        <!-- KHU VỰC 2: Không còn dùng, giữ lại cho tương thích -->
+        <div id="lobby-waiting-area" style="display: none;"></div>
 
     </div>
 
