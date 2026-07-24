@@ -768,11 +768,6 @@ input[type="checkbox"] {
 }
 /* Trạng thái khi đang trong bàn cờ online */
 body.in-game-active {
-    position: fixed;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    touch-action: none; /* Vô hiệu hóa các cử chỉ cuộn mặc định của trình duyệt */
     overscroll-behavior: none; /* Chặn kéo nẩy trang trên iOS/Android */
 }
 

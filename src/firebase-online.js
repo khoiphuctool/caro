@@ -1114,52 +1114,55 @@ function xuLyKetThucVan(room) {
 // 🔄 UI VÁN MỚI & CHỈNH LUẬT
 // ══════════════════════════════════════════════════════════════════
 function hienUIVanMoi(msg) {
-    // Xóa overlay cũ nếu có
     const old = document.getElementById('van-moi-overlay');
     if (old) old.remove();
+
+    // Đóng win-overlay gốc nếu đang hiện
+    const winOv = document.getElementById('win-overlay');
+    if (winOv) winOv.classList.remove('show');
+    if (typeof stopConfetti === 'function') stopConfetti();
 
     const overlay = document.createElement('div');
     overlay.id = 'van-moi-overlay';
     overlay.style.cssText = `
         position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
-        background:white; padding:24px 32px; border-radius:12px;
-        box-shadow:0 4px 24px rgba(0,0,0,0.25); z-index:99999;
-        font-family:Arial; text-align:center; min-width:300px;
+        background:white; padding:24px 32px; border-radius:14px;
+        box-shadow:0 8px 32px rgba(0,0,0,0.3); z-index:99999;
+        font-family:Arial; text-align:center; min-width:280px; max-width:360px;
     `;
 
-    // Chỉnh luật — chỉ chủ phòng (X) mới được đổi
     const isX = myRole === 'X';
     const luatHTML = isX ? `
-        <div style="margin:14px 0; padding:12px; background:#f8f9fa; border-radius:8px; text-align:left;">
-            <div style="font-weight:bold; margin-bottom:8px;">⚙️ Luật ván tiếp:</div>
-            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                <label>Số quân thắng:</label>
-                <select id="vm-win-count" style="padding:4px 8px; border-radius:4px; border:1px solid #ddd;">
-                    <option value="3">3 quân</option>
-                    <option value="4">4 quân</option>
-                    <option value="5" selected>5 quân</option>
-                    <option value="6">6 quân</option>
-                    <option value="7">7 quân</option>
+        <div style="margin:14px 0;padding:12px;background:#f8f9fa;border-radius:8px;text-align:left;">
+            <div style="font-weight:bold;margin-bottom:8px;font-size:14px;">⚙️ Luật ván tiếp:</div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px;">
+                <label>Số quân:</label>
+                <select id="vm-win-count" style="padding:4px 8px;border-radius:4px;border:1px solid #ddd;">
+                    <option value="3">3</option><option value="4">4</option>
+                    <option value="5" selected>5</option><option value="6">6</option><option value="7">7</option>
                 </select>
-                <label style="cursor:pointer;">
+                <label style="cursor:pointer;display:flex;align-items:center;gap:4px;">
                     <input type="checkbox" id="vm-chan-2-dau"> Chặn 2 đầu
                 </label>
             </div>
         </div>
-        <button onclick="batDauVanMoi()" style="padding:10px 24px; background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; font-size:15px; font-weight:bold; margin-right:8px;">▶ Ván Mới</button>
-        <button onclick="thoatPhongSauVan()" style="padding:10px 18px; background:#dc3545; color:white; border:none; border-radius:6px; cursor:pointer; font-size:14px;">Thoát</button>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:8px;">
+            <button onclick="batDauVanMoi()" style="padding:10px 24px;background:#28a745;color:white;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:bold;">▶ Ván Mới</button>
+            <button onclick="thoatPhongSauVan()" style="padding:10px 16px;background:#6c757d;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Thoát</button>
+        </div>
     ` : `
-        <div style="margin:10px 0; color:#666; font-size:14px;">Chờ chủ phòng bắt đầu ván mới...</div>
-        <button onclick="thoatPhongSauVan()" style="padding:10px 18px; background:#dc3545; color:white; border:none; border-radius:6px; cursor:pointer; font-size:14px;">Thoát phòng</button>
+        <p style="margin:12px 0;color:#666;font-size:14px;">Chờ chủ phòng bắt đầu ván mới...</p>
+        <button onclick="thoatPhongSauVan()" style="padding:10px 20px;background:#6c757d;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Thoát phòng</button>
     `;
 
     overlay.innerHTML = `
-        <div style="font-size:20px; font-weight:bold; color:#333; margin-bottom:4px;">${msg}</div>
+        <div style="font-size:40px;margin-bottom:8px;">🏆</div>
+        <div style="font-size:18px;font-weight:bold;color:#333;margin-bottom:4px;">${msg}</div>
         ${luatHTML}
     `;
     document.body.appendChild(overlay);
 
-    // Điền luật hiện tại vào form
+    // Điền luật hiện tại
     if (isX && currentRoomId) {
         db.ref(`rooms/${currentRoomId}`).once('value').then(snap => {
             const r = snap.val(); if (!r) return;

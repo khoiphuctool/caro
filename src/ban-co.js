@@ -456,10 +456,11 @@ function infOnTouchStart(e) {
     touchStartX = t.clientX; touchStartY = t.clientY;
 }
 function infOnTouchMove(e) {
-    e.preventDefault();
     const t = e.touches[0];
     const dx = t.clientX - panStartX, dy = t.clientY - panStartY;
     if (Math.abs(dx) > 5 || Math.abs(dy) > 5) panMoved = true;
+    // Chỉ preventDefault khi đang pan bàn cờ (panMoved) để không khóa scroll trang
+    if (panMoved) e.preventDefault();
     vColF = panStartVCol - dx / INF_CS;
     vRowF = panStartVRow - dy / INF_CS;
     scheduleRender();
@@ -521,6 +522,8 @@ function zoomBoard(direction) {
 
 // ===== UNDO =====
 function undoMove() {
+    // Không cho undo khi đang chơi online
+    if (window.isOnlineModeActive && window.isOnlineModeActive()) return;
     if (moveHistory.length === 0 || !isGameActive) return;
     const lastMove = moveHistory.pop();
     setCell(lastMove.r, lastMove.c, "");

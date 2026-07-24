@@ -257,11 +257,9 @@ function makeMove(r, c) {
         if (checkWin(r, c)) {
             isGameActive = false;
             statusPanel.innerHTML = `🏆 <strong>${quanToi}</strong> chiến thắng!`;
-            setTimeout(() => {
-                showWinOverlay(quanToi, false, '', '');
-                if (gameTotalTimer) clearInterval(gameTotalTimer);
-                if (playerTurnTimer) clearInterval(playerTurnTimer);
-            }, 500);
+            // Online: KHÔNG gọi showWinOverlay — firebase-online.js sẽ xử lý qua xuLyKetThucVan
+            if (gameTotalTimer) clearInterval(gameTotalTimer);
+            if (playerTurnTimer) clearInterval(playerTurnTimer);
             return;
         }
 
