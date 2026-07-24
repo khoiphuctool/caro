@@ -1184,6 +1184,11 @@ body.in-game-active {
     .invite-panel, .chat-panel { min-width: unset; }
     .scroll-list { height: 80px; }
 
+    /* Giới hạn bàn cờ trên mobile — tối đa 55vh để còn scroll xuống */
+    .match-board-section { padding: 4px; }
+    #inf-resizable { max-height: 55vh; overflow: hidden; }
+    #inf-canvas    { max-height: 55vh; }
+
     #game-board-container {
         max-width: 100% !important;
         margin: 8px auto;

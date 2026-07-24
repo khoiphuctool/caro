@@ -206,7 +206,13 @@ function autoResizeInfCanvas() {
     const btnEl = document.getElementById('ui-btn-restart');
     const btnH  = btnEl ? btnEl.offsetHeight + 20 : 60;
     const availW = window.innerWidth  - rect.left - 18;
-    const availH = window.innerHeight - rect.top  - btnH - 10;
+    let   availH = window.innerHeight - rect.top  - btnH - 10;
+
+    // Trên mobile khi online: giới hạn chiều cao để còn scroll xuống nút Bắt đầu
+    if (window.innerWidth <= 768 && window.isOnlineModeActive && window.isOnlineModeActive()) {
+        availH = Math.min(availH, Math.floor(window.innerHeight * 0.5));
+    }
+
     applyCanvasSize(availW, availH);
     saveCanvasSize(infCanvasW, infCanvasH);
 }
@@ -284,8 +290,13 @@ function renderInfiniteBoard() {
         }
     }
 
-    // Hover preview
-    if (infHoverR !== null && isGameActive && !(gameMode.startsWith('ai') && currentPlayer === botPiece)) {
+    // Hover preview — chỉ hiện khi đến lượt mình
+    const onlineActive = window.isOnlineModeActive && window.isOnlineModeActive();
+    const myTurn = onlineActive
+        ? (typeof currentTurn !== 'undefined' && currentTurn === (window.myOnlineRole))
+        : (gameMode === 'solo' || (gameMode.startsWith('ai') && currentPlayer !== botPiece));
+
+    if (infHoverR !== null && isGameActive && myTurn) {
         const hr = infHoverR - r0, hc = infHoverC - c0;
         if (hr >= 0 && hc >= 0 && hr < rows && hc < cols) {
             c.fillStyle = theme === 'pure-white' ? 'rgba(37,99,235,0.12)' : 'rgba(255,255,255,0.08)';
@@ -293,9 +304,9 @@ function renderInfiniteBoard() {
         }
     }
 
-    // Keyboard cursor
-    const isPlayerTurn = gameMode === 'solo' || (gameMode.startsWith('ai') && currentPlayer !== botPiece);
-    if (keyboardCursorVisible && isPlayerTurn && isGameActive) {
+    // Keyboard cursor — chỉ hiện offline hoặc khi đến lượt mình online
+    const isPlayerTurnKb = onlineActive ? myTurn : (gameMode === 'solo' || (gameMode.startsWith('ai') && currentPlayer !== botPiece));
+    if (keyboardCursorVisible && isPlayerTurnKb && isGameActive) {
         const kr = keyboardCursorR - r0, kc = keyboardCursorC - c0;
         if (kr >= 0 && kc >= 0 && kr < rows && kc < cols) {
             c.strokeStyle = '#f59e0b';

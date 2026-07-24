@@ -64,16 +64,14 @@ function initFirebase() {
 // Chỉ tạo nếu chưa có — không bao giờ xóa phòng
 // ══════════════════════════════════════════════════════════════════
 function khoiTao20Phong() {
+    // Chỉ tạo phòng chưa tồn tại — KHÔNG bao giờ ghi đè phòng đang có dữ liệu
     for (let i = 1; i <= TOTAL_ROOMS; i++) {
         const roomRef = db.ref(`rooms/phong_${i}`);
         roomRef.once('value').then(snap => {
-            if (!snap.exists()) {
+            if (!snap.exists() || snap.val() === null) {
                 roomRef.set(taoDataPhongRong(i));
-            } else {
-                // Nếu phòng tồn tại nhưng bị kẹt ở trạng thái lạ, reset nhẹ
-                const d = snap.val();
-                if (!d) roomRef.set(taoDataPhongRong(i));
             }
+            // Nếu phòng đã tồn tại thì không động vào — dù trạng thái nào
         });
     }
 }
@@ -360,6 +358,11 @@ function setupEventListeners() {
     });
     document.getElementById('btn-close-lobby').addEventListener('click', () => {
         document.getElementById('lobby-screen').style.display = 'none';
+        // Hủy listener danh sách phòng khi đóng lobby
+        if (roomsListListener) {
+            db.ref('rooms').off('value', roomsListListener);
+            roomsListListener = null;
+        }
     });
     document.getElementById('btn-quit-match').addEventListener('click', xuLyThoatPhong);
     document.getElementById('btn-leave-match').addEventListener('click', xuLyThoatPhong);
@@ -438,22 +441,35 @@ function setupEventListeners() {
     });
 }
 
+// Listener realtime cho danh sách phòng ở sảnh
+let roomsListListener = null;
+
 // ══════════════════════════════════════════════════════════════════
-// 🏠 HIỆN DANH SÁCH 20 PHÒNG
+// 🏠 HIỆN DANH SÁCH 20 PHÒNG (realtime)
 // ══════════════════════════════════════════════════════════════════
 function hienDanhSachPhong() {
     const container = document.getElementById('room-list');
+    if (!container) return;
     container.innerHTML = '<p style="color:#888;">Đang tải...</p>';
 
-    db.ref('rooms').once('value').then(snap => {
+    // Hủy listener cũ nếu có
+    if (roomsListListener) {
+        db.ref('rooms').off('value', roomsListListener);
+        roomsListListener = null;
+    }
+
+    roomsListListener = db.ref('rooms').on('value', snap => {
+        // Không render nếu đã vào phòng (lobby đóng rồi)
+        if (!document.getElementById('lobby-screen') ||
+            document.getElementById('lobby-screen').style.display === 'none') return;
+
         const rooms = snap.val();
-        if (!rooms) { container.innerHTML = '<p>Không có phòng.</p>'; return; }
         container.innerHTML = '';
         const myId = localStorage.getItem('current_user_id');
 
         for (let i = 1; i <= TOTAL_ROOMS; i++) {
             const roomId = `phong_${i}`;
-            const room   = rooms[roomId] || taoDataPhongRong(i);
+            const room   = (rooms && rooms[roomId]) || taoDataPhongRong(i);
             const el     = document.createElement('div');
             el.style.cssText = 'padding:10px;margin:5px 0;border:1px solid #ccc;border-radius:6px;display:flex;justify-content:space-between;align-items:center;';
 
@@ -461,13 +477,11 @@ function hienDanhSachPhong() {
             let statusTxt = '', bgColor = '#f8f9fa', borderColor = '#ddd', nutHtml = '';
 
             if (room.status === 'empty') {
-                statusTxt   = '🟢 Trống';
-                nutHtml     = `<button onclick="ngoimVaoPhong('${roomId}')" style="padding:6px 14px;background:#28a745;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Vào Phòng</button>`;
+                statusTxt = '🟢 Trống';
+                nutHtml   = `<button onclick="ngoimVaoPhong('${roomId}')" style="padding:6px 14px;background:#28a745;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Vào Phòng</button>`;
             } else if (room.status === 'waiting') {
-                bgColor     = '#e8f5e9'; borderColor = '#4caf50';
-                statusTxt   = '⏳ Chờ người chơi';
-                const xName = room.playerX_name || '?';
-                const oName = room.playerO_name || '---';
+                bgColor = '#e8f5e9'; borderColor = '#4caf50';
+                statusTxt = '⏳ Chờ bắt đầu';
                 if (laTrongPhong) {
                     nutHtml = `<button onclick="vaoLaiPhong('${roomId}')" style="padding:6px 14px;background:#4caf50;color:white;border:none;border-radius:4px;cursor:pointer;">Vào lại</button>`;
                 } else if (!room.playerO_id) {
@@ -476,15 +490,16 @@ function hienDanhSachPhong() {
                     nutHtml = `<span style="color:#aaa;font-size:12px;">Đầy</span>`;
                 }
             } else if (room.status === 'playing') {
-                bgColor     = '#fff3e0'; borderColor = '#ff9800';
-                statusTxt   = '⚔️ Đang chơi';
+                bgColor = '#fff3e0'; borderColor = '#ff9800';
+                statusTxt = '⚔️ Đang chơi';
                 if (laTrongPhong) {
                     nutHtml = `<button onclick="vaoLaiPhong('${roomId}')" style="padding:6px 14px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;">🔄 Vào lại</button>`;
                 } else {
                     nutHtml = `<button onclick="xemPhong('${roomId}')" style="padding:6px 14px;background:#17a2b8;color:white;border:none;border-radius:4px;cursor:pointer;">👁️ Xem</button>`;
                 }
             } else {
-                statusTxt = '⬜ Trống';
+                // ended hoặc unknown — hiện như trống
+                statusTxt = '🟢 Trống';
                 nutHtml   = `<button onclick="ngoimVaoPhong('${roomId}')" style="padding:6px 14px;background:#28a745;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Vào Phòng</button>`;
             }
 
@@ -492,11 +507,14 @@ function hienDanhSachPhong() {
             el.style.borderColor     = borderColor;
             const xN = room.playerX_name || '---';
             const oN = room.playerO_name || '---';
+            const luatTxt = room.winCount ? `${room.winCount} quân${room.chan2Dau ? ' · Chặn 2 đầu' : ''}` : '';
             el.innerHTML = `
                 <div>
                     <div style="font-weight:bold;font-size:14px;">Phòng ${i}</div>
                     <div style="font-size:12px;color:#555;margin-top:2px;">
-                        🔴 ${xN} vs 🔵 ${oN} &nbsp;·&nbsp; <b>${statusTxt}</b>
+                        🔴 ${xN} vs 🔵 ${oN}
+                        ${luatTxt ? `&nbsp;·&nbsp;<span style="color:#888;">${luatTxt}</span>` : ''}
+                        &nbsp;·&nbsp;<b>${statusTxt}</b>
                     </div>
                 </div>
                 <div>${nutHtml}</div>
@@ -554,6 +572,11 @@ function ngoimVaoPhong(roomId) {
         localStorage.setItem('current_room_id', roomId);
 
         setupOnDisconnect(roomId, myRole);
+        // Đóng lobby và hủy listener danh sách phòng
+        if (roomsListListener) {
+            db.ref('rooms').off('value', roomsListListener);
+            roomsListListener = null;
+        }
         document.getElementById('lobby-screen').style.display = 'none';
         batDauGiaoDienOnline();
         langNgheThayDoiPhong(roomId);
@@ -1276,7 +1299,6 @@ function hienUIVanMoi(msg) {
     const old = document.getElementById('van-moi-overlay');
     if (old) old.remove();
 
-    // Đóng win-overlay gốc nếu đang hiện
     const winOv = document.getElementById('win-overlay');
     if (winOv) winOv.classList.remove('show');
     if (typeof stopConfetti === 'function') stopConfetti();
@@ -1287,25 +1309,13 @@ function hienUIVanMoi(msg) {
         position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
         background:white; padding:24px 32px; border-radius:14px;
         box-shadow:0 8px 32px rgba(0,0,0,0.3); z-index:99999;
-        font-family:Arial; text-align:center; min-width:280px; max-width:360px;
+        font-family:Arial; text-align:center; min-width:260px; max-width:340px;
     `;
 
     const isX = myRole === 'X';
-    const luatHTML = isX ? `
-        <div style="margin:14px 0;padding:12px;background:#f8f9fa;border-radius:8px;text-align:left;">
-            <div style="font-weight:bold;margin-bottom:8px;font-size:14px;">⚙️ Luật ván tiếp:</div>
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px;">
-                <label>Số quân:</label>
-                <select id="vm-win-count" style="padding:4px 8px;border-radius:4px;border:1px solid #ddd;">
-                    <option value="3">3</option><option value="4">4</option>
-                    <option value="5" selected>5</option><option value="6">6</option><option value="7">7</option>
-                </select>
-                <label style="cursor:pointer;display:flex;align-items:center;gap:4px;">
-                    <input type="checkbox" id="vm-chan-2-dau"> Chặn 2 đầu
-                </label>
-            </div>
-        </div>
-        <div style="display:flex;gap:10px;justify-content:center;margin-top:8px;">
+    const actHTML = isX ? `
+        <p style="margin:10px 0 16px;color:#555;font-size:13px;">Chỉnh luật ở thanh phòng rồi bấm Ván Mới</p>
+        <div style="display:flex;gap:10px;justify-content:center;">
             <button onclick="batDauVanMoi()" style="padding:10px 24px;background:#28a745;color:white;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:bold;">▶ Ván Mới</button>
             <button onclick="thoatPhongSauVan()" style="padding:10px 16px;background:#6c757d;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Thoát</button>
         </div>
@@ -1317,32 +1327,23 @@ function hienUIVanMoi(msg) {
     overlay.innerHTML = `
         <div style="font-size:40px;margin-bottom:8px;">🏆</div>
         <div style="font-size:18px;font-weight:bold;color:#333;margin-bottom:4px;">${msg}</div>
-        ${luatHTML}
+        ${actHTML}
     `;
     document.body.appendChild(overlay);
 
-    // Điền luật hiện tại
-    if (isX && currentRoomId) {
-        db.ref(`rooms/${currentRoomId}`).once('value').then(snap => {
-            const r = snap.val(); if (!r) return;
-            const sel = document.getElementById('vm-win-count');
-            const chk = document.getElementById('vm-chan-2-dau');
-            if (sel) sel.value = r.winCount || 5;
-            if (chk) chk.checked = !!r.chan2Dau;
-        });
+    // Hiện lại panel luật cho chủ phòng chỉnh trước khi bắt đầu ván mới
+    if (isX) {
+        const rulesPanel = document.getElementById('room-rules-panel');
+        if (rulesPanel) rulesPanel.style.display = 'block';
     }
 }
 
 function batDauVanMoi() {
     if (!currentRoomId || myRole !== 'X') return;
-    // Đọc luật từ UI phòng (room-win-count / room-chan-2-dau) — nhất quán với cài đặt phòng
     const selWin  = document.getElementById('room-win-count');
     const chkChan = document.getElementById('room-chan-2-dau');
-    // Fallback về vm-* nếu overlay ván mới đang hiện
-    const selVm  = document.getElementById('vm-win-count');
-    const chkVm  = document.getElementById('vm-chan-2-dau');
-    const winCnt  = selVm  ? parseInt(selVm.value)  : (selWin  ? parseInt(selWin.value)  : 5);
-    const chan2D  = chkVm  ? chkVm.checked           : (chkChan ? chkChan.checked          : true);
+    const winCnt  = selWin  ? parseInt(selWin.value) : 5;
+    const chan2D  = chkChan ? chkChan.checked         : true;
 
     db.ref(`rooms/${currentRoomId}`).update({
         status:   'playing',

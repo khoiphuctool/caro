@@ -351,8 +351,7 @@
                         <h2 class="panel-title" style="margin: 0; border: none;">🎮 SOLO ONLINE</h2>
                         <button id="btn-close-lobby" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">&times;</button>
                     </div>
-                    <p style="font-size:13px;color:#666;margin:0 0 10px;">Chọn phòng trống để ngồi vào. Ai vào trước là chủ phòng (X), người kia là khách (O). Chủ phòng mời người chơi rảnh rồi bấm Bắt đầu.</p>
-                    <button onclick="hienDanhSachPhong()" style="padding:6px 14px;background:#007bff;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;">🔄 Làm mới danh sách</button>
+                    <p style="font-size:13px;color:#666;margin:0 0 6px;">Chọn phòng trống để ngồi vào. Ai vào trước là chủ phòng (X), người kia là khách (O). Chủ phòng mời người chơi rảnh rồi bấm Bắt đầu.</p>
                 </div>
 
                 <div class="panel-box">
@@ -459,10 +458,6 @@
 
         <!-- BÀN CỜ PHÒNG ĐẤU ONLINE — dùng chung bàn cờ từ main-layout -->
         <div class="match-board-section">
-            <div class="board-zoom-controls">
-                <button type="button" class="btn-zoom" onclick="thayDoiKichThuocCo(-2)"> Thu nhỏ</button>
-                <button type="button" class="btn-zoom btn-zoom-in" onclick="thayDoiKichThuocCo(2)">Phóng to</button>
-            </div>
             <!-- #unified-board-slot: bàn cờ thật sẽ được JS move vào đây khi online -->
             <div id="unified-board-slot"></div>
         </div>
