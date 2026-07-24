@@ -635,12 +635,22 @@ function setupEventListeners() {
             myRole = 'X';
             currentRule = laChan2Dau ? 'chan_2_dau' : 'tu_do'; 
             currentWinCount = soQuanThang; 
-            daXoaBanCoTranNay = false; // Phòng mới, chưa bắt đầu game
+            daXoaBanCoTranNay = false;
             localStorage.setItem('current_room_id', roomId);
 
-            // KHÔNG dùng onDisconnect().remove() — tránh xóa phòng khi mất mạng tạm thời
-            // Thay vào đó chỉ đánh dấu playerX offline để hệ thống tự dọn dẹp sau
-            db.ref(`rooms/${roomId}/playerX_status`).onDisconnect().set('offline');
+            // Khi mất kết nối: đánh dấu offline. Khi reconnect: tự restore về online
+            const playerXStatusRef = db.ref(`rooms/${roomId}/playerX_status`);
+            playerXStatusRef.onDisconnect().set('offline');
+            // Đảm bảo luôn online khi vừa tạo phòng
+            playerXStatusRef.set('online');
+
+            // Kết nối lại → restore online ngay
+            db.ref('.info/connected').on('value', (snap) => {
+                if (snap.val() === true && currentRoomId === roomId) {
+                    playerXStatusRef.set('online');
+                }
+            });
+
             setMyOnlineStatus('free');
             
             // Chuyển giao diện vào phòng đấu
@@ -662,42 +672,18 @@ function setupEventListeners() {
     });
 
     function xoaPhongMaTuDong(allRooms) {
+        // Không xóa phòng từ client — tránh race condition và false positive
+        // Phòng ended sẽ tự ẩn khỏi danh sách, phòng chết sẽ được dọn khi chủ phòng thoát
         const now = Date.now();
         const currentUserId = localStorage.getItem('current_user_id') || myPlayerId;
 
         Object.keys(allRooms).forEach(roomId => {
             const room = allRooms[roomId];
-
-            // CHỈ chủ phòng (playerX) mới được tự dọn phòng của mình
-            // Tuyệt đối không cho client khác xóa phòng của người khác
-            const laOChuPhongNay = (currentUserId === room.playerX_id);
-
-            // Xóa phòng không có chủ phòng — chỉ khi mình là người liên quan
-            if (!room.playerX_id || !room.playerX) {
-                // Chỉ xóa nếu mình là người tạo ra phòng đó (edge case)
-                if (laOChuPhongNay) db.ref(`rooms/${roomId}`).remove();
-                return;
-            }
-
-            // Các điều kiện dọn dẹp dưới đây CHỈ chạy nếu mình là chủ phòng đó
-            if (!laOChuPhongNay) return;
-
-            // Xóa phòng đã kết thúc quá 5 phút
-            if (room.status === 'ended' && room.createdAt && (now - room.createdAt) > 300000) {
-                db.ref(`rooms/${roomId}`).remove();
-                return;
-            }
-            // Xóa phòng timeout (cả 2 offline lâu)
+            // Chỉ xóa phòng timeout thực sự (cả 2 offline + quá 5 phút)
+            // và CHỈ khi mình là chủ phòng đó
+            if (currentUserId !== room.playerX_id) return;
             if (room.deleteTimeoutTimestamp && now > room.deleteTimeoutTimestamp) {
                 db.ref(`rooms/${roomId}`).remove();
-                return;
-            }
-            // Xóa phòng chờ mà chủ đã offline TRÊN 2 PHÚT
-            if (room.status === 'waiting' && room.playerX_status === 'offline') {
-                const taoPhong = room.createdAt || 0;
-                if ((now - taoPhong) > 120000) {
-                    db.ref(`rooms/${roomId}`).remove();
-                }
             }
         });
     }
@@ -909,7 +895,14 @@ function setupEventListeners() {
                     startOnlineMatch();
                     listenToRoomChanges(roomId);
                     langNgheTinNhanChat(roomId);
-                    db.ref(`rooms/${roomId}/playerO_status`).onDisconnect().set('offline');
+                    const playerOStatusRef = db.ref(`rooms/${roomId}/playerO_status`);
+                    playerOStatusRef.onDisconnect().set('offline');
+                    // Kết nối lại → restore online ngay
+                    db.ref('.info/connected').on('value', (snap) => {
+                        if (snap.val() === true && currentRoomId === roomId) {
+                            playerOStatusRef.set('online');
+                        }
+                    });
                 });
             }
         });
@@ -1357,11 +1350,15 @@ function setupEventListeners() {
             const xOnline = room.playerX_status === 'online';
             const oOnline = room.playerO_status === 'online';
 
-            if (xOnline || oOnline) {
-                if (room.deleteTimeoutTimestamp) { db.ref(`rooms/${roomId}/deleteTimeoutTimestamp`).remove(); }
-            } else if (!xOnline && !oOnline) {
-                if (!room.deleteTimeoutTimestamp) {
-                    db.ref(`rooms/${roomId}/deleteTimeoutTimestamp`).set(Date.now() + 60000);
+            // Chỉ set delete timeout khi đang chơi dở (playing) và cả 2 đều offline
+            // Không set khi waiting — tránh xóa phòng đang chờ người vào
+            if (room.status === 'playing') {
+                if (xOnline || oOnline) {
+                    if (room.deleteTimeoutTimestamp) { db.ref(`rooms/${roomId}/deleteTimeoutTimestamp`).remove(); }
+                } else if (!xOnline && !oOnline) {
+                    if (!room.deleteTimeoutTimestamp) {
+                        db.ref(`rooms/${roomId}/deleteTimeoutTimestamp`).set(Date.now() + 300000); // 5 phút
+                    }
                 }
             }
 
