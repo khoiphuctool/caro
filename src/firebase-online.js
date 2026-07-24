@@ -1767,24 +1767,41 @@ function luuTenHienThi() {
     if (newName.length < 2) { alert('Tên ít nhất 2 ký tự!'); return; }
     if (newName.length > 20) { alert('Tên tối đa 20 ký tự!'); return; }
 
-    db.ref(`users/${userId}`).update({ displayName: newName }).then(() => {
-        alert('✅ Đã cập nhật tên!');
-
-        // Cập nhật local ngay lập tức (không cần chờ listener)
-        if (currentUserData) currentUserData.displayName = newName;
-
-        // Cập nhật top-bar tên
-        const nameEl = document.getElementById('user-display-name');
-        if (nameEl) nameEl.innerText = newName;
-
-        // Cập nhật avatar chữ cái nếu chưa có emoji avatar
-        const avEl = document.getElementById('user-avatar-display');
-        if (avEl && !currentUserData?.avatar) {
-            avEl.textContent = newName[0].toUpperCase();
+    // Kiểm tra tên mới có bị trùng với user khác không
+    db.ref('users').orderByChild('username').equalTo(newName).once('value').then(snap => {
+        if (snap.exists()) {
+            const existingId = Object.keys(snap.val())[0];
+            if (existingId !== userId) {
+                alert('❌ Tên này đã có người dùng, chọn tên khác!');
+                return;
+            }
         }
 
-        // Cập nhật online_users nếu đang online
-        setMyOnlineStatus(isOnlineMode ? 'playing' : 'free');
+        // Cập nhật cả username lẫn displayName lên server
+        db.ref(`users/${userId}`).update({ username: newName, displayName: newName }).then(() => {
+            alert('✅ Đã cập nhật tên! Đăng nhập bằng tên mới từ lần sau.');
+
+            // Cập nhật local
+            if (currentUserData) {
+                currentUserData.displayName = newName;
+                currentUserData.username = newName;
+            }
+            currentUsername = newName;
+            localStorage.setItem('current_username', newName);
+
+            // Cập nhật top-bar tên
+            const nameEl = document.getElementById('user-display-name');
+            if (nameEl) nameEl.innerText = newName;
+
+            // Cập nhật avatar chữ cái nếu chưa có emoji avatar
+            const avEl = document.getElementById('user-avatar-display');
+            if (avEl && !currentUserData?.avatar) {
+                avEl.textContent = newName[0].toUpperCase();
+            }
+
+            // Cập nhật online_users nếu đang online
+            setMyOnlineStatus(isOnlineMode ? 'playing' : 'free');
+        });
     });
 }
 window.luuTenHienThi = luuTenHienThi;
