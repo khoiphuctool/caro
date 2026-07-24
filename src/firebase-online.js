@@ -899,13 +899,15 @@ function chuPhongBatDauGame() {
         const room = snap.val();
         if (!room || !room.playerO_id) { alert('Cần có đối thủ mới bắt đầu được!'); return; }
         // Đọc luật từ UI phòng
-        const selWin  = document.getElementById('room-win-count');
-        const chkChan = document.getElementById('room-chan-2-dau');
-        const winCount  = selWin  ? parseInt(selWin.value)  : (room.winCount  || 5);
-        const chan2Dau  = chkChan ? chkChan.checked          : (room.chan2Dau  ?? true);
+        const selWin   = document.getElementById('room-win-count');
+        const chkChan  = document.getElementById('room-chan-2-dau');
+        const selFirst = document.getElementById('room-first-turn');
+        const winCount  = selWin   ? parseInt(selWin.value)  : (room.winCount  || 5);
+        const chan2Dau  = chkChan  ? chkChan.checked          : (room.chan2Dau  ?? true);
+        const firstTurn = selFirst ? selFirst.value           : (room.firstTurn || 'X');
         db.ref(`rooms/${currentRoomId}`).update({
-            status: 'playing', turn: 'X',
-            winCount, chan2Dau, updatedAt: Date.now()
+            status: 'playing', turn: firstTurn,
+            winCount, chan2Dau, firstTurn, updatedAt: Date.now()
         });
     });
 }
@@ -914,12 +916,14 @@ window.chuPhongBatDauGame = chuPhongBatDauGame;
 // Chủ phòng thay đổi luật realtime — lưu lên Firebase ngay để O thấy
 function capNhatLuatPhong() {
     if (!currentRoomId || myRole !== 'X') return;
-    const selWin  = document.getElementById('room-win-count');
-    const chkChan = document.getElementById('room-chan-2-dau');
+    const selWin   = document.getElementById('room-win-count');
+    const chkChan  = document.getElementById('room-chan-2-dau');
+    const selFirst = document.getElementById('room-first-turn');
     if (!selWin || !chkChan) return;
     db.ref(`rooms/${currentRoomId}`).update({
         winCount:  parseInt(selWin.value),
         chan2Dau:  chkChan.checked,
+        firstTurn: selFirst ? selFirst.value : 'X',
         updatedAt: Date.now()
     });
 }
@@ -1025,12 +1029,26 @@ function langNgheThayDoiPhong(roomId) {
             xuLyKetThucVan(room);
         }
 
-        // Chủ phòng bấm Ván Mới → Firebase set playing với winner='' → O nhận và tự reset
-        // Dấu hiệu: status='playing', winner='', daXoaBanCoTranNay=true (đang ở ván cũ)
-        // → O cần xóa bàn cũ để bắt đầu ván mới
+        // Phòng reset về waiting sau ván kết thúc (chủ phòng bấm Ván Mới)
+        // → cả X và O đều cần reset bàn cũ và ẩn overlay
+        if (room.status === 'waiting' && !room.winner && daXoaBanCoTranNay === true
+            && room.moves && Object.keys(room.moves).length <= 1) {
+            daXoaBanCoTranNay = false;
+            locallyAppliedLastMove = { row: -2, col: -2 };
+            _lastProcessedWinner = '';
+            if (typeof window.xoaBanCoCu === 'function') window.xoaBanCoCu();
+            const vmOld = document.getElementById('van-moi-overlay');
+            if (vmOld) vmOld.remove();
+            const btnBack2 = document.getElementById('btn-back-to-result');
+            if (btnBack2) btnBack2.remove();
+            const turnEl2 = document.getElementById('turn-indicator');
+            if (turnEl2) { turnEl2.textContent = '⏳ Đang chờ bắt đầu...'; turnEl2.className = ''; }
+        }
+
+        // Block cũ: Chủ phòng set playing thẳng (giữ lại để tương thích nếu cần)
+        // Dấu hiệu: status='playing', winner='', daXoaBanCoTranNay=true, moves chỉ {init:true}
         if (room.status === 'playing' && !room.winner && daXoaBanCoTranNay === true
             && room.moves && Object.keys(room.moves).length <= 1) {
-            // moves chỉ có {init:true} → ván mới, bàn cũ cần xóa
             daXoaBanCoTranNay = false;
             locallyAppliedLastMove = { row: -2, col: -2 };
             _lastProcessedWinner = '';
@@ -1140,10 +1158,12 @@ function capNhatUIPhong(room) {
         const showRules = laChuX && room.status === 'waiting';
         rulesPanel.style.display = showRules ? 'block' : 'none';
         if (showRules) {
-            const selWin  = document.getElementById('room-win-count');
-            const chkChan = document.getElementById('room-chan-2-dau');
+            const selWin   = document.getElementById('room-win-count');
+            const chkChan  = document.getElementById('room-chan-2-dau');
+            const selFirst = document.getElementById('room-first-turn');
             if (selWin  && document.activeElement !== selWin)  selWin.value    = room.winCount || 5;
             if (chkChan && document.activeElement !== chkChan) chkChan.checked = room.chan2Dau ?? true;
+            if (selFirst && document.activeElement !== selFirst) selFirst.value = room.firstTurn || 'X';
         }
     }
 
@@ -1306,7 +1326,10 @@ function xuLyKetThucVan(room) {
     if (turnEl) { turnEl.textContent = msg; turnEl.className = ''; }
 
     // Hiện UI chọn ván mới (chỉ với người chơi thực, không phải viewer)
-    if (myRole === 'X' || myRole === 'O') {
+    const myIdKetThuc = localStorage.getItem('current_user_id');
+    const isPlayer = myRole === 'X' || myRole === 'O' ||
+                     myIdKetThuc === room.playerX_id || myIdKetThuc === room.playerO_id;
+    if (isPlayer) {
         hienUIVanMoi(msg);
     }
 
@@ -1362,10 +1385,10 @@ function hienUIVanMoi(msg) {
 
     const isX = myRole === 'X';
     const actHTML = isX ? `
-        <p style="margin:10px 0 14px;color:#555;font-size:13px;">Chỉnh luật ở thanh phòng rồi bấm Ván Mới</p>
+        <p style="margin:10px 0 14px;color:#555;font-size:13px;">Chỉnh luật ở thanh phòng rồi bấm Bắt đầu</p>
         <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
             <button onclick="xemLaiBanCo()" style="padding:9px 14px;background:#6c757d;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;">🔍 Xem lại</button>
-            <button onclick="batDauVanMoi()" style="padding:9px 20px;background:#28a745;color:white;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:bold;">▶ Ván Mới</button>
+            <button onclick="batDauVanMoi()" style="padding:9px 20px;background:#28a745;color:white;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:bold;">▶ Quay lại phòng chính</button>
             <button onclick="thoatPhongSauVan()" style="padding:9px 12px;background:#dc3545;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Thoát</button>
         </div>
     ` : `
@@ -1416,12 +1439,8 @@ window.xemLaiBanCo = xemLaiBanCo;
 
 function batDauVanMoi() {
     if (!currentRoomId || myRole !== 'X') return;
-    const selWin  = document.getElementById('room-win-count');
-    const chkChan = document.getElementById('room-chan-2-dau');
-    const winCnt  = selWin  ? parseInt(selWin.value) : 5;
-    const chan2D  = chkChan ? chkChan.checked         : true;
 
-    // Reset local ngay
+    // Reset local
     daXoaBanCoTranNay = false;
     locallyAppliedLastMove = { row: -2, col: -2 };
     _lastProcessedWinner = '';
@@ -1431,18 +1450,15 @@ function batDauVanMoi() {
     if (btnBack) btnBack.remove();
     if (typeof window.xoaBanCoCu === 'function') window.xoaBanCoCu();
 
-    // Atomic: chỉ 1 lần write — không dùng setTimeout để tránh race condition
-    // status thẳng -> playing, O sẽ nhận và tự reset daXoaBanCoTranNay qua waiting→playing
+    // Reset về waiting — chủ phòng sẽ thấy nút Bắt đầu, chọn lại luật rồi bấm
+    // An toàn hơn set playing thẳng vì tránh race condition với O
     db.ref(`rooms/${currentRoomId}`).update({
-        status:    'playing',
+        status:    'waiting',
         winner:    '',
         endReason: '',
-        winCount:  winCnt,
-        chan2Dau:  chan2D,
         moves:     { init: true },
         lastMove:  { row: -1, col: -1, by: '' },
         endedAt:   null,
-        turn:      'X',
         updatedAt: Date.now()
     });
 }

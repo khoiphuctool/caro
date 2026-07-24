@@ -438,6 +438,13 @@
                     <option value="7">7</option>
                 </select>
             </label>
+            <label style="margin-right:14px;">
+                Đi trước:
+                <select id="room-first-turn" onchange="capNhatLuatPhong()" style="padding:3px 7px; border-radius:4px; border:1px solid #ccc; margin-left:4px;">
+                    <option value="X" selected>X (Chủ phòng)</option>
+                    <option value="O">O (Khách)</option>
+                </select>
+            </label>
             <label style="cursor:pointer;">
                 <input type="checkbox" id="room-chan-2-dau" onchange="capNhatLuatPhong()" checked>
                 <b> Chặn 2 đầu không thắng</b>
