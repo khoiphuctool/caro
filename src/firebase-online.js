@@ -855,8 +855,8 @@ function setupEventListeners() {
                 reconnectVaoPhong('X', 'playerX_status');
             } else if (playerId === room.playerO_id) {
                 reconnectVaoPhong('O', 'playerO_status');
-            } else if (room.playerO && room.playerO_id) {
-                // Vào xem với tư cách khán giả
+            } else if (room.playerO_id && room.playerO_id !== "") {
+                // Ghế O đã có người — vào xem với tư cách khán giả
                 myRole = 'viewer';
                 daXoaBanCoTranNay = true;
                 startOnlineMatch();
@@ -870,16 +870,30 @@ function setupEventListeners() {
                     langNgheTinNhanChat(roomId);
                 }
             } else {
-                // Ngồi ghế O mới - dùng userId để đảm bảo consistency
-                myRole = 'O';
-                roomRef.update({ 
-                    playerO: playerId, 
-                    playerO_id: playerId,
-                    playerO_name: playerName,
-                    status: "waiting",  // Giữ waiting để chờ cả 2 ready
-                    playerO_status: 'online',
-                    playerO_ready: false  // O chưa ready
-                }).then(() => {
+                // Ghế O đang trống — dùng transaction để tránh 2 người cùng ngồi
+                roomRef.transaction((currentData) => {
+                    if (!currentData) return; // Phòng không tồn tại
+                    // Nếu ghế O đã bị người khác chiếm trong lúc này → abort
+                    if (currentData.playerO_id && currentData.playerO_id !== "") return;
+                    // Ngồi ghế O
+                    currentData.playerO = playerId;
+                    currentData.playerO_id = playerId;
+                    currentData.playerO_name = playerName;
+                    currentData.playerO_status = 'online';
+                    currentData.playerO_ready = false;
+                    currentData.status = "waiting";
+                    return currentData;
+                }).then((result) => {
+                    if (!result.committed) {
+                        // Ghế O vừa bị người khác chiếm — vào xem
+                        myRole = 'viewer';
+                        daXoaBanCoTranNay = true;
+                        startOnlineMatch();
+                        listenToRoomChanges(roomId);
+                        langNgheTinNhanChat(roomId);
+                        return;
+                    }
+                    myRole = 'O';
                     localStorage.setItem('current_room_id', roomId);
                     startOnlineMatch();
                     listenToRoomChanges(roomId);

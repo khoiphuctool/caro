@@ -206,12 +206,13 @@ function updateStatus() {
 function makeMove(r, c) {
     // NẾU ĐANG CHƠI ONLINE
     if (window.isOnlineModeActive && window.isOnlineModeActive()) {
-        // Kiểm tra đúng lượt trước
-        if (typeof currentTurn !== 'undefined' && typeof myRole !== 'undefined') {
-            // currentTurn và myRole là biến trong firebase-online.js scope
-        }
+        const quanToi = window.myOnlineRole;
 
-        const quanToi = window.myOnlineRole || currentPlayer;
+        // Chặn: viewer hoặc chưa có ghế thì không được đánh
+        if (!quanToi || quanToi === 'viewer') return;
+
+        // Chặn: không phải lượt mình thì không được đánh
+        if (typeof currentTurn !== 'undefined' && currentTurn !== quanToi) return;
 
         // Vẽ quân lên bàn trước (optimistic update)
         moveCount++;
