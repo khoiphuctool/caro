@@ -1,24 +1,20 @@
-// ===== THANH THÔNG BÁO CHẠY (NOTIFICATION TICKER) =====
+// ===== THANH THÔNG BÁO (NOTIFICATION TICKER) =====
 
 // Queue thông báo
 let notificationQueue = [];
 let maxNotifications = 5; // Số thông báo tối đa hiển thị cùng lúc
-let onlineUsersCache = new Set(); // Cache để tránh thông báo trùng lặp
-let tickerTimeout = null; // Timeout để tự động ẩn ticker
-const ANIMATION_DURATION = 20000; // Animation scroll 20s
-const CHAR_TIME = 50; // 50ms mỗi ký tự
+let notificationCache = new Set(); // Cache để mỗi thông báo chỉ hiện 1 lần
 let welcomeShown = false; // Flag để chỉ hiển thị thông báo chào mừng 1 lần
-
-// Tính thời gian hiển thị dựa trên số lượng chữ
-function calculateDisplayTime() {
-    const totalChars = notificationQueue.reduce((sum, n) => sum + n.message.length, 0);
-    const charTime = totalChars * CHAR_TIME;
-    const totalTime = ANIMATION_DURATION + charTime + 2000; // +2s buffer
-    return Math.max(totalTime, 25000); // Tối thiểu 25s
-}
+let tickerTimeout = null; // Timeout để tự động ẩn
+const DISPLAY_TIME = 4000; // Hiển thị 4 giây
 
 // Thêm thông báo vào queue
 function addNotification(type, message) {
+    // Tạo cache key để tránh trùng lặp
+    const cacheKey = `${type}_${message}`;
+    if (notificationCache.has(cacheKey)) return; // Bỏ qua nếu đã hiển thị rồi
+    notificationCache.add(cacheKey);
+    
     const notification = {
         type: type, // 'online', 'win', 'chat'
         message: message,
@@ -34,13 +30,13 @@ function addNotification(type, message) {
     
     updateTicker();
     
-    // Tính thời gian hiển thị dựa trên số lượng chữ
+    // Tự động ẩn sau 3 giây
     if (tickerTimeout) clearTimeout(tickerTimeout);
-    const displayTime = calculateDisplayTime();
     tickerTimeout = setTimeout(() => {
         const ticker = document.getElementById('notification-ticker');
         if (ticker) ticker.style.display = 'none';
-    }, displayTime);
+        notificationQueue = []; // Xóa queue sau khi ẩn
+    }, DISPLAY_TIME);
 }
 
 // Cập nhật nội dung ticker
@@ -57,27 +53,13 @@ function updateTicker() {
     
     ticker.style.display = 'block';
     
-    // Kiểm tra xem nội dung đã thay đổi chưa
-    const currentContent = content.innerHTML;
+    // Hiển thị tất cả thông báo
     const newContent = notificationQueue.map(notif => 
         `<span class="ticker-item ${notif.type}">${notif.message}</span>`
     ).join('');
     
-    // Chỉ cập nhật nếu nội dung thực sự thay đổi
-    if (currentContent !== newContent) {
-        content.innerHTML = newContent;
-    }
+    content.innerHTML = newContent;
 }
-
-// Xóa thông báo cũ (sau 5 phút)
-function cleanupOldNotifications() {
-    const fiveMinutesAgo = Date.now() - 300000;
-    notificationQueue = notificationQueue.filter(n => n.timestamp > fiveMinutesAgo);
-    updateTicker();
-}
-
-// Chạy cleanup mỗi phút
-setInterval(cleanupOldNotifications, 60000);
 
 // ===== LISTENER CHO ONLINE/OFFLINE =====
 function setupOnlineNotificationListener() {

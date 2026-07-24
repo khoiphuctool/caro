@@ -259,7 +259,7 @@ function fetchUserData(userId) {
             // Thông báo chào mừng khi đăng nhập (chỉ 1 lần)
             if (!welcomeNotificationShown && typeof addNotification === 'function') {
                 const displayName = data.displayName || data.username || 'Bạn';
-                addNotification('online', `Chào mừng🎉 ${displayName} đã tham gia chò trơi! Chúc ${displayName} có 1 ngày vui vẻ!`);
+                addNotification('online', `Chào mừng🎉 ${displayName} đã tham gia GAME! Chúc ${displayName} có 1 ngày vui vẻ!`);
                 welcomeNotificationShown = true;
             }
         }
