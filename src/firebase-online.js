@@ -905,9 +905,24 @@ function chuPhongBatDauGame() {
         const winCount  = selWin   ? parseInt(selWin.value)  : (room.winCount  || 5);
         const chan2Dau  = chkChan  ? chkChan.checked          : (room.chan2Dau  ?? true);
         const firstTurn = selFirst ? selFirst.value           : (room.firstTurn || 'X');
+
+        // Reset local state trước khi push để tránh xử lý nước cũ
+        daXoaBanCoTranNay = false;
+        locallyAppliedLastMove = { row: -2, col: -2 };
+        _lastProcessedWinner = '';
+
         db.ref(`rooms/${currentRoomId}`).update({
-            status: 'playing', turn: firstTurn,
-            winCount, chan2Dau, firstTurn, updatedAt: Date.now()
+            status:    'playing',
+            turn:      firstTurn,
+            winCount,
+            chan2Dau,
+            firstTurn,
+            winner:    '',
+            endReason: '',
+            moves:     { init: true },
+            lastMove:  { row: -1, col: -1, by: '' },
+            endedAt:   null,
+            updatedAt: Date.now()
         });
     });
 }
@@ -1043,19 +1058,6 @@ function langNgheThayDoiPhong(roomId) {
             if (btnBack2) btnBack2.remove();
             const turnEl2 = document.getElementById('turn-indicator');
             if (turnEl2) { turnEl2.textContent = '⏳ Đang chờ bắt đầu...'; turnEl2.className = ''; }
-        }
-
-        // Block cũ: Chủ phòng set playing thẳng (giữ lại để tương thích nếu cần)
-        // Dấu hiệu: status='playing', winner='', daXoaBanCoTranNay=true, moves chỉ {init:true}
-        if (room.status === 'playing' && !room.winner && daXoaBanCoTranNay === true
-            && room.moves && Object.keys(room.moves).length <= 1) {
-            daXoaBanCoTranNay = false;
-            locallyAppliedLastMove = { row: -2, col: -2 };
-            _lastProcessedWinner = '';
-            const vmOld = document.getElementById('van-moi-overlay');
-            if (vmOld) vmOld.remove();
-            const btnBack2 = document.getElementById('btn-back-to-result');
-            if (btnBack2) btnBack2.remove();
         }
 
         // Phòng bị reset về empty → tự thoát ra sảnh không cần alert

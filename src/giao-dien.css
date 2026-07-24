@@ -129,7 +129,7 @@ input[type="checkbox"] {
     max-width: 100%;
     min-height: 300px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-    cursor: grab;
+    cursor: default;
     user-select: none;
     display: flex;
     align-items: center;
@@ -143,7 +143,6 @@ input[type="checkbox"] {
     display: inline-block;
     line-height: 0;
 }
-.game-container.panning { cursor: grabbing; }
 
 /* ===== ZOOM CONTROLS ===== */
 .zoom-controls {
@@ -221,8 +220,13 @@ input[type="checkbox"] {
     box-sizing: border-box;
     font-weight: 900;
     font-size: 0.55rem;
-    transition: background 0.1s, transform 0.1s;
+    transition: background 0.08s;
     position: relative;
+    will-change: background;
+}
+.cell.X, .cell.O {
+    cursor: default;
+    pointer-events: none;
 }
 
 .cell.last-move {
@@ -693,15 +697,18 @@ input[type="checkbox"] {
 /* ===== PLAYER CARDS (ONLINE) ===== */
 .player-card {
     display: none;
+    flex-direction: column;
     align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
+    gap: 8px;
+    padding: 12px 14px;
     border-radius: 10px;
     color: white;
-    min-width: 0;
-    flex-shrink: 1;
-    max-width: 200px;
+    min-width: 140px;
+    max-width: 180px;
+    flex-shrink: 0;
+    align-self: flex-start;
     box-shadow: 0 3px 12px rgba(0,0,0,0.2);
+    text-align: center;
 }
 .player-card-x {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -710,16 +717,17 @@ input[type="checkbox"] {
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 .pc-avatar {
-    width: 38px; height: 38px;
-    min-width: 38px;
+    width: 44px; height: 44px;
+    min-width: 44px;
     border-radius: 50%;
     background: rgba(255,255,255,0.25);
     display: flex; align-items: center; justify-content: center;
-    font-size: 18px; font-weight: 900;
+    font-size: 22px; font-weight: 900;
+    flex-shrink: 0;
 }
 .pc-info {
     min-width: 0;
-    flex: 1;
+    width: 100%;
 }
 .pc-name {
     font-size: 13px;
@@ -727,19 +735,22 @@ input[type="checkbox"] {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 130px;
+    max-width: 100%;
 }
 .pc-badge {
     font-size: 10px;
     opacity: 0.85;
     margin: 2px 0 4px;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .pc-stats {
     display: flex;
-    gap: 6px;
-    font-size: 11px;
+    gap: 4px;
+    font-size: 10px;
     flex-wrap: wrap;
+    justify-content: center;
 }
 .pc-stats span {
     background: rgba(255,255,255,0.15);
@@ -759,12 +770,35 @@ input[type="checkbox"] {
     min-width: 0;
 }
 
-@media (max-width: 600px) {
-    .player-card { max-width: 140px; padding: 6px 8px; gap: 6px; }
-    .pc-avatar { width: 30px; height: 30px; min-width: 30px; font-size: 14px; }
-    .pc-name { font-size: 11px; max-width: 85px; }
+/* Màn hình vừa */
+@media (max-width: 900px) {
+    .player-card { min-width: 110px; max-width: 140px; padding: 10px 10px; gap: 6px; }
+    .pc-avatar { width: 36px; height: 36px; min-width: 36px; font-size: 17px; }
+    .pc-name { font-size: 11px; }
     .pc-badge { font-size: 9px; }
-    .pc-stats { gap: 3px; font-size: 10px; }
+    .pc-stats { gap: 3px; font-size: 9px; }
+}
+
+/* Màn hình nhỏ: chuyển layout dọc, card xếp trên/dưới bàn cờ */
+@media (max-width: 600px) {
+    #ui-game-container {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    #ui-game-container .player-card {
+        flex-direction: row;
+        max-width: 100%;
+        min-width: unset;
+        width: 100%;
+        box-sizing: border-box;
+        align-self: auto;
+        text-align: left;
+        padding: 8px 12px;
+        gap: 10px;
+    }
+    .pc-avatar { width: 32px; height: 32px; min-width: 32px; font-size: 15px; }
+    .pc-name { font-size: 12px; max-width: 200px; }
+    .pc-stats { justify-content: flex-start; }
 }
 /* Trạng thái khi đang trong bàn cờ online */
 body.in-game-active {
