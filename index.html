@@ -395,12 +395,31 @@
             <span id="txt-room-title">Phòng chờ đấu...</span>
             <div>
                 <button id="btn-start-game" onclick="chuPhongBatDauGame()" class="btn-success" style="display:none; margin-right:10px;">BẮT ĐẦU GAME 🎮</button>
-                <button id="btn-leave-match" onclick="thoatPhongDau()" class="btn-danger">Thoát phòng 🚪</button>
+                <button id="btn-leave-match" onclick="xuLyThoatPhong()" class="btn-danger">Thoát phòng 🚪</button>
             </div>
         </div>
 
         <!-- LƯỢT ĐI INDICATOR -->
         <div id="turn-indicator">⏳ Đang chờ bắt đầu...</div>
+
+        <!-- LUẬT CHƠI — chỉ chủ phòng thấy khi waiting -->
+        <div id="room-rules-panel" style="display:none; background:#f0f8ff; border:1px solid #b8d4f0; border-radius:8px; padding:10px 14px; margin:6px 0; font-size:13px;">
+            <span style="font-weight:bold; margin-right:12px;">⚙️ Luật phòng:</span>
+            <label style="margin-right:14px;">
+                Số quân thắng:
+                <select id="room-win-count" onchange="capNhatLuatPhong()" style="padding:3px 7px; border-radius:4px; border:1px solid #ccc; margin-left:4px;">
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5" selected>5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                </select>
+            </label>
+            <label style="cursor:pointer;">
+                <input type="checkbox" id="room-chan-2-dau" onchange="capNhatLuatPhong()" checked>
+                <b> Chặn 2 đầu không thắng</b>
+            </label>
+        </div>
 
         <!-- KHU VỰC ĐỐI KHÁNG -->
         <div class="versus-container">

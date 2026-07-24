@@ -91,7 +91,7 @@ function taoDataPhongRong(so) {
         playerO_status: 'offline',
         turn: 'X',
         winCount: 5,
-        chan2Dau: false,
+        chan2Dau: true,
         winner: '',
         lastMove: { row: -1, col: -1, by: '' },
         moves: { init: true },
@@ -378,11 +378,21 @@ function setupEventListeners() {
     const btnReadyO = document.getElementById('btn-ready-O');
     if (btnReadyO) btnReadyO.addEventListener('click', () => setReady('O'));
 
-    // beforeunload
+    // beforeunload — dọn ghế ngay khi đóng tab
     window.addEventListener('beforeunload', () => {
-        if (currentRoomId && isOnlineMode) {
+        if (currentRoomId && myRole && myRole !== 'viewer') {
             const sf = myRole === 'X' ? 'playerX_status' : 'playerO_status';
             db.ref(`rooms/${currentRoomId}/${sf}`).set('offline');
+            // Nếu đang chờ (waiting) thì giải phóng ghế ngay
+            // (không dùng await vì beforeunload không hỗ trợ async)
+            const rid = currentRoomId;
+            const role = myRole;
+            const uid = localStorage.getItem('current_user_id');
+            if (!isOnlineMode) return;
+            // Dùng sendBeacon để đảm bảo request được gửi đi trước khi tab đóng
+            // Firebase REST API để set offline ngay
+            const dbUrl = `https://caro-fa824-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/${rid}/${sf}.json`;
+            navigator.sendBeacon && navigator.sendBeacon(dbUrl, JSON.stringify('offline'));
         }
     });
 
@@ -510,12 +520,19 @@ function ngoimVaoPhong(roomId) {
         if (!room) return null;
         if (room.status === 'playing') return; // abort — đang chơi
 
-        if (!room.playerX_id || room.status === 'empty') {
-            // Ngồi ghế X
+        if (!room.playerX_id || room.status === 'empty' || room.status === 'ended') {
+            // Ngồi ghế X — reset phòng về waiting sạch
             room.playerX_id     = myId;
             room.playerX_name   = myName;
             room.playerX_status = 'online';
+            room.playerO_id     = '';
+            room.playerO_name   = '';
+            room.playerO_status = 'offline';
             room.status         = 'waiting';
+            room.winner         = '';
+            room.endReason      = '';
+            room.moves          = { init: true };
+            room.lastMove       = { row: -1, col: -1, by: '' };
             room.updatedAt      = Date.now();
             return room;
         } else if (!room.playerO_id && room.playerX_id !== myId) {
@@ -676,6 +693,10 @@ function thoatGiaoDienOnline() {
     isOnlineMode      = false;
     window.onpopstate = null;
 
+    // Đóng overlay ván mới nếu còn hiện
+    const vmOv = document.getElementById('van-moi-overlay');
+    if (vmOv) vmOv.remove();
+
     const onlineBanner = document.getElementById('online-status-banner');
     if (onlineBanner) onlineBanner.style.display = 'none';
 
@@ -695,16 +716,6 @@ function thoatGiaoDienOnline() {
 
     document.getElementById('panel-playerX').style.display = 'none';
     document.getElementById('panel-playerO').style.display = 'none';
-
-    // Dọn listener
-    if (roomListener && currentRoomId) {
-        db.ref(`rooms/${currentRoomId}`).off('value', roomListener);
-        roomListener = null;
-    }
-    if (connectedListener) {
-        db.ref('.info/connected').off('value', connectedListener);
-        connectedListener = null;
-    }
 
     setMyOnlineStatus('free');
     if (typeof initGame === 'function') initGame();
@@ -731,35 +742,62 @@ function roiKhoiPhong() {
 
         if (room.status === 'playing') {
             if (role === 'viewer') { _resetSauThoat(rid); return; }
-            // Người chơi thoát khi đang đánh = thua
             if (!confirm('Bạn đang đánh. Thoát sẽ bị tính THUA. Tiếp tục?')) return;
             const winner = role === 'X' ? 'O' : 'X';
-            db.ref(`rooms/${rid}`).update({ status: 'ended', winner, endReason: `${role} bỏ cuộc` })
+            db.ref(`rooms/${rid}`).update({ status: 'ended', winner, endReason: `${role} bỏ cuộc`, updatedAt: Date.now() })
               .then(() => _resetSauThoat(rid));
+
         } else if (room.status === 'waiting' || room.status === 'empty') {
             if (role === 'X' && myId === room.playerX_id) {
-                // Chủ phòng thoát → giải phóng ghế X, reset phòng về empty nếu không có O
                 if (room.playerO_id) {
-                    // Có O → O lên làm chủ (ghế X)
+                    // O lên ghế X, status = waiting
                     db.ref(`rooms/${rid}`).update({
-                        playerX_id: room.playerO_id, playerX_name: room.playerO_name, playerX_status: 'online',
-                        playerO_id: '', playerO_name: '', playerO_status: 'offline', updatedAt: Date.now()
+                        playerX_id: room.playerO_id, playerX_name: room.playerO_name,
+                        playerX_status: room.playerO_status || 'offline',
+                        playerO_id: '', playerO_name: '', playerO_status: 'offline',
+                        status: 'waiting', updatedAt: Date.now()
                     }).then(() => _resetSauThoat(rid));
                 } else {
-                    // Phòng trống hoàn toàn → reset về empty
                     db.ref(`rooms/${rid}`).update({
                         playerX_id: '', playerX_name: '', playerX_status: 'offline',
                         status: 'empty', updatedAt: Date.now()
                     }).then(() => _resetSauThoat(rid));
                 }
             } else if (role === 'O' && myId === room.playerO_id) {
-                // Khách thoát → giải phóng ghế O
                 db.ref(`rooms/${rid}`).update({
                     playerO_id: '', playerO_name: '', playerO_status: 'offline', updatedAt: Date.now()
                 }).then(() => _resetSauThoat(rid));
             } else {
                 _resetSauThoat(rid);
             }
+
+        } else if (room.status === 'ended') {
+            // Ván đã xong — giải phóng ghế của mình rồi thoát
+            if (role === 'viewer') { _resetSauThoat(rid); return; }
+            const updates = { updatedAt: Date.now() };
+            if (role === 'X' && myId === room.playerX_id) {
+                Object.assign(updates, {
+                    playerX_id: '', playerX_name: '', playerX_status: 'offline',
+                    status: room.playerO_id ? 'waiting' : 'empty'
+                });
+                // Nếu còn O thì O thành chủ mới
+                if (room.playerO_id) {
+                    Object.assign(updates, {
+                        playerX_id: room.playerO_id, playerX_name: room.playerO_name,
+                        playerX_status: room.playerO_status || 'offline',
+                        playerO_id: '', playerO_name: '', playerO_status: 'offline'
+                    });
+                }
+            } else if (role === 'O' && myId === room.playerO_id) {
+                Object.assign(updates, {
+                    playerO_id: '', playerO_name: '', playerO_status: 'offline',
+                    status: room.playerX_id ? 'waiting' : 'empty'
+                });
+            }
+            // Reset bàn cờ cho ván tiếp
+            Object.assign(updates, { winner: '', endReason: '', moves: { init: true }, lastMove: { row: -1, col: -1, by: '' } });
+            db.ref(`rooms/${rid}`).update(updates).then(() => _resetSauThoat(rid));
+
         } else {
             _resetSauThoat(rid);
         }
@@ -767,9 +805,30 @@ function roiKhoiPhong() {
 }
 
 function _resetSauThoat(rid) {
+    // Dọn listener TRƯỚC khi null currentRoomId
+    if (roomListener && rid) {
+        db.ref(`rooms/${rid}`).off('value', roomListener);
+        roomListener = null;
+    }
+    if (connectedListener) {
+        db.ref('.info/connected').off('value', connectedListener);
+        connectedListener = null;
+    }
+    if (chatListener && chatRoomId) {
+        db.ref(`rooms/${chatRoomId}/chats`).off('child_added', chatListener);
+        chatListener = null;
+        chatRoomId   = null;
+    }
+    // Hủy tất cả offline cleanup timers cho phòng này
+    ['X', 'O'].forEach(r => {
+        const k = `${rid}_${r}`;
+        if (_offlineCleanupTimers[k]) { clearTimeout(_offlineCleanupTimers[k]); delete _offlineCleanupTimers[k]; }
+    });
+
     currentRoomId     = null;
     myRole            = null;
     daXoaBanCoTranNay = false;
+    _lastProcessedWinner = '';
     localStorage.removeItem('current_room_id');
     thoatGiaoDienOnline();
 }
@@ -782,10 +841,32 @@ function chuPhongBatDauGame() {
     db.ref(`rooms/${currentRoomId}`).once('value').then(snap => {
         const room = snap.val();
         if (!room || !room.playerO_id) { alert('Cần có đối thủ mới bắt đầu được!'); return; }
-        db.ref(`rooms/${currentRoomId}`).update({ status: 'playing', turn: 'X', updatedAt: Date.now() });
+        // Đọc luật từ UI phòng
+        const selWin  = document.getElementById('room-win-count');
+        const chkChan = document.getElementById('room-chan-2-dau');
+        const winCount  = selWin  ? parseInt(selWin.value)  : (room.winCount  || 5);
+        const chan2Dau  = chkChan ? chkChan.checked          : (room.chan2Dau  ?? true);
+        db.ref(`rooms/${currentRoomId}`).update({
+            status: 'playing', turn: 'X',
+            winCount, chan2Dau, updatedAt: Date.now()
+        });
     });
 }
 window.chuPhongBatDauGame = chuPhongBatDauGame;
+
+// Chủ phòng thay đổi luật realtime — lưu lên Firebase ngay để O thấy
+function capNhatLuatPhong() {
+    if (!currentRoomId || myRole !== 'X') return;
+    const selWin  = document.getElementById('room-win-count');
+    const chkChan = document.getElementById('room-chan-2-dau');
+    if (!selWin || !chkChan) return;
+    db.ref(`rooms/${currentRoomId}`).update({
+        winCount:  parseInt(selWin.value),
+        chan2Dau:  chkChan.checked,
+        updatedAt: Date.now()
+    });
+}
+window.capNhatLuatPhong = capNhatLuatPhong;
 
 function kickDoiThu() {
     if (!currentRoomId || myRole !== 'X') return;
@@ -814,6 +895,9 @@ window.setReady = setReady;
 // ══════════════════════════════════════════════════════════════════
 // 👂 LẮNG NGHE THAY ĐỔI PHÒNG (REALTIME)
 // ══════════════════════════════════════════════════════════════════
+// Map lưu timeout tự dọn ghế khi offline
+const _offlineCleanupTimers = {};
+
 function langNgheThayDoiPhong(roomId) {
     if (roomListener) { db.ref(`rooms/${currentRoomId || roomId}`).off('value', roomListener); roomListener = null; }
 
@@ -894,9 +978,70 @@ function langNgheThayDoiPhong(roomId) {
             xuLyKetThucVan(room);
         }
 
-        // Phòng bị reset về empty (cả 2 đã thoát)
+        // Phòng bị reset về empty → tự thoát ra sảnh không cần alert
         if (room.status === 'empty' && isOnlineMode && myRole !== 'viewer') {
             _resetSauThoat(roomId);
+        }
+
+        // ── TỰ DỌN GHẾ KHI NGƯỜI CHƠI OFFLINE ──────────────────────────
+        // Chỉ xử lý khi phòng không đang chơi (playing)
+        if (room.status !== 'playing') {
+            const myId = localStorage.getItem('current_user_id');
+
+            // Kiểm tra X offline (và không phải mình)
+            if (room.playerX_id && room.playerX_id !== myId && room.playerX_status === 'offline') {
+                if (!_offlineCleanupTimers[`${roomId}_X`]) {
+                    _offlineCleanupTimers[`${roomId}_X`] = setTimeout(() => {
+                        delete _offlineCleanupTimers[`${roomId}_X`];
+                        // Kiểm tra lại trước khi dọn
+                        db.ref(`rooms/${roomId}`).once('value').then(s => {
+                            const r = s.val();
+                            if (!r || r.playerX_status !== 'offline' || r.status === 'playing') return;
+                            // Nếu có O thì O lên ghế X, không thì reset phòng
+                            if (r.playerO_id) {
+                                db.ref(`rooms/${roomId}`).update({
+                                    playerX_id: r.playerO_id, playerX_name: r.playerO_name, playerX_status: 'online',
+                                    playerO_id: '', playerO_name: '', playerO_status: 'offline',
+                                    status: 'waiting', updatedAt: Date.now()
+                                });
+                            } else {
+                                db.ref(`rooms/${roomId}`).update({
+                                    playerX_id: '', playerX_name: '', playerX_status: 'offline',
+                                    status: 'empty', updatedAt: Date.now()
+                                });
+                            }
+                        });
+                    }, 30000); // 30 giây
+                }
+            } else {
+                // X online hoặc không có X → hủy timer nếu đang chạy
+                if (_offlineCleanupTimers[`${roomId}_X`]) {
+                    clearTimeout(_offlineCleanupTimers[`${roomId}_X`]);
+                    delete _offlineCleanupTimers[`${roomId}_X`];
+                }
+            }
+
+            // Kiểm tra O offline (và không phải mình)
+            if (room.playerO_id && room.playerO_id !== myId && room.playerO_status === 'offline') {
+                if (!_offlineCleanupTimers[`${roomId}_O`]) {
+                    _offlineCleanupTimers[`${roomId}_O`] = setTimeout(() => {
+                        delete _offlineCleanupTimers[`${roomId}_O`];
+                        db.ref(`rooms/${roomId}`).once('value').then(s => {
+                            const r = s.val();
+                            if (!r || r.playerO_status !== 'offline' || r.status === 'playing') return;
+                            db.ref(`rooms/${roomId}`).update({
+                                playerO_id: '', playerO_name: '', playerO_status: 'offline',
+                                updatedAt: Date.now()
+                            });
+                        });
+                    }, 30000);
+                }
+            } else {
+                if (_offlineCleanupTimers[`${roomId}_O`]) {
+                    clearTimeout(_offlineCleanupTimers[`${roomId}_O`]);
+                    delete _offlineCleanupTimers[`${roomId}_O`];
+                }
+            }
         }
     });
 }
@@ -926,6 +1071,20 @@ function capNhatUIPhong(room) {
 
     if (statusPX) statusPX.innerText = room.playerX_status === 'online' ? 'Sẵn sàng' : 'Offline';
     if (statusPO) statusPO.innerText = coDoiThu ? (room.playerO_status === 'online' ? 'Sẵn sàng' : 'Offline') : 'Trống ghế';
+
+    // Panel luật — chỉ chủ phòng thấy khi waiting, đồng bộ giá trị từ Firebase
+    const rulesPanel = document.getElementById('room-rules-panel');
+    if (rulesPanel) {
+        const showRules = laChuX && room.status === 'waiting';
+        rulesPanel.style.display = showRules ? 'block' : 'none';
+        if (showRules) {
+            const selWin  = document.getElementById('room-win-count');
+            const chkChan = document.getElementById('room-chan-2-dau');
+            // Chỉ đồng bộ nếu người dùng chưa đang thao tác (tránh giật)
+            if (selWin  && document.activeElement !== selWin)  selWin.value   = room.winCount  || 5;
+            if (chkChan && document.activeElement !== chkChan) chkChan.checked = room.chan2Dau ?? true;
+        }
+    }
 
     // LED trạng thái kết nối
     const ledX = document.getElementById('led-pX');
@@ -990,7 +1149,8 @@ window.guiNuocDiLenFirebase = function(row, col) {
         data.turn     = nextTurn;
         data.status   = isWin ? 'ended' : 'playing';
         data.winner   = isWin ? myRole  : '';
-        data.lastMove = { row, col, by: myRole };
+        data.lastMove = { row, col, by: myRole, ts: Date.now() };
+        if (isWin) data.endedAt = Date.now();
         return data;
     }).then(result => {
         if (result && result.committed) {
@@ -1088,9 +1248,8 @@ function xuLyKetThucVan(room) {
         hienUIVanMoi(msg);
     }
 
-    // Cập nhật rank & lịch sử — chỉ 1 lần duy nhất cho mỗi ván
-    // Dùng guard bằng updatedAt để tránh cả 2 client cùng ghi
-    const vanId = `${currentRoomId}_${room.updatedAt || ''}`;
+    // Guard chống ghi rank trùng — dùng endedAt (chỉ set 1 lần khi ván kết thúc)
+    const vanId = `${currentRoomId}_${room.endedAt || room.updatedAt || ''}`;
     if (_lastProcessedWinner === vanId) return;
     _lastProcessedWinner = vanId;
 
@@ -1176,26 +1335,29 @@ function hienUIVanMoi(msg) {
 
 function batDauVanMoi() {
     if (!currentRoomId || myRole !== 'X') return;
-    const sel = document.getElementById('vm-win-count');
-    const chk = document.getElementById('vm-chan-2-dau');
-    const winCount  = sel ? parseInt(sel.value) : 5;
-    const chan2Dau  = chk ? chk.checked : false;
+    // Đọc luật từ UI phòng (room-win-count / room-chan-2-dau) — nhất quán với cài đặt phòng
+    const selWin  = document.getElementById('room-win-count');
+    const chkChan = document.getElementById('room-chan-2-dau');
+    // Fallback về vm-* nếu overlay ván mới đang hiện
+    const selVm  = document.getElementById('vm-win-count');
+    const chkVm  = document.getElementById('vm-chan-2-dau');
+    const winCnt  = selVm  ? parseInt(selVm.value)  : (selWin  ? parseInt(selWin.value)  : 5);
+    const chan2D  = chkVm  ? chkVm.checked           : (chkChan ? chkChan.checked          : true);
 
-    // Reset bàn cờ & trạng thái phòng
     db.ref(`rooms/${currentRoomId}`).update({
         status:   'playing',
         turn:     'X',
         winner:   '',
         endReason:'',
-        winCount:  winCount,
-        chan2Dau:  chan2Dau,
+        winCount:  winCnt,
+        chan2Dau:  chan2D,
         moves:    { init: true },
         lastMove: { row: -1, col: -1, by: '' },
+        endedAt:  null,
         updatedAt: Date.now()
     }).then(() => {
         const old = document.getElementById('van-moi-overlay');
         if (old) old.remove();
-        // Reset bàn cờ local
         daXoaBanCoTranNay = false;
         locallyAppliedLastMove = { row: -2, col: -2 };
         _lastProcessedWinner = '';
@@ -1239,8 +1401,24 @@ function toggleQuickChatMenu() {
 }
 window.toggleQuickChatMenu = toggleQuickChatMenu;
 
+// Biến lưu chat listener để tránh duplicate
+let chatListener = null;
+let chatRoomId   = null;
+
 function langNgheTinNhan(roomId) {
-    db.ref(`rooms/${roomId}/chats`).on('child_added', snap => {
+    // Hủy listener cũ
+    if (chatListener && chatRoomId) {
+        db.ref(`rooms/${chatRoomId}/chats`).off('child_added', chatListener);
+        chatListener = null;
+        const box = document.getElementById('chat-messages');
+        if (box) box.innerHTML = '';
+    }
+    chatRoomId = roomId;
+    // Chỉ lấy 50 tin nhắn gần nhất khi vào phòng
+    chatListener = db.ref(`rooms/${roomId}/chats`)
+        .orderByChild('timestamp')
+        .limitToLast(50)
+        .on('child_added', snap => {
         const d = snap.val();
         if (!d) return;
         const box = document.getElementById('chat-messages');
