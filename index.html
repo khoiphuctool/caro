@@ -15,6 +15,15 @@
 
     <h1 id="game-title">Caro BOT TIÊN CHI THẾ CỜ CHẦN PRO</h1>
 
+    <!-- Nút trang chủ + giới thiệu -->
+    <div style="text-align:center; margin: -6px 0 8px; font-size:13px;">
+        <a href="https://khoiphuctool.github.io/caro/" target="_blank"
+           style="display:inline-block; padding:6px 16px; background:#6366f1; color:white; border-radius:20px; text-decoration:none; font-weight:bold; margin-right:8px;">
+            🏠 Trang Chủ
+        </a>
+        <span style="color:#888;">Link rút gọn: <a href="http://tiny.cc/carochan" target="_blank" style="color:#6366f1; font-weight:bold;">tiny.cc/carochan</a></span>
+    </div>
+
     <div class="control-wrapper">
         <div class="config-panel" id="ui-config-panel">
             <div class="config-group">
@@ -367,7 +376,7 @@
                 </div>
             </div>
 
-            <!-- CỘT CHÍNH 2: BẢNG XẾP HẠNG & LỊCH SỬ -->
+            <!-- CỘT CHÍNH 2: BẢNG XẾP HẠNG & LỊCH SỬ & CHAT THẾ GIỚI -->
             <div class="lobby-column-right">
                 <div class="panel-box">
                     <h3 class="panel-title">🏆 BẢNG XẾP HẠNG TRỰC TUYẾN</h3>
@@ -376,7 +385,20 @@
 
                 <div class="panel-box">
                     <h3 class="panel-title">📜 LỊCH SỬ TRẬN ĐẤU TRỰC TUYẾN</h3>
-                    <div id="lich-su-online-container" style="max-height: 250px; overflow-y: auto;"> Đang tải lịch sử... </div>
+                    <div id="lich-su-online-container" style="max-height: 200px; overflow-y: auto;"> Đang tải lịch sử... </div>
+                </div>
+
+                <!-- CHAT THẾ GIỚI -->
+                <div class="panel-box">
+                    <h3 class="panel-title">🌍 Chat Thế Giới</h3>
+                    <div id="world-chat-messages" style="height:180px; overflow-y:auto; background:white; border:1px solid #e2e8f0; border-radius:6px; padding:8px; font-size:13px; margin-bottom:8px;"></div>
+                    <div style="display:flex; gap:6px;">
+                        <input type="text" id="world-chat-input" placeholder="Nhắn với mọi người..." maxlength="120"
+                               style="flex:1; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;"
+                               onkeydown="if(event.key==='Enter') guiChatTheGioi()">
+                        <button onclick="guiChatTheGioi()" style="padding:7px 14px; background:#6366f1; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:bold;">Gửi</button>
+                    </div>
+                    <div style="font-size:11px; color:#aaa; margin-top:4px;">* Cần đăng nhập để chat</div>
                 </div>
             </div>
 

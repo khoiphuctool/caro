@@ -355,6 +355,7 @@ function setupEventListeners() {
         hienDanhSachPhong();
         langNgheBangXepHangOnline();
         langNgheLichSuOnline();
+        khoiDongChatTheGioi();
     });
     document.getElementById('btn-close-lobby').addEventListener('click', () => {
         document.getElementById('lobby-screen').style.display = 'none';
@@ -1536,3 +1537,67 @@ function langNgheLichSuOnline() {
 window.isOnlineModeActive = function() { return isOnlineMode; };
 Object.defineProperty(window, 'myOnlineRole', { get: function() { return myRole; } });
 window.boQuaDisconnect    = function() {};  // stub
+
+// ══════════════════════════════════════════════════════════════════
+// 🌍 CHAT THẾ GIỚI
+// ══════════════════════════════════════════════════════════════════
+let worldChatListener = null;
+
+function khoiDongChatTheGioi() {
+    if (worldChatListener) return; // Đã khởi động rồi
+
+    const box = document.getElementById('world-chat-messages');
+    if (!box) return;
+
+    worldChatListener = db.ref('world_chat')
+        .orderByChild('timestamp')
+        .limitToLast(60)
+        .on('child_added', snap => {
+            const d = snap.val();
+            if (!d) return;
+            const el = document.createElement('div');
+            el.style.cssText = 'margin-bottom:5px; font-size:13px; line-height:1.4; word-break:break-word;';
+            const timeStr = new Date(d.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            el.innerHTML = `<span style="color:#6366f1;font-weight:bold;">${d.sender}</span> <span style="color:#aaa;font-size:11px;">${timeStr}</span><br>${d.message}`;
+            box.appendChild(el);
+            box.scrollTop = box.scrollHeight;
+        });
+}
+
+function guiChatTheGioi() {
+    if (!currentUsername) { alert('Vui lòng đăng nhập để chat!'); return; }
+    const inp = document.getElementById('world-chat-input');
+    if (!inp) return;
+    const text = inp.value.trim();
+    if (!text) return;
+    const name = currentUserData ? (currentUserData.displayName || currentUserData.username) : currentUsername;
+
+    // Giới hạn spam: kiểm tra tin nhắn cuối cùng của user
+    const now = Date.now();
+    const lastSent = parseInt(sessionStorage.getItem('wc_last') || '0');
+    if (now - lastSent < 2000) { return; } // 2 giây cooldown
+    sessionStorage.setItem('wc_last', now);
+
+    db.ref('world_chat').push({
+        sender:    name,
+        message:   text,
+        timestamp: now
+    }).then(() => {
+        inp.value = '';
+        // Dọn tin cũ — giữ tối đa 200 tin
+        db.ref('world_chat').orderByChild('timestamp').limitToFirst(1).once('value').then(s => {
+            if (!s.exists()) return;
+            db.ref('world_chat').orderByChild('timestamp').once('value').then(all => {
+                const total = all.numChildren();
+                if (total > 200) {
+                    // Xóa 50 tin cũ nhất
+                    let count = 0;
+                    all.forEach(child => {
+                        if (count < 50) { db.ref(`world_chat/${child.key}`).remove(); count++; }
+                    });
+                }
+            });
+        });
+    });
+}
+window.guiChatTheGioi = guiChatTheGioi;
