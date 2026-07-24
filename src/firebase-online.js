@@ -638,7 +638,9 @@ function setupEventListeners() {
             daXoaBanCoTranNay = false; // Phòng mới, chưa bắt đầu game
             localStorage.setItem('current_room_id', roomId);
 
-            newRoomRef.onDisconnect().remove();
+            // KHÔNG dùng onDisconnect().remove() — tránh xóa phòng khi mất mạng tạm thời
+            // Thay vào đó chỉ đánh dấu playerX offline để hệ thống tự dọn dẹp sau
+            db.ref(`rooms/${roomId}/playerX_status`).onDisconnect().set('offline');
             setMyOnlineStatus('free');
             
             // Chuyển giao diện vào phòng đấu
@@ -678,9 +680,12 @@ function setupEventListeners() {
                 db.ref(`rooms/${roomId}`).remove();
                 return;
             }
-            // Xóa phòng chờ mà chủ đã offline
+            // Xóa phòng chờ mà chủ đã offline TRÊN 2 PHÚT (tránh xóa khi mới reload/mất mạng tạm)
             if (room.status === 'waiting' && room.playerX_status === 'offline') {
-                db.ref(`rooms/${roomId}`).remove();
+                const taoPhong = room.createdAt || 0;
+                if ((now - taoPhong) > 120000) {
+                    db.ref(`rooms/${roomId}`).remove();
+                }
             }
             // KHÔNG xóa phòng đang chơi dở dù playerO offline tạm — để họ reconnect
         });
@@ -1095,9 +1100,10 @@ function setupEventListeners() {
                     hasUser = true;
                     const row = document.createElement('div');
                     row.className = "invite-user-row";
+                    const displayN = users[uid].displayName || users[uid].name || 'Unknown';
                     row.innerHTML = `
-                        <span>🟢 ${users[uid].name || 'Unknown'}</span>
-                        <button class="btn-invite-action" onclick="guiLoiMoiThachDau('${uid}', '${users[uid].name || 'Unknown'}')">Mời Solo</button>
+                        <span>🟢 ${displayN}</span>
+                        <button class="btn-invite-action" onclick="guiLoiMoiThachDau('${uid}', '${displayN}')">Mời Solo</button>
                     `;
                     listEl.appendChild(row);
                 }
