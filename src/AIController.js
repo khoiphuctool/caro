@@ -109,19 +109,32 @@ const AIController = {
 
         // ══════════════════════════════════════════════════════
         // 1.5. BOT TẠO FOUR KHÔNG THỂ CHẶN — thắng chắc lượt sau
-        // Địch không còn nước thắng ngay (đã loại ở bước 1)
-        // → ƯU TIÊN TẤN CÔNG trước mọi nước chặn của pipeline bên dưới.
+        // CHỈ khi địch KHÔNG có chuỗi FOUR nguy hiểm còn sống
         // ══════════════════════════════════════════════════════
-        const forcedFour = this.findForcedFourMove(validCands, player);
-        if (forcedFour) {
-            if (typeof updateBotThinking === 'function') {
-                updateBotThinking('Tạo FOUR thắng chắc! ⚔️');
+        let _opponentHasCriticalFour = false;
+        if (typeof countLineAndBlocked === 'function' && typeof DIRECTIONS !== 'undefined') {
+            for (const { r, c } of validCands) {
+                setCell(r, c, opponent);
+                for (const dir of DIRECTIONS) {
+                    const { count, blockedBoth } = countLineAndBlocked(r, c, dir.dr, dir.dc, opponent);
+                    if (count >= winCount - 1 && !blockedBoth) { _opponentHasCriticalFour = true; break; }
+                }
+                setCell(r, c, '');
+                if (_opponentHasCriticalFour) break;
             }
-            if (typeof DebugLogger !== 'undefined') {
-                DebugLogger.log(DebugLogger.CATEGORY.AI_DECISION, DebugLogger.LEVEL.INFO,
-                               'Forced four (unstoppable) found', forcedFour);
+        }
+        if (!_opponentHasCriticalFour) {
+            const forcedFour = this.findForcedFourMove(validCands, player);
+            if (forcedFour) {
+                if (typeof updateBotThinking === 'function') {
+                    updateBotThinking('Tạo FOUR thắng chắc! ⚔️');
+                }
+                if (typeof DebugLogger !== 'undefined') {
+                    DebugLogger.log(DebugLogger.CATEGORY.AI_DECISION, DebugLogger.LEVEL.INFO,
+                                   'Forced four (unstoppable) found', forcedFour);
+                }
+                return forcedFour;
             }
-            return forcedFour;
         }
 
         // ══════════════════════════════════════════════════════

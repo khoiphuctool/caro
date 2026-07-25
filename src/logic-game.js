@@ -402,6 +402,10 @@ function makeMove(r, c) {
                 } else if (winCount < 5) {
                     console.log("Trận thắng Bot ở chế độ dưới 5 quân không được tính vào điểm Rank!");
                 }
+                // Cộng Xu khi thắng bot (có giới hạn ngày)
+                if (typeof window.onWinBotXu === 'function') {
+                    window.onWinBotXu(gameMode);
+                }
                 // Người thắng → bot học pattern của người thắng để tránh bị đánh bại tương tự
                 if (typeof onBotLoss === 'function') {
                     onBotLoss([...moveHistory], humanPiece);

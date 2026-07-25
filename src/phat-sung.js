@@ -138,6 +138,8 @@ function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
         }
         subEl.textContent = rankMessage;
         startConfetti();
+        // Hiệu ứng nổ xu
+        if (typeof playCoinBurst === 'function') setTimeout(() => playCoinBurst(0), 600);
         // Win bot: hiện cả 2 nút
         if (btnReview) btnReview.style.display = 'inline-block';
         if (btnRestart) btnRestart.style.display = 'inline-block';

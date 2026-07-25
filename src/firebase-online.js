@@ -209,6 +209,8 @@ function dangXuat() {
         localStorage.removeItem('current_room_id');
         updateAuthUI(false);
         setMyOnlineStatus(null);
+        // Ẩn panel admin khi đăng xuất
+        if (typeof updateAdminPanelVisibility === 'function') updateAdminPanelVisibility();
     };
 
     if (currentRoomId && myRole && isOnlineMode) {
@@ -242,14 +244,27 @@ function fetchUserData(userId) {
         // Cập nhật avatar top-bar
         const avEl = document.getElementById('user-avatar-display');
         if (avEl) {
-            if (data.avatar) {
-                avEl.textContent = data.avatar;
+            // Ưu tiên equippedAvatar từ SHOP_AVATAR_LIST nếu có
+            const equippedId = data.equippedAvatar;
+            let avatarContent = '';
+            if (equippedId && typeof SHOP_AVATAR_LIST !== 'undefined') {
+                const avDef = SHOP_AVATAR_LIST.find(a => a.id === equippedId);
+                if (avDef) { avatarContent = avDef.emoji; avEl.style.fontSize = '22px'; }
+            }
+            // Fallback: emoji cũ lưu trong data.avatar (string emoji trực tiếp)
+            if (!avatarContent && data.avatar) {
+                avatarContent = data.avatar;
                 avEl.style.fontSize = '22px';
-            } else {
-                avEl.textContent = (data.displayName || data.username || '?')[0].toUpperCase();
+            }
+            if (!avatarContent) {
+                avatarContent = (data.displayName || data.username || '?')[0].toUpperCase();
                 avEl.style.fontSize = '16px';
             }
+            avEl.textContent = avatarContent;
         }
+
+        // Cập nhật số dư Xu trên header
+        if (typeof updateCoinDisplay === 'function') updateCoinDisplay(data.coins || 0);
 
         // Chỉ setup listeners lần đầu
         if (firstLoad) {
@@ -265,7 +280,13 @@ function fetchUserData(userId) {
                 addNotification('online', `Chào mừng🎉 ${displayName} đã tham gia GAME! Chúc ${displayName} có 1 ngày vui vẻ!`);
                 welcomeNotificationShown = true;
             }
+
+            // Khởi tạo hệ thống Xu
+            if (typeof initXuSystem === 'function') initXuSystem(userId);
         }
+
+        // Cập nhật hiển thị panel admin mỗi lần data thay đổi
+        if (typeof updateAdminPanelVisibility === 'function') updateAdminPanelVisibility();
     });
 }
 
@@ -275,6 +296,27 @@ function updateUserStats(statType, increment = 1) {
     db.ref(`users/${userId}/${statType}`).transaction(cur => (cur || 0) + increment);
 }
 window.updateUserStats = updateUserStats;
+
+// Danh sách tài khoản có quyền admin (username hoặc displayName)
+const ADMIN_USERS = ['chan', 'chần', 'admin', 'Chần', 'Chan', 'Admin'];
+
+function isAdminUser(userData) {
+    if (!userData) return false;
+    const name = (userData.username || '').toLowerCase();
+    const display = (userData.displayName || '').toLowerCase();
+    return ADMIN_USERS.some(a => a.toLowerCase() === name || a.toLowerCase() === display)
+        || userData.isAdmin === true;
+}
+window.isAdminUser = isAdminUser;
+
+function updateAdminPanelVisibility() {
+    const isAdmin = isAdminUser(currentUserData);
+    const trainingPanel = document.getElementById('admin-training-panel');
+    const aiConfigPanel = document.getElementById('admin-ai-config-panel');
+    if (trainingPanel) trainingPanel.style.display = isAdmin ? 'flex' : 'none';
+    if (aiConfigPanel) aiConfigPanel.style.display = isAdmin ? '' : 'none';
+}
+window.updateAdminPanelVisibility = updateAdminPanelVisibility;
 
 function getRankName(winBot, winSolo) {
     const t = (winBot || 0) + (winSolo || 0);
@@ -835,6 +877,9 @@ function batDauGiaoDienOnline() {
     const gms = document.getElementById('game-match-screen');
     if (gms) gms.style.display = 'block';
 
+    // Hiện panel cược cho chủ phòng (X)
+    if (typeof capNhatHienThiBetPanel === 'function') capNhatHienThiBetPanel();
+
     if (typeof window.xoaBanCoCu === 'function' && !daXoaBanCoTranNay) window.xoaBanCoCu();
     // Reset hover ngay khi vào phòng
     if (typeof infHoverR !== 'undefined') { infHoverR = null; infHoverC = null; }
@@ -1065,6 +1110,13 @@ function chuPhongBatDauGame() {
             lastMove:  { row: -1, col: -1, by: '' },
             endedAt:   null,
             updatedAt: Date.now()
+        }).then(() => {
+            // Kích hoạt cược nếu có
+            if (typeof batDauCuoc === 'function' && room.playerX_id && room.playerO_id) {
+                batDauCuoc(currentRoomId, room.playerX_id, room.playerO_id);
+            }
+            // Hiện panel cược cho chủ phòng
+            if (typeof capNhatHienThiBetPanel === 'function') capNhatHienThiBetPanel();
         });
     });
 }
@@ -1219,6 +1271,17 @@ function langNgheThayDoiPhong(roomId) {
                     thucHienVeNuocDi(room.lastMove.row, room.lastMove.col, room.lastMove.by);
                 }
             }
+
+            // Hiển thị pot cược đang diễn ra (nếu có)
+            const betInfoEl = document.getElementById('bet-info-o');
+            if (betInfoEl) {
+                if (room.betPot && room.betPot > 0) {
+                    betInfoEl.style.display = 'block';
+                    betInfoEl.textContent = `🎲 Đang cược: ${Number(room.betPot).toLocaleString('vi-VN')} Xu — người thắng nhận tất!`;
+                } else {
+                    betInfoEl.style.display = 'none';
+                }
+            }
         }
 
         if (room.status === 'ended' || room.winner) {
@@ -1369,6 +1432,18 @@ function capNhatUIPhong(room) {
     const showControls = laChuX && coDoiThu && room.status === 'waiting';
     if (btnKick)  btnKick.style.display  = showControls ? 'inline-block' : 'none';
     if (btnStart) btnStart.style.display = showControls ? 'inline-block' : 'none';
+
+    // Panel cược — X thấy ô nhập, O thấy thông tin số cược hiện tại
+    const betPanel = document.getElementById('bet-panel-room');
+    const betInfo  = document.getElementById('bet-info-o');
+    if (betPanel) {
+        betPanel.style.display = (laChuX && room.status === 'waiting') ? 'block' : 'none';
+    }
+    if (betInfo) {
+        const hasBet = room.betAmount && room.betAmount >= 100;
+        betInfo.style.display = (!laChuX && room.status === 'waiting' && hasBet) ? 'block' : 'none';
+        if (hasBet) betInfo.textContent = `🎲 Chủ phòng đặt cược: ${Number(room.betAmount).toLocaleString('vi-VN')} Xu — bạn sẽ bị trừ khi ván bắt đầu.`;
+    }
 }
 
 function loadPlayerInfo(userId, role) {
@@ -1572,6 +1647,11 @@ function xuLyKetThucVan(room) {
         // Thua do bỏ cuộc vẫn tính loseSolo cho người thua
         if (loserId) db.ref(`users/${loserId}/loseSolo`).transaction(c => (c || 0) + 1);
         ghiLichSu(`Phòng ${room.roomNumber || (currentRoomId ? currentRoomId.replace('phong_', '') : '?')}`, xName, oName, room.winner, room.winCount || 5);
+
+        // Xử lý cược: trao thưởng cho người thắng
+        if (typeof ketThucCuoc === 'function') {
+            ketThucCuoc(currentRoomId, room.winner, false);
+        }
     } else if (myId === loserId && !winnerId) {
         // Fallback nếu winner không online
         db.ref(`users/${loserId}/loseSolo`).transaction(c => (c || 0) + 1);
@@ -1944,10 +2024,37 @@ window.guiChatTheGioi = guiChatTheGioi;
 // ══════════════════════════════════════════════════════════════════
 // ⚙️ CÀI ĐẶT TÀI KHOẢN
 // ══════════════════════════════════════════════════════════════════
-const AVATAR_LIST = [
-    '😀','😎','🥷','👾','🤖','🦁','🐯','🐼','🦊','🐸',
-    '🐲','🦅','🔥','⚡','💎','🌟','🎯','🏆','👑','🎮',
-    '🔆','💢','💫','💨','💤','🔱','💦','💥','✔','💗'
+const SHOP_AVATAR_LIST = [
+    { id: 'av_01', emoji: '😀', name: 'Mặc Định', free: true },
+    { id: 'av_02', emoji: '😎', name: 'Ngầu Nè', free: false },
+    { id: 'av_03', emoji: '🥷', name: 'Ninja', free: false },
+    { id: 'av_04', emoji: '👾', name: 'Quái Vật', free: false },
+    { id: 'av_05', emoji: '🤖', name: 'Robot', free: false },
+    { id: 'av_06', emoji: '🦁', name: 'Sư Tử', free: false },
+    { id: 'av_07', emoji: '🐯', name: 'Hổ Dữ', free: false },
+    { id: 'av_08', emoji: '🐼', name: 'Gấu Trúc', free: false },
+    { id: 'av_09', emoji: '🦊', name: 'Cáo Tinh', free: false },
+    { id: 'av_10', emoji: '🐸', name: 'Ếch Xanh', free: false },
+    { id: 'av_11', emoji: '🐲', name: 'Rồng Vàng', free: false },
+    { id: 'av_12', emoji: '🦅', name: 'Đại Bàng', free: false },
+    { id: 'av_13', emoji: '🔥', name: 'Ngọn Lửa', free: false },
+    { id: 'av_14', emoji: '⚡', name: 'Sét Vàng', free: false },
+    { id: 'av_15', emoji: '💎', name: 'Kim Cương', free: false },
+    { id: 'av_16', emoji: '🌟', name: 'Ngôi Sao', free: false },
+    { id: 'av_17', emoji: '🎯', name: 'Bắn Tỉa', free: false },
+    { id: 'av_18', emoji: '🏆', name: 'Vô Địch', free: false },
+    { id: 'av_19', emoji: '👑', name: 'Vương Miện', free: false },
+    { id: 'av_20', emoji: '🎮', name: 'Game Thủ', free: false },
+    { id: 'av_21', emoji: '🔆', name: 'Ánh Sáng', free: false },
+    { id: 'av_22', emoji: '💢', name: 'Giận Dữ', free: false },
+    { id: 'av_23', emoji: '💫', name: 'Hào Quang', free: false },
+    { id: 'av_24', emoji: '💨', name: 'Gió Lốc', free: false },
+    { id: 'av_25', emoji: '💤', name: 'Ngủ Gật', free: false },
+    { id: 'av_26', emoji: '🔱', name: 'Tam Giác', free: false },
+    { id: 'av_27', emoji: '💦', name: 'Nước', free: false },
+    { id: 'av_28', emoji: '💥', name: 'Nổ', free: false },
+    { id: 'av_29', emoji: '✔', name: 'Check', free: false },
+    { id: 'av_30', emoji: '💗', name: 'Trái Tim', free: false }
 ];
 
 function moCapNhatTaiKhoan() {
@@ -1969,18 +2076,12 @@ function moCapNhatTaiKhoan() {
         document.getElementById('st-rank').textContent     = getRankName(currentUserData.winBot, currentUserData.winSolo);
     }
 
-    // Build avatar picker
+    // Build avatar picker — redirect sang Shop Avatar
     const pickerGrid = document.querySelector('#avatar-picker > div');
-    if (pickerGrid && pickerGrid.children.length === 0) {
-        AVATAR_LIST.forEach(emoji => {
-            const btn = document.createElement('button');
-            btn.textContent = emoji;
-            btn.style.cssText = 'font-size:22px; background:none; border:2px solid transparent; border-radius:8px; cursor:pointer; padding:4px; transition:border-color .15s;';
-            btn.onmouseover = () => btn.style.borderColor = '#6366f1';
-            btn.onmouseout  = () => btn.style.borderColor = 'transparent';
-            btn.onclick = () => chonAvatar(emoji);
-            pickerGrid.appendChild(btn);
-        });
+    if (pickerGrid) {
+        pickerGrid.innerHTML = `<div style="padding:6px 0;font-size:13px;color:#6b7280;text-align:center;width:100%;">
+            Chọn avatar trong <button onclick="dongCapNhatTaiKhoan();moShopAvatar();" style="padding:4px 10px;background:#7c3aed;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">🎭 Shop Avatar</button>
+        </div>`;
     }
 }
 window.moCapNhatTaiKhoan = moCapNhatTaiKhoan;

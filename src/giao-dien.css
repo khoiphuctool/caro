@@ -1277,10 +1277,8 @@ body.in-game-active {
 
 /* Đảm bảo khu vực chứa bàn cờ không tràn ra ngoài */
 #ui-game-container {
-    overflow: hidden;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-x pan-y; /* Chỉ cho phép di chuyển cờ theo trục X, Y bên trong khung */
     overflow: visible; /* Để resize handles hiển thị */
+    touch-action: none; /* Không chặn custom gesture/drag của canvas và resize handles */
 }
 
 /* Resize handles màu tím cho game-container */
@@ -1561,8 +1559,8 @@ body.in-game-active {
     /* Cho phép hiển thị tràn ra ngoài, không thanh cuộn */
     overflow: visible !important; 
     
-    /* Vừa cho phép di chuyển ô cờ (pan), vừa hỗ trợ nhúm 2 ngón tay thu phóng (pinch-zoom) */
-    touch-action: pan-x pan-y pinch-zoom !important; 
+    /* Để canvas con tự xử lý gesture — không override touch-action của canvas */
+    touch-action: none; 
 }
 
 /* Đảm bảo bàn cờ thực tế bên trong luôn căn giữa nếu nhỏ hơn khung chứa */
@@ -1965,3 +1963,195 @@ body.in-game-active {
 /* Chat system message (quick chat gửi bởi mình) */
 .chat-message-line.self strong { color: #22c55e; }
 .chat-message-line.system { color: #94a3b8; font-style: italic; font-size: 11px; }
+
+/* ══════════════════════════════════════════════
+   HỆ THỐNG XU, SHOP, NHIỆM VỤ, BXH ĐẠI GIA
+   ══════════════════════════════════════════════ */
+
+/* Xu balance header */
+#xu-header-area {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    border: 1px solid #f59e0b;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: bold;
+    color: #92400e;
+    cursor: pointer;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+#xu-header-area:hover { background: linear-gradient(135deg, #fde68a, #fbbf24); }
+#xu-balance { font-size: 14px; color: #d97706; }
+
+/* Nút hành động nhanh (Nhiệm vụ, Shop, BXH Đại Gia) */
+.xu-action-btns { display: flex; gap: 5px; flex-wrap: wrap; flex-shrink: 0; }
+.xu-action-btn {
+    padding: 5px 10px;
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    transition: opacity .2s;
+    white-space: nowrap;
+}
+.xu-action-btn:hover { opacity: 0.85; }
+.btn-nhiem-vu   { background: #d1fae5; color: #065f46; border: 1px solid #10b981; }
+.btn-shop-av    { background: #ede9fe; color: #5b21b6; border: 1px solid #7c3aed; }
+.btn-dagia      { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
+
+/* ── MODAL BASE ── */
+.xu-modal-overlay {
+    display: none;
+    position: fixed; top:0; left:0; width:100%; height:100%;
+    background: rgba(0,0,0,.55); z-index: 25000;
+    justify-content: center; align-items: center;
+}
+.xu-modal-box {
+    background: #fff; border-radius: 14px; padding: 24px;
+    width: 90%; max-width: 520px; max-height: 85vh;
+    overflow-y: auto; font-family: Arial; position: relative;
+    box-shadow: 0 8px 40px rgba(0,0,0,.3);
+}
+.xu-modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px;
+}
+.xu-modal-title { font-size: 18px; font-weight: bold; color: #1f2937; margin: 0; }
+.xu-modal-close {
+    background: none; border: none; font-size: 24px;
+    cursor: pointer; color: #9ca3af; line-height: 1;
+}
+
+/* ── NHIỆM VỤ ── */
+.nv-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px; border: 1px solid #e5e7eb; border-radius: 10px;
+    margin-bottom: 10px; gap: 10px;
+}
+.nv-info { display: flex; align-items: center; gap: 10px; flex: 1; }
+.nv-icon { font-size: 24px; }
+.nv-title { font-weight: bold; font-size: 14px; color: #111827; }
+.nv-desc  { font-size: 12px; color: #6b7280; margin-top: 2px; }
+.nv-btn {
+    padding: 7px 14px; border: none; border-radius: 8px;
+    cursor: pointer; font-size: 13px; font-weight: bold; white-space: nowrap;
+}
+.nv-claim { background: #22c55e; color: white; }
+.nv-claim:hover { background: #16a34a; }
+.nv-done  { background: #e5e7eb; color: #9ca3af; cursor: default; }
+
+/* ── SHOP AVATAR ── */
+#shop-avatar-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 12px; margin-top: 12px;
+}
+.av-card {
+    border: 2px solid #e5e7eb; border-radius: 10px;
+    padding: 12px 8px; text-align: center;
+    position: relative; transition: border-color .2s;
+    background: #fafafa;
+}
+.av-card-equipped { border-color: #f59e0b; background: #fffbeb; }
+.av-emoji { font-size: 36px; margin-bottom: 4px; }
+.av-name  { font-size: 12px; font-weight: bold; color: #374151; margin-bottom: 6px; }
+.av-lock  { position: absolute; top: 6px; right: 8px; font-size: 14px; }
+.av-btn   { width: 100%; padding: 5px 4px; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: bold; }
+.av-use   { background: #3b82f6; color: white; }
+.av-use:hover { background: #2563eb; }
+.av-buy   { background: #f59e0b; color: white; }
+.av-buy:hover { background: #d97706; }
+.av-equipped { background: #e5e7eb; color: #9ca3af; cursor: default; }
+
+/* ── BXH ĐẠI GIA ── */
+.dagia-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 8px;
+    margin-bottom: 6px; background: #f9fafb;
+    border: 1px solid #e5e7eb;
+}
+.dagia-top1 { background: linear-gradient(135deg,#fff7ed,#fef3c7); border-color: #f59e0b; }
+.dagia-top2 { background: linear-gradient(135deg,#f8fafc,#e2e8f0); border-color: #94a3b8; }
+.dagia-top3 { background: linear-gradient(135deg,#fff8f0,#fde8d0); border-color: #d97706; }
+.dagia-medal { font-size: 20px; flex-shrink: 0; width: 28px; }
+.dagia-name  { flex: 1; font-weight: bold; font-size: 14px; color: #1f2937; }
+.dagia-title {
+    display: inline-block; font-size: 10px; font-weight: bold;
+    background: #fef3c7; color: #92400e; border-radius: 4px;
+    padding: 1px 5px; margin-left: 6px;
+}
+.dagia-coins { font-size: 13px; color: #d97706; font-weight: bold; white-space: nowrap; }
+
+/* ── CƯỢC ONLINE trong phòng ── */
+.bet-panel {
+    background: #fff7ed; border: 1px solid #fed7aa;
+    border-radius: 8px; padding: 10px 14px; margin: 8px 0;
+    font-size: 13px;
+}
+.bet-panel label { font-weight: bold; color: #92400e; }
+.bet-input {
+    padding: 5px 8px; border: 1px solid #f59e0b;
+    border-radius: 6px; font-size: 13px; width: 100px;
+    margin: 0 6px;
+}
+.bet-btn {
+    padding: 5px 12px; background: #f59e0b; color: white;
+    border: none; border-radius: 6px; cursor: pointer; font-weight: bold;
+}
+
+/* ── XU POPUP (+100 Xu animation) ── */
+.xu-popup {
+    position: fixed;
+    pointer-events: none;
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.72);
+    border: 2px solid #FFD700;
+    border-radius: 999px;
+    padding: 8px 18px 8px 14px;
+    box-shadow: 0 0 18px rgba(255, 215, 0, 0.55), 0 4px 16px rgba(0,0,0,0.35);
+    animation: xuPopFloat 3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    white-space: nowrap;
+    /* translateX(-50%) cho center mode được set inline — animation chỉ dùng opacity + top */
+}
+.xu-popup-icon {
+    font-size: 22px;
+    line-height: 1;
+    filter: drop-shadow(0 0 6px #FFD700);
+}
+.xu-popup-text {
+    font-size: 20px;
+    font-weight: 900;
+    color: #FFD700;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    letter-spacing: 0.5px;
+    text-shadow: 0 0 10px rgba(255,215,0,0.8), 0 1px 0 rgba(0,0,0,0.5);
+}
+.xu-popup-sub {
+    font-size: 11px;
+    color: #fde68a;
+    margin-top: 1px;
+    font-weight: 600;
+}
+@keyframes xuPopFloat {
+    0%   { opacity: 0;   margin-top: 12px;  }
+    10%  { opacity: 1;   margin-top: -4px;  }
+    20%  { opacity: 1;   margin-top: 0px;   }
+    75%  { opacity: 1;   margin-top: -30px; }
+    100% { opacity: 0;   margin-top: -60px; }
+}
+
+/* BXH tab Đại Gia trong lobby */
+.bxh-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.bxh-tab {
+    padding: 5px 14px; border: 1px solid #e5e7eb; border-radius: 16px;
+    background: #f9fafb; cursor: pointer; font-size: 13px; font-weight: bold;
+}
+.bxh-tab.active { background: #f59e0b; color: white; border-color: #f59e0b; }

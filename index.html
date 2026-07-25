@@ -38,6 +38,16 @@
 
         <!-- BÊN PHẢI: Đã đăng nhập -->
         <div id="user-logged-in" style="display:none; align-items:center; gap:10px; flex-wrap:wrap; flex-shrink:0;">
+            <!-- Hiển thị Xu -->
+            <div id="xu-header-area" onclick="moNhiemVu()" title="Nhiệm vụ & Xu">
+                💰 <span id="xu-balance">0 Xu</span>
+            </div>
+            <!-- Nút nhanh -->
+            <div class="xu-action-btns">
+                <button class="xu-action-btn btn-nhiem-vu" onclick="moNhiemVu()">📋 Nhiệm Vụ</button>
+                <button class="xu-action-btn btn-shop-av"  onclick="moShopAvatar()">🎭 Shop Avatar</button>
+                <button class="xu-action-btn btn-dagia"    onclick="moBxhDaiGia()">👑 Đại Gia</button>
+            </div>
             <div id="user-avatar-display" style="width:36px;height:36px;border-radius:50%;background:#6366f1;color:white;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:bold;cursor:pointer;flex-shrink:0;" onclick="moCapNhatTaiKhoan()">?</div>
             <div style="line-height:1.5;">
                 <div>
@@ -115,8 +125,8 @@
                 </select>
             </div>
             
-            <!-- 🎓 HUẤN LUYỆN BOT TỰ ĐÁNH -->
-            <div style="margin-top: 16px; padding: 8px 12px; border: 2px solid #10b981; border-radius: 8px; background: #f0fdf4; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <!-- 🎓 HUẤN LUYỆN BOT TỰ ĐÁNH — CHỈ ADMIN/CHẦN -->
+            <div id="admin-training-panel" style="display:none; margin-top: 16px; padding: 8px 12px; border: 2px solid #10b981; border-radius: 8px; background: #f0fdf4; align-items: center; gap: 12px; flex-wrap: wrap;">
                 <div style="font-weight: bold; color: #065f46; font-size: 0.85rem; min-width: 140px;">
                     🎓 HUẤN LUYỆN
                 </div>
@@ -180,7 +190,7 @@
                 </div>
             </div>
             <!-- ══════════════════════════════════════════════════════════════════ -->
-            <div class="config-group">
+            <div id="admin-ai-config-panel" class="config-group" style="display:none;">
                 <div style="font-size:0.75rem;opacity:0.8;">
                     🧠 Pattern: <span id="memory-patterns">0</span> | 
                     <span style="color:#10b981;">✓<span id="memory-effective">0</span></span> |
@@ -412,7 +422,12 @@
             <div class="lobby-column-right">
                 <div class="panel-box">
                     <h3 class="panel-title">🏆 BẢNG XẾP HẠNG TRỰC TUYẾN</h3>
+                    <div class="bxh-tabs">
+                        <button class="bxh-tab active" id="bxh-tab-elo" onclick="switchBxhTab('elo')">🏅 Elo / Thắng</button>
+                        <button class="bxh-tab" id="bxh-tab-dagia" onclick="switchBxhTab('dagia')">👑 Đại Gia</button>
+                    </div>
                     <div id="bxh-online-container"> Đang tải bảng xếp hạng... </div>
+                    <div id="bxh-dagia-lobby" style="display:none;"></div>
                 </div>
 
                 <div class="panel-box">
@@ -480,6 +495,20 @@
                 <b> Chặn 2 đầu không thắng</b>
             </label>
         </div>
+
+        <!-- CƯỢC PVP -->
+        <div id="bet-panel-room" class="bet-panel" style="display:none;">
+            <label>🎲 Cược Xu (Chủ phòng đặt):</label>
+            <input type="number" id="bet-amount-input" class="bet-input"
+                   placeholder="100–5000" min="100" max="5000" step="100" value="500">
+            <button class="bet-btn" onclick="xuLyDatCuoc()">Đặt Cược</button>
+            <span id="bet-status" style="margin-left:8px;font-size:12px;color:#6b7280;"></span>
+            <div style="font-size:11px;color:#9ca3af;margin-top:4px;">
+                Người thắng nhận 2x Xu · Bỏ cuộc = thua mất xu · Min 100 · Max 5.000 Xu
+            </div>
+        </div>
+        <!-- Thông báo cược cho người chơi O -->
+        <div id="bet-info-o" style="display:none;padding:8px 12px;background:#fef9c3;border:1px solid #fbbf24;border-radius:8px;font-size:13px;color:#92400e;margin-top:6px;"></div>
 
         <!-- KHU VỰC ĐỐI KHÁNG -->
         <div class="versus-container">
@@ -803,11 +832,60 @@
         }
     </script>
 
+    <!-- XU SYSTEM & BXH ĐẠI GIA INTEGRATION -->
+    <script>
+        // Switch tab BXH trong lobby (Elo vs Đại Gia)
+        function switchBxhTab(tab) {
+            const eloContainer  = document.getElementById('bxh-online-container');
+            const dagiaContainer= document.getElementById('bxh-dagia-lobby');
+            const tabElo  = document.getElementById('bxh-tab-elo');
+            const tabDagia= document.getElementById('bxh-tab-dagia');
+            if (tab === 'elo') {
+                if (eloContainer)   eloContainer.style.display   = '';
+                if (dagiaContainer) dagiaContainer.style.display = 'none';
+                if (tabElo)   tabElo.classList.add('active');
+                if (tabDagia) tabDagia.classList.remove('active');
+            } else {
+                if (eloContainer)   eloContainer.style.display   = 'none';
+                if (dagiaContainer) dagiaContainer.style.display = '';
+                if (tabElo)   tabElo.classList.remove('active');
+                if (tabDagia) tabDagia.classList.add('active');
+                if (typeof loadBxhDaiGia === 'function') loadBxhDaiGia('bxh-dagia-lobby');
+            }
+        }
+
+        // Đặt cược trong phòng (chỉ chủ phòng)
+        function xuLyDatCuoc() {
+            const amount = parseInt(document.getElementById('bet-amount-input').value);
+            if (!currentRoomId) { alert('Bạn chưa vào phòng!'); return; }
+            if (typeof thietLapCuoc === 'function') {
+                thietLapCuoc(currentRoomId, amount).then(ok => {
+                    const statusEl = document.getElementById('bet-status');
+                    if (ok && statusEl) statusEl.textContent = `✅ Đã đặt cược ${amount.toLocaleString('vi-VN')} Xu`;
+                });
+            }
+        }
+
+        // Hiện panel cược khi là chủ phòng (myRole === 'X') ở trạng thái waiting
+        // Việc hiển thị chi tiết được xử lý bởi capNhatUIPhong() realtime
+        function capNhatHienThiBetPanel() {
+            const panel = document.getElementById('bet-panel-room');
+            if (!panel) return;
+            panel.style.display = (typeof myRole !== 'undefined' && myRole === 'X') ? 'block' : 'none';
+        }
+        window.capNhatHienThiBetPanel = capNhatHienThiBetPanel;
+    </script>
+
     <!-- ScoreTable Config Functions -->
     <script>
         function openScoreTableConfig() {
             if (typeof ScoreTable === 'undefined') {
                 alert('ScoreTable chưa được tải!');
+                return;
+            }
+            // Chỉ admin/Chần mới được dùng
+            if (typeof isAdminUser === 'function' && typeof currentUserData !== 'undefined' && !isAdminUser(currentUserData)) {
+                alert('Tính năng này chỉ dành cho Admin!');
                 return;
             }
             
@@ -910,6 +988,50 @@
 
     <script src="src/firebase-online.js"></script>
     <script src="src/thong-bao.js"></script>
+    <script src="src/xu-nhiem-vu.js"></script>
+
+    <!-- ══════════════════════════════════════════════
+         MODAL NHIỆM VỤ
+         ══════════════════════════════════════════════ -->
+    <div id="nhiem-vu-modal" class="xu-modal-overlay">
+        <div class="xu-modal-box">
+            <div class="xu-modal-header">
+                <h2 class="xu-modal-title">📋 Nhiệm Vụ & Xu</h2>
+                <button class="xu-modal-close" onclick="dongNhiemVu()">&times;</button>
+            </div>
+            <div id="nhiem-vu-container"></div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         MODAL SHOP AVATAR
+         ══════════════════════════════════════════════ -->
+    <div id="shop-avatar-modal" class="xu-modal-overlay">
+        <div class="xu-modal-box" style="max-width:640px;">
+            <div class="xu-modal-header">
+                <h2 class="xu-modal-title">🎭 Cửa Hàng Avatar</h2>
+                <button class="xu-modal-close" onclick="dongShopAvatar()">&times;</button>
+            </div>
+            <div style="font-size:13px;color:#6b7280;margin-bottom:10px;">
+                Mỗi avatar có giá <b style="color:#d97706;">3.000 Xu</b>. Số dư hiện tại: <b id="shop-xu-display" style="color:#d97706;">0 Xu</b>
+            </div>
+            <div id="shop-avatar-grid"></div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         MODAL BXH ĐẠI GIA
+         ══════════════════════════════════════════════ -->
+    <div id="bxh-dagia-modal" class="xu-modal-overlay">
+        <div class="xu-modal-box">
+            <div class="xu-modal-header">
+                <h2 class="xu-modal-title">👑 Bảng Xếp Hạng Đại Gia</h2>
+                <button class="xu-modal-close" onclick="dongBxhDaiGia()">&times;</button>
+            </div>
+            <p style="font-size:12px;color:#9ca3af;margin:0 0 12px;">Top người chơi có nhiều Xu nhất</p>
+            <div id="bxh-dagia-list"></div>
+        </div>
+    </div>
 
     <!-- MODAL CÀI ĐẶT TÀI KHOẢN -->
     <div id="account-settings-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:20000; justify-content:center; align-items:center;">
