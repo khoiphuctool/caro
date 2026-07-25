@@ -1926,6 +1926,32 @@ function tacticalVerify(bestMove, pvScore, bp, hp, validCands) {
  * God Engine chính — điều phối toàn bộ search cho Hard/God.
  * Trả về { move, reason }
  */
+// Đếm số đầu hoàn thành được five THẬT (theo đúng luật checkWinSilent) sau khi đặt (r,c).
+// >= 2 đầu thắng = FOUR không thể chặn (open four / double four) → thắng chắc lượt sau.
+function countWinningCompletionEnds(r, c, player) {
+    let winEnds = 0;
+    const seen = new Set();
+    setCell(r, c, player);
+    for (const { dr, dc } of DIRECTIONS) {
+        const { count } = countLineAndBlocked(r, c, dr, dc, player);
+        if (count !== winCount - 1) continue;
+        for (const sign of [1, -1]) {
+            let nr = r, nc = c;
+            while (getCell(nr + sign * dr, nc + sign * dc) === player) { nr += sign * dr; nc += sign * dc; }
+            const er = nr + sign * dr, ec = nc + sign * dc;
+            const key = er + ',' + ec;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            if (getCell(er, ec) !== '') continue;
+            setCell(er, ec, player);
+            if (checkWinSilent(er, ec)) winEnds++;
+            setCell(er, ec, '');
+        }
+    }
+    setCell(r, c, '');
+    return winEnds;
+}
+
 function godEngineMove(bp, hp, validCands, isGod) {
     const wc = winCount;
     const bbe = getBlockBothEnds();
@@ -1960,14 +1986,28 @@ function godEngineMove(bp, hp, validCands, isGod) {
         }
     }
 
-    // 1c. Forced Four (bot) — FOUR chưa bị chặn
-    for (const {r,c} of allEmpty) {
-        if (getCell(r,c)!=='') continue;
-        const t = ThreatDetector.evaluateAttackThreat(r,c,bp,wc,bbe);
-        if (t.maxThreat >= ThreatDetector.THREAT.CRITICAL) {
-            setCell(r,c,bp); const w=checkWinSilent(r,c); setCell(r,c,'');
-            if (w) return { move:{r,c}, reason:'forced_four_win' };
+    // 1c. Forced Four (bot) — FOUR không thể chặn (open four / double four).
+    // Địch không còn nước thắng ngay (đã loại ở 1b) → đây là thắng chắc, ƯU TIÊN trước mọi nước chặn.
+    {
+        let bestForced = null, bestForcedS = -Infinity;
+        for (const {r,c} of allEmpty) {
+            if (getCell(r,c)!=='') continue;
+            // Lọc nhanh: nước này phải tạo được chuỗi (winCount-1) ở ít nhất 1 hướng
+            setCell(r,c,bp);
+            let makesFour = false;
+            for (const {dr,dc} of DIRECTIONS) {
+                const { count, blockedBoth } = countLineAndBlocked(r,c,dr,dc,bp);
+                if (count === winCount - 1 && !blockedBoth) { makesFour = true; break; }
+            }
+            setCell(r,c,'');
+            if (!makesFour) continue;
+            // Xác minh: ít nhất 2 đầu hoàn thành five thắng thật → địch chỉ chặn được 1
+            if (countWinningCompletionEnds(r,c,bp) >= 2) {
+                const s = quickScore(r,c,bp);
+                if (s > bestForcedS) { bestForcedS = s; bestForced = {r,c}; }
+            }
         }
+        if (bestForced) return { move: bestForced, reason:'forced_four_win' };
     }
 
     // 1d. Block Forced Four (địch)

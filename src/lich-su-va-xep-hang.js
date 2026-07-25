@@ -356,6 +356,19 @@ function promptRankName(moves, mode, winCnt, boardLabel, winnerLabel, dangerScor
 
     pendingRankEntry = { moves, mode, winCnt, boardLabel, score, dangerScore, totalTime, date: dateStr, time: timeStr };
 
+    // Đã đăng nhập + thắng Bot → tự động lưu bằng displayName, bỏ qua modal nhập tên.
+    // Chế độ solo vẫn hỏi tên (người thắng có thể không phải chủ tài khoản).
+    if (mode && mode.startsWith('ai') &&
+        typeof currentUsername !== 'undefined' && currentUsername) {
+        const loggedName = (typeof currentUserData !== 'undefined' && currentUserData && currentUserData.displayName)
+            ? currentUserData.displayName : currentUsername;
+        saveRankEntry(loggedName);
+        if (typeof addNotification === 'function') {
+            addNotification('rank', `🏅 Đã tự động lưu BXH cho ${loggedName}: ${score.toLocaleString('vi-VN')} điểm`);
+        }
+        return;
+    }
+
     const sub = document.getElementById('name-overlay-sub');
     if (sub) sub.innerHTML = `🏅 ${score.toLocaleString('vi-VN')} điểm<br><span style="opacity:0.7;font-size:0.85rem">${winnerLabel} · ${MODE_LABELS[mode] || mode} · ${winCnt} quân · ${boardLabel} · ${moves} nước · ${totalTimeStr} · ${dateStr} · ${timeStr}</span>`;
     const inp = document.getElementById('name-input');
@@ -364,9 +377,12 @@ function promptRankName(moves, mode, winCnt, boardLabel, winnerLabel, dangerScor
     setTimeout(() => inp && inp.focus(), 100);
 }
 
-function saveRankEntry() {
+function saveRankEntry(autoName) {
     const inp  = document.getElementById('name-input');
-    const name = (inp ? inp.value.trim() : '') || 'Ẩn Danh';
+    // autoName: tên truyền thẳng khi auto-save (đã đăng nhập) — bỏ qua ô input
+    const name = (typeof autoName === 'string' && autoName.trim())
+        ? autoName.trim()
+        : ((inp ? inp.value.trim() : '') || 'Ẩn Danh');
     if (!pendingRankEntry) { closeNameOverlay(); return; }
     const { moves, mode, winCnt, boardLabel, score, dangerScore, totalTime, date, time } = pendingRankEntry;
     const data        = loadRank();

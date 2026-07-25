@@ -99,7 +99,7 @@ function setContainerSize(percent) {
         
         // Giới hạn chiều cao không vượt quá chiều rộng (hình chữ nhật)
         gameContainer.style.height = 'auto';
-        gameContainer.style.maxHeight = '80vh'; // Giới hạn tối đa 80% chiều cao màn hình
+        gameContainer.style.maxHeight = 'none'; // Để container ôm trọn nội dung, tránh clip gây chồng lấp
         
         // Resize canvas để khớp với container mới
         setTimeout(() => {
@@ -150,12 +150,33 @@ function loadContainerSize() {
     }
     
     if (savedSize && gameContainer) {
-        // Load kích thước đã lưu - set width, giới hạn chiều cao
+        // Load kích thước đã lưu - set width, chiều cao tự động theo nội dung
         const percent = parseInt(savedSize);
         gameContainer.style.width = percent + '%';
         gameContainer.style.maxWidth = percent + '%';
         gameContainer.style.height = 'auto';
-        gameContainer.style.maxHeight = '80vh'; // Giới hạn tối đa 80% chiều cao màn hình
+        gameContainer.style.maxHeight = 'none'; // Để container ôm trọn nội dung, tránh clip gây chồng lấp
+    }
+
+    // Đồng bộ canvas với container vừa load — tránh canvas giữ kích thước px cũ
+    // (lưu từ phiên trước) không khớp container mới gây co/méo bàn cờ.
+    setTimeout(fitCanvasToContainer, 100);
+}
+
+// Ép canvas khớp bề rộng thực của vùng chứa (giữ tỉ lệ hiện tại, tối đa 70%)
+function fitCanvasToContainer() {
+    if (!isInfinite || !infCanvas) return;
+    // Đo theo cột giữa (cha của #inf-resizable) — khi online có 2 thẻ người chơi 2 bên,
+    // đo cả container sẽ bị rộng thừa làm canvas tràn.
+    const wrapper = document.getElementById('inf-resizable');
+    const host = (wrapper && wrapper.parentElement) || document.getElementById('ui-game-container');
+    if (!host) return;
+    const availW = host.getBoundingClientRect().width - 8;
+    if (availW < 100) return;
+    // Chỉ resize khi lệch đáng kể (hơn 1 ô cờ) để tránh vòng lặp resize
+    if (Math.abs(infCanvasW - availW) > INF_CS) {
+        const ratio = infCanvasW > 0 ? Math.min(infCanvasH / infCanvasW, 0.7) : 0.7;
+        applyCanvasSize(availW, availW * ratio, false);
     }
 }
 
@@ -299,6 +320,45 @@ let vRowF = 0, vColF = 0;
 // BUG 3 FIX: Flag to prevent multiple listener registrations
 let infCanvasInitialized = false;
 
+// ===== D-PAD PAN (MOBILE) =====
+// Bấm/giữ 4 nút mũi tên để dịch chuyển góc nhìn — thay cho kéo chuột phải trên PC.
+let dpadPanTimer = null;
+const DPAD_PAN_STEP = 0.5;      // số ô dịch mỗi tick
+const DPAD_PAN_INTERVAL = 50;   // ms giữa các tick khi giữ nút
+
+function dpadPanStart(dr, dc) {
+    dpadPanStop();
+    const tick = () => {
+        vRowF += dr * DPAD_PAN_STEP;
+        vColF += dc * DPAD_PAN_STEP;
+        // Gọi render trực tiếp — scheduleRender bị chặn khi fullscreen không pan chuột
+        renderInfiniteBoard();
+    };
+    tick();
+    dpadPanTimer = setInterval(tick, DPAD_PAN_INTERVAL);
+}
+function dpadPanStop() {
+    if (dpadPanTimer) { clearInterval(dpadPanTimer); dpadPanTimer = null; }
+}
+function setupDpadControls() {
+    const dpad = document.getElementById('inf-dpad');
+    if (!dpad) return;
+    dpad.querySelectorAll('.dpad-btn').forEach(btn => {
+        const dr = parseInt(btn.getAttribute('data-dr'), 10) || 0;
+        const dc = parseInt(btn.getAttribute('data-dc'), 10) || 0;
+        const start = (e) => { e.preventDefault(); dpadPanStart(dr, dc); };
+        // Touch (mobile) + mouse (màn hình nhỏ trên PC)
+        btn.addEventListener('touchstart',  start, { passive: false });
+        btn.addEventListener('mousedown',   start);
+        btn.addEventListener('touchend',    dpadPanStop);
+        btn.addEventListener('touchcancel', dpadPanStop);
+        btn.addEventListener('mouseup',     dpadPanStop);
+        btn.addEventListener('mouseleave',  dpadPanStop);
+        // Chặn context menu khi giữ lâu trên mobile
+        btn.addEventListener('contextmenu', e => e.preventDefault());
+    });
+}
+
 function initInfCanvas() {
     // BUG 3 FIX: Prevent duplicate initialization - only if canvas element exists
     if (infCanvasInitialized && infCanvas) {
@@ -338,6 +398,7 @@ function initInfCanvas() {
     document.addEventListener('keydown', infOnKeyDown);
 
     setupResizeHandles();
+    setupDpadControls();
     INF_CS = loadZoom();
 
     // Load saved canvas size ngay lập tức nếu có
@@ -352,6 +413,8 @@ function initInfCanvas() {
         updateInfiniteResizeHandles();
         updateCursorByTurn();
         renderInfiniteBoard();
+        // Saved px có thể lệch với bề rộng container hiện tại (%) — đồng bộ sau khi layout ổn định
+        requestAnimationFrame(() => requestAnimationFrame(() => fitCanvasToContainer()));
     } else {
         // Chỉ set mặc định khi không có saved size
         // Set kích thước mặc định lớn hơn để tránh bị co
@@ -389,6 +452,9 @@ function applyCanvasSize(w, h, forceRatio = false) {
         // Manual resize: chỉ giới hạn tối đa 70%, cho phép tự do điều chỉnh
         h = Math.min(h, Math.floor(w * 0.7));
     }
+    
+    // Giới hạn chiều cao theo viewport để bàn cờ + thanh điều khiển không tràn màn hình
+    h = Math.min(h, Math.floor(window.innerHeight * 0.68));
     
     // Sử dụng Math.floor thay vì Math.round để đảm bảo không vượt quá kích thước có sẵn
     infCanvasW = Math.max(8 * INF_CS, Math.floor(w / INF_CS) * INF_CS);
@@ -475,12 +541,13 @@ function resizeInfCanvas() {
     const autoCheckbox = document.getElementById('auto-size-checkbox');
     const isAuto = autoCheckbox ? autoCheckbox.checked : true;
     
-    // Nếu không auto-resize, chỉ load saved canvas size nếu có
+    // Nếu không auto-resize: load saved size rồi ép khớp bề rộng container hiện tại
     if (!isAuto) {
         const saved = loadCanvasSize();
         if (saved && saved.w > 0 && saved.h > 0) { 
             applyCanvasSize(saved.w, saved.h, false); // Load saved: không ép ratio
         }
+        fitCanvasToContainer(); // Saved px có thể lệch với container % — đồng bộ lại
         return;
     }
     
@@ -730,16 +797,10 @@ document.addEventListener('fullscreenchange', () => {
 });
 
 function scheduleRender() {
-    // Chỉ tắt scheduleRender khi KHÔNG chơi online để tránh flickering
-    const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
-    if (!isOnline) {
-        // TẬT HOÀN TOÀN SCHEDULE RENDER ĐỂ TRÁNH FLICKERING (OFFLINE)
-        return;
-    }
-    
-    // ONLINE: Giữ scheduleRender để bàn cờ update khi có nước đi mới
+    // Hover effect đã bị tắt riêng trong infOnMouseMove nên render qua rAF không gây flickering.
+    // PHẢI render khi pan (chuột phải / touch kéo) — nếu không bàn cờ sẽ không di chuyển.
     if (_rafPending) return;
-    if (isFullscreen) return;
+    if (isFullscreen && !infPanning) return;
     _rafPending = true;
     requestAnimationFrame(() => {
         _rafPending = false;
@@ -847,11 +908,23 @@ function infOnKeyDown(e) {
     if (!isInfinite || !isGameActive) return;
     const isPlayerTurn = gameMode === 'solo' || (gameMode.startsWith('ai') && currentPlayer !== botPiece);
 
+    // Mũi tên: PAN bàn cờ (như D-pad / kéo chuột phải).
+    // Shift + Mũi tên: di chuyển CON TRỎ THỨ 2 (tính năng cũ).
+    const KB_PAN_STEP = 1; // số ô dịch mỗi lần bấm
+    if (!e.shiftKey) {
+        if (e.key === 'ArrowUp')    { e.preventDefault(); vRowF -= KB_PAN_STEP; renderInfiniteBoard(); return; }
+        if (e.key === 'ArrowDown')  { e.preventDefault(); vRowF += KB_PAN_STEP; renderInfiniteBoard(); return; }
+        if (e.key === 'ArrowLeft')  { e.preventDefault(); vColF -= KB_PAN_STEP; renderInfiniteBoard(); return; }
+        if (e.key === 'ArrowRight') { e.preventDefault(); vColF += KB_PAN_STEP; renderInfiniteBoard(); return; }
+    }
+
     if (isPlayerTurn) {
-        if (e.key === 'ArrowUp')    { e.preventDefault(); keyboardCursorR--; keyboardCursorVisible = true; renderInfiniteBoard(); return; }
-        if (e.key === 'ArrowDown')  { e.preventDefault(); keyboardCursorR++; keyboardCursorVisible = true; renderInfiniteBoard(); return; }
-        if (e.key === 'ArrowLeft')  { e.preventDefault(); keyboardCursorC--; keyboardCursorVisible = true; renderInfiniteBoard(); return; }
-        if (e.key === 'ArrowRight') { e.preventDefault(); keyboardCursorC++; keyboardCursorVisible = true; renderInfiniteBoard(); return; }
+        if (e.shiftKey) {
+            if (e.key === 'ArrowUp')    { e.preventDefault(); keyboardCursorR--; keyboardCursorVisible = true; renderInfiniteBoard(); return; }
+            if (e.key === 'ArrowDown')  { e.preventDefault(); keyboardCursorR++; keyboardCursorVisible = true; renderInfiniteBoard(); return; }
+            if (e.key === 'ArrowLeft')  { e.preventDefault(); keyboardCursorC--; keyboardCursorVisible = true; renderInfiniteBoard(); return; }
+            if (e.key === 'ArrowRight') { e.preventDefault(); keyboardCursorC++; keyboardCursorVisible = true; renderInfiniteBoard(); return; }
+        }
         if (e.key === 'Enter') {
             e.preventDefault();
             if (keyboardCursorVisible && getCell(keyboardCursorR, keyboardCursorC) === '')

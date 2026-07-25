@@ -271,13 +271,57 @@ input[type="checkbox"] {
 /* ===== ZOOM CONTROLS ===== */
 .zoom-controls {
     position: absolute;
-    bottom: 10px;
+    /* Dời lên trên D-pad — D-pad chiếm góc dưới-phải */
+    bottom: 92px;
     right: 10px;
     display: flex;
     flex-direction: column;
     gap: 5px;
     z-index: 100;
 }
+
+/* ===== D-PAD PAN ===== */
+/* 4 phím mũi tên dịch chuyển bàn cờ — hiển thị trên MỌI thiết bị (PC + Mobile).
+   Góc dưới-phải bàn cờ, trong suốt nhẹ để không che ô cờ. */
+.inf-dpad {
+    display: grid;
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    z-index: 100;
+    grid-template-columns: repeat(3, 34px);
+    grid-template-rows: repeat(2, 34px);
+    gap: 3px;
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+}
+.inf-dpad:hover { opacity: 1; }
+.dpad-btn {
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(30, 41, 59, 0.75);
+    color: #fff;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none; /* chặn scroll trang khi giữ nút */
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.dpad-btn:active {
+    background: rgba(59, 130, 246, 0.9);
+    transform: scale(0.94);
+}
+/* Bố cục chữ thập: ▲ giữa hàng trên, ◀ ▼ ▶ hàng dưới */
+.dpad-up    { grid-column: 2; grid-row: 1; }
+.dpad-left  { grid-column: 1; grid-row: 2; }
+.dpad-down  { grid-column: 2; grid-row: 2; }
+.dpad-right { grid-column: 3; grid-row: 2; }
 .zoom-btn {
     width: 36px;
     height: 36px;
@@ -404,9 +448,12 @@ input[type="checkbox"] {
 /* ===== BOT AVATAR ===== */
 .bot-avatar {
     position: absolute;
-    top: 60px;
+    /* Neo góc trên-trái khu bàn cờ (dải trống dành cho ticker) —
+       tách biệt với D-pad ở góc dưới-phải, không đè nút % và phím tắt */
+    top: 0;
     left: 10px;
-    z-index: 1000;
+    z-index: 50;
+    pointer-events: none; /* Không chắn click vào bàn cờ/nút bên dưới */
     display: flex;
     align-items: center;
     gap: 8px;
@@ -434,11 +481,12 @@ input[type="checkbox"] {
 .bot-bubble::before {
     content: '';
     position: absolute;
-    right: -6px;
+    /* Mũi nhọn trỏ sang trái — về phía mặt bot (bot nằm bên trái bubble) */
+    left: -6px;
     top: 50%;
     transform: translateY(-50%);
     border: 6px solid transparent;
-    border-left-color: rgba(255,255,255,0.95);
+    border-right-color: rgba(255,255,255,0.95);
 }
 .bot-message {
     font-size: 0.8rem;

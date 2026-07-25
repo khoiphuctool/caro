@@ -290,6 +290,13 @@
                         <button class="zoom-btn zoom-out"  onclick="zoomBoard(-1)"  title="Thu nhỏ">−</button>
                         <button class="zoom-btn zoom-undo" onclick="undoMove()"     title="Thu lại nước đi">↩</button>
                     </div>
+                    <!-- D-Pad dịch chuyển bàn cờ (mobile / màn hình nhỏ) -->
+                    <div id="inf-dpad" class="inf-dpad">
+                        <button type="button" class="dpad-btn dpad-up"    data-dr="-1" data-dc="0"  title="Lên">▲</button>
+                        <button type="button" class="dpad-btn dpad-left"  data-dr="0"  data-dc="-1" title="Trái">◀</button>
+                        <button type="button" class="dpad-btn dpad-right" data-dr="0"  data-dc="1"  title="Phải">▶</button>
+                        <button type="button" class="dpad-btn dpad-down"  data-dr="1"  data-dc="0"  title="Xuống">▼</button>
+                    </div>
                 </div>
             </div>
 

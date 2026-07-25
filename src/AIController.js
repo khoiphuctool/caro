@@ -75,9 +75,11 @@ const AIController = {
 
         // ══════════════════════════════════════════════════════
         // 0. BOT THẮNG NGAY — tuyệt đối ưu tiên
+        // Xác minh bằng checkWinSilent (chuẩn luật thật, gồm cả luật chặn 2 đầu)
+        // vì PatternDetector xử lý luật này không theo cài đặt blockBothEnds.
         // ══════════════════════════════════════════════════════
         for (const { r, c } of validCands) {
-            if (ThreatDetector.isWinningMove(r, c, player, winCount)) {
+            if (this.isRealWin(r, c, player, winCount)) {
                 if (typeof updateBotThinking === 'function') {
                     updateBotThinking('TÌM THẤY NƯỚC THẮNG! 🎯');
                 }
@@ -93,7 +95,7 @@ const AIController = {
         // 1. ĐỊCH THẮNG NGAY — phải chặn tuyệt đối
         // ══════════════════════════════════════════════════════
         for (const { r, c } of validCands) {
-            if (ThreatDetector.blocksWinningThreat(r, c, opponent, winCount)) {
+            if (this.isRealWin(r, c, opponent, winCount)) {
                 if (typeof updateBotThinking === 'function') {
                     updateBotThinking('Chặn kịp! 😤');
                 }
@@ -103,6 +105,23 @@ const AIController = {
                 }
                 return { r, c };
             }
+        }
+
+        // ══════════════════════════════════════════════════════
+        // 1.5. BOT TẠO FOUR KHÔNG THỂ CHẶN — thắng chắc lượt sau
+        // Địch không còn nước thắng ngay (đã loại ở bước 1)
+        // → ƯU TIÊN TẤN CÔNG trước mọi nước chặn của pipeline bên dưới.
+        // ══════════════════════════════════════════════════════
+        const forcedFour = this.findForcedFourMove(validCands, player);
+        if (forcedFour) {
+            if (typeof updateBotThinking === 'function') {
+                updateBotThinking('Tạo FOUR thắng chắc! ⚔️');
+            }
+            if (typeof DebugLogger !== 'undefined') {
+                DebugLogger.log(DebugLogger.CATEGORY.AI_DECISION, DebugLogger.LEVEL.INFO,
+                               'Forced four (unstoppable) found', forcedFour);
+            }
+            return forcedFour;
         }
 
         // ══════════════════════════════════════════════════════
@@ -135,6 +154,36 @@ const AIController = {
 
         // Default: medium mode
         return this.getMediumModeMove(validCands, player, opponent, winCount, blockBothEnds);
+    },
+
+    // ===== REAL WIN CHECK =====
+    // Kiểm tra đặt (r,c) cho player có THẮNG THẬT không.
+    // Ưu tiên checkWinSilent (chuẩn luật game, gồm luật chặn 2 đầu theo cài đặt);
+    // fallback ThreatDetector nếu engine cũ chưa tải.
+    isRealWin(r, c, player, winCount) {
+        if (typeof setCell === 'function' && typeof checkWinSilent === 'function') {
+            setCell(r, c, player);
+            const w = checkWinSilent(r, c);
+            setCell(r, c, '');
+            return !!w;
+        }
+        return ThreatDetector.isWinningMove(r, c, player, winCount);
+    },
+
+    // ===== FORCED FOUR (bot) =====
+    // Tìm nước tạo FOUR không thể chặn: >= 2 đầu hoàn thành five thắng thật
+    // (open four / double four) → địch chỉ chặn được 1 đầu → thắng chắc.
+    // CHỈ gọi sau khi đã xác nhận địch không có nước thắng ngay.
+    findForcedFourMove(candidates, player) {
+        if (typeof countWinningCompletionEnds !== 'function') return null;
+        let best = null, bestS = -Infinity;
+        for (const { r, c } of candidates) {
+            if (countWinningCompletionEnds(r, c, player) >= 2) {
+                const s = (typeof quickScore === 'function') ? quickScore(r, c, player) : 0;
+                if (s > bestS) { bestS = s; best = { r, c }; }
+            }
+        }
+        return best;
     },
 
     // ===== NEURAL SORT CANDIDATES =====
