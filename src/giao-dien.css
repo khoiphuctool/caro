@@ -271,8 +271,8 @@ input[type="checkbox"] {
 /* ===== ZOOM CONTROLS ===== */
 .zoom-controls {
     position: absolute;
-    /* Dời lên trên D-pad — D-pad chiếm góc dưới-phải */
-    bottom: 92px;
+    /* Góc dưới-phải bàn cờ (D-pad đã chuyển sang góc dưới-trái) */
+    bottom: 10px;
     right: 10px;
     display: flex;
     flex-direction: column;
@@ -282,11 +282,11 @@ input[type="checkbox"] {
 
 /* ===== D-PAD PAN ===== */
 /* 4 phím mũi tên dịch chuyển bàn cờ — hiển thị trên MỌI thiết bị (PC + Mobile).
-   Góc dưới-phải bàn cờ, trong suốt nhẹ để không che ô cờ. */
+   Góc dưới-TRÁI bàn cờ, trong suốt nhẹ để không che ô cờ. */
 .inf-dpad {
     display: grid;
     position: absolute;
-    right: 10px;
+    left: 10px;
     bottom: 10px;
     z-index: 100;
     grid-template-columns: repeat(3, 34px);
@@ -448,11 +448,11 @@ input[type="checkbox"] {
 /* ===== BOT AVATAR ===== */
 .bot-avatar {
     position: absolute;
-    /* Neo góc trên-trái khu bàn cờ (dải trống dành cho ticker) —
-       tách biệt với D-pad ở góc dưới-phải, không đè nút % và phím tắt */
-    top: 0;
-    left: 10px;
-    z-index: 50;
+    /* Neo góc trên-trái BÀN CỜ (nằm trong #inf-resizable) —
+       tách biệt khỏi nút %, thanh công cụ và D-pad (góc dưới-trái) */
+    top: 8px;
+    left: 8px;
+    z-index: 90;
     pointer-events: none; /* Không chắn click vào bàn cờ/nút bên dưới */
     display: flex;
     align-items: center;
@@ -501,6 +501,28 @@ input[type="checkbox"] {
 @keyframes bubbleFlash {
     0%, 100% { transform: scale(1); }
     50%       { transform: scale(1.05); }
+}
+
+/* ── Chế độ ONLINE (PvP): tái sử dụng khung thoại bot làm THANH THÔNG BÁO HỆ THỐNG ──
+   GIỮ avatar (🤖 hoặc avatar đối thủ) bên trái, đổi khung chữ sang phong cách system */
+.bot-avatar.online-announce .bot-bubble {
+    background: rgba(15, 23, 42, 0.88);
+    border: 1px solid rgba(99, 102, 241, 0.65);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    max-width: 240px;
+}
+.bot-avatar.online-announce .bot-bubble::before {
+    /* Mũi nhọn trỏ về avatar — đổi màu khớp nền tối */
+    border-right-color: rgba(15, 23, 42, 0.88);
+}
+.bot-avatar.online-announce .bot-message {
+    color: #e0e7ff;
+    font-weight: bold;
+}
+/* Không dùng hiệu ứng "annoying" của bot khi đang là thanh thông báo */
+.bot-avatar.online-announce .bot-bubble.annoying {
+    animation: none;
+    background: rgba(15, 23, 42, 0.88);
 }
 
 .btn-restart {
@@ -719,8 +741,20 @@ input[type="checkbox"] {
     .auto-size-toggle { font-size: 11px !important; }
     .toggle-text { font-size: 11px !important; }
 
-    /* ── Bot avatar: ẩn trên mobile (đỡ che bàn cờ) ── */
-    #bot-avatar { display: none !important; }
+    /* ── Bot avatar: vẫn hiện trên mobile — thu gọn kích thước để không che bàn cờ ── */
+    #bot-avatar {
+        top: 6px !important;
+        left: 6px !important;
+        gap: 5px !important;
+        opacity: 0.9 !important;
+    }
+    #bot-avatar .bot-face { font-size: 1.3rem !important; }
+    #bot-avatar .bot-bubble {
+        max-width: 150px !important;
+        min-width: 70px !important;
+        padding: 4px 8px !important;
+    }
+    #bot-avatar .bot-message { font-size: 0.68rem !important; }
 
     /* ── Main layout ── */
     .main-layout { 
@@ -745,11 +779,19 @@ input[type="checkbox"] {
     /* ── Nút Ván Mới ── */
     .btn-restart { padding: 8px 28px !important; font-size: 0.9rem !important; }
     
-    /* ── Zoom controls: Di chuyển lên cao hơn trên mobile ── */
+    /* ── Zoom controls: góc dưới-phải (D-pad ở góc dưới-trái) ── */
     .zoom-controls {
-        bottom: 15px !important;
-        right: 15px !important;
+        bottom: 12px !important;
+        right: 12px !important;
     }
+    /* ── D-pad: thu nhỏ nút trên mobile để đỡ che ô cờ ── */
+    .inf-dpad {
+        grid-template-columns: repeat(3, 30px) !important;
+        grid-template-rows: repeat(2, 30px) !important;
+        left: 8px !important;
+        bottom: 8px !important;
+    }
+    .dpad-btn { width: 30px !important; height: 30px !important; font-size: 12px !important; }
 }
 
 /* Extra nhỏ */

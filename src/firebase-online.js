@@ -613,7 +613,7 @@ function hienDanhSachPhong() {
 function ngoimVaoPhong(roomId) {
     if (!currentUsername) { alert('Vui lòng đăng nhập trước!'); return; }
     const myId   = localStorage.getItem('current_user_id');
-    const myName = currentUserData ? currentUserData.displayName : currentUsername;
+    const myName = tenCuaToi();
     const roomRef = db.ref(`rooms/${roomId}`);
 
     roomRef.transaction(room => {
@@ -706,7 +706,7 @@ window.vaoLaiPhong = vaoLaiPhong;
 function vaoPhongLaO(roomId) {
     if (!currentUsername) { alert('Vui lòng đăng nhập!'); return; }
     const myId   = localStorage.getItem('current_user_id');
-    const myName = currentUserData ? currentUserData.displayName : currentUsername;
+    const myName = tenCuaToi();
     const roomRef = db.ref(`rooms/${roomId}`);
 
     roomRef.transaction(room => {
@@ -772,6 +772,41 @@ function setupOnDisconnect(roomId, role) {
 // ══════════════════════════════════════════════════════════════════
 // 🎮 GIAO DIỆN PHÒNG ĐẤU
 // ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+// 📢 THANH THÔNG BÁO HỆ THỐNG (tái sử dụng khung thoại bot khi online)
+// ══════════════════════════════════════════════════════════════
+function thongBaoHeThong(msg) {
+    const av = document.getElementById('bot-avatar');
+    const bm = document.getElementById('bot-message');
+    if (!av || !bm) return;
+    av.classList.add('online-announce');
+    av.style.display = 'flex';
+    bm.textContent = msg;
+}
+window.thongBaoHeThong = thongBaoHeThong;
+
+// ── Tên hiển thị an toàn: displayName → username/name → email → fallback ──
+// Tránh trường hợp tài khoản chưa đặt tên (null/undefined/rỗng) làm mất tên người gửi
+function tenHienThi(u, fallback) {
+    if (u) {
+        const t = u.displayName || u.username || u.name ||
+                  (u.email ? String(u.email).split('@')[0] : '');
+        if (t && String(t).trim()) return String(t).trim();
+    }
+    return fallback || 'Người chơi';
+}
+function tenSafe(name, fallback) {
+    return (name && String(name).trim()) ? String(name).trim() : (fallback || 'Người chơi');
+}
+// Tên của chính mình — fallback "Khách xxxx" theo đuôi user id
+function tenCuaToi() {
+    const myId = localStorage.getItem('current_user_id') || '';
+    const fb   = (currentUsername && String(currentUsername).trim())
+        ? String(currentUsername).trim()
+        : ('Khách ' + (myId ? myId.slice(-4) : Math.floor(Math.random() * 1000)));
+    return tenHienThi(currentUserData, fb);
+}
+
 function batDauGiaoDienOnline() {
     document.body.classList.add('in-game-active');
     isOnlineMode = true;
@@ -785,8 +820,17 @@ function batDauGiaoDienOnline() {
     if (document.getElementById('ui-btn-restart')) document.getElementById('ui-btn-restart').style.display = 'none';
     const topBar = document.getElementById('top-bar');
     if (topBar) topBar.style.display = 'none';
+    // Khung thoại bot → chuyển thành THANH THÔNG BÁO HỆ THỐNG:
+    // GIỮ avatar bên trái (🤖, sau đổi thành avatar đối thủ khi load được),
+    // khung chữ bên cạnh hiện trạng thái trận đấu realtime
     const botAv = document.getElementById('bot-avatar');
-    if (botAv) botAv.style.display = 'none';
+    if (botAv) {
+        botAv.classList.add('online-announce');
+        botAv.style.display = 'flex';
+        const face = botAv.querySelector('.bot-face');
+        if (face) face.textContent = '🤖';
+    }
+    thongBaoHeThong('🔗 Đã kết nối phòng đấu!');
 
     const gms = document.getElementById('game-match-screen');
     if (gms) gms.style.display = 'block';
@@ -821,8 +865,16 @@ function thoatGiaoDienOnline() {
     if (document.getElementById('ui-btn-restart')) document.getElementById('ui-btn-restart').style.display = 'block';
     const topBarRestore = document.getElementById('top-bar');
     if (topBarRestore) topBarRestore.style.display = 'flex';
+    // Trả khung thoại về chế độ BOT (offline đấu máy): bỏ style thông báo hệ thống
     const botAv = document.getElementById('bot-avatar');
-    if (botAv) botAv.style.display = 'flex';
+    if (botAv) {
+        botAv.classList.remove('online-announce');
+        botAv.style.display = 'flex';
+        const face = botAv.querySelector('.bot-face');
+        if (face) face.textContent = '🤖';
+    }
+    const bmReset = document.getElementById('bot-message');
+    if (bmReset) bmReset.textContent = 'Xin chào! Tôi là Bot của anh Chần';
 
     const gms = document.getElementById('game-match-screen');
     if (gms) gms.style.display = 'none';
@@ -933,10 +985,7 @@ function _resetSauThoat(rid) {
         delete _connectedListeners[rid];
         connectedListener = null;
     }
-    if (chatListener && chatRoomId) {
-        db.ref(`rooms/${chatRoomId}/chats`).off('child_added', chatListener);
-        chatListener = null; chatRoomId = null;
-    }
+    // (Chat phòng đã gộp vào Chat Thế Giới — dọn ở tatChatTheGioi() bên dưới)
     // BUG 4 FIX: Clean up all other listeners when leaving room
     if (onlineUsersListener) {
         db.ref('online_users').off('value', onlineUsersListener);
@@ -973,6 +1022,7 @@ function _resetSauThoat(rid) {
     myRole            = null;
     daXoaBanCoTranNay = false;
     _lastProcessedWinner = '';
+    _prevOppId = ''; _prevOppStatus = '';
     localStorage.removeItem('current_room_id');
     thoatGiaoDienOnline();
 }
@@ -1049,6 +1099,8 @@ window.setReady = setReady;
 // ══════════════════════════════════════════════════════════════════
 // Map lưu timeout tự dọn ghế khi offline
 const _offlineCleanupTimers = {};
+// Theo dõi đối thủ để thông báo vào phòng / rời phòng / mất kết nối
+let _prevOppId = '', _prevOppStatus = '';
 
 function langNgheThayDoiPhong(roomId) {
     if (roomListener) { db.ref(`rooms/${currentRoomId || roomId}`).off('value', roomListener); roomListener = null; }
@@ -1073,6 +1125,28 @@ function langNgheThayDoiPhong(roomId) {
                 _resetSauThoat(roomId);
                 return;
             }
+        }
+
+        // ── Thông báo đối thủ vào phòng / rời phòng / mất kết nối (chỉ với người chơi) ──
+        // daThongBaoSnapshot = true → snapshot này đã có thông báo sự kiện,
+        // không để thông báo trạng thái (lượt/chờ) ghi đè mất ngay lập tức
+        let daThongBaoSnapshot = false;
+        let oppId = '', oppName = 'Đối thủ';
+        if (myRole === 'X' || myRole === 'O') {
+            oppId           = myRole === 'X' ? (room.playerO_id     || '') : (room.playerX_id     || '');
+            const oppStatus = myRole === 'X' ? (room.playerO_status || '') : (room.playerX_status || '');
+            oppName         = tenSafe(myRole === 'X' ? room.playerO_name : room.playerX_name, 'Đối thủ');
+            if (_prevOppId && !oppId) {
+                thongBaoHeThong('🚪 Đối thủ đã rời phòng.');
+                daThongBaoSnapshot = true;
+            } else if (!_prevOppId && oppId) {
+                thongBaoHeThong(`🤝 ${oppName} đã vào phòng!`);
+                daThongBaoSnapshot = true;
+            } else if (oppId && _prevOppId === oppId && _prevOppStatus === 'online' && oppStatus === 'offline') {
+                thongBaoHeThong(`📡 ${oppName} mất kết nối...`);
+                daThongBaoSnapshot = true;
+            }
+            _prevOppId = oppId; _prevOppStatus = oppStatus;
         }
 
         // Cập nhật giao diện phòng chờ
@@ -1122,9 +1196,14 @@ function langNgheThayDoiPhong(roomId) {
             if (currentTurn === myRole) {
                 if (gameInfo) gameInfo.innerHTML = `<span style='color:#28a745;font-weight:bold;'>Lượt của bạn (${myRole})</span> — ${luat}`;
                 if (turnEl)   { turnEl.textContent = `🟢 Lượt của bạn (${myRole}) — hãy đánh!`; turnEl.className = 'my-turn'; }
+                if (!daThongBaoSnapshot) thongBaoHeThong('🟢 Đến lượt bạn đánh!');
+            } else if (myRole === 'viewer') {
+                if (turnEl) { turnEl.textContent = `👁️ Đang xem — lượt của ${currentTurn}`; turnEl.className = ''; }
+                if (!daThongBaoSnapshot) thongBaoHeThong(`👁️ Đang xem — lượt của ${currentTurn}...`);
             } else {
                 if (gameInfo) gameInfo.innerHTML = `<span style='color:#dc3545;'>Chờ đối thủ (${currentTurn})...</span> — ${luat}`;
                 if (turnEl)   { turnEl.textContent = `⏳ Đang chờ đối thủ (${currentTurn})...`; turnEl.className = 'opponent-turn'; }
+                if (!daThongBaoSnapshot) thongBaoHeThong(`⏳ Đang chờ ${oppName} đánh...`);
             }
 
             // Vẽ nước đi mới nhất từ đối thủ
@@ -1139,6 +1218,18 @@ function langNgheThayDoiPhong(roomId) {
 
         if (room.status === 'ended' || room.winner) {
             xuLyKetThucVan(room);
+        }
+
+        // ── Phòng đang CHỜ (waiting): cập nhật thanh thông báo để không bị kẹt
+        // ở nội dung tĩnh "Đã kết nối phòng đấu!" ──
+        if (room.status === 'waiting' && !room.winner && !daThongBaoSnapshot) {
+            if (myRole === 'X' || myRole === 'O') {
+                thongBaoHeThong(oppId
+                    ? `🤝 ${oppName} đã sẵn sàng — chờ bắt đầu ván!`
+                    : '⏳ Đang chờ đối thủ vào phòng...');
+            } else {
+                thongBaoHeThong('👁️ Đang chờ trận đấu bắt đầu...');
+            }
         }
 
         // Phòng reset về waiting sau ván kết thúc (chủ phòng bấm Ván Mới)
@@ -1237,8 +1328,9 @@ function capNhatUIPhong(room) {
     // Lấy số phòng từ room.roomNumber hoặc parse từ currentRoomId (tránh hiện "?")
     const roomNum = room.roomNumber || (currentRoomId ? currentRoomId.replace('phong_', '') : '?');
     if (txtTitle) txtTitle.innerText = `Phòng ${roomNum}`;
-    if (namePX)   namePX.innerText   = room.playerX_name || 'Đang chờ...';
-    if (namePO)   namePO.innerText   = room.playerO_name || 'Chờ đối thủ...';
+    // Có người ngồi ghế nhưng tên rỗng → fallback, tránh hiển thị sai "Đang chờ..."
+    if (namePX)   namePX.innerText   = room.playerX_id ? tenSafe(room.playerX_name, 'Người chơi X') : 'Đang chờ...';
+    if (namePO)   namePO.innerText   = room.playerO_id ? tenSafe(room.playerO_name, 'Người chơi O') : 'Chờ đối thủ...';
 
     const myId     = localStorage.getItem('current_user_id');
     const laChuX   = myId === room.playerX_id;
@@ -1279,9 +1371,16 @@ function loadPlayerInfo(userId, role) {
         const u = snap.val();
         if (!u) return;
         const rank        = getRankName(u.winBot, u.winSolo);
-        const displayName = u.displayName || u.username;
+        // Tên an toàn — tài khoản chưa đặt tên vẫn có fallback, không lọt lỗi mất tên
+        const displayName = tenHienThi(u, 'Người chơi ' + role);
         const avatar      = u.avatar || displayName[0].toUpperCase();
         const isEmoji     = avatar.length <= 2 && /\p{Emoji}/u.test(avatar);
+
+        // Avatar đối thủ lên thanh thông báo hệ thống (cạnh khung chữ, góc bàn cờ)
+        if ((myRole === 'X' || myRole === 'O') && role !== myRole) {
+            const annFace = document.querySelector('#bot-avatar.online-announce .bot-face');
+            if (annFace) annFace.textContent = isEmoji ? avatar : '🤖';
+        }
 
         // Panel bên cạnh bàn cờ (panel-playerX/O)
         const nameEl = document.getElementById(`view-name-${role}`);
@@ -1420,8 +1519,8 @@ function xuLyKetThucVan(room) {
     if (!room.winner) return;
     daXoaBanCoTranNay = false;
 
-    const xName     = room.playerX_name || 'X';
-    const oName     = room.playerO_name || 'O';
+    const xName     = tenSafe(room.playerX_name, 'Người chơi X');
+    const oName     = tenSafe(room.playerO_name, 'Người chơi O');
     const winName   = room.winner === 'X' ? xName : oName;
     const loseName  = room.winner === 'X' ? oName : xName;
     const endReason = room.endReason || '';
@@ -1434,6 +1533,10 @@ function xuLyKetThucVan(room) {
     if (gameInfo) gameInfo.innerHTML = `<b style='color:#d9534f;'>${msg}</b>`;
     const turnEl = document.getElementById('turn-indicator');
     if (turnEl) { turnEl.textContent = msg; turnEl.className = ''; }
+    // Thanh thông báo hệ thống: [Tên người thắng] đã giành chiến thắng!
+    thongBaoHeThong(endReason.includes('bỏ cuộc')
+        ? `🏳️ ${loseName} bỏ cuộc — ${winName} đã giành chiến thắng!`
+        : `🏆 ${winName} đã giành chiến thắng!`);
 
     // Hiện UI chọn ván mới (chỉ với người chơi thực, không phải viewer)
     const myIdKetThuc = localStorage.getItem('current_user_id');
@@ -1584,22 +1687,17 @@ window.thoatPhongSauVan = thoatPhongSauVan;
 // ══════════════════════════════════════════════════════════════════
 // 💬 CHAT
 // ══════════════════════════════════════════════════════════════════
+// 💬 CHAT — ĐÃ GỘP VÀO CHAT THẾ GIỚI: toàn bộ chat (sảnh, trong phòng, quick chat)
+// dùng chung kênh world_chat — ai gửi thì mọi người online đều thấy ở cả lobby lẫn phòng đấu.
 function guiTinNhanOnline() {
-    if (!currentRoomId) return;
     const inp = document.getElementById('chat-input');
     if (!inp) return;
-    const text = inp.value.trim();
-    if (!text) return;
-    const name = currentUserData ? currentUserData.displayName : currentUsername;
-    db.ref(`rooms/${currentRoomId}/chats`).push({ sender: name, message: text, timestamp: Date.now() })
-      .then(() => { inp.value = ''; });
+    guiChatTheGioiCore(inp.value, inp);
 }
 window.guiTinNhanOnline = guiTinNhanOnline;
 
 function guiQuickChat(msg) {
-    if (!currentRoomId) return;
-    const name = currentUserData ? currentUserData.displayName : currentUsername;
-    db.ref(`rooms/${currentRoomId}/chats`).push({ sender: name, message: msg, timestamp: Date.now() });
+    guiChatTheGioiCore(msg, null);
 }
 window.guiQuickChat = guiQuickChat;
 
@@ -1609,34 +1707,10 @@ function toggleQuickChatMenu() {
 }
 window.toggleQuickChatMenu = toggleQuickChatMenu;
 
-// Biến lưu chat listener để tránh duplicate
-let chatListener = null;
-let chatRoomId   = null;
-
-function langNgheTinNhan(roomId) {
-    // Hủy listener cũ
-    if (chatListener && chatRoomId) {
-        db.ref(`rooms/${chatRoomId}/chats`).off('child_added', chatListener);
-        chatListener = null;
-        const box = document.getElementById('chat-messages');
-        if (box) box.innerHTML = '';
-    }
-    chatRoomId = roomId;
-    // Chỉ lấy 50 tin nhắn gần nhất khi vào phòng
-    chatListener = db.ref(`rooms/${roomId}/chats`)
-        .orderByChild('timestamp')
-        .limitToLast(50)
-        .on('child_added', snap => {
-        const d = snap.val();
-        if (!d) return;
-        const box = document.getElementById('chat-messages');
-        if (!box) return;
-        const el = document.createElement('div');
-        el.className = 'chat-message-line';
-        el.innerHTML = `<strong>${d.sender}:</strong> ${d.message}`;
-        box.appendChild(el);
-        box.scrollTop = box.scrollHeight;
-    });
+// Trong phòng đấu: không còn chat riêng theo phòng — chỉ cần đảm bảo
+// listener Chat Thế Giới đang chạy (tham số roomId cũ không cần nữa)
+function langNgheTinNhan() {
+    khoiDongChatTheGioi();
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1750,6 +1824,41 @@ window.boQuaDisconnect    = function() {};  // stub
 // ══════════════════════════════════════════════════════════════════
 let worldChatListener = null;
 
+// Escape HTML để tránh chèn thẻ vào kênh chat chung
+function escChatHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Vẽ 1 tin chat thế giới ra CẢ 2 khung: lobby (#world-chat-messages) + phòng đấu (#chat-messages)
+function hienTinChatTheGioi(d) {
+    const sender  = escChatHtml(tenSafe(d.sender, 'Người chơi'));
+    const message = escChatHtml(d.message);
+    const timeStr = new Date(d.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    // Phân màu: người đang trong phòng đấu (đỏ cam) / người ở sảnh - khán giả (tím xanh)
+    const senderColor = d.inRoom ? '#dc2626' : '#6366f1';
+    const badge       = d.inRoom ? '⚔️ ' : '';
+
+    const boxLobby = document.getElementById('world-chat-messages');
+    if (boxLobby) {
+        const el = document.createElement('div');
+        el.style.cssText = 'margin-bottom:5px; font-size:13px; line-height:1.4; word-break:break-word;';
+        el.innerHTML = `<span style="color:${senderColor};font-weight:bold;">${badge}${sender}</span> <span style="color:#aaa;font-size:11px;">${timeStr}</span><br>${message}`;
+        boxLobby.appendChild(el);
+        boxLobby.scrollTop = boxLobby.scrollHeight; // tự cuộn xuống tin mới nhất
+    }
+
+    const boxRoom = document.getElementById('chat-messages');
+    if (boxRoom) {
+        const el = document.createElement('div');
+        el.className = 'chat-message-line';
+        el.innerHTML = `<strong style="color:${senderColor};">${badge}[${sender}]:</strong> ${message}`;
+        boxRoom.appendChild(el);
+        boxRoom.scrollTop = boxRoom.scrollHeight; // tự cuộn xuống tin mới nhất
+    }
+}
+
 function khoiDongChatTheGioi() {
     // BUG 4 FIX: Clean up old listener before registering new one
     if (worldChatListener) {
@@ -1757,8 +1866,11 @@ function khoiDongChatTheGioi() {
         worldChatListener = null;
     }
 
-    const box = document.getElementById('world-chat-messages');
-    if (!box) return;
+    // Xóa nội dung cũ ở cả 2 khung trước khi replay 60 tin gần nhất (tránh trùng)
+    ['world-chat-messages', 'chat-messages'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) b.innerHTML = '';
+    });
 
     worldChatListener = db.ref('world_chat')
         .orderByChild('timestamp')
@@ -1766,12 +1878,7 @@ function khoiDongChatTheGioi() {
         .on('child_added', snap => {
             const d = snap.val();
             if (!d) return;
-            const el = document.createElement('div');
-            el.style.cssText = 'margin-bottom:5px; font-size:13px; line-height:1.4; word-break:break-word;';
-            const timeStr = new Date(d.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-            el.innerHTML = `<span style="color:#6366f1;font-weight:bold;">${d.sender}</span> <span style="color:#aaa;font-size:11px;">${timeStr}</span><br>${d.message}`;
-            box.appendChild(el);
-            box.scrollTop = box.scrollHeight;
+            hienTinChatTheGioi(d);
         });
 }
 
@@ -1783,26 +1890,27 @@ function tatChatTheGioi() {
     }
 }
 
-function guiChatTheGioi() {
+// Lõi gửi chat thế giới dùng chung: ô chat lobby, ô chat trong phòng, quick chat
+function guiChatTheGioiCore(rawText, inpToClear) {
     if (!currentUsername) { alert('Vui lòng đăng nhập để chat!'); return; }
-    const inp = document.getElementById('world-chat-input');
-    if (!inp) return;
-    const text = inp.value.trim();
+    const text = (rawText || '').trim();
     if (!text) return;
-    const name = currentUserData ? (currentUserData.displayName || currentUserData.username) : currentUsername;
+    const name = tenCuaToi();
 
-    // Giới hạn spam: kiểm tra tin nhắn cuối cùng của user
+    // Giới hạn spam: 2 giây cooldown giữa các tin
     const now = Date.now();
     const lastSent = parseInt(sessionStorage.getItem('wc_last') || '0');
-    if (now - lastSent < 2000) { return; } // 2 giây cooldown
+    if (now - lastSent < 2000) { return; }
     sessionStorage.setItem('wc_last', now);
 
     db.ref('world_chat').push({
         sender:    name,
         message:   text,
+        // Đánh dấu người gửi đang đấu trong phòng (để phân màu với người xem/sảnh)
+        inRoom:    (isOnlineMode && currentRoomId && myRole !== 'viewer') ? currentRoomId : '',
         timestamp: now
     }).then(() => {
-        inp.value = '';
+        if (inpToClear) inpToClear.value = '';
         // Dọn tin cũ — giữ tối đa 200 tin
         db.ref('world_chat').orderByChild('timestamp').limitToFirst(1).once('value').then(s => {
             if (!s.exists()) return;
@@ -1818,6 +1926,12 @@ function guiChatTheGioi() {
             });
         });
     });
+}
+
+function guiChatTheGioi() {
+    const inp = document.getElementById('world-chat-input');
+    if (!inp) return;
+    guiChatTheGioiCore(inp.value, inp);
 }
 window.guiChatTheGioi = guiChatTheGioi;
 

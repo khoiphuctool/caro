@@ -2537,6 +2537,8 @@ function getBotMove() {
     }
 }
 function updateBotThinking(message) {
+    // Online PvP: khung thoại đang làm thanh thông báo hệ thống — bot không được ghi đè
+    if (window.isOnlineModeActive && window.isOnlineModeActive()) return;
     if (statusPanel) statusPanel.innerHTML = `🤖 <span style="opacity:0.7">${message}</span> <span class="think-dots">...</span>`;
     const botMessage = document.getElementById('bot-message');
     if (botMessage) botMessage.textContent = message;
@@ -2647,6 +2649,8 @@ function evaluatePlayerMove(r, c) {
     else                                         { message = pick(poorMoves);      emoji = '💭'; }
 
     setTimeout(() => {
+        // Online PvP: không cho lời thoại bot đè lên thanh thông báo hệ thống
+        if (window.isOnlineModeActive && window.isOnlineModeActive()) return;
         if (statusPanel && isGameActive) statusPanel.innerHTML = `${emoji} ${message}`;
         const botMessage = document.getElementById('bot-message');
         if (botMessage) botMessage.textContent = message;

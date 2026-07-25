@@ -906,6 +906,9 @@ function infOnClick(e) {
 // ===== KEYBOARD =====
 function infOnKeyDown(e) {
     if (!isInfinite || !isGameActive) return;
+    // Không xử lý khi đang gõ trong ô nhập liệu (chat, tên BXH...)
+    const tag = (e.target && e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target && e.target.isContentEditable)) return;
     const isPlayerTurn = gameMode === 'solo' || (gameMode.startsWith('ai') && currentPlayer !== botPiece);
 
     // Mũi tên: PAN bàn cờ (như D-pad / kéo chuột phải).

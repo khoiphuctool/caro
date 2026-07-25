@@ -204,7 +204,7 @@
     </div>
 
     <div class="keyboard-hint" style="text-align:center; font-size:0.8rem; opacity:0.6; margin:8px 0 10px 0; width:100%;">
-        ⌨️ <b>Phím tắt:</b> Mũi tên ↑↓←→ để di chuyển CON TRỎ THỨ 2 · Enter để đánh quân
+        ⌨️ <b>Phím tắt:</b> Mũi tên ↑↓←→ di chuyển BÀN CỜ · Shift+Mũi tên di chuyển CON TRỎ THỨ 2 · Enter để đánh quân
     </div>
 
     <div class="main-layout">
@@ -239,13 +239,7 @@
                     </div>
                 </div>
 
-                <!-- Bot Avatar -->
-                <div id="bot-avatar" class="bot-avatar">
-                    <div class="bot-face">🤖</div>
-                    <div class="bot-bubble" id="bot-bubble">
-                        <div class="bot-message" id="bot-message">Xin chào! Tôi là Bot của anh Chần</div>
-                    </div>
-                </div>
+                <!-- Bot Avatar — đã chuyển vào trong khung bàn cờ (#inf-resizable) để neo góc trên-trái bàn cờ -->
 
                 <!-- Thanh điều khiển thu/phóng bàn cờ -->
                 <div class="board-zoom-controls">
@@ -277,6 +271,13 @@
                 <div class="board" id="board"></div>
                 <div id="inf-resizable" style="display:none; position:relative; user-select:none;">
                     <canvas id="inf-canvas" style="display:block;"></canvas>
+                    <!-- Bot Avatar — neo góc trên-trái BÀN CỜ (không đè nút % / thanh công cụ) -->
+                    <div id="bot-avatar" class="bot-avatar">
+                        <div class="bot-face">🤖</div>
+                        <div class="bot-bubble" id="bot-bubble">
+                            <div class="bot-message" id="bot-message">Xin chào! Tôi là Bot của anh Chần</div>
+                        </div>
+                    </div>
                     <div class="rs-handle rs-n"  data-dir="n"></div>
                     <div class="rs-handle rs-s"  data-dir="s"></div>
                     <div class="rs-handle rs-w"  data-dir="w"></div>
@@ -520,7 +521,7 @@
             </div>
 
             <div class="chat-panel">
-                <h4>💬 Trò chuyện</h4>
+                <h4>🌍 Chat Thế Giới</h4>
                 <div id="chat-messages" class="scroll-list"></div>
 
                 <!-- QUICK CHAT BUBBLES -->
@@ -545,7 +546,7 @@
                 </div>
 
                 <div class="chat-input-row">
-                    <input type="text" id="chat-input" placeholder="Nhập tin nhắn..." onkeydown="if(event.key==='Enter') guiTinNhanOnline()">
+                    <input type="text" id="chat-input" placeholder="Nhắn với tất cả mọi người..." onkeydown="if(event.key==='Enter') guiTinNhanOnline()">
                     <button onclick="guiTinNhanOnline()">Gửi</button>
                 </div>
             </div>
