@@ -136,13 +136,13 @@ const ThreatDetector = {
             priority: 'none'
         };
 
-        // Defense is usually higher priority than attack
-        if (defense.maxThreat >= this.THREAT.CRITICAL) {
-            combined.level = defense.maxThreat;
-            combined.priority = 'defense_critical';
-        } else if (attack.hasWinningMove) {
+        // WINNING MOVE luôn là ưu tiên cao nhất - bot phải thắng trước khi chặn
+        if (attack.hasWinningMove) {
             combined.level = this.THREAT.WINNING;
             combined.priority = 'attack_winning';
+        } else if (defense.maxThreat >= this.THREAT.CRITICAL) {
+            combined.level = defense.maxThreat;
+            combined.priority = 'defense_critical';
         } else if (attack.maxThreat >= this.THREAT.HIGH) {
             combined.level = attack.maxThreat;
             combined.priority = 'attack_high';

@@ -266,17 +266,13 @@
                         </label>
                         <button type="button" class="btn-save-size" onclick="saveCurrentCanvasSize()" title="Lưu kích thước hiện tại">💾 Lưu</button>
                     </div>
-                </div>
-
-                <!-- ĐÃ BỎ DIV GAME-BOARD-CONTAINER Ở ĐÂY -->
-                <div id="inf-nav" style="display:none; text-align:center; padding:4px 0 6px; font-size:0.75rem; opacity:0.7;">
-                    📍 <span id="inf-coords"></span>
-                    &nbsp;
-                    <button onclick="jumpToCenter()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">🏠 Tâm</button>
-                    &nbsp;
-                    <button onclick="jumpToOrigin()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">⌂ Gốc</button>
-                    &nbsp;
-                    <button onclick="resizeInfCanvas()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">⛶ To</button>
+                    <!-- Nút điều hướng bàn cờ vô hạn -->
+                    <div id="inf-nav" style="display:none; text-align:center; padding:4px 0; font-size:0.75rem; opacity:0.7; gap:8px; justify-content:center;">
+                        📍 <span id="inf-coords"></span>
+                        <button onclick="jumpToCenter()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">🏠 Tâm</button>
+                        <button onclick="jumpToOrigin()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">⌂ Gốc</button>
+                        <button onclick="resizeInfCanvas()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">⛶ To</button>
+                    </div>
                 </div>
                 <div class="board" id="board"></div>
                 <div id="inf-resizable" style="display:none; position:relative; user-select:none;">
@@ -289,12 +285,11 @@
                     <div class="rs-handle rs-ne" data-dir="ne"></div>
                     <div class="rs-handle rs-sw" data-dir="sw"></div>
                     <div class="rs-handle rs-se" data-dir="se"></div>
-                </div>
-
-                <div class="zoom-controls">
-                    <button class="zoom-btn zoom-in"   onclick="zoomBoard(1)"   title="Phóng to">+</button>
-                    <button class="zoom-btn zoom-out"  onclick="zoomBoard(-1)"  title="Thu nhỏ">−</button>
-                    <button class="zoom-btn zoom-undo" onclick="undoMove()"     title="Thu lại nước đi">↩</button>
+                    <div class="zoom-controls">
+                        <button class="zoom-btn zoom-in"   onclick="zoomBoard(1)"   title="Phóng to">+</button>
+                        <button class="zoom-btn zoom-out"  onclick="zoomBoard(-1)"  title="Thu nhỏ">−</button>
+                        <button class="zoom-btn zoom-undo" onclick="undoMove()"     title="Thu lại nước đi">↩</button>
+                    </div>
                 </div>
             </div>
 

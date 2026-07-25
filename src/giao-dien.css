@@ -247,9 +247,10 @@ input[type="checkbox"] {
 .game-container {
     padding: 8px;
     border-radius: 8px;
-    overflow: auto;
+    overflow: hidden;
     flex: 1;
     max-width: 100%;
+    max-height: 100%;
     min-height: 300px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.15);
     cursor: default;
@@ -313,11 +314,17 @@ input[type="checkbox"] {
     will-change: transform;
     /* Đảm bảo canvas không cao hơn rộng (hình chữ nhật) */
     max-height: 80vh;
+    max-width: 100%;
+    max-height: 100%;
 }
 
 /* ===== RESIZE HANDLES CHO BÀN CỜ VÔ HẠN ===== */
 #inf-resizable {
     display: inline-block;
+    position: relative;
+    max-width: 100%;
+    max-height: 100%;
+    overflow: hidden;
     --inf-handle-size: 12px;
     --inf-edge-handle-size: 8px;
 }
@@ -1161,9 +1168,9 @@ body.in-game-active {
     overscroll-behavior: none; /* Chặn kéo nẩy trang trên iOS/Android */
 }
 
-/* Đảm bảo khu vực chứa bàn cờ cho phép thu phóng/di chuyển bên trong nếu bàn cờ to, nhưng không cuộn cả trang */
+/* Đảm bảo khu vực chứa bàn cờ không tràn ra ngoài */
 #ui-game-container {
-    overflow: auto;
+    overflow: hidden;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-x pan-y; /* Chỉ cho phép di chuyển cờ theo trục X, Y bên trong khung */
     overflow: visible; /* Để resize handles hiển thị */
@@ -1381,11 +1388,16 @@ body.in-game-active {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 12px;
+    gap: 10px;
     margin: 12px 0 8px 0;
     align-items: center;
     width: 100%; /* Cần thiết để ticker con stretch hết chiều ngang */
     padding: 8px 0;
+}
+#inf-nav {
+    display: flex !important;
+    align-items: center;
+    flex-wrap: wrap;
 }
 .zoom-buttons {
     display: flex;
