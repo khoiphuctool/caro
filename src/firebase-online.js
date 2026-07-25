@@ -1872,8 +1872,10 @@ function khoiDongChatTheGioi() {
         if (b) b.innerHTML = '';
     });
 
+    // orderByKey: push key của Firebase đã theo thứ tự thời gian — không cần .indexOn,
+    // tránh cảnh báo "Using an unspecified index" và không tải thừa dữ liệu về client
     worldChatListener = db.ref('world_chat')
-        .orderByChild('timestamp')
+        .orderByKey()
         .limitToLast(60)
         .on('child_added', snap => {
             const d = snap.val();
@@ -1911,19 +1913,18 @@ function guiChatTheGioiCore(rawText, inpToClear) {
         timestamp: now
     }).then(() => {
         if (inpToClear) inpToClear.value = '';
-        // Dọn tin cũ — giữ tối đa 200 tin
-        db.ref('world_chat').orderByChild('timestamp').limitToFirst(1).once('value').then(s => {
-            if (!s.exists()) return;
-            db.ref('world_chat').orderByChild('timestamp').once('value').then(all => {
-                const total = all.numChildren();
-                if (total > 200) {
-                    // Xóa 50 tin cũ nhất
-                    let count = 0;
-                    all.forEach(child => {
-                        if (count < 50) { db.ref(`world_chat/${child.key}`).remove(); count++; }
-                    });
-                }
-            });
+        // Dọn tin cũ — giữ tối đa 200 tin. orderByKey không cần index, query 1 lần duy nhất
+        db.ref('world_chat').orderByKey().once('value').then(all => {
+            const total = all.numChildren();
+            if (total > 200) {
+                // Xóa 50 tin cũ nhất bằng 1 lệnh update multi-path (thay vì 50 remove rời rạc)
+                const updates = {};
+                let count = 0;
+                all.forEach(child => {
+                    if (count < 50) { updates[child.key] = null; count++; }
+                });
+                db.ref('world_chat').update(updates);
+            }
         });
     });
 }

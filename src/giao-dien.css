@@ -773,8 +773,11 @@ input[type="checkbox"] {
     #history-panel, #rank-panel {
         min-width: unset !important;
         max-width: 100% !important;
-        max-height: 140px !important;
     }
+    #history-panel { max-height: 140px !important; }
+    /* BXH mobile: đủ cao để thấy nhiều dòng, danh sách bên trong tự cuộn */
+    #rank-panel { max-height: 300px !important; }
+    #rank-list  { max-height: 200px !important; }
 
     /* ── Nút Ván Mới ── */
     .btn-restart { padding: 8px 28px !important; font-size: 0.9rem !important; }
@@ -1014,9 +1017,11 @@ input[type="checkbox"] {
     border: 1px solid #e2e8f0;
     flex-shrink: 0;
     max-height: calc(100vh - 150px);
-    overflow-y: auto;
     position: relative;
-    overflow: hidden;
+    /* Flex column: tiêu đề / tabs / danh sách / nút xếp dọc tách bạch,
+       danh sách tự cuộn riêng — KHÔNG dùng overflow:hidden đè mất overflow-y:auto */
+    display: flex;
+    flex-direction: column;
 }
 #rank-panel .resize-handle {
     position: absolute;
@@ -1040,6 +1045,7 @@ input[type="checkbox"] {
     padding-bottom: 8px;
     color: #0f172a;
     border-bottom: 2px solid #e2e8f0;
+    flex-shrink: 0;
 }
 .rank-tabs {
     display: flex;
@@ -1047,6 +1053,7 @@ input[type="checkbox"] {
     flex-wrap: wrap;
     margin-bottom: 12px;
     justify-content: center;
+    flex-shrink: 0;
 }
 .rank-tab {
     padding: 4px 14px;
@@ -1060,7 +1067,16 @@ input[type="checkbox"] {
     transition: all 0.15s;
 }
 .rank-tab.active { background: #2563eb; color: #fff; border-color: #2563eb; }
-#rank-list { max-height: 260px; overflow-y: auto; }
+/* Danh sách BXH: chiều cao giới hạn + BẮT BUỘC cuộn dọc khi dài.
+   flex:1 + min-height:0 để chia đúng phần còn lại trong panel (không đè nút).
+   padding-bottom để dòng cuối không dính sát nút bên dưới */
+#rank-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: 350px;
+    overflow-y: auto;
+    padding-bottom: 10px;
+}
 #rank-list::-webkit-scrollbar { width: 5px; }
 #rank-list::-webkit-scrollbar-thumb { border-radius: 4px; background: rgba(128,128,128,0.4); }
 .rank-item {
@@ -1093,6 +1109,7 @@ input[type="checkbox"] {
     opacity: 0.75;
     display: block;
     margin-left: auto;
+    flex-shrink: 0; /* Nút nằm riêng dưới danh sách, không bị list co đè lên */
 }
 .btn-clear-rank:hover { opacity: 1; }
 
