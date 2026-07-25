@@ -92,6 +92,8 @@ function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
     const emojiEl = document.getElementById('win-emoji');
     const titleEl = document.getElementById('win-title');
     const subEl   = document.getElementById('win-subtitle');
+    const btnReview = document.getElementById('btn-review');
+    const btnRestart = overlay.querySelector('.btn-play-again:not(#btn-review)');
 
     if (gameMode === 'solo') {
         emojiEl.textContent = '🏆';
@@ -99,11 +101,17 @@ function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
         titleEl.style.color = winner === 'X' ? '#2563eb' : '#dc2626';
         subEl.textContent   = `Người ${winner} đã giành chiến thắng ván này.`;
         startConfetti();
+        // Solo: chỉ hiện nút Xem lại, ẩn nút Đấu lại
+        if (btnReview) btnReview.style.display = 'inline-block';
+        if (btnRestart) btnRestart.style.display = 'none';
     } else if (isBotWin) {
         emojiEl.textContent = tauntEmoji || 'THUA ĐẬM 💀';
         titleEl.textContent = 'rất cố gắng , cần tu luyện thêm!';
         titleEl.style.color = '#ef4444';
         subEl.textContent   = tauntMessage || 'Gừng càng già càng cay — bó tay thì gặp anh Chần!';
+        // Bot: hiện cả 2 nút
+        if (btnReview) btnReview.style.display = 'inline-block';
+        if (btnRestart) btnRestart.style.display = 'inline-block';
     } else {
         emojiEl.textContent = '🏆';
         titleEl.textContent = 'CHIẾN THẮNG!';
@@ -130,6 +138,9 @@ function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
         }
         subEl.textContent = rankMessage;
         startConfetti();
+        // Win bot: hiện cả 2 nút
+        if (btnReview) btnReview.style.display = 'inline-block';
+        if (btnRestart) btnRestart.style.display = 'inline-block';
     }
 
     overlay.classList.add('show');

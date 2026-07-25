@@ -85,24 +85,35 @@ function setContainerSize(percent) {
             autoCheckbox.checked = false;
         }
         
-        // Đặt kích thước theo phần trăm màn hình
+        // Đặt width theo phần trăm
         gameContainer.style.width = percent + '%';
         gameContainer.style.maxWidth = percent + '%';
         
-        // Chiều cao giới hạn để không quá cao - dùng viewport height
-        const maxHeightPercent = Math.min(percent, 70); // Giới hạn tối đa 70% viewport height
-        gameContainer.style.height = maxHeightPercent + '%';
-        gameContainer.style.maxHeight = maxHeightPercent + '%';
+        // Giới hạn chiều cao không vượt quá chiều rộng (hình chữ nhật)
+        gameContainer.style.height = 'auto';
+        gameContainer.style.maxHeight = '80vh'; // Giới hạn tối đa 80% chiều cao màn hình
         
         // Resize canvas để khớp với container mới
         setTimeout(() => {
             if (isInfinite && infCanvas) {
                 const containerRect = gameContainer.getBoundingClientRect();
-                const newW = containerRect.width;
-                const newH = containerRect.height;
-                // Làm tròn theo INF_CS
-                infCanvasW = Math.max(8 * INF_CS, Math.round(newW / INF_CS) * INF_CS);
-                infCanvasH = Math.max(8 * INF_CS, Math.round(newH / INF_CS) * INF_CS);
+                let newW = containerRect.width;
+                let newH = containerRect.height;
+                
+                // ĐẢM BẢO CHIỀU CAO KHÔNG VƯỢT QUÁ CHIỀU RỘNG (hình chữ nhật)
+                if (newH > newW) {
+                    newH = newW;
+                }
+                
+                // Làm tròn XUỐNG theo INF_CS để canvas không lớn hơn container
+                infCanvasW = Math.max(8 * INF_CS, Math.floor(newW / INF_CS) * INF_CS);
+                infCanvasH = Math.max(8 * INF_CS, Math.floor(newH / INF_CS) * INF_CS);
+                
+                // Đảm bảo canvas cũng không cao hơn rộng
+                if (infCanvasH > infCanvasW) {
+                    infCanvasH = infCanvasW;
+                }
+                
                 infCanvas.width = infCanvasW;
                 infCanvas.height = infCanvasH;
                 infCanvas.style.width = infCanvasW + 'px';
@@ -141,12 +152,12 @@ function loadContainerSize() {
     const autoCheckbox = document.getElementById('auto-size-checkbox');
     
     if (savedSize && gameContainer) {
-        // Load kích thước đã lưu
+        // Load kích thước đã lưu - set width, giới hạn chiều cao
         const percent = parseInt(savedSize);
         gameContainer.style.width = percent + '%';
-        gameContainer.style.height = percent + '%';
         gameContainer.style.maxWidth = percent + '%';
-        gameContainer.style.maxHeight = percent + '%';
+        gameContainer.style.height = 'auto';
+        gameContainer.style.maxHeight = '80vh'; // Giới hạn tối đa 80% chiều cao màn hình
         
         // Tắt auto nếu đã lưu là false
         if (savedAuto === 'false' && autoCheckbox) {
@@ -337,10 +348,25 @@ function initInfCanvas() {
     setupResizeHandles();
     INF_CS = loadZoom();
 
-    infCanvasW = 400; infCanvasH = 300;
-    infCanvas.width = infCanvasW; infCanvas.height = infCanvasH;
-    updateCursorByTurn();
-    requestAnimationFrame(() => requestAnimationFrame(() => resizeInfCanvas()));
+    // Load saved canvas size ngay lập tức nếu có
+    const saved = loadCanvasSize();
+    if (saved && saved.w > 0 && saved.h > 0) {
+        infCanvasW = saved.w;
+        infCanvasH = saved.h;
+        infCanvas.width = infCanvasW;
+        infCanvas.height = infCanvasH;
+        infCanvas.style.width = infCanvasW + 'px';
+        infCanvas.style.height = infCanvasH + 'px';
+        updateInfiniteResizeHandles();
+        updateCursorByTurn();
+        renderInfiniteBoard();
+    } else {
+        // Chỉ set mặc định khi không có saved size
+        infCanvasW = 400; infCanvasH = 300;
+        infCanvas.width = infCanvasW; infCanvas.height = infCanvasH;
+        updateCursorByTurn();
+        requestAnimationFrame(() => requestAnimationFrame(() => resizeInfCanvas()));
+    }
 }
 
 // ===== RESIZE HANDLES =====
@@ -355,8 +381,20 @@ function saveCanvasSize(w, h) {
 }
 function applyCanvasSize(w, h) {
     if (!infCanvas) return;
+    
+    // ĐẢM BẢO CHIỀU CAO KHÔNG VƯỢT QUÁ CHIỀU RỘNG (hình chữ nhật)
+    if (h > w) {
+        h = w;
+    }
+    
     infCanvasW = Math.max(8 * INF_CS, Math.round(w / INF_CS) * INF_CS);
     infCanvasH = Math.max(8 * INF_CS, Math.round(h / INF_CS) * INF_CS);
+    
+    // Đảm bảo sau khi làm tròn, chiều cao vẫn không vượt quá chiều rộng
+    if (infCanvasH > infCanvasW) {
+        infCanvasH = infCanvasW;
+    }
+    
     infCanvas.width  = infCanvasW;
     infCanvas.height = infCanvasH;
     infCanvas.style.width  = infCanvasW + 'px';
@@ -421,12 +459,33 @@ function onResizeStart(e) {
 }
 function resizeInfCanvas() {
     if (!infCanvas) return;
+    
+    // Kiểm tra xem auto resize có được bật không
+    const autoCheckbox = document.getElementById('auto-size-checkbox');
+    const isAuto = autoCheckbox ? autoCheckbox.checked : true;
+    
+    // Nếu không auto-resize, chỉ load saved canvas size nếu có
+    if (!isAuto) {
+        const saved = loadCanvasSize();
+        if (saved && saved.w > 0 && saved.h > 0) { 
+            applyCanvasSize(saved.w, saved.h); 
+        }
+        return;
+    }
+    
+    // Nếu auto-resize, load saved hoặc auto-resize
     const saved = loadCanvasSize();
     if (saved && saved.w > 0 && saved.h > 0) { applyCanvasSize(saved.w, saved.h); return; }
     autoResizeInfCanvas();
 }
 function autoResizeInfCanvas() {
     if (!infCanvas) return;
+    
+    // Kiểm tra xem auto resize có được bật không
+    const autoCheckbox = document.getElementById('auto-size-checkbox');
+    const isAuto = autoCheckbox ? autoCheckbox.checked : true;
+    if (!isAuto) return; // Không auto-resize nếu người dùng đã tắt
+    
     const rect  = infCanvas.getBoundingClientRect();
     const btnEl = document.getElementById('ui-btn-restart');
     const btnH  = btnEl ? btnEl.offsetHeight + 20 : 60;
@@ -436,6 +495,11 @@ function autoResizeInfCanvas() {
     // Trên mobile khi online: giới hạn chiều cao để còn scroll xuống nút Bắt đầu
     if (window.innerWidth <= 768 && window.isOnlineModeActive && window.isOnlineModeActive()) {
         availH = Math.min(availH, Math.floor(window.innerHeight * 0.5));
+    }
+
+    // ĐẢM BẢO CHIỀU CAO KHÔNG VƯỢT QUÁ CHIỀU RỘNG (hình chữ nhật)
+    if (availH > availW) {
+        availH = availW;
     }
 
     applyCanvasSize(availW, availH);

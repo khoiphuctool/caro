@@ -193,8 +193,8 @@ input[type="checkbox"] {
 
 .status-panel {
     font-size: 0.95rem;
-    margin: 0;
-    padding: 6px 15px;
+    margin: 8px 0 4px 0;
+    padding: 8px 15px;
     border-radius: 6px;
     text-align: center;
     min-width: 200px;
@@ -311,6 +311,8 @@ input[type="checkbox"] {
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
     will-change: transform;
+    /* Đảm bảo canvas không cao hơn rộng (hình chữ nhật) */
+    max-height: 80vh;
 }
 
 /* ===== RESIZE HANDLES CHO BÀN CỜ VÔ HẠN ===== */
@@ -606,15 +608,11 @@ input[type="checkbox"] {
     
     /* ── Đảm bảo canvas nằm trong container khi zoom preset được chọn ── */
     .game-container.inf-mode #inf-resizable {
-        width: 100% !important;
-        height: 100% !important;
         max-width: 100% !important;
-        max-height: 100% !important;
+        overflow: hidden !important;
     }
     
     .game-container.inf-mode #inf-canvas {
-        width: 100% !important;
-        height: 100% !important;
         max-width: 100% !important;
         max-height: 100% !important;
     }
@@ -627,6 +625,22 @@ input[type="checkbox"] {
     
     .gc-resize-handle {
         --gc-handle-size: 20px !important;
+    }
+    
+    /* ── Style cho nút lưu kích thước ── */
+    .btn-save-size {
+        padding: 4px 8px !important;
+        font-size: 11px !important;
+        background: #10b981 !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 4px !important;
+        cursor: pointer !important;
+        margin-left: 8px !important;
+        flex-shrink: 0 !important;
+    }
+    .btn-save-size:hover {
+        background: #059669 !important;
     }
 
     /* ── Thanh zoom preset: cuộn ngang thay vì xuống dòng ── */
@@ -649,20 +663,6 @@ input[type="checkbox"] {
     }
     .auto-size-toggle { font-size: 11px !important; }
     .toggle-text { font-size: 11px !important; }
-    
-    .btn-save-size {
-        padding: 4px 8px !important;
-        font-size: 11px !important;
-        background: #10b981 !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 4px !important;
-        cursor: pointer !important;
-        margin-left: 8px !important;
-    }
-    .btn-save-size:hover {
-        background: #059669 !important;
-    }
 
     /* ── Bot avatar: ẩn trên mobile (đỡ che bàn cờ) ── */
     #bot-avatar { display: none !important; }
@@ -1319,7 +1319,23 @@ body.in-game-active {
 .auto-size-toggle {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.btn-save-size {
+    padding: 6px 12px;
+    font-size: 12px;
+    background: #10b981;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 8px;
+    transition: background 0.2s;
+}
+.btn-save-size:hover {
+    background: #059669;
 }
 .toggle-label {
     display: flex;
@@ -1365,10 +1381,11 @@ body.in-game-active {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 10px;
-    margin: 10px 0;
+    gap: 12px;
+    margin: 12px 0 8px 0;
     align-items: center;
     width: 100%; /* Cần thiết để ticker con stretch hết chiều ngang */
+    padding: 8px 0;
 }
 .zoom-buttons {
     display: flex;

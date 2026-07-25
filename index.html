@@ -15,13 +15,6 @@
 
     <h1 id="game-title">Caro BOT TIÊN CHI THẾ CỜ CHẦN PRO</h1>
 
-    <!-- Thanh thông báo — nằm trong game-container, trên bàn cờ -->
-    <div id="notification-ticker" style="display:none; width:100%; box-sizing:border-box; overflow:hidden; margin:0; padding:0; border-radius:8px 8px 0 0;">
-        <div id="ticker-content" style="display:inline-block; white-space:nowrap; padding:7px 16px; font-size:0.85rem; font-weight:500;">
-            <!-- Nội dung thông báo sẽ được thêm vào đây -->
-        </div>
-    </div>
-
     <!-- Nút trang chủ + giới thiệu + USER INFO gọn -->
     <div id="top-bar" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin:-6px 0 8px; padding:8px 16px; background:#f8f9fa; border-radius:8px; border:1px solid #e2e8f0; font-size:13px;">
         <!-- BÊN TRÁI: Trang chủ + link + Solo Online -->
@@ -203,14 +196,14 @@
         </div>
     </div>
 
-    <div style="display:flex; gap:8px; justify-content:center; align-items:center; margin:4px 0; width:100%; box-sizing:border-box; padding:0 10px;">
+    <div style="display:flex; gap:8px; justify-content:center; align-items:center; margin:8px 0; width:100%; box-sizing:border-box; padding:0 10px;">
         <div class="status-panel" id="status-panel" style="flex:1;">Đang tải...</div>
     </div>
-    <div class="timer-panel" id="timer-panel" style="display:none; text-align:center; font-size:0.85rem; opacity:0.8; margin:2px 0; width:100%; box-sizing:border-box;">
+    <div class="timer-panel" id="timer-panel" style="display:none; text-align:center; font-size:0.85rem; opacity:0.8; margin:6px 0; width:100%; box-sizing:border-box;">
         ⏱️ <span id="game-timer">00:00</span> · <span id="turn-timer">00:00</span>
     </div>
 
-    <div class="keyboard-hint" style="text-align:center; font-size:0.8rem; opacity:0.6; margin:4px 0; width:100%;">
+    <div class="keyboard-hint" style="text-align:center; font-size:0.8rem; opacity:0.6; margin:8px 0 10px 0; width:100%;">
         ⌨️ <b>Phím tắt:</b> Mũi tên ↑↓←→ để di chuyển CON TRỎ THỨ 2 · Enter để đánh quân
     </div>
 
@@ -238,7 +231,13 @@
             </div>
 
             <!-- Ở GIỮA: BÀN CỜ VÀ BOT AVATAR -->
-            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0;">
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; position: relative; padding-top: 40px;">
+
+                <!-- THANH THÔNG BÁO — ghim đầu trên trong bàn cờ -->
+                <div id="notification-ticker" style="display:none; width:100%; box-sizing:border-box; overflow:hidden; border-radius:8px; position: absolute; top:0; left:0; z-index:1000;">
+                    <div id="ticker-content" style="display:flex; flex-wrap:wrap; gap:6px; padding:7px 14px; align-items:center; justify-content:center;">
+                    </div>
+                </div>
 
                 <!-- Bot Avatar -->
                 <div id="bot-avatar" class="bot-avatar">
@@ -266,12 +265,6 @@
                             <span class="toggle-text">Auto theo màn hình</span>
                         </label>
                         <button type="button" class="btn-save-size" onclick="saveCurrentCanvasSize()" title="Lưu kích thước hiện tại">💾 Lưu</button>
-                    </div>
-                </div>
-
-                <!-- THANH THÔNG BÁO — nằm ngay trên bàn cờ, căn giữa -->
-                <div id="notification-ticker" style="display:none; width:100%; box-sizing:border-box; overflow:hidden; border-radius:8px; margin-bottom:4px;">
-                    <div id="ticker-content" style="display:flex; flex-wrap:wrap; gap:6px; padding:7px 14px; align-items:center; justify-content:center;">
                     </div>
                 </div>
 
