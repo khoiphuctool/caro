@@ -87,7 +87,7 @@ function setupOnlineNotificationListener() {
         if (snap.key === myId) return;
         const user = snap.val();
         if (!user || Date.now() - user.lastActive >= 30000) return;
-        const displayName = user.displayName || user.username || 'Unknown';
+        const displayName = user.displayName || user.username || 'Người chơi';
         addNotification('online', `🟢 ${displayName} vừa online!`);
     });
 }
@@ -115,28 +115,10 @@ function setupWinNotificationListener() {
     });
 }
 
-// ===== LISTENER CHO CHAT THẾ GIỚI =====
-function setupWorldChatNotificationListener() {
-    // Sử dụng db từ firebase-online.js
-    if (typeof db === 'undefined' || !db) return;
-    
-    // Theo dõi chat thế giới
-    db.ref('world_chat').limitToLast(5).on('child_added', snap => {
-        const msg = snap.val();
-        if (!msg) return;
-        
-        // Chỉ hiển thị tin nhắn trong 30 giây
-        if (Date.now() - msg.timestamp > 30000) return;
-        
-        const sender = msg.username || msg.displayName || 'Unknown';
-        const text = msg.text || '';
-        
-        // Giới hạn độ dài tin nhắn
-        const displayText = text.length > 30 ? text.substring(0, 30) + '...' : text;
-        
-        addNotification('chat', `💬 ${sender}: ${displayText}`);
-    });
-}
+// Thanh thông báo góc bàn cờ CHỈ dùng cho:
+// - Lời thoại bot (offline)
+// - Trạng thái chiến đấu online ("Đã kết nối", "Đến lượt bạn", "[Tên] chiến thắng")
+// KHÔNG đưa chat thế giới vào đây.
 
 // ===== KHỞI TẠO =====
 function initNotificationTicker() {
@@ -156,7 +138,7 @@ function initNotificationTicker() {
         notificationListenersStarted = true;
         setupOnlineNotificationListener();
         setupWinNotificationListener();
-        setupWorldChatNotificationListener();
+        // Chat thế giới KHÔNG hiện trên thanh thông báo bàn cờ
     }
 }
 

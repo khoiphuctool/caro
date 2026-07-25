@@ -166,10 +166,27 @@ function loadContainerSize() {
 // Ép canvas khớp bề rộng thực của vùng chứa (giữ tỉ lệ hiện tại, tối đa 70%)
 function fitCanvasToContainer() {
     if (!isInfinite || !infCanvas) return;
-    // Đo theo cột giữa (cha của #inf-resizable) — khi online có 2 thẻ người chơi 2 bên,
-    // đo cả container sẽ bị rộng thừa làm canvas tràn.
+    // Khi online mode: bàn cờ nằm trong #match-board-section hoặc #unified-board-slot
+    // Khi offline: bàn cờ nằm trong cột giữa của #ui-game-container
+    // Đo theo #inf-resizable trước, nếu không có thì fallback về game-container
     const wrapper = document.getElementById('inf-resizable');
-    const host = (wrapper && wrapper.parentElement) || document.getElementById('ui-game-container');
+    
+    // Tìm container chứa canvas — bỏ qua các div wrapper chỉ là flex container rộng hơn
+    let host = null;
+    if (wrapper) {
+        // Đi lên DOM để tìm phần tử có bề rộng thực (không phải flex toàn màn hình)
+        const matchBoard = document.getElementById('match-board-section');
+        const unifiedSlot = document.getElementById('unified-board-slot');
+        if (matchBoard && matchBoard.contains(wrapper)) {
+            host = matchBoard;
+        } else if (unifiedSlot && unifiedSlot.contains(wrapper)) {
+            host = unifiedSlot;
+        } else {
+            // Offline: dùng parent trực tiếp của wrapper (cột giữa)
+            host = wrapper.parentElement;
+        }
+    }
+    if (!host) host = document.getElementById('ui-game-container');
     if (!host) return;
     const availW = host.getBoundingClientRect().width - 8;
     if (availW < 100) return;
@@ -562,19 +579,31 @@ function autoResizeInfCanvas() {
     const isAuto = autoCheckbox ? autoCheckbox.checked : true;
     if (!isAuto) return; // Không auto-resize nếu người dùng đã tắt
     
-    const rect  = infCanvas.getBoundingClientRect();
-    const btnEl = document.getElementById('ui-btn-restart');
-    const btnH  = btnEl ? btnEl.offsetHeight + 20 : 60;
+    // Ưu tiên đo theo container thực chứa canvas (tránh đo sai khi online)
+    const wrapper = document.getElementById('inf-resizable');
+    let availW;
+    if (wrapper) {
+        const matchBoard = document.getElementById('match-board-section');
+        const unifiedSlot = document.getElementById('unified-board-slot');
+        let host = null;
+        if (matchBoard && matchBoard.contains(wrapper)) {
+            host = matchBoard;
+        } else if (unifiedSlot && unifiedSlot.contains(wrapper)) {
+            host = unifiedSlot;
+        } else {
+            host = wrapper.parentElement;
+        }
+        if (host) {
+            availW = Math.max(300, host.getBoundingClientRect().width - 16);
+        }
+    }
+    if (!availW) {
+        const rect = infCanvas.getBoundingClientRect();
+        availW = Math.max(300, window.innerWidth - rect.left - 40);
+    }
     
-    // Tính toán available width với padding an toàn
-    const availW = Math.max(300, window.innerWidth - rect.left - 40);
-    
-    // Tính toán available height với padding an toàn lớn hơn để tránh tràn
-    const headerHeight = document.querySelector('.notification-ticker')?.offsetHeight || 0;
-    let availH = window.innerHeight - rect.top - headerHeight - btnH - 40;
-
     // ĐẢM BẢO CHIỀU CAO LÀ 70% CHIỀU RỘNG
-    availH = Math.floor(availW * 0.7);
+    let availH = Math.floor(availW * 0.7);
 
     // Giới hạn chiều cao tối đa là 70% viewport để tránh tràn
     availH = Math.min(availH, Math.floor(window.innerHeight * 0.7));

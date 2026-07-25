@@ -839,6 +839,11 @@ function batDauGiaoDienOnline() {
     // Reset hover ngay khi vào phòng
     if (typeof infHoverR !== 'undefined') { infHoverR = null; infHoverC = null; }
 
+    // Đồng bộ kích thước canvas với khung online sau khi layout ổn định
+    setTimeout(() => {
+        if (typeof fitCanvasToContainer === 'function') fitCanvasToContainer();
+    }, 200);
+
     // Mobile back button
     window.history.pushState(null, null, window.location.href);
     window.onpopstate = function() {
