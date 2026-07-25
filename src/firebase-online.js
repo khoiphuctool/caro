@@ -3,15 +3,18 @@
 // Phòng không bao giờ bị xóa — chỉ reset trạng thái khi trống
 // ══════════════════════════════════════════════════════════════════
 (function() {
-    const s1 = document.createElement('script');
-    s1.src = "https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js";
-    document.head.appendChild(s1);
-    s1.onload = function() {
-        const s2 = document.createElement('script');
-        s2.src = "https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js";
-        document.head.appendChild(s2);
-        s2.onload = initFirebase;
-    };
+    // Firebase SDK đã được load tĩnh trong <head> của index.html
+    // Chỉ cần gọi initFirebase khi DOM sẵn sàng
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            try { initFirebase(); }
+            catch(e) { console.error('[Firebase] initFirebase error:', e); }
+        });
+    } else {
+        // DOM đã sẵn sàng (script được defer hoặc ở cuối body)
+        try { initFirebase(); }
+        catch(e) { console.error('[Firebase] initFirebase error:', e); }
+    }
 })();
 
 // ── Biến toàn cục ──────────────────────────────────────────────
@@ -25,7 +28,67 @@ let isOnlineMode    = false;
 let daXoaBanCoTranNay = false;
 let currentUsername = null;
 let currentUserData = null;
-let welcomeNotificationShown = false; // Flag để chỉ hiển thị thông báo chào mừng 1 lần
+let welcomeNotificationShown = false;
+
+// ── Bind UI buttons ngay khi DOM ready — không chờ Firebase ──
+// Đảm bảo nút Đăng Nhập / Solo Online luôn hoạt động kể cả khi Firebase SDK chậm load
+document.addEventListener('DOMContentLoaded', function() {
+    const btnLogin    = document.getElementById('btn-show-login');
+    const btnRegister = document.getElementById('btn-show-register');
+    const btnOnline   = document.getElementById('btn-go-online');
+
+    if (btnLogin && !btnLogin._earlyBound) {
+        btnLogin._earlyBound = true;
+        btnLogin.addEventListener('click', () => {
+            document.getElementById('auth-title').innerText = '🔐 ĐĂNG NHẬP';
+            document.getElementById('auth-container').style.display = 'block';
+        });
+    }
+    if (btnRegister && !btnRegister._earlyBound) {
+        btnRegister._earlyBound = true;
+        btnRegister.addEventListener('click', () => {
+            document.getElementById('auth-title').innerText = '📝 ĐĂNG KÝ';
+            document.getElementById('auth-container').style.display = 'block';
+        });
+    }
+    if (btnOnline && !btnOnline._earlyBound) {
+        btnOnline._earlyBound = true;
+        btnOnline.addEventListener('click', (e) => {
+            if (!currentUsername) {
+                e.preventDefault(); e.stopPropagation();
+                document.getElementById('auth-title').innerText = '🔐 ĐĂNG NHẬP';
+                document.getElementById('auth-container').style.display = 'block';
+                return;
+            }
+            document.getElementById('lobby-screen').style.display = 'block';
+            if (typeof hienDanhSachPhong === 'function') hienDanhSachPhong();
+            if (typeof setMyOnlineStatus === 'function') setMyOnlineStatus('free');
+            if (typeof khoiDongChatTheGioi === 'function') khoiDongChatTheGioi();
+        });
+    }
+    const btnLoginSubmit = document.getElementById('btn-login');
+    const btnRegSubmit   = document.getElementById('btn-register');
+    const btnLogout      = document.getElementById('btn-logout');
+    if (btnLoginSubmit && !btnLoginSubmit._earlyBound) {
+        btnLoginSubmit._earlyBound = true;
+        btnLoginSubmit.addEventListener('click', () => { if (typeof dangNhap === 'function') dangNhap(); });
+    }
+    if (btnRegSubmit && !btnRegSubmit._earlyBound) {
+        btnRegSubmit._earlyBound = true;
+        btnRegSubmit.addEventListener('click', () => { if (typeof dangKy === 'function') dangKy(); });
+    }
+    if (btnLogout && !btnLogout._earlyBound) {
+        btnLogout._earlyBound = true;
+        btnLogout.addEventListener('click', () => { if (typeof dangXuat === 'function') dangXuat(); });
+    }
+    const btnCloseAuth = document.getElementById('btn-close-auth');
+    if (btnCloseAuth && !btnCloseAuth._earlyBound) {
+        btnCloseAuth._earlyBound = true;
+        btnCloseAuth.addEventListener('click', () => {
+            document.getElementById('auth-container').style.display = 'none';
+        });
+    }
+});
 
 // Listeners
 let roomListener        = null;
@@ -121,29 +184,14 @@ function updateAuthUI(isLoggedIn) {
 }
 
 function setupAuthListeners() {
-    document.getElementById('btn-close-auth').addEventListener('click', () => {
-        document.getElementById('auth-container').style.display = 'none';
-    });
-    document.getElementById('btn-show-login').addEventListener('click', () => {
-        document.getElementById('auth-title').innerText = '🔐 ĐĂNG NHẬP';
-        document.getElementById('auth-container').style.display = 'block';
-    });
-    document.getElementById('btn-show-register').addEventListener('click', () => {
-        document.getElementById('auth-title').innerText = '📝 ĐĂNG KÝ';
-        document.getElementById('auth-container').style.display = 'block';
-    });
-    document.getElementById('btn-login').addEventListener('click', dangNhap);
-    document.getElementById('btn-register').addEventListener('click', dangKy);
-    document.getElementById('btn-logout').addEventListener('click', dangXuat);
-
-    document.getElementById('btn-go-online').addEventListener('click', (e) => {
-        if (!currentUsername) {
-            e.preventDefault(); e.stopPropagation();
-            document.getElementById('auth-title').innerText = '🔐 ĐĂNG NHẬP';
-            document.getElementById('auth-container').style.display = 'block';
-            alert('Vui lòng đăng nhập để chơi Online!');
-        }
-    });
+    // Nút đã được bind sớm trong DOMContentLoaded — chỉ bind thêm dangNhap/dangKy/dangXuat
+    // nếu chưa được gắn (tránh duplicate listener)
+    const btnLogin    = document.getElementById('btn-login');
+    const btnRegister = document.getElementById('btn-register');
+    const btnLogout   = document.getElementById('btn-logout');
+    if (btnLogin    && !btnLogin._firebaseBound)    { btnLogin._firebaseBound = true;    btnLogin.addEventListener('click', dangNhap); }
+    if (btnRegister && !btnRegister._firebaseBound) { btnRegister._firebaseBound = true; btnRegister.addEventListener('click', dangKy); }
+    if (btnLogout   && !btnLogout._firebaseBound)   { btnLogout._firebaseBound = true;   btnLogout.addEventListener('click', dangXuat); }
 
     const savedUser = localStorage.getItem('current_username');
     const savedId   = localStorage.getItem('current_user_id');
@@ -490,13 +538,19 @@ function kiemTraLoiMoiCho(userId) {
 // 🎮 SETUP EVENT LISTENERS
 // ══════════════════════════════════════════════════════════════════
 function setupEventListeners() {
-    document.getElementById('btn-go-online').addEventListener('click', () => {
-        document.getElementById('lobby-screen').style.display = 'block';
-        hienDanhSachPhong();
-        langNgheBangXepHangOnline();
-        langNgheLichSuOnline();
-        khoiDongChatTheGioi();
-    });
+    // btn-go-online: bind Firebase lobby logic
+    const btnOnline = document.getElementById('btn-go-online');
+    if (btnOnline && !btnOnline._firebaseBound) {
+        btnOnline._firebaseBound = true;
+        btnOnline.addEventListener('click', () => {
+            if (!currentUsername) return;
+            document.getElementById('lobby-screen').style.display = 'block';
+            hienDanhSachPhong();
+            langNgheBangXepHangOnline();
+            langNgheLichSuOnline();
+            khoiDongChatTheGioi();
+        });
+    }
     document.getElementById('btn-close-lobby').addEventListener('click', () => {
         document.getElementById('lobby-screen').style.display = 'none';
         // Hủy listener danh sách phòng khi đóng lobby
@@ -696,6 +750,13 @@ function ngoimVaoPhong(roomId) {
         daXoaBanCoTranNay = false;
         localStorage.setItem('current_room_id', roomId);
 
+        // Đồng bộ avatar & skin lên phòng để đối thủ thấy
+        const profile = (typeof getMyPublicProfile === 'function') ? getMyPublicProfile() : {};
+        const profileField = myRole === 'X'
+            ? { playerX_avatar: profile.avatarDisplay || '', playerX_skin: profile.skinId || 'skin_default' }
+            : { playerO_avatar: profile.avatarDisplay || '', playerO_skin: profile.skinId || 'skin_default' };
+        db.ref(`rooms/${roomId}`).update(profileField);
+
         setupOnDisconnect(roomId, myRole);
         // Đóng lobby và hủy listener danh sách phòng
         if (roomsListListener) {
@@ -733,6 +794,13 @@ function vaoLaiPhong(roomId) {
         db.ref(`rooms/${roomId}/${sf}`).set('online');
         setupOnDisconnect(roomId, myRole);
 
+        // Làm mới avatar & skin khi vào lại (có thể đã đổi skin)
+        const profile2 = (typeof getMyPublicProfile === 'function') ? getMyPublicProfile() : {};
+        const pf2 = myRole === 'X'
+            ? { playerX_avatar: profile2.avatarDisplay || '', playerX_skin: profile2.skinId || 'skin_default' }
+            : { playerO_avatar: profile2.avatarDisplay || '', playerO_skin: profile2.skinId || 'skin_default' };
+        db.ref(`rooms/${roomId}`).update(pf2);
+
         document.getElementById('lobby-screen').style.display = 'none';
         batDauGiaoDienOnline();
         if (room.status === 'playing') {
@@ -766,6 +834,14 @@ function vaoPhongLaO(roomId) {
         myRole            = 'O';
         daXoaBanCoTranNay = false;
         localStorage.setItem('current_room_id', roomId);
+
+        // Đồng bộ avatar & skin lên phòng
+        const profile = (typeof getMyPublicProfile === 'function') ? getMyPublicProfile() : {};
+        db.ref(`rooms/${roomId}`).update({
+            playerO_avatar: profile.avatarDisplay || '',
+            playerO_skin:   profile.skinId || 'skin_default'
+        });
+
         setupOnDisconnect(roomId, 'O');
         batDauGiaoDienOnline();
         langNgheThayDoiPhong(roomId);
@@ -1073,6 +1149,8 @@ function _resetSauThoat(rid) {
     daXoaBanCoTranNay = false;
     _lastProcessedWinner = '';
     _prevOppId = ''; _prevOppStatus = '';
+    window._onlineSkinX = 'skin_default';
+    window._onlineSkinO = 'skin_default';
     localStorage.removeItem('current_room_id');
     thoatGiaoDienOnline();
 }
@@ -1098,6 +1176,27 @@ function chuPhongBatDauGame() {
         locallyAppliedLastMove = { row: -2, col: -2 };
         _lastProcessedWinner = '';
 
+        const hasBet = room.betAmount && room.betAmount >= 100;
+
+        if (hasBet) {
+            // Có cược → chuyển sang trạng thái chờ O xác nhận
+            db.ref(`rooms/${currentRoomId}`).update({
+                status:    'bet_confirm',
+                winCount, chan2Dau, firstTurn,
+                winner:    '',
+                endReason: '',
+                updatedAt: Date.now()
+            });
+        } else {
+            // Không có cược → bắt đầu ngay
+            _thucSuBatDauGame(room, winCount, chan2Dau, firstTurn);
+        }
+    });
+}
+window.chuPhongBatDauGame = chuPhongBatDauGame;
+
+// Hàm nội bộ: thực sự đẩy status playing lên Firebase
+function _thucSuBatDauGame(room, winCount, chan2Dau, firstTurn) {
         db.ref(`rooms/${currentRoomId}`).update({
             status:    'playing',
             turn:      firstTurn,
@@ -1118,9 +1217,28 @@ function chuPhongBatDauGame() {
             // Hiện panel cược cho chủ phòng
             if (typeof capNhatHienThiBetPanel === 'function') capNhatHienThiBetPanel();
         });
+}
+
+// O chấp nhận cược → Firebase cập nhật playerO_betReady = true → X nhận tín hiệu rồi bắt đầu
+function oChapNhanCuoc() {
+    if (!currentRoomId || myRole !== 'O') return;
+    db.ref(`rooms/${currentRoomId}`).update({ playerO_betReady: true, updatedAt: Date.now() });
+}
+window.oChapNhanCuoc = oChapNhanCuoc;
+
+// O từ chối → xóa cược, về lại waiting
+function oTuChoiCuoc() {
+    if (!currentRoomId || myRole !== 'O') return;
+    db.ref(`rooms/${currentRoomId}`).update({
+        status:         'waiting',
+        betAmount:      null,
+        playerO_betReady: null,
+        updatedAt:      Date.now()
+    }).then(() => {
+        thongBaoHeThong('❌ O từ chối cược — cược đã bị hủy!');
     });
 }
-window.chuPhongBatDauGame = chuPhongBatDauGame;
+window.oTuChoiCuoc = oTuChoiCuoc;
 
 // Chủ phòng thay đổi luật realtime — lưu lên Firebase ngay để O thấy
 function capNhatLuatPhong() {
@@ -1247,6 +1365,13 @@ function langNgheThayDoiPhong(roomId) {
             document.getElementById('panel-playerX').style.display = 'flex';
             document.getElementById('panel-playerO').style.display = 'flex';
 
+            // Resize lại canvas sau khi player card xuất hiện làm thay đổi layout
+            setTimeout(() => {
+                if (typeof fitCanvasToContainer === 'function') fitCanvasToContainer();
+                if (typeof autoResizeInfCanvas  === 'function') autoResizeInfCanvas();
+                if (typeof renderInfiniteBoard  === 'function') renderInfiniteBoard();
+            }, 50);
+
             // Hiển thị lượt
             const turnEl = document.getElementById('turn-indicator');
             const luat   = `${room.winCount || 5} quân${room.chan2Dau ? ' (Chặn 2 đầu)' : ''}`;
@@ -1288,6 +1413,39 @@ function langNgheThayDoiPhong(roomId) {
             xuLyKetThucVan(room);
         }
 
+        // ── Chờ O xác nhận cược ──
+        if (room.status === 'bet_confirm') {
+            const myId = localStorage.getItem('current_user_id');
+            const turnEl = document.getElementById('turn-indicator');
+
+            if (myRole === 'X') {
+                // X chờ O xác nhận
+                if (turnEl) { turnEl.textContent = `⏳ Đang chờ ${tenSafe(room.playerO_name,'O')} xác nhận cược...`; turnEl.className = 'opponent-turn'; }
+                thongBaoHeThong('⏳ Đang chờ đối thủ xác nhận cược...');
+
+                // Khi O đã bấm Chấp Nhận → bắt đầu game thật
+                if (room.playerO_betReady) {
+                    db.ref(`rooms/${currentRoomId}`).update({ playerO_betReady: null }); // dọn cờ
+                    _thucSuBatDauGame(room, room.winCount || 5, room.chan2Dau ?? true, room.firstTurn || 'X');
+                }
+            } else if (myRole === 'O') {
+                // O thấy nút xác nhận
+                const bet = room.betAmount;
+                if (turnEl) { turnEl.textContent = `🎲 Chủ phòng mời cược ${Number(bet).toLocaleString('vi-VN')} Xu — hãy xác nhận!`; turnEl.className = 'opponent-turn'; }
+                const betInfoEl = document.getElementById('bet-info-o');
+                const betInfoText = document.getElementById('bet-info-o-text');
+                const betConfirmBtns = document.getElementById('bet-confirm-btns');
+                if (betInfoEl) betInfoEl.style.display = 'block';
+                if (betInfoText) betInfoText.textContent = `🎲 Chủ phòng đặt cược ${Number(bet).toLocaleString('vi-VN')} Xu — chấp nhận hay từ chối?`;
+                if (betConfirmBtns) betConfirmBtns.style.display = 'flex';
+                thongBaoHeThong(`🎲 Xác nhận cược ${Number(bet).toLocaleString('vi-VN')} Xu?`);
+            }
+        } else {
+            // Ẩn nút xác nhận khi không ở trạng thái bet_confirm
+            const betConfirmBtns = document.getElementById('bet-confirm-btns');
+            if (betConfirmBtns) betConfirmBtns.style.display = 'none';
+        }
+
         // ── Phòng đang CHỜ (waiting): cập nhật thanh thông báo để không bị kẹt
         // ở nội dung tĩnh "Đã kết nối phòng đấu!" ──
         if (room.status === 'waiting' && !room.winner && !daThongBaoSnapshot) {
@@ -1322,8 +1480,8 @@ function langNgheThayDoiPhong(roomId) {
         }
 
         // ── TỰ DỌN GHẾ KHI NGƯỜI CHƠI OFFLINE ──────────────────────────
-        // Chỉ xử lý khi phòng không đang chơi (playing)
-        if (room.status !== 'playing') {
+        // Chỉ xử lý khi phòng không đang chơi (playing) và không đang chờ xác nhận cược
+        if (room.status !== 'playing' && room.status !== 'bet_confirm') {
             const myId = localStorage.getItem('current_user_id');
 
             // Kiểm tra X offline (và không phải mình)
@@ -1433,16 +1591,28 @@ function capNhatUIPhong(room) {
     if (btnKick)  btnKick.style.display  = showControls ? 'inline-block' : 'none';
     if (btnStart) btnStart.style.display = showControls ? 'inline-block' : 'none';
 
-    // Panel cược — X thấy ô nhập, O thấy thông tin số cược hiện tại
+    // Panel cược — X thấy ô nhập khi waiting
     const betPanel = document.getElementById('bet-panel-room');
-    const betInfo  = document.getElementById('bet-info-o');
     if (betPanel) {
         betPanel.style.display = (laChuX && room.status === 'waiting') ? 'block' : 'none';
     }
+
+    // bet-info-o: khi waiting hiện thông báo tĩnh cho O; khi bet_confirm thì realtime listener xử lý
+    const betInfo  = document.getElementById('bet-info-o');
+    const betInfoText = document.getElementById('bet-info-o-text');
+    const betConfirmBtns = document.getElementById('bet-confirm-btns');
     if (betInfo) {
-        const hasBet = room.betAmount && room.betAmount >= 100;
-        betInfo.style.display = (!laChuX && room.status === 'waiting' && hasBet) ? 'block' : 'none';
-        if (hasBet) betInfo.textContent = `🎲 Chủ phòng đặt cược: ${Number(room.betAmount).toLocaleString('vi-VN')} Xu — bạn sẽ bị trừ khi ván bắt đầu.`;
+        if (!laChuX && room.status === 'waiting') {
+            const hasBet = room.betAmount && room.betAmount >= 100;
+            betInfo.style.display = hasBet ? 'block' : 'none';
+            if (betInfoText) betInfoText.textContent = hasBet
+                ? `🎲 Chủ phòng đặt cược: ${Number(room.betAmount).toLocaleString('vi-VN')} Xu — bạn cần xác nhận trước khi ván bắt đầu.`
+                : '';
+            if (betConfirmBtns) betConfirmBtns.style.display = 'none';
+        } else if (room.status !== 'bet_confirm') {
+            betInfo.style.display = 'none';
+            if (betConfirmBtns) betConfirmBtns.style.display = 'none';
+        }
     }
 }
 
@@ -1451,18 +1621,31 @@ function loadPlayerInfo(userId, role) {
         const u = snap.val();
         if (!u) return;
         const rank        = getRankName(u.winBot, u.winSolo);
-        // Tên an toàn — tài khoản chưa đặt tên vẫn có fallback, không lọt lỗi mất tên
         const displayName = tenHienThi(u, 'Người chơi ' + role);
-        const avatar      = u.avatar || displayName[0].toUpperCase();
-        const isEmoji     = avatar.length <= 2 && /\p{Emoji}/u.test(avatar);
 
-        // Avatar đối thủ lên thanh thông báo hệ thống (cạnh khung chữ, góc bàn cờ)
+        // Lấy avatar: ưu tiên equippedAvatar (shop), fallback avatar cũ, fallback chữ cái đầu
+        let avatar = '';
+        if (u.equippedAvatar && typeof SHOP_AVATAR_LIST !== 'undefined') {
+            const avDef = SHOP_AVATAR_LIST.find(a => a.id === u.equippedAvatar);
+            if (avDef) avatar = avDef.emoji;
+        }
+        if (!avatar && u.avatar) avatar = u.avatar;
+        if (!avatar) avatar = displayName[0].toUpperCase();
+
+        const isEmoji = avatar.length <= 2 && /\p{Emoji}/u.test(avatar);
+
+        // Lưu skinId của người chơi này để bàn cờ dùng khi render
+        const skinId = u.equippedSkin || 'skin_default';
+        if (role === 'X') window._onlineSkinX = skinId;
+        if (role === 'O') window._onlineSkinO = skinId;
+
+        // Avatar đối thủ lên thanh thông báo hệ thống
         if ((myRole === 'X' || myRole === 'O') && role !== myRole) {
             const annFace = document.querySelector('#bot-avatar.online-announce .bot-face');
-            if (annFace) annFace.textContent = isEmoji ? avatar : '🤖';
+            if (annFace) annFace.textContent = isEmoji ? avatar : displayName[0].toUpperCase();
         }
 
-        // Panel bên cạnh bàn cờ (panel-playerX/O)
+        // Panel bên cạnh bàn cờ
         const nameEl = document.getElementById(`view-name-${role}`);
         if (nameEl) nameEl.innerText = displayName + ` (${rank})`;
         const wbEl = document.getElementById(`view-winbot-${role}`);
@@ -1485,6 +1668,17 @@ function loadPlayerInfo(userId, role) {
             slotAv.textContent = avatar;
             slotAv.style.fontSize = isEmoji ? '26px' : '18px';
         }
+
+        // Hiển thị skin preview trên panel (nếu có element)
+        const skinPreviewEl = document.getElementById(`skin-preview-${role}`);
+        if (skinPreviewEl && typeof getSkinById === 'function') {
+            const skin = getSkinById(skinId);
+            skinPreviewEl.textContent = role === 'X' ? skin.icon_X : skin.icon_O;
+            skinPreviewEl.title = skin.name;
+        }
+
+        // Render lại bàn cờ để áp dụng skin đúng cho từng bên
+        if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
     });
 }
 
@@ -1904,6 +2098,10 @@ window.isOnlineModeActive = function() { return isOnlineMode; };
 Object.defineProperty(window, 'myOnlineRole', { get: function() { return myRole; } });
 window.boQuaDisconnect    = function() {};  // stub
 
+// Skin của từng bên trong phòng online (được set bởi loadPlayerInfo)
+if (typeof window._onlineSkinX === 'undefined') window._onlineSkinX = 'skin_default';
+if (typeof window._onlineSkinO === 'undefined') window._onlineSkinO = 'skin_default';
+
 // ══════════════════════════════════════════════════════════════════
 // 🌍 CHAT THẾ GIỚI
 // ══════════════════════════════════════════════════════════════════
@@ -2027,7 +2225,7 @@ window.guiChatTheGioi = guiChatTheGioi;
 const SHOP_AVATAR_LIST = [
     { id: 'av_01', emoji: '😀', name: 'Mặc Định', free: true },
     { id: 'av_02', emoji: '😎', name: 'Ngầu Nè', free: false },
-    { id: 'av_03', emoji: '🥷', name: 'Ninja', free: false },
+    { id: 'av_03', emoji: '🍤', name: 'TÔM ', free: false },
     { id: 'av_04', emoji: '👾', name: 'Quái Vật', free: false },
     { id: 'av_05', emoji: '🤖', name: 'Robot', free: false },
     { id: 'av_06', emoji: '🦁', name: 'Sư Tử', free: false },

@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Caro BOT CỦA CHẦN PRO - NÂNG CẤP BOT M2 TỐI THƯỢNG</title>
 
+    <!-- Firebase SDK — load tĩnh để đảm bảo luôn có, không phụ thuộc dynamic injection -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
     <!-- Theme styles (được JS ghi đè khi đổi theme) -->
     <style id="theme-styles"></style>
 
@@ -46,6 +50,7 @@
             <div class="xu-action-btns">
                 <button class="xu-action-btn btn-nhiem-vu" onclick="moNhiemVu()">📋 Nhiệm Vụ</button>
                 <button class="xu-action-btn btn-shop-av"  onclick="moShopAvatar()">🎭 Shop Avatar</button>
+                <button class="xu-action-btn btn-shop-skin" onclick="moShopSkin()">🎨 Shop Quân Cờ</button>
                 <button class="xu-action-btn btn-dagia"    onclick="moBxhDaiGia()">👑 Đại Gia</button>
             </div>
             <div id="user-avatar-display" style="width:36px;height:36px;border-radius:50%;background:#6366f1;color:white;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:bold;cursor:pointer;flex-shrink:0;" onclick="moCapNhatTaiKhoan()">?</div>
@@ -507,8 +512,14 @@
                 Người thắng nhận 2x Xu · Bỏ cuộc = thua mất xu · Min 100 · Max 5.000 Xu
             </div>
         </div>
-        <!-- Thông báo cược cho người chơi O -->
-        <div id="bet-info-o" style="display:none;padding:8px 12px;background:#fef9c3;border:1px solid #fbbf24;border-radius:8px;font-size:13px;color:#92400e;margin-top:6px;"></div>
+        <!-- Thông báo cược + nút xác nhận cho người chơi O -->
+        <div id="bet-info-o" style="display:none;padding:8px 12px;background:#fef9c3;border:1px solid #fbbf24;border-radius:8px;font-size:13px;color:#92400e;margin-top:6px;">
+            <span id="bet-info-o-text"></span>
+            <div id="bet-confirm-btns" style="display:none;margin-top:8px;display:flex;gap:8px;">
+                <button onclick="oChapNhanCuoc()" style="padding:6px 16px;background:#16a34a;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">✅ Chấp Nhận</button>
+                <button onclick="oTuChoiCuoc()" style="padding:6px 16px;background:#dc2626;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">❌ Từ Chối</button>
+            </div>
+        </div>
 
         <!-- KHU VỰC ĐỐI KHÁNG -->
         <div class="versus-container">
@@ -989,6 +1000,7 @@
     <script src="src/firebase-online.js"></script>
     <script src="src/thong-bao.js"></script>
     <script src="src/xu-nhiem-vu.js"></script>
+    <script src="src/shop-skin.js"></script>
 
     <!-- ══════════════════════════════════════════════
          MODAL NHIỆM VỤ
@@ -1000,6 +1012,23 @@
                 <button class="xu-modal-close" onclick="dongNhiemVu()">&times;</button>
             </div>
             <div id="nhiem-vu-container"></div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         MODAL SHOP SKIN QUÂN CỜ
+         ══════════════════════════════════════════════ -->
+    <div id="shop-skin-modal" class="xu-modal-overlay">
+        <div class="xu-modal-box" style="max-width:720px;">
+            <div class="xu-modal-header">
+                <h2 class="xu-modal-title">🎨 Cửa Hàng Quân Cờ</h2>
+                <button class="xu-modal-close" onclick="dongShopSkin()">&times;</button>
+            </div>
+            <div class="shop-skin-info">
+                <span>Mua theo <b>cặp O & X</b> — áp dụng cho mọi chế độ chơi</span>
+                <span>Số dư: <b id="shop-skin-xu-display">0 Xu</b></span>
+            </div>
+            <div id="shop-skin-grid"></div>
         </div>
     </div>
 

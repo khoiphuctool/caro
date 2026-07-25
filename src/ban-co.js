@@ -669,10 +669,34 @@ function renderInfiniteBoard() {
         c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke();
     }
 
+    // Lấy skin đang trang bị (nếu có hệ thống skin)
+    // Khi online: mỗi bên dùng skin riêng. Khi offline: dùng skin của mình.
+    const _onlineActive = window.isOnlineModeActive && window.isOnlineModeActive();
+    let _iconX, _iconO, _colorX, _colorO, _useEmoji;
+
+    if (_onlineActive && typeof getSkinById === 'function') {
+        const skinX = getSkinById(window._onlineSkinX || 'skin_default');
+        const skinO = getSkinById(window._onlineSkinO || 'skin_default');
+        _iconX    = skinX.icon_X;
+        _iconO    = skinO.icon_O;
+        _colorX   = skinX.color_X || col.x;
+        _colorO   = skinO.color_O || col.o;
+        _useEmoji = (_iconX !== 'X' || _iconO !== 'O');
+    } else {
+        const _skin = (typeof getEquippedSkin === 'function') ? getEquippedSkin() : null;
+        _useEmoji = _skin && (_skin.icon_X !== 'X' || _skin.icon_O !== 'O');
+        _iconX    = _skin ? _skin.icon_X : 'X';
+        _iconO    = _skin ? _skin.icon_O : 'O';
+        _colorX   = (_skin && _skin.color_X) ? _skin.color_X : col.x;
+        _colorO   = (_skin && _skin.color_O) ? _skin.color_O : col.o;
+    }
+
     // Vẽ quân cờ
     c.textAlign    = 'center';
     c.textBaseline = 'middle';
-    c.font = `bold ${Math.floor(CS * 0.65)}px Segoe UI, sans-serif`;
+    // Emoji skin dùng font lớn hơn để hiển thị rõ
+    const _fontSize = _useEmoji ? Math.floor(CS * 0.72) : Math.floor(CS * 0.65);
+    c.font = `bold ${_fontSize}px Segoe UI, sans-serif`;
 
     for (let ri = 0; ri < rows; ri++) {
         for (let ci = 0; ci < cols; ci++) {
@@ -695,8 +719,11 @@ function renderInfiniteBoard() {
                 c.lineWidth   = 0.5;
                 c.strokeStyle = col.grid;
             }
-            c.fillStyle = val === 'X' ? col.x : col.o;
-            c.fillText(val, px, py);
+            // Dùng màu từ skin (nếu emoji thì không cần đổi fillStyle vì emoji tự có màu)
+            if (!_useEmoji) {
+                c.fillStyle = val === 'X' ? _colorX : _colorO;
+            }
+            c.fillText(val === 'X' ? _iconX : _iconO, px, py);
         }
     }
 

@@ -1169,16 +1169,19 @@ input[type="checkbox"] {
     display: none;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-    padding: 12px 14px;
+    gap: 6px;
+    padding: 10px 10px;
     border-radius: 10px;
     color: white;
-    min-width: 140px;
-    max-width: 180px;
+    min-width: 100px;
+    max-width: 130px;
+    width: 110px;
     flex-shrink: 0;
+    flex-grow: 0;
     align-self: flex-start;
     box-shadow: 0 3px 12px rgba(0,0,0,0.2);
     text-align: center;
+    box-sizing: border-box;
 }
 .player-card-x {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -1234,19 +1237,20 @@ input[type="checkbox"] {
     display: flex;
 }
 
-/* Bàn cờ giữa luôn chiếm hết không gian còn lại */
+/* Bàn cờ giữa luôn chiếm hết không gian còn lại — quan trọng: min-width:0 để co được */
 #ui-game-container > div:not(.player-card) {
-    flex: 1;
+    flex: 1 1 0;
     min-width: 0;
+    overflow: hidden;
 }
 
 /* Màn hình vừa */
 @media (max-width: 900px) {
-    .player-card { min-width: 110px; max-width: 140px; padding: 10px 10px; gap: 6px; }
-    .pc-avatar { width: 36px; height: 36px; min-width: 36px; font-size: 17px; }
-    .pc-name { font-size: 11px; }
-    .pc-badge { font-size: 9px; }
-    .pc-stats { gap: 3px; font-size: 9px; }
+    .player-card { min-width: 80px; max-width: 100px; width: 90px; padding: 8px 6px; gap: 4px; }
+    .pc-avatar { width: 32px; height: 32px; min-width: 32px; font-size: 15px; }
+    .pc-name { font-size: 10px; }
+    .pc-badge { font-size: 8px; }
+    .pc-stats { gap: 2px; font-size: 8px; }
 }
 
 /* Màn hình nhỏ: chuyển layout dọc, card xếp trên/dưới bàn cờ */
@@ -1278,7 +1282,15 @@ body.in-game-active {
 /* Đảm bảo khu vực chứa bàn cờ không tràn ra ngoài */
 #ui-game-container {
     overflow: visible; /* Để resize handles hiển thị */
-    touch-action: none; /* Không chặn custom gesture/drag của canvas và resize handles */
+    touch-action: none;
+}
+
+/* Khi online: bàn cờ ở giữa tự co giãn đúng */
+body.in-game-active #inf-resizable {
+    max-width: 100% !important;
+}
+body.in-game-active #inf-canvas {
+    max-width: 100% !important;
 }
 
 /* Resize handles màu tím cho game-container */
@@ -2155,3 +2167,147 @@ body.in-game-active {
     background: #f9fafb; cursor: pointer; font-size: 13px; font-weight: bold;
 }
 .bxh-tab.active { background: #f59e0b; color: white; border-color: #f59e0b; }
+
+
+/* ══════════════════════════════════════════════════════════════════
+   SHOP SKIN QUÂN CỜ
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Grid hiển thị danh sách skin */
+#shop-skin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 14px;
+    max-height: 68vh;
+    overflow-y: auto;
+    padding: 4px 2px;
+}
+
+.skin-card {
+    background: #fff;
+    border: 2px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 14px 10px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    position: relative;
+    cursor: default;
+}
+.skin-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+}
+.skin-card-equipped {
+    border-color: #10b981;
+    background: linear-gradient(135deg, #f0fdf4, #ffffff);
+    box-shadow: 0 0 0 3px rgba(16,185,129,0.2);
+}
+.skin-card-locked {
+    opacity: 0.82;
+}
+
+.skin-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.9rem;
+    min-height: 48px;
+}
+.skin-vs {
+    font-size: 0.65rem;
+    color: #94a3b8;
+    font-weight: bold;
+}
+.skin-piece-x, .skin-piece-o { line-height: 1; }
+
+.skin-name {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #1e293b;
+    text-align: center;
+    line-height: 1.2;
+}
+.skin-desc {
+    font-size: 0.68rem;
+    color: #64748b;
+    text-align: center;
+    line-height: 1.3;
+}
+
+.skin-rarity-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+}
+
+.skin-lock-icon {
+    font-size: 1.1rem;
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    opacity: 0.7;
+}
+
+/* Buttons */
+.skin-btn {
+    width: 100%;
+    padding: 7px 0;
+    border-radius: 20px;
+    border: none;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    margin-top: 2px;
+}
+.skin-btn:active { transform: scale(0.97); }
+
+.skin-equipped {
+    background: #d1fae5;
+    color: #065f46;
+    cursor: default;
+}
+.skin-use {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff;
+}
+.skin-use:hover { opacity: 0.88; }
+.skin-buy {
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    color: #fff;
+}
+.skin-buy:hover { opacity: 0.88; }
+.skin-cant-afford {
+    background: #e5e7eb;
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+/* Header info */
+.shop-skin-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 0.85rem;
+    color: #475569;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.shop-skin-info b { color: #d97706; }
+
+/* Mobile */
+@media (max-width: 600px) {
+    #shop-skin-grid {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 10px;
+        max-height: 60vh;
+    }
+    .skin-preview { font-size: 1.5rem; }
+    .skin-name { font-size: 0.75rem; }
+}

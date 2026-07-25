@@ -715,6 +715,8 @@ function initXuSystem(uid) {
     });
     // Kiểm tra welcome bonus
     checkAndGrantWelcomeBonus(uid);
+    // Khởi tạo hệ thống skin quân cờ
+    if (typeof initSkinSystem === 'function') initSkinSystem(uid);
     // Cập nhật hiển thị xu header
     if (typeof currentUserData !== 'undefined' && currentUserData) {
         updateCoinDisplay(currentUserData.coins || 0);
