@@ -52,70 +52,97 @@ body.fullscreen-mode #inf-canvas {
 }
 
 #notification-ticker {
-    position: relative;
+    background: rgba(15, 23, 42, 0.88);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    border-radius: 8px;
+    overflow: hidden;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 4px;
+    align-self: stretch; /* Trải rộng hết chiều ngang trong flex column */
 }
+
+#ticker-content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 7px 14px;
+    align-items: center;
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+
 
 #notification-ticker:hover #ticker-content {
     animation-play-state: paused;
 }
-
 .ticker-item {
-    display: inline-block;
-    margin-right: 40px;
-    padding: 4px 12px;
-    border-radius: 4px;
-    background: rgba(255,255,255,0.1);
-    color: #333;
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.08);
+    color: #e2e8f0;
+    font-size: 0.8rem;
+    white-space: nowrap;
 }
 
 .ticker-item.online {
-    background: rgba(34, 197, 94, 0.15);
-    color: #1a5c1a;
+    background: rgba(34, 197, 94, 0.2);
+    color: #86efac;
 }
 
 .ticker-item.win {
-    background: rgba(245, 158, 11, 0.15);
-    color: #92400e;
+    background: rgba(245, 158, 11, 0.2);
+    color: #fcd34d;
 }
 
 .ticker-item.chat {
-    background: rgba(99, 102, 241, 0.15);
-    color: #3730a3;
+    background: rgba(99, 102, 241, 0.2);
+    color: #a5b4fc;
 }
 
 /* Responsive cho mobile */
 @media (max-width: 768px) {
     #ticker-content {
         font-size: 0.75rem !important;
-        padding: 6px 12px !important;
+        padding: 5px 10px !important;
+        gap: 5px !important;
     }
-    
     .ticker-item {
-        margin-right: 30px;
-        padding: 3px 8px;
+        padding: 3px 8px !important;
+        font-size: 0.72rem !important;
     }
 }
 
 @media (max-width: 480px) {
     #ticker-content {
         font-size: 0.7rem !important;
-        padding: 4px 10px !important;
+        padding: 4px 8px !important;
     }
-    
     .ticker-item {
-        margin-right: 20px;
-        padding: 2px 6px;
+        padding: 2px 7px !important;
+        font-size: 0.68rem !important;
     }
 }
 
 h1 {
-    margin: 4px 0;
-    font-size: 1.4rem;
+    margin: 8px 0 10px;
+    font-size: 1.75rem;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 2px;
     text-align: center;
-    font-weight: 800;
+    font-weight: 900;
     width: 100%;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    filter: drop-shadow(0 2px 6px rgba(99,102,241,0.25));
 }
 
 .control-wrapper {
@@ -444,21 +471,167 @@ input[type="checkbox"] {
     #history-list  { max-height: 120px; }
     #rank-list     { max-height: 180px; }
     .control-wrapper { padding: 6px 8px; }
-    h1 { font-size: 1.3rem; margin: 4px 0; }
+    h1 { font-size: 1.45rem; margin: 6px 0; }
 }
+/* ===== MOBILE OVERHAUL ===== */
 @media (max-width: 600px) {
-    .config-panel  { gap: 6px; padding: 4px 8px; }
-    .config-group  { font-size: 0.8rem; }
-    select         { padding: 4px 8px; font-size: 0.75rem; }
-    .status-panel  { font-size: 0.85rem; padding: 4px 10px; min-width: 150px; }
-    h1             { font-size: 1.1rem; }
-    .main-layout   { padding: 0 6px; }
-    #history-panel, #rank-panel { min-width: 140px; max-height: 150px; }
+
+    /* ── Tiêu đề ── */
+    h1 {
+        font-size: 1.05rem !important;
+        letter-spacing: 0.5px !important;
+        margin: 6px 0 4px !important;
+        padding: 0 8px;
+    }
+
+    /* ── Top-bar ── */
+    #top-bar {
+        padding: 6px 10px !important;
+        gap: 6px !important;
+        border-radius: 6px !important;
+        margin: 0 0 6px !important;
+    }
+    /* Nhóm trái: Trang Chủ + link + Solo Online */
+    #top-bar > div:first-child {
+        gap: 6px !important;
+        flex-wrap: wrap !important;
+    }
+    #top-bar a[href*="khoiphuctool"] {
+        padding: 5px 12px !important;
+        font-size: 11px !important;
+    }
+    #top-bar a[href*="tiny"] {
+        display: none !important; /* Ẩn link tiny trên mobile - tiết kiệm chỗ */
+    }
+    #btn-go-online {
+        padding: 5px 12px !important;
+        font-size: 11px !important;
+    }
+    /* Khu auth (chưa đăng nhập) */
+    #top-auth-buttons button {
+        padding: 5px 10px !important;
+        font-size: 11px !important;
+    }
+    /* Khu đã đăng nhập: gọn lại */
+    #user-logged-in {
+        gap: 6px !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+    }
+    #user-avatar-display {
+        width: 30px !important;
+        height: 30px !important;
+        font-size: 14px !important;
+    }
+    #user-logged-in > div:nth-child(2) {
+        line-height: 1.3 !important;
+    }
+    #user-logged-in > div:nth-child(2) span:first-child {
+        font-size: 12px !important;
+    }
+    #my-rank { font-size: 10px !important; }
+    #user-logged-in > div:nth-child(2) > div:last-child {
+        font-size: 10px !important;
+    }
+    #user-logged-in > div:last-child button {
+        padding: 3px 8px !important;
+        font-size: 11px !important;
+    }
+    /* Ẩn nút Tài khoản, chỉ giữ Đăng xuất + avatar đã có onclick */
+    #user-logged-in > div:last-child button:first-child {
+        display: none !important;
+    }
+
+    /* ── Config panel: gọn, dạng grid 2 cột ── */
+    .control-wrapper { padding: 0 6px 4px !important; }
+    .config-panel {
+        gap: 4px 10px !important;
+        padding: 6px 8px !important;
+        justify-content: flex-start !important;
+    }
+    .config-group {
+        font-size: 0.75rem !important;
+        gap: 4px !important;
+    }
+    .config-group label { font-size: 0.72rem !important; }
+    select { padding: 3px 6px !important; font-size: 0.72rem !important; }
+    input[type="checkbox"] { width: 15px !important; height: 15px !important; }
+
+    /* Khối Huấn luyện — thu gọn */
+    .config-panel > div[style*="border: 2px solid #10b981"] {
+        padding: 6px 8px !important;
+        gap: 6px !important;
+        flex-wrap: wrap !important;
+    }
+    .config-panel > div[style*="border: 2px solid #10b981"] > div[style*="font-weight: bold"] {
+        font-size: 0.75rem !important;
+        min-width: unset !important;
+        width: 100% !important;
+    }
+
+    /* Khối stats AI (Pattern, Elo…) */
+    .config-panel > div > div[style*="font-size:0.75rem"] {
+        font-size: 0.65rem !important;
+    }
+
+    /* ── Ẩn hướng dẫn phím tắt trên mobile ── */
+    .keyboard-hint { display: none !important; }
+
+    /* ── Status panel ── */
+    .status-panel { font-size: 0.82rem !important; padding: 4px 8px !important; min-width: 0 !important; }
+
+    /* ── Timer ── */
+    .timer-panel { font-size: 0.75rem !important; margin: 1px 0 !important; }
+
+    /* ── Thanh zoom preset: cuộn ngang thay vì xuống dòng ── */
+    .board-zoom-controls { margin: 4px 0 !important; gap: 4px !important; }
+    .zoom-presets {
+        gap: 4px !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding-bottom: 2px !important;
+        justify-content: flex-start !important;
+        width: 100% !important;
+        scrollbar-width: none !important;
+    }
+    .zoom-presets::-webkit-scrollbar { display: none !important; }
+    .btn-zoom-preset {
+        padding: 4px 10px !important;
+        font-size: 11px !important;
+        flex-shrink: 0 !important;
+    }
+    .auto-size-toggle { font-size: 11px !important; }
+    .toggle-text { font-size: 11px !important; }
+
+    /* ── Bot avatar: ẩn trên mobile (đỡ che bàn cờ) ── */
+    #bot-avatar { display: none !important; }
+
+    /* ── Main layout ── */
+    .main-layout { padding: 0 4px 6px !important; gap: 6px !important; }
+
+    /* ── Panels wrapper ── */
+    .panels-wrapper { flex-direction: column !important; gap: 6px !important; }
+    #history-panel, #rank-panel {
+        min-width: unset !important;
+        max-width: 100% !important;
+        max-height: 140px !important;
+    }
+
+    /* ── Nút Ván Mới ── */
+    .btn-restart { padding: 8px 28px !important; font-size: 0.9rem !important; }
 }
-@media (max-width: 400px) {
-    .panels-wrapper { flex-direction: column; }
-    #history-panel, #rank-panel { max-width: 100%; max-height: 120px; }
+
+/* Extra nhỏ */
+@media (max-width: 380px) {
+    h1 { font-size: 0.9rem !important; }
+    #top-bar { padding: 5px 8px !important; }
+    .config-group { font-size: 0.68rem !important; }
+    select { font-size: 0.68rem !important; }
 }
+
+
+
 
 /* ===== PHÁO HOA & WIN OVERLAY ===== */
 #confetti-canvas {
@@ -1120,6 +1293,7 @@ body.in-game-active {
     gap: 10px;
     margin: 10px 0;
     align-items: center;
+    width: 100%; /* Cần thiết để ticker con stretch hết chiều ngang */
 }
 .zoom-buttons {
     display: flex;

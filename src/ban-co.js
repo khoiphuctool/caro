@@ -262,11 +262,11 @@ function initInfCanvas() {
     // Chỉ tắt mouse events khi KHÔNG chơi online để tránh flickering
     const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
     if (!isOnline) {
-        // TẮT HOÀN TOÀN MOUSE EVENTS ĐỂ TRÁNH FLICKERING (OFFLINE)
-        // infCanvas.onmousedown   = infOnMouseDown;
-        // infCanvas.onmousemove   = infOnMouseMove;
-        // infCanvas.onmouseup     = infOnMouseUp;
-        // infCanvas.onmouseleave  = infOnMouseLeave;
+        // Chỉ gắn sự kiện chuột PHẢI để kéo pan — không gắn hover để tránh flickering
+        infCanvas.onmousedown  = infOnMouseDown;
+        infCanvas.onmouseup    = infOnMouseUp;
+        infCanvas.onmousemove  = infOnMouseMove;
+        infCanvas.onmouseleave = infOnMouseLeave;
     } else {
         // ONLINE: Giữ đầy đủ mouse events để pan/drag hoạt động
         infCanvas.onmousedown   = infOnMouseDown;

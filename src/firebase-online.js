@@ -583,10 +583,13 @@ function hienDanhSachPhong() {
             el.style.borderColor     = borderColor;
             const xN = room.playerX_name || '---';
             const oN = room.playerO_name || '---';
-            // Phòng cũ chưa có winCount/chan2Dau → patch lên Firebase
+            // Phòng cũ chưa có winCount/chan2Dau/roomNumber → patch lên Firebase
             const wc = room.winCount || 5;
             const c2d = room.chan2Dau ?? true;
-            if (!room.winCount) db.ref(`rooms/${roomId}`).update({ winCount: 5, chan2Dau: true });
+            const updates = {};
+            if (!room.winCount) { updates.winCount = 5; updates.chan2Dau = true; }
+            if (!room.roomNumber) updates.roomNumber = i;
+            if (Object.keys(updates).length > 0) db.ref(`rooms/${roomId}`).update(updates);
             const luatTxt = `${wc} quân${c2d ? ' · Chặn 2 đầu' : ''}`;
             el.innerHTML = `
                 <div>
@@ -1049,6 +1052,19 @@ function langNgheThayDoiPhong(roomId) {
         // Cập nhật giao diện phòng chờ
         capNhatUIPhong(room);
 
+        // Luôn cập nhật avatar/tên người chơi khi có thay đổi trong phòng (waiting hoặc playing)
+        if (room.playerX_id) loadPlayerInfo(room.playerX_id, 'X');
+        if (room.playerO_id) loadPlayerInfo(room.playerO_id, 'O');
+        // Nếu không có O thì reset avatar slot O về mặc định
+        if (!room.playerO_id) {
+            const slotOAv = document.querySelector('#slot-playerO .avatar-circle');
+            if (slotOAv) { slotOAv.textContent = 'O'; slotOAv.style.fontSize = ''; }
+            const pcOAv = document.querySelector('#panel-playerO .pc-avatar');
+            if (pcOAv) { pcOAv.textContent = 'O'; pcOAv.style.fontSize = ''; }
+            const nameOEl = document.getElementById('view-name-O');
+            if (nameOEl) nameOEl.innerText = 'Đang chờ...';
+        }
+
         currentTurn     = room.turn || 'X';
         currentRule     = room.chan2Dau ? 'chan_2_dau' : 'tu_do';
         currentWinCount = room.winCount || 5;
@@ -1069,9 +1085,6 @@ function langNgheThayDoiPhong(roomId) {
                 const btnBack = document.getElementById('btn-back-to-result');
                 if (btnBack) btnBack.remove();
                 setMyOnlineStatus('playing');
-                // Load thông tin người chơi đúng 1 lần khi bắt đầu ván
-                if (room.playerX_id) loadPlayerInfo(room.playerX_id, 'X');
-                if (room.playerO_id) loadPlayerInfo(room.playerO_id, 'O');
             }
 
             document.getElementById('panel-playerX').style.display = 'flex';
@@ -1195,7 +1208,9 @@ function capNhatUIPhong(room) {
     const btnStart = document.getElementById('btn-start-game');
     const btnKick  = document.getElementById('btn-kick-player');
 
-    if (txtTitle) txtTitle.innerText = `Phòng ${room.roomNumber || '?'}`;
+    // Lấy số phòng từ room.roomNumber hoặc parse từ currentRoomId (tránh hiện "?")
+    const roomNum = room.roomNumber || (currentRoomId ? currentRoomId.replace('phong_', '') : '?');
+    if (txtTitle) txtTitle.innerText = `Phòng ${roomNum}`;
     if (namePX)   namePX.innerText   = room.playerX_name || 'Đang chờ...';
     if (namePO)   namePO.innerText   = room.playerO_name || 'Chờ đối thủ...';
 
@@ -1414,7 +1429,7 @@ function xuLyKetThucVan(room) {
         }
         // Thua do bỏ cuộc vẫn tính loseSolo cho người thua
         if (loserId) db.ref(`users/${loserId}/loseSolo`).transaction(c => (c || 0) + 1);
-        ghiLichSu(`Phòng ${room.roomNumber || '?'}`, xName, oName, room.winner, room.winCount || 5);
+        ghiLichSu(`Phòng ${room.roomNumber || (currentRoomId ? currentRoomId.replace('phong_', '') : '?')}`, xName, oName, room.winner, room.winCount || 5);
     } else if (myId === loserId && !winnerId) {
         // Fallback nếu winner không online
         db.ref(`users/${loserId}/loseSolo`).transaction(c => (c || 0) + 1);

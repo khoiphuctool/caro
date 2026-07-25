@@ -15,34 +15,38 @@
 
     <h1 id="game-title">Caro BOT TIÊN CHI THẾ CỜ CHẦN PRO</h1>
 
-    <!-- Thanh thông báo (sticky/fixed) -->
-    <div id="notification-ticker" style="display:none; position:sticky; top:0; z-index:1000; overflow:hidden; margin:0; padding:0;">
-        <div id="ticker-content" style="display:inline-block; white-space:nowrap; padding:8px 16px; color:#333; font-size:0.85rem; font-weight:500;">
+    <!-- Thanh thông báo — nằm trong game-container, trên bàn cờ -->
+    <div id="notification-ticker" style="display:none; width:100%; box-sizing:border-box; overflow:hidden; margin:0; padding:0; border-radius:8px 8px 0 0;">
+        <div id="ticker-content" style="display:inline-block; white-space:nowrap; padding:7px 16px; font-size:0.85rem; font-weight:500;">
             <!-- Nội dung thông báo sẽ được thêm vào đây -->
         </div>
     </div>
 
     <!-- Nút trang chủ + giới thiệu + USER INFO gọn -->
-    <div id="top-bar" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:nowrap; gap:10px; margin:-6px 0 8px; padding:6px 14px; background:#f8f9fa; border-radius:8px; border:1px solid #e2e8f0; font-size:13px; overflow:hidden;">
-        <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+    <div id="top-bar" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin:-6px 0 8px; padding:8px 16px; background:#f8f9fa; border-radius:8px; border:1px solid #e2e8f0; font-size:13px;">
+        <!-- BÊN TRÁI: Trang chủ + link + Solo Online -->
+        <div style="display:flex; align-items:center; gap:8px; flex-shrink:0; flex-wrap:wrap;">
             <a href="https://khoiphuctool.github.io/caro/" target="_blank"
-               style="padding:5px 14px; background:#6366f1; color:white; border-radius:20px; text-decoration:none; font-weight:bold; font-size:12px; white-space:nowrap;">
+               style="padding:6px 16px; background:#6366f1; color:white; border-radius:20px; text-decoration:none; font-weight:bold; font-size:12px; white-space:nowrap;">
                 🏠 Trang Chủ
             </a>
             <a href="https://tiny.cc/carochan" target="_blank"
                style="color:#6366f1; font-size:11px; text-decoration:underline; white-space:nowrap;">tiny.cc/carochan</a>
+            <button id="btn-go-online" style="padding:6px 16px; background:#ff9800; color:white; border:none; border-radius:20px; cursor:pointer; font-weight:bold; font-size:12px; white-space:nowrap;">
+                🌐 Solo Online
+            </button>
         </div>
 
-        <!-- Chưa đăng nhập -->
-        <div id="top-auth-buttons" style="display:flex; gap:6px;">
+        <!-- BÊN PHẢI: Chưa đăng nhập -->
+        <div id="top-auth-buttons" style="display:flex; gap:6px; flex-shrink:0;">
             <button id="btn-show-login" style="padding:5px 12px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Đăng Nhập</button>
             <button id="btn-show-register" style="padding:5px 12px; background:#28a745; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Đăng Ký</button>
         </div>
 
-        <!-- Đã đăng nhập -->
-        <div id="user-logged-in" style="display:none; align-items:center; gap:10px; flex-wrap:wrap;">
-            <div id="user-avatar-display" style="width:34px;height:34px;border-radius:50%;background:#6366f1;color:white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:bold;cursor:pointer;flex-shrink:0;" onclick="moCapNhatTaiKhoan()">?</div>
-            <div style="line-height:1.4;">
+        <!-- BÊN PHẢI: Đã đăng nhập -->
+        <div id="user-logged-in" style="display:none; align-items:center; gap:10px; flex-wrap:wrap; flex-shrink:0;">
+            <div id="user-avatar-display" style="width:36px;height:36px;border-radius:50%;background:#6366f1;color:white;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:bold;cursor:pointer;flex-shrink:0;" onclick="moCapNhatTaiKhoan()">?</div>
+            <div style="line-height:1.5;">
                 <div>
                     <span style="font-weight:bold;color:#007bff;" id="user-display-name">...</span>
                     <span id="my-rank" style="margin-left:6px;font-size:11px;color:#ff8c00;font-weight:bold;">🐣 Gà Con</span>
@@ -80,11 +84,6 @@
                     <option value="ai-hard">Mức Khó</option>
                     <option value="ai-god" selected>MỨC TỐI THƯỢNG 💀BOT M2</option>
                 </select>
-            </div>
-            <div class="config-group">
-                <button id="btn-go-online" style="padding: 8px 12px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%;">
-                    Solo Online 🌐
-                </button>
             </div>
             <div class="config-group">
                 <label for="win-count">🏆 Số quân thắng:</label>
@@ -211,11 +210,12 @@
         ⏱️ <span id="game-timer">00:00</span> · <span id="turn-timer">00:00</span>
     </div>
 
-    <div style="text-align:center; font-size:0.8rem; opacity:0.6; margin:4px 0; width:100%;">
+    <div class="keyboard-hint" style="text-align:center; font-size:0.8rem; opacity:0.6; margin:4px 0; width:100%;">
         ⌨️ <b>Phím tắt:</b> Mũi tên ↑↓←→ để di chuyển CON TRỎ THỨ 2 · Enter để đánh quân
     </div>
 
     <div class="main-layout">
+
         <div class="game-container" id="ui-game-container" style="display: flex; justify-content: center; align-items: center; gap: 12px; position: relative;">
             <!-- Resize handles cho game-container -->
             <div class="gc-resize-handle gc-resize-se" data-dir="se"></div>
@@ -238,7 +238,8 @@
             </div>
 
             <!-- Ở GIỮA: BÀN CỜ VÀ BOT AVATAR -->
-            <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0;">
+
                 <!-- Bot Avatar -->
                 <div id="bot-avatar" class="bot-avatar">
                     <div class="bot-face">🤖</div>
@@ -264,6 +265,12 @@
                             <span class="toggle-slider"></span>
                             <span class="toggle-text">Auto theo màn hình</span>
                         </label>
+                    </div>
+                </div>
+
+                <!-- THANH THÔNG BÁO — nằm ngay trên bàn cờ, căn giữa -->
+                <div id="notification-ticker" style="display:none; width:100%; box-sizing:border-box; overflow:hidden; border-radius:8px; margin-bottom:4px;">
+                    <div id="ticker-content" style="display:flex; flex-wrap:wrap; gap:6px; padding:7px 14px; align-items:center; justify-content:center;">
                     </div>
                 </div>
 

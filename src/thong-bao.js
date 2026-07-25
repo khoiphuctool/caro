@@ -45,7 +45,7 @@ function addNotification(type, message) {
         const ticker = document.getElementById('notification-ticker');
         if (ticker) {
             ticker.style.display = 'none';
-            notificationQueue = []; // Xóa queue sau khi ẩn
+            notificationQueue = [];
         }
     }, DISPLAY_TIME);
 }
