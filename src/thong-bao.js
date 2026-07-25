@@ -30,12 +30,14 @@ function addNotification(type, message) {
     
     updateTicker();
     
-    // Tự động ẩn sau 3 giây
+    // Tự động ẩn sau 4 giây (chỉ reset khi thực sự có thông báo mới)
     if (tickerTimeout) clearTimeout(tickerTimeout);
     tickerTimeout = setTimeout(() => {
         const ticker = document.getElementById('notification-ticker');
-        if (ticker) ticker.style.display = 'none';
-        notificationQueue = []; // Xóa queue sau khi ẩn
+        if (ticker) {
+            ticker.style.display = 'none';
+            notificationQueue = []; // Xóa queue sau khi ẩn
+        }
     }, DISPLAY_TIME);
 }
 
@@ -79,11 +81,9 @@ function setupOnlineNotificationListener() {
             
             const user = users[uid];
             const displayName = user.displayName || user.username || 'Unknown';
-            const cacheKey = `${uid}_${displayName}`;
             
-            // Nếu user mới online và chưa có trong cache
-            if (!onlineUsersCache.has(cacheKey) && (Date.now() - user.lastActive) < 30000) {
-                onlineUsersCache.add(cacheKey);
+            // Nếu user vừa online (trong 30 giây)
+            if ((Date.now() - user.lastActive) < 30000) {
                 addNotification('online', `🟢 ${displayName} vừa online!`);
             }
         }
