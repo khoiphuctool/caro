@@ -1133,15 +1133,54 @@ function jumpToOrigin() {
 function updateCursorByTurn() {
     const canvas = document.getElementById('inf-canvas');
     if (!canvas) return;
-    let svgContent = '';
-    if (typeof currentPlayer !== 'undefined') {
-        if (currentPlayer === 'X') {
-            svgContent = `<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><line x1='2' y1='2' x2='10' y2='10' stroke='#007bff' stroke-width='2' stroke-linecap='round'/><line x1='10' y1='2' x2='2' y2='10' stroke='#007bff' stroke-width='2' stroke-linecap='round'/></svg>`;
+    if (typeof currentPlayer === 'undefined') return;
+
+    // Lấy icon & màu của lượt hiện tại từ skin đang dùng
+    // Online: dùng skin theo role, offline: dùng skin của mình
+    const onlineActive = window.isOnlineModeActive && window.isOnlineModeActive();
+    let icon, color;
+
+    if (onlineActive && typeof getSkinById === 'function') {
+        const skinId = currentPlayer === 'X' ? (window._onlineSkinX || 'skin_default') : (window._onlineSkinO || 'skin_default');
+        const skin = getSkinById(skinId);
+        icon  = currentPlayer === 'X' ? skin.icon_X  : skin.icon_O;
+        color = currentPlayer === 'X' ? (skin.color_X || '#2563eb') : (skin.color_O || '#dc2626');
+    } else if (typeof getEquippedSkin === 'function') {
+        const skin = getEquippedSkin();
+        icon  = currentPlayer === 'X' ? skin.icon_X  : skin.icon_O;
+        color = currentPlayer === 'X' ? (skin.color_X || '#2563eb') : (skin.color_O || '#dc2626');
+    } else {
+        icon  = currentPlayer;
+        color = currentPlayer === 'X' ? '#2563eb' : '#dc2626';
+    }
+
+    const isEmoji = icon.length <= 2 && /\p{Emoji}/u.test(icon);
+    const SIZE = 32;
+    const HOT  = Math.floor(SIZE / 2);
+
+    if (isEmoji) {
+        // Render emoji vào canvas tạm → data URL
+        const tmp = document.createElement('canvas');
+        tmp.width = tmp.height = SIZE;
+        const ctx2 = tmp.getContext('2d');
+        ctx2.font = `${Math.floor(SIZE * 0.78)}px Segoe UI Emoji, Apple Color Emoji, sans-serif`;
+        ctx2.textAlign    = 'center';
+        ctx2.textBaseline = 'middle';
+        ctx2.fillText(icon, SIZE / 2, SIZE / 2);
+        canvas.style.cursor = `url('${tmp.toDataURL()}') ${HOT} ${HOT}, auto`;
+    } else {
+        // X hoặc O: vẽ SVG với màu từ skin
+        const hex = color.replace('#', '');
+        let svgContent;
+        if (icon === 'X') {
+            svgContent = `<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><line x1='2' y1='2' x2='12' y2='12' stroke='%23${hex}' stroke-width='2.5' stroke-linecap='round'/><line x1='12' y1='2' x2='2' y2='12' stroke='%23${hex}' stroke-width='2.5' stroke-linecap='round'/></svg>`;
+        } else if (icon === 'O') {
+            svgContent = `<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><circle cx='7' cy='7' r='5' stroke='%23${hex}' stroke-width='2.5' fill='none'/></svg>`;
         } else {
-            svgContent = `<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><circle cx='6' cy='6' r='4' stroke='#dc2626' stroke-width='2' fill='none'/></svg>`;
+            // Ký tự khác: vẽ text
+            svgContent = `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><text x='8' y='13' text-anchor='middle' font-size='14' font-family='sans-serif' fill='%23${hex}'>${icon}</text></svg>`;
         }
-        const encodedSvg = btoa(svgContent.trim());
-        canvas.style.cursor = `url('data:image/svg+xml;base64,${encodedSvg}') 6 6, auto`;
+        canvas.style.cursor = `url("data:image/svg+xml,${svgContent}") 7 7, auto`;
     }
 }
 

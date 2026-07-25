@@ -257,6 +257,8 @@ function dangXuat() {
         localStorage.removeItem('current_room_id');
         updateAuthUI(false);
         setMyOnlineStatus(null);
+        stopRoomCleanupManager();
+        welcomeNotificationShown = false;
         // Ẩn panel admin khi đăng xuất
         if (typeof updateAdminPanelVisibility === 'function') updateAdminPanelVisibility();
     };
@@ -331,6 +333,9 @@ function fetchUserData(userId) {
 
             // Khởi tạo hệ thống Xu
             if (typeof initXuSystem === 'function') initXuSystem(userId);
+
+            // Khởi động Room Cleanup Manager sau khi đăng nhập
+            startRoomCleanupManager();
         }
 
         // Cập nhật hiển thị panel admin mỗi lần data thay đổi
@@ -717,6 +722,16 @@ function ngoimVaoPhong(roomId) {
         if (!room) return null;
         if (room.status === 'playing') return; // abort — đang chơi
 
+        // Kiểm tra phòng "ma": status=waiting nhưng playerX offline lâu và không có O
+        const now = Date.now();
+        const isStale = (now - (room.updatedAt || 0)) > ROOM_STALE_MS;
+        const xOffline = room.playerX_status !== 'online';
+        if (room.status === 'waiting' && room.playerX_id && !room.playerO_id && xOffline && isStale) {
+            // Phòng bỏ hoang — coi như empty, cho người mới vào làm X
+            room.playerX_id = ''; room.playerX_name = ''; room.playerX_status = 'offline';
+            room.status = 'empty';
+        }
+
         if (!room.playerX_id || room.status === 'empty' || room.status === 'ended') {
             // Ngồi ghế X — reset phòng về waiting sạch
             room.playerX_id     = myId;
@@ -867,25 +882,163 @@ function xemPhong(roomId) {
 }
 window.xemPhong = xemPhong;
 
-// onDisconnect: chỉ set offline, không xóa phòng
+// onDisconnect: set offline + cập nhật lastActive để cleanup manager có thể dọn
 function setupOnDisconnect(roomId, role) {
     const sf  = role === 'X' ? 'playerX_status' : 'playerO_status';
     const ref = db.ref(`rooms/${roomId}/${sf}`);
     ref.onDisconnect().set('offline');
+    // Ghi dấu thời gian mất kết nối để Room Cleanup Manager nhận biết phòng bỏ hoang
+    db.ref(`rooms/${roomId}`).onDisconnect().update({ updatedAt: Date.now() });
 
     // Hủy listener cũ của roomId này nếu có
     if (_connectedListeners[roomId]) {
         db.ref('.info/connected').off('value', _connectedListeners[roomId]);
     }
-    // Khi reconnect → restore online
+    // Khi reconnect → restore online và cập nhật lastActive
     _connectedListeners[roomId] = db.ref('.info/connected').on('value', snap => {
         if (snap.val() === true && currentRoomId === roomId) {
             ref.set('online');
+            db.ref(`rooms/${roomId}`).update({ updatedAt: Date.now() });
         }
     });
     // Giữ connectedListener trỏ đến listener hiện tại (dùng trong cleanup)
     connectedListener = _connectedListeners[roomId];
 }
+
+// ══════════════════════════════════════════════════════════════════
+// 🧹 ROOM CLEANUP MANAGER — Dọn phòng "ma" định kỳ
+// ══════════════════════════════════════════════════════════════════
+let _roomCleanupTimer = null;
+const ROOM_STALE_MS   = 5 * 60 * 1000;  // 5 phút không hoạt động → phòng bỏ hoang
+const ROOM_CLEANUP_INTERVAL = 60 * 1000; // Quét mỗi 60 giây
+
+function _isPlayerReallyOnline(playerStatus) {
+    return playerStatus === 'online';
+}
+
+function _cleanupStaleRoom(roomId, room) {
+    const now = Date.now();
+    const lastActive = room.updatedAt || 0;
+    const isStale = (now - lastActive) > ROOM_STALE_MS;
+
+    // Trường hợp 1: status = waiting nhưng playerX offline/không có thực
+    if (room.status === 'waiting') {
+        const xOnline = _isPlayerReallyOnline(room.playerX_status);
+        const oOnline = _isPlayerReallyOnline(room.playerO_status);
+
+        if (!room.playerX_id && !room.playerO_id) {
+            // Không có ai — dọn về empty
+            return db.ref(`rooms/${roomId}`).update({
+                status: 'empty', playerX_id: '', playerX_name: '', playerX_status: 'offline',
+                playerO_id: '', playerO_name: '', playerO_status: 'offline',
+                winner: '', endReason: '', moves: { init: true },
+                lastMove: { row: -1, col: -1, by: '' }, updatedAt: now
+            });
+        }
+
+        if (room.playerX_id && !xOnline && isStale && !room.playerO_id) {
+            // playerX bỏ hoang, không có O → dọn về empty
+            console.log(`[Cleanup] Phòng ${roomId} bỏ hoang (X offline > 5 phút) → reset empty`);
+            return db.ref(`rooms/${roomId}`).update({
+                status: 'empty', playerX_id: '', playerX_name: '', playerX_status: 'offline',
+                playerO_id: '', playerO_name: '', playerO_status: 'offline',
+                winner: '', endReason: '', moves: { init: true },
+                lastMove: { row: -1, col: -1, by: '' }, updatedAt: now
+            });
+        }
+
+        if (room.playerX_id && !xOnline && isStale && room.playerO_id && oOnline) {
+            // X bỏ hoang nhưng O vẫn online → cho O lên làm X, chờ đối thủ
+            console.log(`[Cleanup] Phòng ${roomId}: X offline, O online → O thành chủ phòng`);
+            return db.ref(`rooms/${roomId}`).update({
+                playerX_id: room.playerO_id, playerX_name: room.playerO_name,
+                playerX_status: room.playerO_status,
+                playerO_id: '', playerO_name: '', playerO_status: 'offline',
+                status: 'waiting', updatedAt: now
+            });
+        }
+
+        if (isStale && !xOnline && !oOnline) {
+            // Cả hai offline lâu → dọn về empty
+            console.log(`[Cleanup] Phòng ${roomId}: cả hai offline lâu → reset empty`);
+            return db.ref(`rooms/${roomId}`).update({
+                status: 'empty', playerX_id: '', playerX_name: '', playerX_status: 'offline',
+                playerO_id: '', playerO_name: '', playerO_status: 'offline',
+                winner: '', endReason: '', moves: { init: true },
+                lastMove: { row: -1, col: -1, by: '' }, updatedAt: now
+            });
+        }
+    }
+
+    // Trường hợp 2: status = playing nhưng cả hai đều offline + stale
+    if (room.status === 'playing') {
+        const xOnline = _isPlayerReallyOnline(room.playerX_status);
+        const oOnline = _isPlayerReallyOnline(room.playerO_status);
+        if (!xOnline && !oOnline && isStale) {
+            console.log(`[Cleanup] Phòng ${roomId}: đang chơi nhưng cả hai mất kết nối lâu → reset`);
+            return db.ref(`rooms/${roomId}`).update({
+                status: 'empty', playerX_id: '', playerX_name: '', playerX_status: 'offline',
+                playerO_id: '', playerO_name: '', playerO_status: 'offline',
+                winner: '', endReason: '', moves: { init: true },
+                lastMove: { row: -1, col: -1, by: '' }, updatedAt: now
+            });
+        }
+    }
+
+    // Trường hợp 3: status = ended lâu mà không ai dọn
+    if (room.status === 'ended' && isStale) {
+        const xHere = !!room.playerX_id;
+        const oHere = !!room.playerO_id;
+        const xOnline = _isPlayerReallyOnline(room.playerX_status);
+        const oOnline = _isPlayerReallyOnline(room.playerO_status);
+        if (!xOnline && !oOnline) {
+            const newStatus = (xHere || oHere) ? 'waiting' : 'empty';
+            console.log(`[Cleanup] Phòng ${roomId}: ended lâu → reset ${newStatus}`);
+            const upd = {
+                status: newStatus, winner: '', endReason: '',
+                moves: { init: true }, lastMove: { row: -1, col: -1, by: '' }, updatedAt: now
+            };
+            if (!xHere && !oHere) {
+                upd.playerX_id = ''; upd.playerX_name = ''; upd.playerX_status = 'offline';
+                upd.playerO_id = ''; upd.playerO_name = ''; upd.playerO_status = 'offline';
+            }
+            return db.ref(`rooms/${roomId}`).update(upd);
+        }
+    }
+
+    return Promise.resolve();
+}
+
+function runRoomCleanup() {
+    if (!db) return;
+    db.ref('rooms').once('value').then(snap => {
+        const rooms = snap.val();
+        if (!rooms) return;
+        for (let i = 1; i <= TOTAL_ROOMS; i++) {
+            const roomId = `phong_${i}`;
+            const room = rooms[roomId];
+            if (!room) continue;
+            // Không dọn phòng mình đang ở
+            if (roomId === currentRoomId) continue;
+            _cleanupStaleRoom(roomId, room).catch(e => console.warn('[Cleanup] Lỗi dọn phòng', roomId, e));
+        }
+    });
+}
+
+function startRoomCleanupManager() {
+    if (_roomCleanupTimer) clearInterval(_roomCleanupTimer);
+    // Chạy lần đầu sau 10 giây (tránh chạy ngay khi login)
+    setTimeout(() => {
+        runRoomCleanup();
+        _roomCleanupTimer = setInterval(runRoomCleanup, ROOM_CLEANUP_INTERVAL);
+    }, 10000);
+}
+
+function stopRoomCleanupManager() {
+    if (_roomCleanupTimer) { clearInterval(_roomCleanupTimer); _roomCleanupTimer = null; }
+}
+
+window.runRoomCleanup = runRoomCleanup;
 
 // ══════════════════════════════════════════════════════════════════
 // 🎮 GIAO DIỆN PHÒNG ĐẤU
@@ -1710,6 +1863,7 @@ window.guiNuocDiLenFirebase = function(row, col) {
         data.winner   = isWin ? myRole  : '';
         data.lastMove = { row, col, by: myRole, ts: Date.now() };
         if (isWin) data.endedAt = Date.now();
+        data.updatedAt = Date.now();
         // Ghi nước đi vào moves với key tọa độ
         if (!data.moves) data.moves = {};
         data.moves[moveKey] = { row, col, by: myRole, timestamp: Date.now() };
