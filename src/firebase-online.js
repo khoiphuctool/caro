@@ -937,6 +937,32 @@ function _resetSauThoat(rid) {
         db.ref(`rooms/${chatRoomId}/chats`).off('child_added', chatListener);
         chatListener = null; chatRoomId = null;
     }
+    // BUG 4 FIX: Clean up all other listeners when leaving room
+    if (onlineUsersListener) {
+        db.ref('online_users').off('value', onlineUsersListener);
+        onlineUsersListener = null;
+    }
+    if (invitationListener) {
+        const userId = localStorage.getItem('current_user_id');
+        if (userId) {
+            db.ref(`invitations/${userId}`).off('value', invitationListener);
+        }
+        invitationListener = null;
+    }
+    if (roomsListListener) {
+        db.ref('rooms').off('value', roomsListListener);
+        roomsListListener = null;
+    }
+    if (leaderboardListener) {
+        db.ref('users').off('value', leaderboardListener);
+        leaderboardListener = null;
+    }
+    if (historyListener) {
+        db.ref('history').off('value', historyListener);
+        historyListener = null;
+    }
+    // Clean up world chat listener
+    tatChatTheGioi();
     // Hủy tất cả offline cleanup timers cho phòng này
     ['X', 'O'].forEach(r => {
         const k = `${rid}_${r}`;
@@ -1351,7 +1377,15 @@ function phucHoiBanCo(roomId, callback) {
         const movesData = snap.val();
         if (!movesData) { if (callback) callback(); return; }
 
-        if (typeof infiniteMap  !== 'undefined') infiniteMap.clear();
+        // BUG 5 FIX: Use setCell to clear board instead of direct infiniteMap.clear()
+        // This ensures GameState synchronization
+        if (typeof infiniteMap  !== 'undefined') {
+            infiniteMap.clear();
+            // Also clear GameState if available
+            if (typeof GameState !== 'undefined' && GameState.board.infiniteMap) {
+                GameState.board.infiniteMap.clear();
+            }
+        }
         if (typeof moveHistory  !== 'undefined') moveHistory.length = 0;
         if (typeof winningCellCoords !== 'undefined') winningCellCoords.length = 0;
         if (typeof lastMoveR    !== 'undefined') { lastMoveR = null; lastMoveC = null; }
@@ -1717,7 +1751,11 @@ window.boQuaDisconnect    = function() {};  // stub
 let worldChatListener = null;
 
 function khoiDongChatTheGioi() {
-    if (worldChatListener) return; // Đã khởi động rồi
+    // BUG 4 FIX: Clean up old listener before registering new one
+    if (worldChatListener) {
+        db.ref('world_chat').off('child_added', worldChatListener);
+        worldChatListener = null;
+    }
 
     const box = document.getElementById('world-chat-messages');
     if (!box) return;
@@ -1735,6 +1773,14 @@ function khoiDongChatTheGioi() {
             box.appendChild(el);
             box.scrollTop = box.scrollHeight;
         });
+}
+
+// BUG 4 FIX: Add cleanup function for world chat listener
+function tatChatTheGioi() {
+    if (worldChatListener) {
+        db.ref('world_chat').off('child_added', worldChatListener);
+        worldChatListener = null;
+    }
 }
 
 function guiChatTheGioi() {

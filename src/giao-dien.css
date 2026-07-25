@@ -583,6 +583,52 @@ input[type="checkbox"] {
     /* ── Timer ── */
     .timer-panel { font-size: 0.75rem !important; margin: 1px 0 !important; }
 
+    /* ── Game container: Đảm bảo không overflow trên mobile ── */
+    .game-container {
+        max-width: 100vw !important;
+        width: 100% !important;
+        overflow: hidden !important;
+        padding: 4px !important;
+    }
+    
+    /* ── Canvas: Thu nhỏ tự động theo màn hình ── */
+    #inf-canvas {
+        max-width: 100% !important;
+        max-height: 60vh !important;
+        width: auto !important;
+        height: auto !important;
+    }
+    
+    #inf-resizable {
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
+    
+    /* ── Đảm bảo canvas nằm trong container khi zoom preset được chọn ── */
+    .game-container.inf-mode #inf-resizable {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 100% !important;
+        max-height: 100% !important;
+    }
+    
+    .game-container.inf-mode #inf-canvas {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 100% !important;
+        max-height: 100% !important;
+    }
+    
+    /* ── Resize handles: Tăng kích thước trên mobile để dễ touch ── */
+    .rs-handle {
+        --inf-handle-size: 20px !important;
+        --inf-edge-handle-size: 14px !important;
+    }
+    
+    .gc-resize-handle {
+        --gc-handle-size: 20px !important;
+    }
+
     /* ── Thanh zoom preset: cuộn ngang thay vì xuống dòng ── */
     .board-zoom-controls { margin: 4px 0 !important; gap: 4px !important; }
     .zoom-presets {
@@ -603,15 +649,38 @@ input[type="checkbox"] {
     }
     .auto-size-toggle { font-size: 11px !important; }
     .toggle-text { font-size: 11px !important; }
+    
+    .btn-save-size {
+        padding: 4px 8px !important;
+        font-size: 11px !important;
+        background: #10b981 !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 4px !important;
+        cursor: pointer !important;
+        margin-left: 8px !important;
+    }
+    .btn-save-size:hover {
+        background: #059669 !important;
+    }
 
     /* ── Bot avatar: ẩn trên mobile (đỡ che bàn cờ) ── */
     #bot-avatar { display: none !important; }
 
     /* ── Main layout ── */
-    .main-layout { padding: 0 4px 6px !important; gap: 6px !important; }
+    .main-layout { 
+        padding: 0 4px 6px !important; 
+        gap: 6px !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+    }
 
     /* ── Panels wrapper ── */
-    .panels-wrapper { flex-direction: column !important; gap: 6px !important; }
+    .panels-wrapper { 
+        flex-direction: column !important; 
+        gap: 6px !important;
+        max-width: 100% !important;
+    }
     #history-panel, #rank-panel {
         min-width: unset !important;
         max-width: 100% !important;
@@ -620,6 +689,12 @@ input[type="checkbox"] {
 
     /* ── Nút Ván Mới ── */
     .btn-restart { padding: 8px 28px !important; font-size: 0.9rem !important; }
+    
+    /* ── Zoom controls: Di chuyển lên cao hơn trên mobile ── */
+    .zoom-controls {
+        bottom: 15px !important;
+        right: 15px !important;
+    }
 }
 
 /* Extra nhỏ */

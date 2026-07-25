@@ -290,6 +290,7 @@ function loadRankHistory(index) {
 }
 
 function renderBoardFromHistory() {
+    // BUG 5 FIX: Use centralized setCell function instead of direct state modification
     if (isInfinite) {
         infiniteMap.clear();
     } else {
@@ -299,10 +300,16 @@ function renderBoardFromHistory() {
     }
     for (const move of moveHistory) {
         const { r, c, player } = move;
-        if (isInfinite) {
-            infiniteMap.set(`${r},${c}`, player);
+        // Use setCell to ensure state consistency
+        if (typeof setCell === 'function') {
+            setCell(r, c, player);
         } else {
-            if (r >= 0 && r < boardSize && c >= 0 && c < boardSize) boardState[r][c] = player;
+            // Fallback if setCell not available
+            if (isInfinite) {
+                infiniteMap.set(`${r},${c}`, player);
+            } else {
+                if (r >= 0 && r < boardSize && c >= 0 && c < boardSize) boardState[r][c] = player;
+            }
         }
     }
     if (isInfinite) {

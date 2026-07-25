@@ -87,9 +87,30 @@ function setContainerSize(percent) {
         
         // Đặt kích thước theo phần trăm màn hình
         gameContainer.style.width = percent + '%';
-        gameContainer.style.height = percent + '%';
         gameContainer.style.maxWidth = percent + '%';
-        gameContainer.style.maxHeight = percent + '%';
+        
+        // Chiều cao giới hạn để không quá cao - dùng viewport height
+        const maxHeightPercent = Math.min(percent, 70); // Giới hạn tối đa 70% viewport height
+        gameContainer.style.height = maxHeightPercent + '%';
+        gameContainer.style.maxHeight = maxHeightPercent + '%';
+        
+        // Resize canvas để khớp với container mới
+        setTimeout(() => {
+            if (isInfinite && infCanvas) {
+                const containerRect = gameContainer.getBoundingClientRect();
+                const newW = containerRect.width;
+                const newH = containerRect.height;
+                // Làm tròn theo INF_CS
+                infCanvasW = Math.max(8 * INF_CS, Math.round(newW / INF_CS) * INF_CS);
+                infCanvasH = Math.max(8 * INF_CS, Math.round(newH / INF_CS) * INF_CS);
+                infCanvas.width = infCanvasW;
+                infCanvas.height = infCanvasH;
+                infCanvas.style.width = infCanvasW + 'px';
+                infCanvas.style.height = infCanvasH + 'px';
+                updateInfiniteResizeHandles();
+                renderInfiniteBoard();
+            }
+        }, 100);
         
         // Cập nhật vị trí resize handles
         updateResizeHandlesPosition();
@@ -160,6 +181,30 @@ function toggleAutoSize() {
     // Nếu auto bật, cũng gọi recalculateCellSizes cho fixed board
     if (isAuto && !isInfinite) {
         recalculateCellSizes();
+    }
+}
+
+// Hàm lưu kích thước canvas hiện tại
+function saveCurrentCanvasSize() {
+    if (!infCanvas) return;
+    
+    const currentW = infCanvasW;
+    const currentH = infCanvasH;
+    
+    // Lưu vào localStorage
+    localStorage.setItem('caroCanvasWidth', currentW);
+    localStorage.setItem('caroCanvasHeight', currentH);
+    
+    // Hiển thị thông báo
+    if (typeof updateBotThinking === 'function') {
+        updateBotThinking('Đã lưu kích thước bàn cờ! 💾');
+    }
+    
+    // Tự động tắt auto resize
+    const autoCheckbox = document.getElementById('auto-size-checkbox');
+    if (autoCheckbox) {
+        autoCheckbox.checked = false;
+        localStorage.setItem('caroAutoResize', 'false');
     }
 }
 
@@ -248,8 +293,23 @@ let panStartX = 0, panStartY = 0, panStartVRow = 0, panStartVCol = 0;
 let infPanning = false;
 let vRowF = 0, vColF = 0;
 
+// BUG 3 FIX: Flag to prevent multiple listener registrations
+let infCanvasInitialized = false;
+
 function initInfCanvas() {
+    // BUG 3 FIX: Prevent duplicate initialization - only if canvas element exists
+    if (infCanvasInitialized && infCanvas) {
+        console.warn('initInfCanvas already called, skipping duplicate initialization');
+        return;
+    }
+    
     infCanvas = document.getElementById('inf-canvas');
+    if (!infCanvas) {
+        console.warn('inf-canvas element not found, skipping initialization');
+        return;
+    }
+    
+    infCanvasInitialized = true;
     infCtx    = infCanvas.getContext('2d');
     document.getElementById('board').style.display = 'none';
 
@@ -259,23 +319,12 @@ function initInfCanvas() {
     const gc = document.getElementById('ui-game-container');
     gc.classList.add('inf-mode');
 
-    // Chỉ tắt mouse events khi KHÔNG chơi online để tránh flickering
-    const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
-    if (!isOnline) {
-        // Chỉ gắn sự kiện chuột PHẢI để kéo pan — không gắn hover để tránh flickering
-        infCanvas.onmousedown  = infOnMouseDown;
-        infCanvas.onmouseup    = infOnMouseUp;
-        infCanvas.onmousemove  = infOnMouseMove;
-        infCanvas.onmouseleave = infOnMouseLeave;
-    } else {
-        // ONLINE: Giữ đầy đủ mouse events để pan/drag hoạt động
-        infCanvas.onmousedown   = infOnMouseDown;
-        infCanvas.onmousemove   = infOnMouseMove;
-        infCanvas.onmouseup     = infOnMouseUp;
-        infCanvas.onmouseleave  = infOnMouseLeave;
-    }
-    
-    infCanvas.onclick       = infOnClick; // Click để đánh quân (cả online và offline)
+    // Gắn đầy đủ mouse events cho cả online và offline (giống bản backup)
+    infCanvas.onmousedown   = infOnMouseDown;
+    infCanvas.onmousemove   = infOnMouseMove;
+    infCanvas.onmouseup     = infOnMouseUp;
+    infCanvas.onmouseleave  = infOnMouseLeave;
+    infCanvas.onclick       = infOnClick;
     infCanvas.oncontextmenu = e => e.preventDefault();
     infCanvas.ontouchstart  = infOnTouchStart;
     infCanvas.ontouchmove   = infOnTouchMove;
@@ -305,6 +354,7 @@ function saveCanvasSize(w, h) {
     localStorage.setItem(CANVAS_SIZE_KEY, JSON.stringify({ w, h }));
 }
 function applyCanvasSize(w, h) {
+    if (!infCanvas) return;
     infCanvasW = Math.max(8 * INF_CS, Math.round(w / INF_CS) * INF_CS);
     infCanvasH = Math.max(8 * INF_CS, Math.round(h / INF_CS) * INF_CS);
     infCanvas.width  = infCanvasW;
@@ -331,17 +381,25 @@ function setupResizeHandles() {
     if (!wrapper) return;
     wrapper.querySelectorAll('.rs-handle').forEach(handle => {
         handle.addEventListener('mousedown', onResizeStart);
+        // Add touch support for mobile
+        handle.addEventListener('touchstart', onResizeStart, { passive: false });
     });
     updateInfiniteResizeHandles();
 }
 function onResizeStart(e) {
     e.preventDefault(); e.stopPropagation();
     const dir    = e.currentTarget.getAttribute('data-dir');
-    const startX = e.clientX, startY = e.clientY;
+    
+    // Get start position from either mouse or touch event
+    const startX = e.clientX || (e.touches && e.touches[0].clientX);
+    const startY = e.clientY || (e.touches && e.touches[0].clientY);
     const startW = infCanvasW, startH = infCanvasH;
 
     function onMove(ev) {
-        const dx = ev.clientX - startX, dy = ev.clientY - startY;
+        ev.preventDefault();
+        const clientX = ev.clientX || (ev.touches && ev.touches[0].clientX);
+        const clientY = ev.clientY || (ev.touches && ev.touches[0].clientY);
+        const dx = clientX - startX, dy = clientY - startY;
         let newW = startW, newH = startH;
         if (dir.includes('e'))  newW = startW + dx;
         if (dir.includes('w'))  newW = startW - dx;
@@ -353,9 +411,13 @@ function onResizeStart(e) {
         saveCanvasSize(infCanvasW, infCanvasH);
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup',   onUp);
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('touchend',   onUp);
     }
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup',   onUp);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend',   onUp);
 }
 function resizeInfCanvas() {
     if (!infCanvas) return;
@@ -607,11 +669,21 @@ function scheduleRender() {
 }
 
 function canvasPixelToCell(px, py) {
+    if (!infCanvas) return { r: 0, c: 0 };
+    // BUG 2 FIX: Account for canvas CSS scaling/zoom
+    const rect = infCanvas.getBoundingClientRect();
+    const scaleX = infCanvas.width / rect.width;
+    const scaleY = infCanvas.height / rect.height;
+    
+    // Adjust pixel coordinates for scaling
+    const adjustedPx = px * scaleX;
+    const adjustedPy = py * scaleY;
+    
     const offX = -((vColF % 1 + 1) % 1) * INF_CS;
     const offY = -((vRowF % 1 + 1) % 1) * INF_CS;
     const c0 = Math.floor(vColF), r0 = Math.floor(vRowF);
-    const ci = Math.floor((px - offX) / INF_CS);
-    const ri = Math.floor((py - offY) / INF_CS);
+    const ci = Math.floor((adjustedPx - offX) / INF_CS);
+    const ri = Math.floor((adjustedPy - offY) / INF_CS);
     return { r: r0 + ri, c: c0 + ci };
 }
 
@@ -664,9 +736,16 @@ function infOnMouseLeave() {
     scheduleRender();
 }
 function infOnClick(e) {
+    if (!infCanvas) return;
     if (e.button !== 0) return;
     if (panMoved) { panMoved = false; return; }
     if (!isGameActive) return;
+    
+    // BUG 1 FIX: Block click if it occurred shortly after touch end (prevent double-firing)
+    const timeSinceTouch = performance.now() - lastTouchEndTime;
+    if (timeSinceTouch < TOUCH_CLICK_DELAY) {
+        return; // Ignore click - it's a duplicate of the touch event
+    }
     
     const rect = infCanvas.getBoundingClientRect();
     const { r, c } = canvasPixelToCell(e.clientX - rect.left, e.clientY - rect.top);
@@ -711,6 +790,8 @@ function infOnKeyDown(e) {
 
 // ===== TOUCH =====
 let touchStartX = 0, touchStartY = 0;
+let lastTouchEndTime = 0;
+const TOUCH_CLICK_DELAY = 300; // ms - prevent click after touch
 function infOnTouchStart(e) {
     e.preventDefault();
     const t = e.touches[0];
@@ -723,8 +804,8 @@ function infOnTouchMove(e) {
     const t = e.touches[0];
     const dx = t.clientX - panStartX, dy = t.clientY - panStartY;
     if (Math.abs(dx) > 5 || Math.abs(dy) > 5) panMoved = true;
-    // Chỉ preventDefault khi đang pan bàn cờ (panMoved) để không khóa scroll trang
-    if (panMoved) e.preventDefault();
+    // Luôn preventDefault để xử lý pan trong canvas (cả ngang và dọc)
+    e.preventDefault();
     vColF = panStartVCol - dx / INF_CS;
     vRowF = panStartVRow - dy / INF_CS;
     scheduleRender();
@@ -732,6 +813,7 @@ function infOnTouchMove(e) {
 function infOnTouchEnd(e) {
     e.preventDefault();
     infPanning = false;
+    lastTouchEndTime = performance.now(); // Track touch end time to block click
     if (!panMoved) {
         const t = e.changedTouches[0];
         const rect = infCanvas.getBoundingClientRect();
@@ -758,6 +840,7 @@ function loadZoom() {
 function saveZoom() { localStorage.setItem(ZOOM_KEY, INF_CS); }
 
 function infOnWheel(e) {
+    if (!infCanvas) return;
     e.preventDefault();
     const rect = infCanvas.getBoundingClientRect();
     const mx = e.clientX - rect.left, my = e.clientY - rect.top;
