@@ -3,22 +3,31 @@
 // Queue thông báo
 let notificationQueue = [];
 let maxNotifications = 5; // Số thông báo tối đa hiển thị cùng lúc
-let notificationCache = new Set(); // Cache để mỗi thông báo chỉ hiện 1 lần
+let notificationCache = new Map(); // Cache chống lặp tạm thời, không chặn vĩnh viễn
 let welcomeShown = false; // Flag để chỉ hiển thị thông báo chào mừng 1 lần
 let tickerTimeout = null; // Timeout để tự động ẩn
+let notificationListenersStarted = false;
 const DISPLAY_TIME = 4000; // Hiển thị 4 giây
+const DEDUPE_TIME = 30000; // Không lặp cùng nội dung trong 30 giây
 
 // Thêm thông báo vào queue
 function addNotification(type, message) {
     // Tạo cache key để tránh trùng lặp
     const cacheKey = `${type}_${message}`;
-    if (notificationCache.has(cacheKey)) return; // Bỏ qua nếu đã hiển thị rồi
-    notificationCache.add(cacheKey);
+    const now = Date.now();
+    const lastShown = notificationCache.get(cacheKey) || 0;
+    if (now - lastShown < DEDUPE_TIME) return;
+    notificationCache.set(cacheKey, now);
+
+    // Giới hạn cache để phiên chạy lâu không tăng bộ nhớ vô hạn.
+    for (const [key, timestamp] of notificationCache) {
+        if (now - timestamp > DEDUPE_TIME) notificationCache.delete(key);
+    }
     
     const notification = {
         type: type, // 'online', 'win', 'chat'
         message: message,
-        timestamp: Date.now()
+        timestamp: now
     };
     
     notificationQueue.push(notification);
@@ -56,11 +65,13 @@ function updateTicker() {
     ticker.style.display = 'block';
     
     // Hiển thị tất cả thông báo
-    const newContent = notificationQueue.map(notif => 
-        `<span class="ticker-item ${notif.type}">${notif.message}</span>`
-    ).join('');
-    
-    content.innerHTML = newContent;
+    // Dùng textContent thay vì innerHTML để tên/tin nhắn người dùng không thể chèn HTML.
+    content.replaceChildren(...notificationQueue.map(notif => {
+        const item = document.createElement('span');
+        item.className = `ticker-item ${notif.type}`;
+        item.textContent = notif.message;
+        return item;
+    }));
 }
 
 // ===== LISTENER CHO ONLINE/OFFLINE =====
@@ -71,22 +82,13 @@ function setupOnlineNotificationListener() {
     const myId = localStorage.getItem('current_user_id');
     if (!myId) return;
     
-    // Theo dõi thay đổi trong online_users
-    db.ref('online_users').on('value', snap => {
-        const users = snap.val();
-        if (!users) return;
-        
-        for (const uid in users) {
-            if (uid === myId) continue; // Bỏ qua chính mình
-            
-            const user = users[uid];
-            const displayName = user.displayName || user.username || 'Unknown';
-            
-            // Nếu user vừa online (trong 30 giây)
-            if ((Date.now() - user.lastActive) < 30000) {
-                addNotification('online', `🟢 ${displayName} vừa online!`);
-            }
-        }
+    // child_added chỉ báo người vừa xuất hiện; tránh báo lại cả danh sách khi một user đổi trạng thái.
+    db.ref('online_users').on('child_added', snap => {
+        if (snap.key === myId) return;
+        const user = snap.val();
+        if (!user || Date.now() - user.lastActive >= 30000) return;
+        const displayName = user.displayName || user.username || 'Unknown';
+        addNotification('online', `🟢 ${displayName} vừa online!`);
     });
 }
 
@@ -95,16 +97,18 @@ function setupWinNotificationListener() {
     // Sử dụng db từ firebase-online.js
     if (typeof db === 'undefined' || !db) return;
     
-    // Theo dõi lịch sử trận đấu online
-    db.ref('online_history').limitToLast(10).on('child_added', snap => {
+    // Lịch sử thực tế được ghi ở `history` bởi firebase-online.js.
+    db.ref('history').limitToLast(10).on('child_added', snap => {
         const match = snap.val();
         if (!match) return;
         
         // Chỉ hiển thị trận đấu kết thúc trong 1 phút
         if (Date.now() - match.timestamp > 60000) return;
         
-        const winnerName = match.winnerName || 'Unknown';
-        const loserName = match.loserName || 'Unknown';
+        const xWon = match.winner === 'X';
+        const winnerName = xWon ? match.playerX : match.playerO;
+        const loserName = xWon ? match.playerO : match.playerX;
+        if (!winnerName || !loserName) return;
         const winCount = match.winCount || 5;
         
         addNotification('win', `🏆 ${winnerName} thắng ${loserName} (${winCount} quân)`);
@@ -148,7 +152,8 @@ function initNotificationTicker() {
     }
     
     // Người đã đăng nhập - setup các listener (cần Firebase)
-    if (typeof db !== 'undefined' && db) {
+    if (typeof db !== 'undefined' && db && !notificationListenersStarted) {
+        notificationListenersStarted = true;
         setupOnlineNotificationListener();
         setupWinNotificationListener();
         setupWorldChatNotificationListener();

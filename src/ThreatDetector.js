@@ -202,6 +202,135 @@ const ThreatDetector = {
             score *= 1.5;
         }
 
+        // Ưu tiên chặn đầu mở (chưa có quân đối thủ) hơn đầu đã chặn
+        // Kiểm tra nếu pattern có đầu mở thì tăng điểm
+        for (const { pattern } of defense.patternScores) {
+            if (pattern === PatternDetector.PATTERN.FOUR_OPEN) {
+                score *= 1.3; // Tăng điểm cho chặn FOUR_OPEN
+            }
+        }
+
+        return score;
+    },
+
+    // ===== ANALYZE BLOCK POSITIONS FOR FOUR_OPEN =====
+    // Phân tích các vị trí chặn FOUR_OPEN để biết chặn đầu nào quan trọng hơn
+    analyzeBlockPositions(candidates, opponent, winCount, blockBothEnds) {
+        const blockPositions = [];
+
+        for (const { r, c } of candidates) {
+            const threat = this.evaluateDefenseThreat(r, c, opponent, winCount, blockBothEnds);
+            
+            // Chỉ quan tâm FOUR_OPEN
+            if (threat.maxThreat !== this.THREAT.CRITICAL) continue;
+            
+            const hasFourOpen = threat.patternScores.some(p => 
+                p.pattern === PatternDetector.PATTERN.FOUR_OPEN
+            );
+            if (!hasFourOpen) continue;
+
+            // Phân tích chi tiết vị trí chặn
+            const analysis = this.analyzeBlockPosition(r, c, opponent, winCount);
+            blockPositions.push({
+                r, c,
+                threat,
+                analysis,
+                score: this.calculateBlockScore(threat, analysis)
+            });
+        }
+
+        // Sắp xếp theo điểm giảm dần
+        blockPositions.sort((a, b) => b.score - a.score);
+        return blockPositions;
+    },
+
+    // ===== ANALYZE SINGLE BLOCK POSITION =====
+    analyzeBlockPosition(r, c, opponent, winCount) {
+        const analysis = {
+            blocksMultipleThreats: false,
+            createsAttack: false,
+            strategicPosition: false,
+            nearCenter: false
+        };
+
+        // Kiểm tra xem chặn này có ngăn được nhiều đe dọa khác không
+        const patterns = PatternDetector.evalCell(r, c, opponent, winCount);
+        let threatCount = 0;
+        for (const { pattern } of patterns) {
+            if (pattern !== PatternDetector.PATTERN.NONE) {
+                threatCount++;
+            }
+        }
+        analysis.blocksMultipleThreats = threatCount > 1;
+
+        // Kiểm tra xem chặn này có tạo đe dọa cho đối thủ không
+        const player = opponent === 'X' ? 'O' : 'X';
+        const attackPatterns = PatternDetector.evalCell(r, c, player, winCount);
+        for (const { pattern } of attackPatterns) {
+            if (pattern === PatternDetector.PATTERN.THREE_OPEN || 
+                pattern === PatternDetector.PATTERN.FOUR_OPEN) {
+                analysis.createsAttack = true;
+                break;
+            }
+        }
+
+        // Kiểm tra vị trí chiến lược (gần trung tâm)
+        const isInfinite = typeof GameState !== 'undefined' ? GameState.board.isInfinite : window.isInfinite;
+        const infiniteMap = typeof GameState !== 'undefined' ? GameState.board.infiniteMap : window.infiniteMap;
+        if (isInfinite && infiniteMap && infiniteMap.size > 0) {
+            let sr = 0, sc = 0, n = 0;
+            for (const key of infiniteMap.keys()) {
+                const [kr, kc] = key.split(',').map(Number);
+                sr += kr;
+                sc += kc;
+                n++;
+            }
+            const cr = sr / n, cc = sc / n;
+            const dist = Math.abs(r - cr) + Math.abs(c - cc);
+            analysis.nearCenter = dist < 5;
+            analysis.strategicPosition = analysis.nearCenter;
+        }
+
+        return analysis;
+    },
+
+    // ===== CALCULATE BLOCK SCORE =====
+    calculateBlockScore(threat, analysis) {
+        let score = 0;
+
+        // Base score từ threat
+        for (const { pattern } of threat.patternScores) {
+            score += this.getScore(pattern, false);
+        }
+
+        // Urgency multiplier
+        if (threat.isUrgent) {
+            score *= 1.5;
+        }
+
+        // FOUR_OPEN multiplier
+        const hasFourOpen = threat.patternScores.some(p => 
+            p.pattern === PatternDetector.PATTERN.FOUR_OPEN
+        );
+        if (hasFourOpen) {
+            score *= 1.3;
+        }
+
+        // Bonus cho chặn nhiều đe dọa
+        if (analysis.blocksMultipleThreats) {
+            score *= 1.4;
+        }
+
+        // Bonus cho tạo đe dọa cho đối thủ
+        if (analysis.createsAttack) {
+            score *= 1.2;
+        }
+
+        // Bonus cho vị trí chiến lược
+        if (analysis.strategicPosition) {
+            score *= 1.1;
+        }
+
         return score;
     },
 

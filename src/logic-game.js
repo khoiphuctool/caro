@@ -209,6 +209,9 @@ function updateStatus() {
 function makeMove(r, c) {
     // NẾU ĐANG CHƠI ONLINE
     if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+        // Chỉ cho gửi một nước đi tại một thời điểm. Nếu không, người chơi có
+        // thể click nhanh nhiều ô trước khi Firebase phản hồi và làm lệch bàn cờ local.
+        if (window.onlineMovePending) return;
         const quanToi = window.myOnlineRole;
 
         // Chặn: viewer hoặc chưa có ghế thì không được đánh
@@ -243,28 +246,45 @@ function makeMove(r, c) {
             if (cell) { cell.classList.add(quanToi); cell.classList.add('last-move'); lastMoveCell = cell; }
         }
 
-        // Gửi lên Firebase SAU KHI đã setCell (để checkWin trong guiNuocDiLenFirebase đọc đúng board)
+        // Gửi lên Firebase SAU KHI đã setCell (để kiểm tra thắng đọc đúng board).
+        // Kết quả thắng chỉ được chốt sau khi transaction được Firebase xác nhận.
+        const isWinningMove = checkWin(r, c);
         if (window.guiNuocDiLenFirebase) {
-            const hopLe = window.guiNuocDiLenFirebase(r, c);
-            if (!hopLe) {
-                // Sai lượt — rollback quân vừa vẽ
-                setCell(r, c, '');
-                moveHistory.pop();
-                moveCount--;
-                renderInfiniteBoard();
-                return;
-            }
+            window.onlineMovePending = true;
+            Promise.resolve(window.guiNuocDiLenFirebase(r, c))
+                .then(hopLe => {
+                    if (hopLe) {
+                        if (isWinningMove) {
+                            isGameActive = false;
+                            statusPanel.innerHTML = `🏆 <strong>${quanToi}</strong> chiến thắng!`;
+                            if (gameTotalTimer) clearInterval(gameTotalTimer);
+                            if (playerTurnTimer) clearInterval(playerTurnTimer);
+                        }
+                        return;
+                    }
+
+                    // Firebase từ chối nước đi (sai lượt/ô đã có quân/kết nối lỗi).
+                    // Hoàn tác nước optimistic để bàn cờ local luôn khớp server.
+                    setCell(r, c, '');
+                    moveHistory.pop();
+                    moveCount--;
+                    if (isInfinite) renderInfiniteBoard();
+                    else {
+                        const rollbackCell = document.querySelector(`[data-row='${r}'][data-col='${c}']`);
+                        if (rollbackCell) rollbackCell.classList.remove(quanToi, 'last-move');
+                    }
+                })
+                .catch(() => {
+                    setCell(r, c, '');
+                    moveHistory.pop();
+                    moveCount--;
+                    if (isInfinite) renderInfiniteBoard();
+                })
+                .finally(() => { window.onlineMovePending = false; });
         }
 
-        // Kiểm tra thắng phía client để hiện UI ngay
-        if (checkWin(r, c)) {
-            isGameActive = false;
-            statusPanel.innerHTML = `🏆 <strong>${quanToi}</strong> chiến thắng!`;
-            // Online: KHÔNG gọi showWinOverlay — firebase-online.js sẽ xử lý qua xuLyKetThucVan
-            if (gameTotalTimer) clearInterval(gameTotalTimer);
-            if (playerTurnTimer) clearInterval(playerTurnTimer);
-            return;
-        }
+        // Nước thắng chờ Firebase xác nhận; tránh hiển thị thắng giả khi transaction bị từ chối.
+        if (isWinningMove) return;
 
         // Chuyển lượt local (Firebase sẽ sync lại đúng)
         currentPlayer = quanToi === 'X' ? 'O' : 'X';
@@ -418,7 +438,11 @@ function checkWin(r, c) {
     const directions = [{ dr:0,dc:1 },{ dr:1,dc:0 },{ dr:1,dc:1 },{ dr:1,dc:-1 }];
     const player = getCell(r, c);
     const opp    = player === "X" ? "O" : "X";
-    const blockBothEndsEnabled = document.getElementById('block-both-ends').checked;
+    // Online phải tuân theo luật đã lưu trong phòng, không dùng checkbox local.
+    const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
+    const blockBothEndsEnabled = isOnline
+        ? (typeof currentRule !== 'undefined' && currentRule === 'chan_2_dau')
+        : !!document.getElementById('block-both-ends')?.checked;
 
     for (let { dr, dc } of directions) {
         const cells = [[r, c]];

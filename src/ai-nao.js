@@ -1741,6 +1741,17 @@ function assessThreats(cands, bp, hp) {
 }
 
 function makeAIMove() {
+    // AIController là điểm vào chính. Giữ engine cũ làm fallback cho chế độ God
+    // và trường hợp controller chưa tải được.
+    if (typeof AIController !== 'undefined' && AIController.config.useNewArchitecture) {
+        return AIController.makeAIMove({
+            player: botPiece,
+            opponent: humanPiece,
+            gameMode,
+            winCount,
+            blockBothEnds: getBlockBothEnds()
+        });
+    }
     if (!isGameActive) return;
     isBotMove = true;
     window.cellScores = {};

@@ -8,8 +8,41 @@ body {
     min-height: 100vh;
     padding: 0;
     box-sizing: border-box;
-    transition: background 0.3s, color 0.3s;
+    transition: none; /* Tắt hoàn toàn transition để tránh flickering */
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Chỉ tắt animation/transition trên các phần gây flickering */
+.cell {
+    animation: none !important;
+    transition: none !important;
+}
+
+.cell:hover {
+    background: none !important;
+}
+
+#inf-canvas {
+    animation: none !important;
+    transition: none !important;
+}
+
+/* Tắt tất cả animation khi fullscreen để tránh flickering */
+body.fullscreen-mode * {
+    animation: none !important;
+    transition: none !important;
+}
+
+/* Cố định canvas khi fullscreen để tránh reflow */
+body.fullscreen-mode #inf-canvas {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: none !important;
+    max-height: none !important;
 }
 
 /* ===== NOTIFICATION TICKER ===== */
@@ -250,10 +283,15 @@ input[type="checkbox"] {
     transform: translateZ(0);
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
+    will-change: transform;
 }
 
 /* ===== RESIZE HANDLES CHO BÀN CỜ VÔ HẠN ===== */
-#inf-resizable { display: inline-block; }
+#inf-resizable {
+    display: inline-block;
+    --inf-handle-size: 12px;
+    --inf-edge-handle-size: 8px;
+}
 .rs-handle {
     position: absolute;
     background: rgba(99,102,241,0.55);
@@ -262,14 +300,14 @@ input[type="checkbox"] {
     transition: background 0.15s;
 }
 .rs-handle:hover { background: rgba(99,102,241,0.95); }
-.rs-n  { top:-4px;    left:20px;  right:20px; height:8px; cursor:n-resize; }
-.rs-s  { bottom:-4px; left:20px;  right:20px; height:8px; cursor:s-resize; }
-.rs-w  { left:-4px;   top:20px;   bottom:20px; width:8px; cursor:w-resize; }
-.rs-e  { right:-4px;  top:20px;   bottom:20px; width:8px; cursor:e-resize; }
-.rs-nw { top:-4px;    left:-4px;  width:14px; height:14px; cursor:nw-resize; border-radius:4px; }
-.rs-ne { top:-4px;    right:-4px; width:14px; height:14px; cursor:ne-resize; border-radius:4px; }
-.rs-sw { bottom:-4px; left:-4px;  width:14px; height:14px; cursor:sw-resize; border-radius:4px; }
-.rs-se { bottom:-4px; right:-4px; width:14px; height:14px; cursor:se-resize; border-radius:4px; }
+.rs-n  { top:0px;    left:var(--inf-handle-size);  right:var(--inf-handle-size); height:var(--inf-edge-handle-size); cursor:n-resize; }
+.rs-s  { bottom:0px; left:var(--inf-handle-size);  right:var(--inf-handle-size); height:var(--inf-edge-handle-size); cursor:s-resize; }
+.rs-w  { left:0px;   top:var(--inf-handle-size);    bottom:var(--inf-handle-size); width:var(--inf-edge-handle-size); cursor:w-resize; }
+.rs-e  { right:0px;  top:var(--inf-handle-size);    bottom:var(--inf-handle-size); width:var(--inf-edge-handle-size); cursor:e-resize; }
+.rs-nw { top:0px;    left:0px;  width:var(--inf-handle-size); height:var(--inf-handle-size); cursor:nw-resize; border-radius:4px; }
+.rs-ne { top:0px;    right:0px; width:var(--inf-handle-size); height:var(--inf-handle-size); cursor:ne-resize; border-radius:4px; }
+.rs-sw { bottom:0px; left:0px;  width:var(--inf-handle-size); height:var(--inf-handle-size); cursor:sw-resize; border-radius:4px; }
+.rs-se { bottom:0px; right:0px; width:var(--inf-handle-size); height:var(--inf-handle-size); cursor:se-resize; border-radius:4px; }
 
 .board {
     display: grid;
@@ -286,8 +324,13 @@ input[type="checkbox"] {
     box-sizing: border-box;
     font-weight: 900;
     font-size: 0.55rem;
-    transition: background 0.15s ease-out;
+    transition: none; /* Tắt hoàn toàn transition để tránh flickering */
     position: relative;
+}
+
+/* Tắt hoàn toàn hover effect trên cell */
+.cell:hover {
+    background: none !important;
 }
 .cell.X, .cell.O {
     cursor: default;
@@ -875,6 +918,46 @@ body.in-game-active {
     overflow: auto;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-x pan-y; /* Chỉ cho phép di chuyển cờ theo trục X, Y bên trong khung */
+    overflow: visible; /* Để resize handles hiển thị */
+}
+
+/* Resize handles màu tím cho game-container */
+.gc-resize-handle {
+    position: absolute;
+    /* Giá trị được ban-co.js tính: 2% chiều rộng khung, giới hạn 12–20px. */
+    width: var(--gc-handle-size, 12px);
+    height: var(--gc-handle-size, 12px);
+    min-width: 12px;
+    min-height: 12px;
+    max-width: 20px;
+    max-height: 20px;
+    background: rgba(139, 92, 246, 0.6);
+    border-radius: 3px;
+    z-index: 100;
+    transition: background 0.15s;
+}
+.gc-resize-handle:hover {
+    background: rgba(139, 92, 246, 0.9);
+}
+.gc-resize-se {
+    bottom: 0px;
+    right: 0px;
+    cursor: se-resize;
+}
+.gc-resize-sw {
+    bottom: 0px;
+    left: 0px;
+    cursor: sw-resize;
+}
+.gc-resize-ne {
+    top: 0px;
+    right: 0px;
+    cursor: ne-resize;
+}
+.gc-resize-nw {
+    top: 0px;
+    left: 0px;
+    cursor: nw-resize;
 }
 
 /* ===== LOBBY LAYOUT STYLES ===== */
@@ -952,13 +1035,95 @@ body.in-game-active {
     }
 }
 
+/* ===== BOARD SIZE CONTROLS ===== */
+/* KHU VỰC ĐIỀU KHIỂN KÍCH THƯỚC BÀN CỜ */
+.board-size-controls {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+    margin: 10px 0;
+    align-items: center;
+}
+.size-presets {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.btn-size-preset {
+    padding: 6px 14px;
+    background: #4a5568;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.btn-size-preset:hover {
+    background: #2d3748;
+}
+.btn-size-preset:active {
+    background: #1a202c;
+}
+.auto-size-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: #4a5568;
+}
+.toggle-label input[type="checkbox"] {
+    display: none;
+}
+.toggle-slider {
+    width: 40px;
+    height: 20px;
+    background: #cbd5e1;
+    border-radius: 20px;
+    position: relative;
+    transition: background 0.2s;
+}
+.toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.2s;
+}
+.toggle-label input[type="checkbox"]:checked + .toggle-slider {
+    background: #28a745;
+}
+.toggle-label input[type="checkbox"]:checked + .toggle-slider::before {
+    transform: translateX(20px);
+}
+
 /* ===== BOARD ZOOM CONTROLS ===== */
 /* KHU VỰC ĐIỀU KHIỂN ZOOM */
 .board-zoom-controls {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     gap: 10px;
     margin: 10px 0;
+    align-items: center;
+}
+.zoom-buttons {
+    display: flex;
+    gap: 10px;
 }
 .btn-zoom {
     padding: 6px 14px;
@@ -972,6 +1137,29 @@ body.in-game-active {
 }
 .btn-zoom-in {
     background: #28a745;
+}
+.zoom-presets {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.btn-zoom-preset {
+    padding: 5px 12px;
+    background: #4a5568;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.btn-zoom-preset:hover {
+    background: #2d3748;
+}
+.btn-zoom-preset:active {
+    background: #1a202c;
 }
 
 /* KHU VỰC CHỨA BÀN CỜ */

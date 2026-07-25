@@ -62,6 +62,9 @@ function initFirebase() {
     khoiTao20Phong();
     setupAuthListeners();
     setupEventListeners();
+    // Firebase có thể tải xong sau sự kiện load của trang. Khởi tạo ticker lần nữa
+    // để các listener thông báo luôn được gắn khi db đã sẵn sàng.
+    if (typeof window.initNotificationTicker === 'function') window.initNotificationTicker();
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1269,15 +1272,19 @@ function loadPlayerInfo(userId, role) {
 // ♟️ GỬI NƯỚC ĐI & VẼ BÀN CỜ
 // ══════════════════════════════════════════════════════════════════
 window.guiNuocDiLenFirebase = function(row, col) {
-    if (!isOnlineMode) return true;
-    if (currentTurn !== myRole) return false;
+    if (!isOnlineMode || currentTurn !== myRole || !currentRoomId || !db) {
+        return Promise.resolve(false);
+    }
 
     const nextTurn = myRole === 'X' ? 'O' : 'X';
     const roomRef  = db.ref(`rooms/${currentRoomId}`);
-    const isWin    = (typeof checkWin === 'function') ? checkWin(row, col) : false;
+    // Luôn dùng luật của phòng đang chơi; không phụ thuộc checkbox local của người chơi.
+    const isWin = (typeof window.checkWinLogicOld === 'function')
+        ? window.checkWinLogicOld(row, col, myRole, currentRule, currentWinCount)
+        : ((typeof checkWin === 'function') ? checkWin(row, col) : false);
     const moveKey  = `${row}_${col}`;  // Key xác định ô — dùng để check O(1)
 
-    roomRef.transaction(data => {
+    return roomRef.transaction(data => {
         if (!data) return null; // retry
         if (data.turn !== myRole) return null;
         if (data.status !== 'playing') return null;
@@ -1293,11 +1300,8 @@ window.guiNuocDiLenFirebase = function(row, col) {
         if (!data.moves) data.moves = {};
         data.moves[moveKey] = { row, col, by: myRole, timestamp: Date.now() };
         return data;
-    }).then(result => {
-        // Không cần push riêng nữa — đã ghi trong transaction
-    }).catch(() => {});
-
-    return true;
+    }).then(result => !!result.committed)
+      .catch(() => false);
 };
 
 function thucHienVeNuocDi(row, col, role) {
@@ -1410,7 +1414,7 @@ function xuLyKetThucVan(room) {
         }
         // Thua do bỏ cuộc vẫn tính loseSolo cho người thua
         if (loserId) db.ref(`users/${loserId}/loseSolo`).transaction(c => (c || 0) + 1);
-        ghiLichSu(`Phòng ${room.roomNumber || '?'}`, xName, oName, room.winner);
+        ghiLichSu(`Phòng ${room.roomNumber || '?'}`, xName, oName, room.winner, room.winCount || 5);
     } else if (myId === loserId && !winnerId) {
         // Fallback nếu winner không online
         db.ref(`users/${loserId}/loseSolo`).transaction(c => (c || 0) + 1);
@@ -1601,9 +1605,9 @@ function capNhatBXH(winnerName, winnerId) {
     });
 }
 
-function ghiLichSu(roomName, xName, oName, winner) {
+function ghiLichSu(roomName, xName, oName, winner, winCount = 5) {
     const time = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
-    db.ref('history').push().set({ roomName, playerX: xName, playerO: oName, winner, time, timestamp: Date.now() })
+    db.ref('history').push().set({ roomName, playerX: xName, playerO: oName, winner, winCount, time, timestamp: Date.now() })
       .then(cleanupOldHistory);
 }
 

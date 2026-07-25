@@ -14,14 +14,12 @@ const AIController = {
     // ===== GET BOT MOVE =====
     // Hàm chính để AI tính nước đi
     getBotMove(options = {}) {
-        const {
-            player = typeof botPiece !== 'undefined' ? botPiece : 'O',
-            opponent = typeof humanPiece !== 'undefined' ? humanPiece : 'X',
-            gameMode = typeof window.gameMode !== 'undefined' ? window.gameMode : 'ai-god',
-            winCount = typeof winCount !== 'undefined' ? winCount : 5,
-            blockBothEnds = typeof document !== 'undefined' ? 
-                document.getElementById('block-both-ends')?.checked : true
-        } = options;
+        const player = options.player ?? (typeof botPiece !== 'undefined' ? botPiece : 'O');
+        const opponent = options.opponent ?? (typeof humanPiece !== 'undefined' ? humanPiece : 'X');
+        const gameMode = options.gameMode ?? document.getElementById('game-mode')?.value ?? 'ai-god';
+        const winCount = options.winCount ?? 5;
+        const blockBothEnds = options.blockBothEnds ??
+            (typeof document !== 'undefined' ? document.getElementById('block-both-ends')?.checked : true);
 
         // Sử dụng kiến trúc mới nếu được bật
         if (this.config.useNewArchitecture) {
@@ -180,16 +178,21 @@ const AIController = {
         // Neural-sort candidates để search duyệt nước có triển vọng trước
         const sortedCands = this.neuralSortCandidates(candidates, player);
 
-        // Check for FOUR threats — phòng thủ CRITICAL ưu tiên hơn tấn công HIGH
-        for (const { r, c } of sortedCands) {
-            const threat = ThreatDetector.evaluateThreat(r, c, player, opponent, winCount, blockBothEnds);
-            if (threat.defense.maxThreat >= ThreatDetector.THREAT.CRITICAL) {
-                if (typeof updateBotThinking === 'function') {
-                    updateBotThinking('Chặn nguy hiểm! 🛡️');
-                }
-                return { r, c };
+        // Check for FOUR threats — dùng phân tích nâng cao để chọn vị trí chặn tốt nhất
+        const blockPositions = ThreatDetector.analyzeBlockPositions(sortedCands, opponent, winCount, blockBothEnds);
+        if (blockPositions.length > 0) {
+            const bestBlock = blockPositions[0]; // Đã sắp xếp theo điểm giảm dần
+            if (typeof updateBotThinking === 'function') {
+                updateBotThinking('Chặn nguy hiểm! 🛡️');
             }
+            if (typeof DebugLogger !== 'undefined') {
+                DebugLogger.log(DebugLogger.CATEGORY.AI_DECISION, DebugLogger.LEVEL.INFO,
+                               'Best block position selected', bestBlock);
+            }
+            return { r: bestBlock.r, c: bestBlock.c };
         }
+
+        // Check for attack HIGH
         for (const { r, c } of sortedCands) {
             const threat = ThreatDetector.evaluateThreat(r, c, player, opponent, winCount, blockBothEnds);
             if (threat.attack.maxThreat >= ThreatDetector.THREAT.HIGH) {
@@ -226,6 +229,20 @@ const AIController = {
         // Neural-sort candidates để search ưu tiên nước có triển vọng cao
         const sortedCands = this.neuralSortCandidates(candidates, player);
 
+        // Check for FOUR threats — dùng phân tích nâng cao để chọn vị trí chặn tốt nhất
+        const blockPositions = ThreatDetector.analyzeBlockPositions(sortedCands, opponent, winCount, blockBothEnds);
+        if (blockPositions.length > 0) {
+            const bestBlock = blockPositions[0]; // Đã sắp xếp theo điểm giảm dần
+            if (typeof updateBotThinking === 'function') {
+                updateBotThinking('Chặn nguy hiểm! 🛡️');
+            }
+            if (typeof DebugLogger !== 'undefined') {
+                DebugLogger.log(DebugLogger.CATEGORY.AI_DECISION, DebugLogger.LEVEL.INFO,
+                               'Best block position selected', bestBlock);
+            }
+            return { r: bestBlock.r, c: bestBlock.c };
+        }
+
         // Check for advanced patterns (dùng sortedCands)
         for (const { r, c } of sortedCands) {
             const threat = ThreatDetector.evaluateThreat(r, c, player, opponent, winCount, blockBothEnds);
@@ -247,11 +264,11 @@ const AIController = {
             }
         }
 
-        // Use search with medium depth
+        // Use search with depth 6 để AI đoán trước 6 nước
         const searchResult = Search.findBestMove(player, {
             algorithm: Search.ALGORITHM.PVS,
-            depth: 5,
-            timeLimit: 2000,
+            depth: 6,
+            timeLimit: 3000,
             winCount,
             blockBothEnds
         });
@@ -296,7 +313,7 @@ const AIController = {
 
     // ===== MAKE AI MOVE =====
     // Thực hiện nước đi của AI
-    makeAIMove() {
+    makeAIMove(options = {}) {
         const isActive = typeof isGameActive !== 'undefined' ? isGameActive : 
                         (typeof GameState !== 'undefined' ? GameState.isGameActive() : true);
         
@@ -309,13 +326,11 @@ const AIController = {
             }
         }
 
-        const move = this.getBotMove();
-        if (move && typeof makeMove === 'function') {
-            makeMove(move.r, move.c);
-        }
-
-        if (typeof isBotMove !== 'undefined') {
-            isBotMove = false;
+        try {
+            const move = this.getBotMove(options);
+            if (move && typeof makeMove === 'function') makeMove(move.r, move.c);
+        } finally {
+            if (typeof isBotMove !== 'undefined') isBotMove = false;
         }
     },
 

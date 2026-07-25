@@ -36,8 +36,137 @@ function thayDoiKichThuocCo(luongThayDoi) {
     }
 }
 
+// Hàm đặt kích thước ô cờ cố định (cho preset buttons)
+function setKichThuocCo(kichThuoc) {
+    // Khống chế giới hạn: Thấp nhất là 18px, cao nhất 40px
+    if (kichThuoc < 18) kichThuoc = 18;
+    if (kichThuoc > 40) kichThuoc = 40;
+    
+    kichThuocOCoHienTai = kichThuoc;
+    
+    // Tắt auto resize khi người dùng chọn kích thước thủ công
+    const autoCheckbox = document.getElementById('auto-size-checkbox');
+    if (autoCheckbox) {
+        autoCheckbox.checked = false;
+    }
+    
+    // TRƯỜNG HỢP A: Nếu bàn cờ dùng các ô thẻ <td> (TABLE - Fixed Board)
+    const tatCaOCo = document.querySelectorAll('#board .cell');
+    if (tatCaOCo.length > 0) {
+        const fontSize = kichThuocOCoHienTai >= 30 ? "1.2rem" : (kichThuocOCoHienTai >= 24 ? "1rem" : "0.9rem");
+        boardElement.style.gridTemplateColumns = `repeat(${boardSize}, ${kichThuocOCoHienTai}px)`;
+        boardElement.style.gridTemplateRows = `repeat(${boardSize}, ${kichThuocOCoHienTai}px)`;
+        tatCaOCo.forEach(oCo => {
+            oCo.style.width = kichThuocOCoHienTai + 'px';
+            oCo.style.height = kichThuocOCoHienTai + 'px';
+            oCo.style.minWidth = kichThuocOCoHienTai + 'px';
+            oCo.style.fontSize = fontSize;
+        });
+        return;
+    }
+    
+    // TRƯỜNG HỢP B: Nếu bàn cờ dùng <canvas> (Infinite Board)
+    if (typeof INF_CS !== 'undefined') {
+        INF_CS = kichThuocOCoHienTai;
+        saveZoom();
+        if (typeof renderInfiniteBoard === 'function') {
+            renderInfiniteBoard();
+        }
+    }
+}
+
+// Hàm đặt kích thước game-container (khung viền ngoài bàn cờ)
+function setContainerSize(percent) {
+    const gameContainer = document.getElementById('ui-game-container');
+    if (gameContainer) {
+        // Tắt auto resize khi người dùng chọn kích thước thủ công
+        const autoCheckbox = document.getElementById('auto-size-checkbox');
+        if (autoCheckbox) {
+            autoCheckbox.checked = false;
+        }
+        
+        // Đặt kích thước theo phần trăm màn hình
+        gameContainer.style.width = percent + '%';
+        gameContainer.style.height = percent + '%';
+        gameContainer.style.maxWidth = percent + '%';
+        gameContainer.style.maxHeight = percent + '%';
+        
+        // Cập nhật vị trí resize handles
+        updateResizeHandlesPosition();
+        
+        // Lưu vào localStorage
+        localStorage.setItem('caroContainerSize', percent);
+        localStorage.setItem('caroAutoResize', 'false');
+    }
+}
+
+// Cập nhật kích thước handle theo 2% chiều rộng THỰC của container.
+// CSS % theo chiều cao/chiều rộng riêng rẽ khiến handle bị méo và thường kẹt ở min-height.
+function updateResizeHandlesPosition() {
+    const container = document.getElementById('ui-game-container');
+    if (!container) return;
+
+    const containerWidth = container.getBoundingClientRect().width;
+    const handleSize = Math.max(12, Math.min(20, containerWidth * 0.02));
+    container.style.setProperty('--gc-handle-size', `${handleSize}px`);
+}
+
+// Hàm load kích thước container từ localStorage
+function loadContainerSize() {
+    const savedSize = localStorage.getItem('caroContainerSize');
+    const savedAuto = localStorage.getItem('caroAutoResize');
+    
+    const gameContainer = document.getElementById('ui-game-container');
+    const autoCheckbox = document.getElementById('auto-size-checkbox');
+    
+    if (savedSize && gameContainer) {
+        // Load kích thước đã lưu
+        const percent = parseInt(savedSize);
+        gameContainer.style.width = percent + '%';
+        gameContainer.style.height = percent + '%';
+        gameContainer.style.maxWidth = percent + '%';
+        gameContainer.style.maxHeight = percent + '%';
+        
+        // Tắt auto nếu đã lưu là false
+        if (savedAuto === 'false' && autoCheckbox) {
+            autoCheckbox.checked = false;
+        }
+    }
+}
+
+// Hàm toggle auto resize
+function toggleAutoSize() {
+    const autoCheckbox = document.getElementById('auto-size-checkbox');
+    const isAuto = autoCheckbox ? autoCheckbox.checked : false;
+    
+    const gameContainer = document.getElementById('ui-game-container');
+    if (gameContainer) {
+        if (isAuto) {
+            // Bật auto - xóa kích thước cố định để tự động theo màn hình
+            gameContainer.style.width = '';
+            gameContainer.style.height = '';
+            gameContainer.style.maxWidth = '';
+            gameContainer.style.maxHeight = '';
+            
+            // Xóa kích thước đã lưu
+            localStorage.removeItem('caroContainerSize');
+            localStorage.setItem('caroAutoResize', 'true');
+        } else {
+            // Tắt auto - giữ nguyên kích thước hiện tại
+            localStorage.setItem('caroAutoResize', 'false');
+        }
+    }
+    
+    // Nếu auto bật, cũng gọi recalculateCellSizes cho fixed board
+    if (isAuto && !isInfinite) {
+        recalculateCellSizes();
+    }
+}
+
 // ===== RENDER BÀN CỐ ĐỊNH =====
 function renderFixedBoard() {
+    // Tắt render khi fullscreen để tránh flickering
+    if (isFullscreen) return;
     boardElement.innerHTML = "";
     for (let r = 0; r < boardSize; r++)
         for (let c = 0; c < boardSize; c++)
@@ -82,6 +211,14 @@ function renderCellScoresDOM() {
 
 function recalculateCellSizes() {
     if (isInfinite) return;
+    // Tắt recalculate khi fullscreen để tránh flickering
+    if (isFullscreen) return;
+    
+    // Kiểm tra xem auto resize có được bật không
+    const autoCheckbox = document.getElementById('auto-size-checkbox');
+    const isAuto = autoCheckbox ? autoCheckbox.checked : false;
+    if (!isAuto) return;
+    
     const sz = boardSize;
     let cellSize, fontSize;
     if      (sz <= 3)  { cellSize = 100; fontSize = "2.2rem"; }
@@ -122,11 +259,23 @@ function initInfCanvas() {
     const gc = document.getElementById('ui-game-container');
     gc.classList.add('inf-mode');
 
-    infCanvas.onmousedown   = infOnMouseDown;
-    infCanvas.onmousemove   = infOnMouseMove;
-    infCanvas.onmouseup     = infOnMouseUp;
-    infCanvas.onmouseleave  = infOnMouseLeave;
-    infCanvas.onclick       = infOnClick;
+    // Chỉ tắt mouse events khi KHÔNG chơi online để tránh flickering
+    const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
+    if (!isOnline) {
+        // TẮT HOÀN TOÀN MOUSE EVENTS ĐỂ TRÁNH FLICKERING (OFFLINE)
+        // infCanvas.onmousedown   = infOnMouseDown;
+        // infCanvas.onmousemove   = infOnMouseMove;
+        // infCanvas.onmouseup     = infOnMouseUp;
+        // infCanvas.onmouseleave  = infOnMouseLeave;
+    } else {
+        // ONLINE: Giữ đầy đủ mouse events để pan/drag hoạt động
+        infCanvas.onmousedown   = infOnMouseDown;
+        infCanvas.onmousemove   = infOnMouseMove;
+        infCanvas.onmouseup     = infOnMouseUp;
+        infCanvas.onmouseleave  = infOnMouseLeave;
+    }
+    
+    infCanvas.onclick       = infOnClick; // Click để đánh quân (cả online và offline)
     infCanvas.oncontextmenu = e => e.preventDefault();
     infCanvas.ontouchstart  = infOnTouchStart;
     infCanvas.ontouchmove   = infOnTouchMove;
@@ -162,7 +311,20 @@ function applyCanvasSize(w, h) {
     infCanvas.height = infCanvasH;
     infCanvas.style.width  = infCanvasW + 'px';
     infCanvas.style.height = infCanvasH + 'px';
+    updateInfiniteResizeHandles();
     renderInfiniteBoard();
+}
+
+// Đồng bộ handle ở mép bàn cờ với kích thước thật của canvas.
+function updateInfiniteResizeHandles() {
+    const wrapper = document.getElementById('inf-resizable');
+    if (!wrapper) return;
+
+    const width = wrapper.getBoundingClientRect().width;
+    const cornerSize = Math.max(12, Math.min(20, width * 0.02));
+    const edgeSize = Math.max(8, Math.min(12, cornerSize * 0.6));
+    wrapper.style.setProperty('--inf-handle-size', `${cornerSize}px`);
+    wrapper.style.setProperty('--inf-edge-handle-size', `${edgeSize}px`);
 }
 function setupResizeHandles() {
     const wrapper = document.getElementById('inf-resizable');
@@ -170,6 +332,7 @@ function setupResizeHandles() {
     wrapper.querySelectorAll('.rs-handle').forEach(handle => {
         handle.addEventListener('mousedown', onResizeStart);
     });
+    updateInfiniteResizeHandles();
 }
 function onResizeStart(e) {
     e.preventDefault(); e.stopPropagation();
@@ -217,13 +380,23 @@ function autoResizeInfCanvas() {
     saveCanvasSize(infCanvasW, infCanvasH);
 }
 
+let resizeTimeout = null;
 window.addEventListener('resize', () => {
-    if (isInfinite && infCanvas) autoResizeInfCanvas();
+    // Tắt hoàn toàn resize khi fullscreen để tránh flickering
+    if (isFullscreen) return;
+    if (isInfinite && infCanvas) {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            autoResizeInfCanvas();
+        }, 100);
+    }
 });
 
 // ===== RENDER BÀN =====
 function renderInfiniteBoard() {
     if (!infCanvas) initInfCanvas();
+    // Tắt render khi fullscreen để tránh flickering
+    if (isFullscreen) return;
     const c  = infCtx;
     const W  = infCanvasW, H = infCanvasH;
     const CS = INF_CS;
@@ -290,13 +463,13 @@ function renderInfiniteBoard() {
         }
     }
 
-    // Hover preview — chỉ hiện khi đến lượt mình
+    // Hover preview — chỉ hiện khi đến lượt mình và KHÔNG fullscreen
     const onlineActive = window.isOnlineModeActive && window.isOnlineModeActive();
     const myTurn = onlineActive
         ? (typeof currentTurn !== 'undefined' && currentTurn === (window.myOnlineRole))
         : (gameMode === 'solo' || (gameMode.startsWith('ai') && currentPlayer !== botPiece));
 
-    if (infHoverR !== null && isGameActive && myTurn) {
+    if (infHoverR !== null && isGameActive && myTurn && !isFullscreen) {
         const hr = infHoverR - r0, hc = infHoverC - c0;
         if (hr >= 0 && hc >= 0 && hr < rows && hc < cols) {
             c.fillStyle = theme === 'pure-white' ? 'rgba(37,99,235,0.12)' : 'rgba(255,255,255,0.08)';
@@ -356,10 +529,76 @@ function renderInfiniteBoard() {
 let infHoverR = null, infHoverC = null;
 let _rafPending = false;
 let _lastMouseMoveTime = 0;
-const MOUSE_MOVE_THROTTLE = 16; // ~60fps
+const MOUSE_MOVE_THROTTLE = 100; // ~10fps - giảm thêm để tránh flickering
+let isFullscreen = false;
+let cachedCanvasRect = null;
+let lastRectUpdateTime = 0;
+
+// Detect fullscreen changes
+document.addEventListener('fullscreenchange', () => {
+    isFullscreen = !!document.fullscreenElement;
+    if (isFullscreen) {
+        // Thêm class fullscreen-mode vào body
+        document.body.classList.add('fullscreen-mode');
+        // Tắt transition trên body và cell khi fullscreen để tránh flickering
+        document.body.style.transition = 'none';
+        document.querySelectorAll('.cell').forEach(cell => {
+            cell.style.transition = 'none';
+            cell.style.pointerEvents = 'none'; // Tắt hoàn toàn hover trên cell
+        });
+        // Tắt mouse events trên canvas khi fullscreen
+        if (infCanvas) {
+            infCanvas.onmousemove = null;
+            infCanvas.style.pointerEvents = 'none';
+            // Force GPU acceleration và tắt repaint
+            infCanvas.style.willChange = 'transform';
+            infCanvas.style.transform = 'translateZ(0)';
+        }
+        // Tắt wheel event khi fullscreen
+        if (infCanvas) {
+            infCanvas.removeEventListener('wheel', infOnWheel);
+        }
+        // KHÔNG render hay resize canvas khi vào fullscreen để tránh flickering
+        // Giữ nguyên canvas như cũ
+    } else {
+        // Xóa class fullscreen-mode khỏi body
+        document.body.classList.remove('fullscreen-mode');
+        // Bật lại transition khi thoát fullscreen
+        document.body.style.transition = '';
+        document.querySelectorAll('.cell').forEach(cell => {
+            cell.style.transition = '';
+            cell.style.pointerEvents = 'auto'; // Bật lại hover trên cell
+        });
+        // Bật lại mouse events
+        if (infCanvas) {
+            infCanvas.onmousemove = infOnMouseMove;
+            infCanvas.style.pointerEvents = 'auto';
+            infCanvas.style.willChange = '';
+        }
+        // Bật lại wheel event
+        if (infCanvas) {
+            infCanvas.addEventListener('wheel', infOnWheel, { passive: false });
+        }
+        if (isInfinite && infCanvas) {
+            // Re-render và resize khi thoát fullscreen
+            setTimeout(() => {
+                autoResizeInfCanvas();
+            }, 150);
+        }
+    }
+});
 
 function scheduleRender() {
+    // Chỉ tắt scheduleRender khi KHÔNG chơi online để tránh flickering
+    const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
+    if (!isOnline) {
+        // TẬT HOÀN TOÀN SCHEDULE RENDER ĐỂ TRÁNH FLICKERING (OFFLINE)
+        return;
+    }
+    
+    // ONLINE: Giữ scheduleRender để bàn cờ update khi có nước đi mới
     if (_rafPending) return;
+    if (isFullscreen) return;
     _rafPending = true;
     requestAnimationFrame(() => {
         _rafPending = false;
@@ -399,6 +638,12 @@ function infOnMouseMove(e) {
         scheduleRender();
         return;
     }
+    
+    // TẮT HOÀN TOÀN HOVER EFFECT ĐỂ TRÁNH FLICKERING
+    return;
+    
+    // Tắt hover effect khi ở fullscreen để tránh flickering
+    if (isFullscreen) return;
     
     // Throttle mousemove để giảm tải render
     const now = performance.now();
@@ -615,6 +860,107 @@ function loadBlockBothEndsSetting() {
 function saveBlockBothEndsSetting() {
     const checkbox = document.getElementById('block-both-ends');
     localStorage.setItem(BLOCK_BOTH_ENDS_KEY, checkbox.checked);
+}
+
+// Load kích thước container khi trang load
+window.addEventListener('load', () => {
+    setTimeout(loadContainerSize, 500);
+    setupGameContainerResize();
+});
+
+// ===== RESIZE HANDLES CHO GAME-CONTAINER =====
+function setupGameContainerResize() {
+    const handles = document.querySelectorAll('.gc-resize-handle');
+    handles.forEach(handle => {
+        handle.addEventListener('mousedown', onGameContainerResizeStart);
+    });
+
+    const container = document.getElementById('ui-game-container');
+    if (!container) return;
+
+    // Cập nhật cả khi bấm preset 40–100%, kéo chuột hoặc đổi kích thước cửa sổ.
+    updateResizeHandlesPosition();
+    if (typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(() => updateResizeHandlesPosition()).observe(container);
+    } else {
+        window.addEventListener('resize', updateResizeHandlesPosition);
+    }
+}
+
+function onGameContainerResizeStart(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const container = document.getElementById('ui-game-container');
+    if (!container) return;
+    
+    const dir = e.currentTarget.getAttribute('data-dir');
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = container.offsetWidth;
+    const startHeight = container.offsetHeight;
+    
+    // Tắt auto resize khi bắt đầu kéo
+    const autoCheckbox = document.getElementById('auto-size-checkbox');
+    if (autoCheckbox) {
+        autoCheckbox.checked = false;
+        localStorage.setItem('caroAutoResize', 'false');
+    }
+    
+    function onMouseMove(e) {
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+        
+        let newWidth = startWidth;
+        let newHeight = startHeight;
+        
+        switch(dir) {
+            case 'se':
+                newWidth = startWidth + deltaX;
+                newHeight = startHeight + deltaY;
+                break;
+            case 'sw':
+                newWidth = startWidth - deltaX;
+                newHeight = startHeight + deltaY;
+                break;
+            case 'ne':
+                newWidth = startWidth + deltaX;
+                newHeight = startHeight - deltaY;
+                break;
+            case 'nw':
+                newWidth = startWidth - deltaX;
+                newHeight = startHeight - deltaY;
+                break;
+        }
+        
+        // Giới hạn kích thước tối thiểu
+        newWidth = Math.max(200, newWidth);
+        newHeight = Math.max(200, newHeight);
+        
+        // Tính phần trăm theo màn hình
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        const widthPercent = Math.round((newWidth / screenWidth) * 100);
+        const heightPercent = Math.round((newHeight / screenHeight) * 100);
+        
+        // Đặt kích thước theo phần trăm
+        container.style.width = widthPercent + '%';
+        container.style.height = heightPercent + '%';
+        container.style.maxWidth = widthPercent + '%';
+        container.style.maxHeight = heightPercent + '%';
+        updateResizeHandlesPosition();
+        
+        // Lưu vào localStorage
+        localStorage.setItem('caroContainerSize', widthPercent);
+    }
+    
+    function onMouseUp() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+    }
+    
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
 }
 
 // ===== TẠO Ô DOM =====
