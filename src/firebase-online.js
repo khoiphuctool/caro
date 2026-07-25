@@ -1301,6 +1301,7 @@ function _resetSauThoat(rid) {
     myRole            = null;
     daXoaBanCoTranNay = false;
     _lastProcessedWinner = '';
+    _dangBatDauGame   = false;
     _prevOppId = ''; _prevOppStatus = '';
     window._onlineSkinX = 'skin_default';
     window._onlineSkinO = 'skin_default';
@@ -1316,7 +1317,7 @@ function chuPhongBatDauGame() {
     db.ref(`rooms/${currentRoomId}`).once('value').then(snap => {
         const room = snap.val();
         if (!room || !room.playerO_id) { alert('Cần có đối thủ mới bắt đầu được!'); return; }
-        // Đọc luật từ UI phòng
+
         const selWin   = document.getElementById('room-win-count');
         const chkChan  = document.getElementById('room-chan-2-dau');
         const selFirst = document.getElementById('room-first-turn');
@@ -1324,69 +1325,79 @@ function chuPhongBatDauGame() {
         const chan2Dau  = chkChan  ? chkChan.checked          : (room.chan2Dau  ?? true);
         const firstTurn = selFirst ? selFirst.value           : (room.firstTurn || 'X');
 
-        // Reset local state trước khi push để tránh xử lý nước cũ
-        daXoaBanCoTranNay = false;
+        daXoaBanCoTranNay      = false;
         locallyAppliedLastMove = { row: -2, col: -2 };
-        _lastProcessedWinner = '';
+        _lastProcessedWinner   = '';
 
         const hasBet = room.betAmount && room.betAmount >= 100;
 
         if (hasBet) {
-            // Có cược → chuyển sang trạng thái chờ O xác nhận
+            // Có cược → X xác nhận trước, chờ O xác nhận
+            // playerXConfirmed = true ngay, O sẽ thấy popup qua status = bet_confirm
             db.ref(`rooms/${currentRoomId}`).update({
-                status:    'bet_confirm',
-                winCount, chan2Dau, firstTurn,
-                winner:    '',
-                endReason: '',
-                updatedAt: Date.now()
+                status:             'bet_confirm',
+                winCount,  chan2Dau, firstTurn,
+                winner:             '',
+                endReason:          '',
+                playerXConfirmed:   true,
+                playerOConfirmed:   null,
+                updatedAt:          Date.now()
             });
         } else {
-            // Không có cược → bắt đầu ngay
+            // Không cược → bắt đầu ngay
             _thucSuBatDauGame(room, winCount, chan2Dau, firstTurn);
         }
     });
 }
 window.chuPhongBatDauGame = chuPhongBatDauGame;
 
-// Hàm nội bộ: thực sự đẩy status playing lên Firebase
+// Hàm nội bộ: chỉ X gọi — đẩy status = playing lên Firebase
+// Guard chống gọi 2 lần trong cùng 1 phiên
+let _dangBatDauGame = false;
 function _thucSuBatDauGame(room, winCount, chan2Dau, firstTurn) {
-        db.ref(`rooms/${currentRoomId}`).update({
-            status:    'playing',
-            turn:      firstTurn,
-            winCount,
-            chan2Dau,
-            firstTurn,
-            winner:    '',
-            endReason: '',
-            moves:     { init: true },
-            lastMove:  { row: -1, col: -1, by: '' },
-            endedAt:   null,
-            updatedAt: Date.now()
-        }).then(() => {
-            // Kích hoạt cược nếu có
-            if (typeof batDauCuoc === 'function' && room.playerX_id && room.playerO_id) {
-                batDauCuoc(currentRoomId, room.playerX_id, room.playerO_id);
-            }
-            // Hiện panel cược cho chủ phòng
-            if (typeof capNhatHienThiBetPanel === 'function') capNhatHienThiBetPanel();
-        });
+    if (_dangBatDauGame) return;
+    _dangBatDauGame = true;
+    db.ref(`rooms/${currentRoomId}`).update({
+        status:           'playing',
+        turn:             firstTurn,
+        winCount,  chan2Dau, firstTurn,
+        winner:           '',
+        endReason:        '',
+        moves:            { init: true },
+        lastMove:         { row: -1, col: -1, by: '' },
+        endedAt:          null,
+        playerXConfirmed: null,
+        playerOConfirmed: null,
+        updatedAt:        Date.now()
+    }).then(() => {
+        _dangBatDauGame = false;
+        if (typeof batDauCuoc === 'function' && room.playerX_id && room.playerO_id) {
+            batDauCuoc(currentRoomId, room.playerX_id, room.playerO_id);
+        }
+        if (typeof capNhatHienThiBetPanel === 'function') capNhatHienThiBetPanel();
+    }).catch(() => { _dangBatDauGame = false; });
 }
 
-// O chấp nhận cược → Firebase cập nhật playerO_betReady = true → X nhận tín hiệu rồi bắt đầu
+// O chấp nhận cược → ghi playerOConfirmed = true
+// X nhận qua listener, kiểm tra cả 2 cờ rồi bắt đầu
 function oChapNhanCuoc() {
     if (!currentRoomId || myRole !== 'O') return;
-    db.ref(`rooms/${currentRoomId}`).update({ playerO_betReady: true, updatedAt: Date.now() });
+    db.ref(`rooms/${currentRoomId}`).update({ playerOConfirmed: true, updatedAt: Date.now() });
+    const betConfirmBtns = document.getElementById('bet-confirm-btns');
+    if (betConfirmBtns) betConfirmBtns.style.display = 'none';
+    thongBaoHeThong('✅ Đã xác nhận cược — đang chờ bắt đầu...');
 }
 window.oChapNhanCuoc = oChapNhanCuoc;
 
-// O từ chối → xóa cược, về lại waiting
+// O từ chối → xóa cược, về lại waiting, dọn cờ xác nhận
 function oTuChoiCuoc() {
     if (!currentRoomId || myRole !== 'O') return;
     db.ref(`rooms/${currentRoomId}`).update({
-        status:         'waiting',
-        betAmount:      null,
-        playerO_betReady: null,
-        updatedAt:      Date.now()
+        status:           'waiting',
+        betAmount:        null,
+        playerXConfirmed: null,
+        playerOConfirmed: null,
+        updatedAt:        Date.now()
     }).then(() => {
         thongBaoHeThong('❌ O từ chối cược — cược đã bị hủy!');
     });
@@ -1568,30 +1579,30 @@ function langNgheThayDoiPhong(roomId) {
 
         // ── Chờ O xác nhận cược ──
         if (room.status === 'bet_confirm') {
-            const myId = localStorage.getItem('current_user_id');
             const turnEl = document.getElementById('turn-indicator');
 
             if (myRole === 'X') {
-                // X chờ O xác nhận
+                // X chờ O xác nhận — chỉ X mới được gọi _thucSuBatDauGame
                 if (turnEl) { turnEl.textContent = `⏳ Đang chờ ${tenSafe(room.playerO_name,'O')} xác nhận cược...`; turnEl.className = 'opponent-turn'; }
                 thongBaoHeThong('⏳ Đang chờ đối thủ xác nhận cược...');
 
-                // Khi O đã bấm Chấp Nhận → bắt đầu game thật
-                if (room.playerO_betReady) {
-                    db.ref(`rooms/${currentRoomId}`).update({ playerO_betReady: null }); // dọn cờ
+                // Cả hai đã xác nhận → bắt đầu game
+                if (room.playerXConfirmed && room.playerOConfirmed) {
                     _thucSuBatDauGame(room, room.winCount || 5, room.chan2Dau ?? true, room.firstTurn || 'X');
                 }
             } else if (myRole === 'O') {
-                // O thấy nút xác nhận
+                // O thấy popup xác nhận — kể cả khi refresh/vào lại phòng
                 const bet = room.betAmount;
                 if (turnEl) { turnEl.textContent = `🎲 Chủ phòng mời cược ${Number(bet).toLocaleString('vi-VN')} Xu — hãy xác nhận!`; turnEl.className = 'opponent-turn'; }
-                const betInfoEl = document.getElementById('bet-info-o');
-                const betInfoText = document.getElementById('bet-info-o-text');
+                const betInfoEl      = document.getElementById('bet-info-o');
+                const betInfoText    = document.getElementById('bet-info-o-text');
                 const betConfirmBtns = document.getElementById('bet-confirm-btns');
                 if (betInfoEl) betInfoEl.style.display = 'block';
                 if (betInfoText) betInfoText.textContent = `🎲 Chủ phòng đặt cược ${Number(bet).toLocaleString('vi-VN')} Xu — chấp nhận hay từ chối?`;
-                if (betConfirmBtns) betConfirmBtns.style.display = 'flex';
-                thongBaoHeThong(`🎲 Xác nhận cược ${Number(bet).toLocaleString('vi-VN')} Xu?`);
+                // Chỉ hiện nút nếu O chưa bấm xác nhận
+                if (betConfirmBtns) betConfirmBtns.style.display = room.playerOConfirmed ? 'none' : 'flex';
+                if (!room.playerOConfirmed) thongBaoHeThong(`🎲 Xác nhận cược ${Number(bet).toLocaleString('vi-VN')} Xu?`);
+                else thongBaoHeThong('✅ Đã xác nhận cược — đang chờ bắt đầu...');
             }
         } else {
             // Ẩn nút xác nhận khi không ở trạng thái bet_confirm
