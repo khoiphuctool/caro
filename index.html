@@ -394,8 +394,9 @@ a { text-decoration: none; }
 .battle-status-bar {
   width: 100%; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2);
   border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4);
-  color: #f1f5f9; font-size: var(--font-sm); font-weight: 700; text-align: center;
+  color: #ffffff; font-size: var(--font-sm); font-weight: 700; text-align: center;
   margin-bottom: var(--space-2); flex-shrink: 0;
+  text-shadow: 0 1px 3px rgba(0,0,0,.5);
 }
 
 .battle-right {
@@ -593,16 +594,45 @@ a { text-decoration: none; }
   background: none; border: none; font-size: 24px; color: #94a3b8; line-height: 1;
 }
 
-/* Notification ticker */
+/* Notification ticker — sticky global bar */
 #notification-ticker {
-  display: none; width: 100%; box-sizing: border-box;
-  overflow: hidden; border-radius: var(--radius-sm);
-  position: absolute; top: 0; left: 0; z-index: 1000;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+  height: 32px; overflow: hidden;
+  background: linear-gradient(90deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  border-bottom: 1px solid rgba(255,255,255,.1);
+  display: none; /* ẩn khi chưa có thông báo */
+  align-items: center;
+}
+#notification-ticker.has-content {
+  display: flex;
+}
+#ticker-wrap {
+  flex: 1; overflow: hidden; height: 100%; display: flex; align-items: center;
+  position: relative;
 }
 #ticker-content {
-  display: flex; flex-wrap: wrap; gap: var(--space-2);
-  padding: 7px 14px; align-items: center; justify-content: center;
+  display: inline-flex; white-space: nowrap; gap: 60px;
+  padding: 0 20px; align-items: center;
+  animation: ticker-scroll 30s linear infinite;
+  font-size: 13px; color: #e2e8f0;
 }
+#ticker-content:hover { animation-play-state: paused; }
+@keyframes ticker-scroll {
+  0%   { transform: translateX(100vw); }
+  100% { transform: translateX(-100%); }
+}
+.ticker-item { display: inline-flex; align-items: center; gap: 6px; }
+.ticker-item.online { color: #86efac; }
+.ticker-item.win    { color: #fbbf24; font-weight: 600; }
+.ticker-item.chat   { color: #93c5fd; }
+.ticker-item.welcome{ color: #f9a8d4; }
+.ticker-sep { color: #475569; font-size: 18px; line-height: 1; }
+/* Khi ticker hiển thị, đẩy header xuống */
+body.ticker-on #app-header { top: 32px; }
+body.ticker-on { padding-top: 32px; }
+/* Trong trận (header ẩn): bỏ padding-top để bàn cờ lên sát ticker */
+body.ticker-on.in-game-active { padding-top: 32px; }
+body.in-game-active:not(.ticker-on) { padding-top: 0; }
 
 /* ================================================================
    SHARED BOARD ENGINE STYLES (DO4.TXT + DO8.TXT implementation)
@@ -719,6 +749,9 @@ a { text-decoration: none; }
 <!-- ================================================================
      APP HEADER
      ================================================================ -->
+<!-- ── NOTIFICATION TICKER — luôn hiển thị, đứng trên header ── -->
+<div id="notification-ticker"><div id="ticker-wrap"><div id="ticker-content"></div></div></div>
+
 <header id="app-header">
     <!-- Hàng 1: Navigation -->
     <div class="header-row1">
@@ -906,7 +939,7 @@ a { text-decoration: none; }
         <div class="practice-center">
             <div class="practice-status-bar" id="practice-status-bar">Chọn Bot để bắt đầu</div>
 
-            <div id="notification-ticker" style="position:relative;width:100%;"><div id="ticker-content"></div></div>
+            <!-- ticker đã chuyển lên trước app-header -->
 
             <!-- DO8.TXT: Viewport size controls (separate from zoom) -->
             <div class="board-zoom-controls" style="width:100%;">
@@ -1103,7 +1136,7 @@ a { text-decoration: none; }
         <div class="room-header-card">
             <div>
                 <div class="room-header-title" id="txt-room-title">Phòng chờ đấu...</div>
-                <div style="font-size:12px; color:rgba(255,255,255,.7); margin-top:4px;" id="turn-indicator">⏳ Đang chờ bắt đầu...</div>
+                <div style="font-size:12px; color:#1e1b4b; background:rgba(255,255,255,.85); border-radius:6px; padding:4px 10px; margin-top:4px; font-weight:600;" id="turn-indicator">⏳ Đang chờ bắt đầu...</div>
             </div>
             <div style="display:flex; gap:8px;">
                 <button id="btn-start-game" onclick="chuPhongBatDauGame()"
@@ -2331,7 +2364,22 @@ window.addEventListener('load', () => {
         if (typeof _origBatDauVanMoi === 'function') _origBatDauVanMoi.apply(this, arguments);
         // Reset guard để ván mới có thể chuyển sang BattleView lại
         _battleViewActivated = false;
+        // Hiện lại header khi về phòng chờ
+        const ah = document.getElementById('app-header');
+        if (ah) ah.style.display = '';
         // Trả board về training tạm (sẽ move lại khi battle start)
+        returnBoardToTraining();
+        switchView('room');
+    };
+
+    // Override quayLaiPhongChinhO → O cũng về RoomView
+    const _origQuayLaiO = window.quayLaiPhongChinhO;
+    window.quayLaiPhongChinhO = function() {
+        if (typeof _origQuayLaiO === 'function') _origQuayLaiO.apply(this, arguments);
+        _battleViewActivated = false;
+        // Hiện lại header khi về phòng chờ
+        const ah = document.getElementById('app-header');
+        if (ah) ah.style.display = '';
         returnBoardToTraining();
         switchView('room');
     };

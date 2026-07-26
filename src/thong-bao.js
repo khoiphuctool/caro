@@ -1,152 +1,156 @@
-// ===== THANH THÔNG BÁO (NOTIFICATION TICKER) =====
+// ===== THANH THÔNG BÁO TOÀN CỤC (GLOBAL NOTIFICATION TICKER) =====
+// Ticker cố định ở top màn hình, hiển thị mọi lúc kể cả trong trận
 
-// Queue thông báo
 let notificationQueue = [];
-let maxNotifications = 5; // Số thông báo tối đa hiển thị cùng lúc
-let notificationCache = new Map(); // Cache chống lặp tạm thời, không chặn vĩnh viễn
-let welcomeShown = false; // Flag để chỉ hiển thị thông báo chào mừng 1 lần
-let tickerTimeout = null; // Timeout để tự động ẩn
+let notificationCache = new Map();
 let notificationListenersStarted = false;
-const DISPLAY_TIME = 4000; // Hiển thị 4 giây
-const DEDUPE_TIME = 30000; // Không lặp cùng nội dung trong 30 giây
+let welcomeShown = false;
+let _tickerAnimDuration = 30; // giây, tự điều chỉnh theo số lượng thông báo
 
-// Thêm thông báo vào queue
+const DEDUPE_TIME = 20000; // không lặp cùng nội dung trong 20 giây
+const MAX_QUEUE = 8;
+
+// ── Thêm thông báo vào queue và cập nhật ticker ──
 function addNotification(type, message) {
-    // Tạo cache key để tránh trùng lặp
+    if (!message) return;
     const cacheKey = `${type}_${message}`;
     const now = Date.now();
+
+    // Dedup
     const lastShown = notificationCache.get(cacheKey) || 0;
     if (now - lastShown < DEDUPE_TIME) return;
     notificationCache.set(cacheKey, now);
 
-    // Giới hạn cache để phiên chạy lâu không tăng bộ nhớ vô hạn.
-    for (const [key, timestamp] of notificationCache) {
-        if (now - timestamp > DEDUPE_TIME) notificationCache.delete(key);
+    // Dọn cache cũ
+    for (const [k, t] of notificationCache) {
+        if (now - t > DEDUPE_TIME) notificationCache.delete(k);
     }
-    
-    const notification = {
-        type: type, // 'online', 'win', 'chat'
-        message: message,
-        timestamp: now
-    };
-    
-    notificationQueue.push(notification);
-    
-    // Giới hạn số lượng thông báo
-    if (notificationQueue.length > maxNotifications) {
-        notificationQueue.shift();
-    }
-    
-    updateTicker();
-    
-    // Tự động ẩn sau 4 giây (chỉ reset khi thực sự có thông báo mới)
-    if (tickerTimeout) clearTimeout(tickerTimeout);
-    tickerTimeout = setTimeout(() => {
-        const ticker = document.getElementById('notification-ticker');
-        if (ticker) {
-            ticker.style.display = 'none';
-            notificationQueue = [];
-        }
-    }, DISPLAY_TIME);
+
+    notificationQueue.push({ type, message });
+    if (notificationQueue.length > MAX_QUEUE) notificationQueue.shift();
+
+    _renderTicker();
 }
 
-// Cập nhật nội dung ticker
-function updateTicker() {
-    const ticker = document.getElementById('notification-ticker');
+// ── Render ticker marquee ──
+function _renderTicker() {
+    const ticker  = document.getElementById('notification-ticker');
     const content = document.getElementById('ticker-content');
-    
     if (!ticker || !content) return;
-    
+
     if (notificationQueue.length === 0) {
-        ticker.style.display = 'none';
+        ticker.classList.remove('has-content');
+        document.body.classList.remove('ticker-on');
         return;
     }
-    
-    ticker.style.display = 'block';
-    
-    // Hiển thị tất cả thông báo
-    // Dùng textContent thay vì innerHTML để tên/tin nhắn người dùng không thể chèn HTML.
-    content.replaceChildren(...notificationQueue.map(notif => {
-        const item = document.createElement('span');
-        item.className = `ticker-item ${notif.type}`;
-        item.textContent = notif.message;
-        return item;
-    }));
+
+    // Build nội dung: các item cách nhau bằng dấu phân cách
+    const fragment = document.createDocumentFragment();
+    notificationQueue.forEach((notif, i) => {
+        const span = document.createElement('span');
+        span.className = `ticker-item ${notif.type}`;
+        span.textContent = notif.message;
+        fragment.appendChild(span);
+
+        // Dấu phân cách giữa các item
+        if (i < notificationQueue.length - 1) {
+            const sep = document.createElement('span');
+            sep.className = 'ticker-sep';
+            sep.textContent = ' ✦ ';
+            fragment.appendChild(sep);
+        }
+    });
+    content.replaceChildren(fragment);
+
+    // Điều chỉnh tốc độ scroll theo độ dài nội dung
+    const charCount = notificationQueue.reduce((s, n) => s + n.message.length, 0);
+    const duration = Math.max(15, Math.min(50, charCount * 0.25));
+    content.style.animationDuration = `${duration}s`;
+
+    ticker.classList.add('has-content');
+    document.body.classList.add('ticker-on');
 }
 
-// ===== LISTENER CHO ONLINE/OFFLINE =====
+// ── Listeners ──
+
 function setupOnlineNotificationListener() {
-    // Sử dụng db từ firebase-online.js (global variable)
     if (typeof db === 'undefined' || !db) return;
-    
     const myId = localStorage.getItem('current_user_id');
     if (!myId) return;
-    
-    // child_added chỉ báo người vừa xuất hiện; tránh báo lại cả danh sách khi một user đổi trạng thái.
+
     db.ref('online_users').on('child_added', snap => {
         if (snap.key === myId) return;
         const user = snap.val();
         if (!user || Date.now() - user.lastActive >= 30000) return;
-        const displayName = user.displayName || user.username || 'Người chơi';
-        addNotification('online', `🟢 ${displayName} vừa online!`);
+        const name = user.displayName || user.username || 'Người chơi';
+        addNotification('online', `🟢 ${name} vừa trực tuyến`);
     });
 }
 
-// ===== LISTENER CHO THẮNG/THUA =====
 function setupWinNotificationListener() {
-    // Sử dụng db từ firebase-online.js
     if (typeof db === 'undefined' || !db) return;
-    
-    // Lịch sử thực tế được ghi ở `history` bởi firebase-online.js.
-    db.ref('history').limitToLast(10).on('child_added', snap => {
+
+    // Lắng nghe node match_results (broadcast từ firebase-online.js khi kết thúc trận)
+    const startTs = Date.now();
+    db.ref('match_results').orderByChild('ts').limitToLast(5)
+        .on('child_added', snap => {
+            const res = snap.val();
+            if (!res || !res.msg || res.ts < startTs) return;
+            addNotification('win', res.msg);
+        });
+
+    // Cũng lắng nghe history cho thắng bot / PvP cũ
+    db.ref('history').limitToLast(5).on('child_added', snap => {
         const match = snap.val();
-        if (!match) return;
-        
-        // Chỉ hiển thị trận đấu kết thúc trong 1 phút
-        if (Date.now() - match.timestamp > 60000) return;
-        
+        if (!match || !match.timestamp) return;
+        if (Date.now() - match.timestamp > 60000) return; // chỉ kết quả trong 1 phút
+
         const xWon = match.winner === 'X';
         const winnerName = xWon ? match.playerX : match.playerO;
-        const loserName = xWon ? match.playerO : match.playerX;
+        const loserName  = xWon ? match.playerO : match.playerX;
         if (!winnerName || !loserName) return;
-        const winCount = match.winCount || 5;
-        
-        addNotification('win', `🏆 ${winnerName} thắng ${loserName} (${winCount} quân)`);
+
+        // Phân biệt thắng bot hay PvP
+        const isBot = loserName.startsWith('🤖') || loserName.toLowerCase().includes('bot');
+        if (isBot) {
+            addNotification('win', `🏆 ${winnerName} vừa xuất sắc vượt qua ${loserName}!`);
+        } else {
+            addNotification('win', `⚔️ ${winnerName} đã đánh bại ${loserName}!`);
+        }
     });
 }
 
-// Thanh thông báo góc bàn cờ CHỈ dùng cho:
-// - Lời thoại bot (offline)
-// - Trạng thái chiến đấu online ("Đã kết nối", "Đến lượt bạn", "[Tên] chiến thắng")
-// KHÔNG đưa chat thế giới vào đây.
-
-// ===== KHỞI TẠO =====
+// ── Khởi tạo ──
 function initNotificationTicker() {
     const myId = localStorage.getItem('current_user_id');
-    
+
     if (!myId) {
-        // Người chưa đăng nhập - chỉ hiển thị thông báo chung 1 lần
         if (!welcomeShown) {
-            addNotification('online', '🎮 Chào mừng đến với Caro! Đăng nhập để chơi online và nhận thông báo.');
+            addNotification('online', '🎮 Chào mừng đến Caro Online! Đăng nhập để chơi và nhận thưởng.');
             welcomeShown = true;
         }
         return;
     }
-    
-    // Người đã đăng nhập - setup các listener (cần Firebase)
+
     if (typeof db !== 'undefined' && db && !notificationListenersStarted) {
         notificationListenersStarted = true;
         setupOnlineNotificationListener();
         setupWinNotificationListener();
-        // Chat thế giới KHÔNG hiện trên thanh thông báo bàn cờ
     }
 }
 
-// Export functions để gọi từ nơi khác
-window.addNotification = addNotification;
-window.initNotificationTicker = initNotificationTicker;
+// Gọi lại initNotificationTicker sau khi đăng nhập thành công
+function reinitTickerAfterLogin(displayName) {
+    welcomeShown = false;
+    notificationListenersStarted = false;
+    const name = displayName || 'bạn';
+    addNotification('welcome', `🎉 Chào mừng ${name} đã quay lại! Chúc ${name} một ngày vui vẻ!`);
+    initNotificationTicker();
+}
 
-// Gọi ngay khi trang load (không cần đợi Firebase)
-window.addEventListener('load', () => {
-    setTimeout(initNotificationTicker, 1000);
-});
+// Export
+window.addNotification      = addNotification;
+window.initNotificationTicker = initNotificationTicker;
+window.reinitTickerAfterLogin = reinitTickerAfterLogin;
+
+window.addEventListener('load', () => setTimeout(initNotificationTicker, 800));

@@ -316,6 +316,88 @@ window.equipAvatar = equipAvatar;
 // ──────────────────────────────────────────────
 let currentBetAmount = 0;
 
+// Đặt/hủy cược mới — ghi betAmount lên Firebase, reset guestReady
+function datCuocMoi(amount) {
+    const database = _getDb();
+    const roomId   = (typeof currentRoomId !== 'undefined') ? currentRoomId : null;
+    if (!database || !roomId) return Promise.resolve(false);
+    amount = parseInt(amount) || 0;
+
+    if (amount === 0) {
+        // Hủy cược
+        return database.ref(`rooms/${roomId}`).update({
+            betAmount:  null,
+            guestReady: false,
+            playerXConfirmed: null,
+            playerOConfirmed: null
+        }).then(() => {
+            currentBetAmount = 0;
+            return true;
+        });
+    }
+
+    if (amount < XU_CONFIG.BET_MIN || amount > XU_CONFIG.BET_MAX) {
+        alert(`Mức cược phải từ ${XU_CONFIG.BET_MIN} đến ${XU_CONFIG.BET_MAX.toLocaleString('vi-VN')} Xu!`);
+        return Promise.resolve(false);
+    }
+
+    return database.ref(`rooms/${roomId}`).update({
+        betAmount:  amount,
+        guestReady: false,
+        playerXConfirmed: null,
+        playerOConfirmed: null
+    }).then(() => {
+        currentBetAmount = amount;
+        return true;
+    });
+}
+window.datCuocMoi = datCuocMoi;
+
+// Khách O bấm SẴN SÀNG (đồng ý cược hoặc chỉ sẵn sàng)
+function oSanSang() {
+    const database = _getDb();
+    const roomId   = (typeof currentRoomId !== 'undefined') ? currentRoomId : null;
+    if (!database || !roomId) return;
+
+    database.ref(`rooms/${roomId}`).update({
+        guestReady: true,
+        playerOConfirmed: true,
+        updatedAt: Date.now()
+    });
+
+    // Cập nhật UI
+    const btnReady  = document.getElementById('btn-guest-ready');
+    const btnCancel = document.getElementById('btn-guest-cancel-ready');
+    const msgEl     = document.getElementById('guest-ready-msg');
+    if (btnReady)  btnReady.style.display  = 'none';
+    if (btnCancel) btnCancel.style.display = 'inline-block';
+    if (msgEl)   { msgEl.style.display = 'block'; msgEl.textContent = '✅ Bạn đã sẵn sàng! Chờ chủ phòng bắt đầu...'; }
+
+    if (typeof thongBaoHeThong === 'function') thongBaoHeThong('✅ Đã sẵn sàng — chờ chủ phòng...');
+}
+window.oSanSang = oSanSang;
+
+// Khách O hủy sẵn sàng
+function oHuySanSang() {
+    const database = _getDb();
+    const roomId   = (typeof currentRoomId !== 'undefined') ? currentRoomId : null;
+    if (!database || !roomId) return;
+
+    database.ref(`rooms/${roomId}`).update({
+        guestReady: false,
+        playerOConfirmed: null,
+        updatedAt: Date.now()
+    });
+
+    const btnReady  = document.getElementById('btn-guest-ready');
+    const btnCancel = document.getElementById('btn-guest-cancel-ready');
+    const msgEl     = document.getElementById('guest-ready-msg');
+    if (btnReady)  btnReady.style.display  = 'inline-block';
+    if (btnCancel) btnCancel.style.display = 'none';
+    if (msgEl)     msgEl.style.display     = 'none';
+}
+window.oHuySanSang = oHuySanSang;
+
 function thietLapCuoc(roomId, betAmount) {
     const database = _getDb();
     if (!database) return Promise.resolve(false);
@@ -714,6 +796,19 @@ function onWinSoloXu() {
     const database = _getDb();
     if (!uid || !database) return;
 
+    // Không thưởng Solo xu nếu ván này đang có cược (tránh double reward)
+    const roomId = (typeof currentRoomId !== 'undefined') ? currentRoomId : null;
+    if (roomId) {
+        database.ref(`rooms/${roomId}/betPot`).once('value').then(snap => {
+            if (snap.val() > 0) return; // có cược → skip solo reward
+            _runOnWinSoloXu(uid, database);
+        });
+        return;
+    }
+    _runOnWinSoloXu(uid, database);
+}
+
+function _runOnWinSoloXu(uid, database) {
     const today = getTodayStr();
     const limitsRef = database.ref(`users/${uid}/soloDailyWins`);
 

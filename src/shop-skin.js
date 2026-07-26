@@ -201,10 +201,10 @@ const SHOP_SKIN_LIST = [
         name: 'O X Vàng & Bạc',
         price: 3000,
         icon_O: 'O', icon_X: 'X',
-        color_O: '#fbbf24', color_X: '#cbd5e1',
+        color_O: '#fbbf24', color_X: '#030e2cff',
         preview_O: '⭕', preview_X: '✖️',
         rarity: 'rare',
-        desc: 'Cặp đôi kinh điển: vàng ròng và bạc nguyên chất',
+        desc: 'Cặp đôi kinh điển: vàng đen nguyên chất',
         free: false
     },
     {
@@ -212,10 +212,10 @@ const SHOP_SKIN_LIST = [
         name: 'O X Matrix',
         price: 3500,
         icon_O: 'O', icon_X: 'X',
-        color_O: '#00ff41', color_X: '#39ff14',
+        color_O: '#00ff41', color_X: '#f29b0eff',
         preview_O: '⭕', preview_X: '✖️',
         rarity: 'epic',
-        desc: 'Xanh lá matrix — hack vào ma trận',
+        desc: 'Xanh lá matrix — cam',
         free: false
     },
     {
@@ -234,10 +234,10 @@ const SHOP_SKIN_LIST = [
         name: 'O X Kem Sữa',
         price: 1000,
         icon_O: 'O', icon_X: 'X',
-        color_O: '#fde68a', color_X: '#bfdbfe',
+        color_O: '#fde68a', color_X: '#ff0303ff',
         preview_O: '⭕', preview_X: '✖️',
         rarity: 'common',
-        desc: 'Vàng kem và xanh baby — mát lạnh dễ thương',
+        desc: 'Vàng kem và xanh baby — đỏ dễ thương',
         free: false
     },
     {
@@ -278,7 +278,7 @@ const SHOP_SKIN_LIST = [
         name: 'O X Đêm Khuya',
         price: 2200,
         icon_O: '🌙', icon_X: '⭐',
-        color_O: '#6366f1', color_X: '#fde68a',
+        color_O: '#e90bdbff', color_X: '#fde68a',
         preview_O: '🌙', preview_X: '⭐',
         rarity: 'rare',
         desc: 'Trăng lưỡi liềm và sao vàng trong đêm',
@@ -289,10 +289,10 @@ const SHOP_SKIN_LIST = [
         name: 'O X Ngọc Lục Bảo',
         price: 7000,
         icon_O: 'O', icon_X: 'X',
-        color_O: '#10b981', color_X: '#34d399',
+        color_O: '#3b09c3ff', color_X: '#34d399',
         preview_O: '⭕', preview_X: '✖️',
         rarity: 'legendary',
-        desc: 'Hai sắc xanh ngọc — hiếm như ngọc bảo',
+        desc: 'Hai sắc xanh dương — hiếm như ngọc bảo',
         free: false
     },
     {
