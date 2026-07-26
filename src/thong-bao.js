@@ -5,7 +5,6 @@ let notificationQueue = [];
 let notificationCache = new Map();
 let notificationListenersStarted = false;
 let welcomeShown = false;
-let _tickerAnimDuration = 30; // giây, tự điều chỉnh theo số lượng thông báo
 
 const DEDUPE_TIME = 20000; // không lặp cùng nội dung trong 20 giây
 const MAX_QUEUE = 8;
@@ -141,7 +140,7 @@ function initNotificationTicker() {
 
 // Gọi lại initNotificationTicker sau khi đăng nhập thành công
 function reinitTickerAfterLogin(displayName) {
-    welcomeShown = false;
+    welcomeShown = true; // Đã đăng nhập rồi, không cần hiển thị welcome cho guest nữa
     notificationListenersStarted = false;
     const name = displayName || 'bạn';
     addNotification('welcome', `🎉 Chào mừng ${name} đã quay lại! Chúc ${name} một ngày vui vẻ!`);

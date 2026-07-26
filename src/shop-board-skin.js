@@ -174,8 +174,8 @@ function _skinGetUserData() {
     if (!uid) return {};
     const database = _skinGetDb();
     if (!database) return {};
-    // Trả về currentUserData nếu có, ngược lại lấy từ Firebase
-    if (typeof currentUserData !== 'undefined' && currentUserData && currentUserData.uid === uid) {
+    // Trả về currentUserData nếu có (không cần check uid vì currentUserData luôn là của user hiện tại)
+    if (typeof currentUserData !== 'undefined' && currentUserData) {
         return currentUserData;
     }
     // Nếu không có currentUserData, reload từ Firebase
@@ -193,8 +193,12 @@ function _skinGetUserData() {
 // ──────────────────────────────────────────────
 function getEquippedBoardSkin() {
     const userData = (typeof _skinGetUserData === 'function') ? _skinGetUserData() : {};
+    console.log('[DEBUG-BOARD-SKIN] getEquippedBoardSkin - userData:', userData);
     const equippedId = userData.equippedBoardSkin || 'board_default';
-    return getBoardSkinById(equippedId) || SHOP_BOARD_SKIN_LIST[0];
+    console.log('[DEBUG-BOARD-SKIN] getEquippedBoardSkin - equippedId:', equippedId);
+    const skin = getBoardSkinById(equippedId) || SHOP_BOARD_SKIN_LIST[0];
+    console.log('[DEBUG-BOARD-SKIN] getEquippedBoardSkin - returned skin:', skin);
+    return skin;
 }
 window.getEquippedBoardSkin = getEquippedBoardSkin;
 
@@ -344,9 +348,17 @@ window.equipBoardSkin = equipBoardSkin;
 // ──────────────────────────────────────────────
 function applyBoardSkinToEngine() {
     const skin = getEquippedBoardSkin();
+    console.log('[DEBUG-BOARD-SKIN] applyBoardSkinToEngine - skin:', skin);
+    
+    // Áp dụng cho SharedBoardEngine (nếu có)
     if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.Renderer) {
         SharedBoardEngine.Renderer.setBoardSkin(skin);
         SharedBoardEngine.Renderer.render();
+    }
+    
+    // Áp dụng cho hệ thống cũ renderInfiniteBoard (online mode dùng cái này)
+    if (typeof renderInfiniteBoard === 'function') {
+        renderInfiniteBoard();
     }
 }
 window.applyBoardSkinToEngine = applyBoardSkinToEngine;

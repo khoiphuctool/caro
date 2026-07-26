@@ -603,7 +603,8 @@ function renderInfiniteBoard() {
     // Override với board skin từ shop nếu đã equip
     if (typeof getEquippedBoardSkin === 'function') {
         const boardSkin = getEquippedBoardSkin();
-        if (boardSkin && boardSkin.id !== 'board_default') {
+        console.log('[DEBUG-BOARD] Board skin from getEquippedBoardSkin:', boardSkin);
+        if (boardSkin) {
             col = {
                 ...col,
                 bg: boardSkin.bg,
@@ -611,6 +612,7 @@ function renderInfiniteBoard() {
                 win: boardSkin.win,
                 lastMove: boardSkin.lastMove
             };
+            console.log('[DEBUG-BOARD] Applied board skin colors:', { bg: col.bg, grid: col.grid, win: col.win, lastMove: col.lastMove });
         }
     }
 

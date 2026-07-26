@@ -1166,6 +1166,26 @@ function batDauGiaoDienOnline() {
 
     if (typeof window.xoaBanCoCu === 'function' && !daXoaBanCoTranNay) window.xoaBanCoCu();
     // Reset hover ngay khi vào phòng
+    
+    // Áp dụng board skin từ shop khi vào phòng online
+    // Đảm bảo currentUserData đã được cập nhật trước khi áp dụng skin
+    const uid = localStorage.getItem('current_user_id');
+    if (uid && typeof db !== 'undefined' && db) {
+        db.ref(`users/${uid}`).once('value').then(snap => {
+            const data = snap.val();
+            if (data && typeof currentUserData !== 'undefined') {
+                Object.assign(currentUserData, data);
+            }
+            if (typeof applyBoardSkinToEngine === 'function') {
+                applyBoardSkinToEngine();
+            }
+            if (typeof renderInfiniteBoard === 'function') {
+                renderInfiniteBoard();
+            }
+        });
+    } else if (typeof applyBoardSkinToEngine === 'function') {
+        setTimeout(() => applyBoardSkinToEngine(), 500);
+    }
     if (typeof infHoverR !== 'undefined') { infHoverR = null; infHoverC = null; }
 
     // Đồng bộ kích thước canvas với khung online sau khi layout ổn định
@@ -1922,12 +1942,30 @@ function capNhatUIPhong(room) {
                 if (betInfoText) betInfoText.textContent =
                     `🎲 Chủ phòng đặt cược: ${Number(room.betAmount).toLocaleString('vi-VN')} Xu — hãy xác nhận!`;
             }
-            // Luôn hiển thị nút SẴN SÀNG ở header cho khách O khi vào phòng
+            // Luôn hiển thị nút SẴN SÀNG cho khách O khi vào phòng
+            const myId = localStorage.getItem('current_user_id');
+            const isCurrentGuest = myId && myId === room.playerO_id;
             const oConfirmed = room.playerOConfirmed || room.guestReady;
-            if (btnGuestReady) btnGuestReady.style.display = oConfirmed ? 'none' : 'inline-block';
-            if (btnGuestCancel) btnGuestCancel.style.display = oConfirmed ? 'inline-block' : 'none';
+            
+            if (btnGuestReady) {
+                // Chỉ hiện nút nếu là khách O hiện tại
+                if (isCurrentGuest) {
+                    // Nếu chưa xác nhận → hiện nút Sẵn sàng
+                    if (!oConfirmed) {
+                        btnGuestReady.style.display = 'inline-block';
+                        if (btnGuestCancel) btnGuestCancel.style.display = 'none';
+                    } else {
+                        btnGuestReady.style.display = 'none';
+                        if (btnGuestCancel) btnGuestCancel.style.display = 'inline-block';
+                    }
+                } else {
+                    // Không phải khách O → ẩn cả 2 nút
+                    btnGuestReady.style.display = 'none';
+                    if (btnGuestCancel) btnGuestCancel.style.display = 'none';
+                }
+            }
             const guestMsg = document.getElementById('guest-ready-msg');
-            if (oConfirmed) {
+            if (oConfirmed && isCurrentGuest) {
                 if (guestMsg) { guestMsg.style.display = 'block'; guestMsg.textContent = '✅ Đã sẵn sàng! Chờ chủ phòng bắt đầu...'; }
             } else {
                 if (guestMsg) guestMsg.style.display = 'none';
@@ -2549,6 +2587,9 @@ function khoiDongChatTheGioi() {
         if (b) b.innerHTML = '';
     });
 
+    // Lưu timestamp để chỉ thông báo tin nhắn mới (không spam tin cũ khi load)
+    const startTs = Date.now();
+
     // orderByKey: push key của Firebase đã theo thứ tự thời gian — không cần .indexOn,
     // tránh cảnh báo "Using an unspecified index" và không tải thừa dữ liệu về client
     worldChatListener = db.ref('world_chat')
@@ -2558,6 +2599,14 @@ function khoiDongChatTheGioi() {
             const d = snap.val();
             if (!d) return;
             hienTinChatTheGioi(d);
+            // Chỉ thông báo tin nhắn mới (không phải tin nhắn cũ khi load lại)
+            if (d.timestamp && d.timestamp >= startTs) {
+                const sender = d.sender || 'Người chơi';
+                const msg = d.message || '';
+                if (typeof addNotification === 'function') {
+                    addNotification('chat', `💬 ${sender}: ${msg}`);
+                }
+            }
         });
 }
 
