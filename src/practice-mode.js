@@ -157,8 +157,9 @@ const PracticeMode = (function() {
 
         _showPlayingPhase();
 
-        // Initialize Shared Board Engine (DO4.TXT)
-        _initSharedBoard();
+        // DISABLED Shared Board Engine - use old system to avoid conflicts
+        // The old system (initGame + renderInfiniteBoard) handles Practice mode
+        // SharedBoardEngine was causing sync issues with the old system
 
         // Khởi tạo game qua engine hiện có
         if (typeof initGame === 'function') {
@@ -167,61 +168,6 @@ const PracticeMode = (function() {
 
         _setStatus('🟢 LƯỢT CỦA BẠN (X)');
         _setIndicator('X');
-    }
-
-    // ── INITIALIZE SHARED BOARD ENGINE ─────────────────────────────
-    function _initSharedBoard() {
-        // Reset Shared Board Engine if it was initialized for Online mode
-        // This prevents canvas ID conflict between Online (inf-canvas-online) and Practice (inf-canvas)
-        if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.Renderer.initialized) {
-            console.log('Resetting Shared Board Engine for Practice mode (was previously initialized for Online)');
-            SharedBoardEngine.Renderer.destroy();
-            SharedBoardEngine.InputController.destroy();
-            SharedBoardEngine.ResponsiveLayout.destroy();
-            _state.boardInitialized = false;
-        }
-        
-        if (_state.boardInitialized) return;
-        
-        const canvas = document.getElementById('inf-canvas');
-        if (!canvas) {
-            console.warn('Shared Board Engine: canvas not found');
-            return;
-        }
-
-        // Initialize Shared Board Engine with move callback (only once)
-        if (typeof SharedBoardEngine !== 'undefined' && !_state.boardInitialized) {
-            SharedBoardEngine.init(canvas, _handleBoardMove);
-            _state.boardInitialized = true;
-            
-            // Set theme
-            const themeSelect = document.getElementById('theme-select');
-            if (themeSelect) {
-                SharedBoardEngine.Renderer.setTheme(themeSelect.value);
-            }
-            
-            console.log('Shared Board Engine initialized for Practice mode');
-        } else if (_state.boardInitialized) {
-            console.log('Shared Board Engine already initialized for Practice mode, skipping duplicate init');
-        } else {
-            console.warn('Shared Board Engine not available, falling back to old system');
-        }
-    }
-
-    // ── HANDLE BOARD MOVE FROM SHARED ENGINE ───────────────────────
-    function _handleBoardMove(worldX, worldY) {
-        if (!_state.active) return;
-        
-        // Convert world coordinates to the format expected by logic-game.js
-        // The old system uses row/col, new system uses world X/Y
-        // For practice, we can map world coordinates directly to row/col
-        const row = worldY;
-        const col = worldX;
-        
-        // Call the existing move handler from logic-game.js
-        if (typeof makeMove === 'function') {
-            makeMove(row, col);
-        }
     }
 
     // ── CHƠI LẠI ────────────────────────────────────────────────────
@@ -237,11 +183,13 @@ const PracticeMode = (function() {
         const modeEl = document.getElementById('game-mode');
         if (modeEl) modeEl.value = _state.botLevel;
 
-        // Clear Shared Board Engine state
-        if (typeof SharedBoardEngine !== 'undefined') {
-            SharedBoardEngine.BoardState.clear();
-            SharedBoardEngine.Camera.reset();
-            SharedBoardEngine.update();
+        // DISABLED Shared Board Engine - use old system
+        // Clear old board state instead
+        if (typeof infiniteMap !== 'undefined') {
+            infiniteMap.clear();
+        }
+        if (typeof moveHistory !== 'undefined') {
+            moveHistory.length = 0;
         }
 
         if (typeof initGame === 'function') initGame();

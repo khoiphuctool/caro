@@ -25,6 +25,7 @@ const SharedBoardEngine = (function() {
         
         // Clear all moves
         clear() {
+            console.log('[BoardState.clear] Clearing board state, moves before:', this.moves.size);
             this.moves.clear();
             this.winningCells = [];
             this.lastMove = null;
@@ -35,6 +36,7 @@ const SharedBoardEngine = (function() {
             const key = `${x},${y}`;
             this.moves.set(key, { x, y, player });
             this.lastMove = { x, y, player };
+            console.log('[BoardState.addMove] Added move:', { x, y, player, totalMoves: this.moves.size });
         },
         
         // Get move at world coordinates
@@ -271,6 +273,16 @@ const SharedBoardEngine = (function() {
             
             this.canvas = canvasElement;
             this.ctx = canvasElement.getContext('2d');
+            
+            // Debug: Log canvas dimensions before updateViewport
+            const rect = canvasElement.getBoundingClientRect();
+            console.log('[Renderer Init] Canvas dimensions before updateViewport:', {
+                width: rect.width,
+                height: rect.height,
+                display: window.getComputedStyle(canvasElement).display,
+                visibility: window.getComputedStyle(canvasElement).visibility
+            });
+            
             this.updateViewport();
             this.initialized = true;
         },
@@ -307,12 +319,28 @@ const SharedBoardEngine = (function() {
         
         // Main render function
         render() {
-            if (!this.ctx || !this.canvas) return;
+            if (!this.ctx || !this.canvas) {
+                console.warn('[SharedBoardEngine.render] Cannot render - ctx or canvas missing', {
+                    hasCtx: !!this.ctx,
+                    hasCanvas: !!this.canvas,
+                    canvasId: this.canvas?.id
+                });
+                return;
+            }
             
             const ctx = this.ctx;
             const W = this.viewportWidth;
             const H = this.viewportHeight;
             const theme = this.themes[this.currentTheme];
+            
+            console.log('[SharedBoardEngine.render] Rendering:', {
+                viewportWidth: W,
+                viewportHeight: H,
+                theme: this.currentTheme,
+                cameraZoom: Camera.zoom,
+                cameraX: Camera.x,
+                cameraY: Camera.y
+            });
             
             // Clear canvas completely before rendering (prevent grid multiplication)
             ctx.clearRect(0, 0, W, H);
@@ -321,6 +349,8 @@ const SharedBoardEngine = (function() {
             
             // Calculate visible region
             const visibleRegion = this.calculateVisibleRegion();
+            
+            console.log('[SharedBoardEngine.render] Visible region:', visibleRegion);
             
             // Render grid
             this.renderGrid(ctx, visibleRegion, theme);
@@ -382,11 +412,23 @@ const SharedBoardEngine = (function() {
             const fontSize = Math.floor(cs * 0.6); // 60% of cell size
             ctx.font = `bold ${fontSize}px Segoe UI, sans-serif`;
             
+            console.log('[SharedBoardEngine.renderPieces] Rendering pieces in region:', region);
+            console.log('[SharedBoardEngine.renderPieces] BoardState:', {
+                movesCount: BoardState.moves.size,
+                lastMove: BoardState.lastMove,
+                winningCells: BoardState.winningCells
+            });
+            
+            let piecesRendered = 0;
+            
             // Iterate through visible region
             for (let x = region.minX; x <= region.maxX; x++) {
                 for (let y = region.minY; y <= region.maxY; y++) {
                     const move = BoardState.getMove(x, y);
                     if (!move) continue;
+                    
+                    piecesRendered++;
+                    console.log('[SharedBoardEngine.renderPieces] Rendering piece at:', { x, y, move });
                     
                     // DO8.TXT: Center piece in cell - offset by 0.5 to center in cell
                     const centerX = x + 0.5;
@@ -420,6 +462,8 @@ const SharedBoardEngine = (function() {
                     ctx.fillText(skin.icon, screenPos.x, screenPos.y);
                 }
             }
+            
+            console.log('[SharedBoardEngine.renderPieces] Total pieces rendered:', piecesRendered);
         }
     };
 
@@ -667,8 +711,11 @@ const SharedBoardEngine = (function() {
             InputController.init(canvasElement, onMoveCallback);
             ResponsiveLayout.init();
             Camera.reset();
-            ViewportControl.applySize(); // DO8.TXT: Apply initial viewport size
-            Renderer.render();
+            // DO8.TXT: Apply initial viewport size after DOM layout is complete
+            // Use requestAnimationFrame to ensure container has valid dimensions
+            requestAnimationFrame(() => {
+                ViewportControl.applySize();
+            });
         },
         
         // Update and render

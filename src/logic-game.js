@@ -153,6 +153,16 @@ function initGame() {
     lastMoveCell      = null;
     lastMoveR         = null;
     lastMoveC         = null;
+
+    console.log('[DEBUG-BOARD] initGame called:', {
+        gameMode,
+        playerPiece,
+        firstMove,
+        currentPlayer,
+        isGameActive,
+        boardSize,
+        isInfinite
+    });
     winningCellCoords = [];
     moveCount         = 0;
     moveHistory       = [];
@@ -176,7 +186,11 @@ function initGame() {
         GameState.board.infiniteMap = infiniteMap;
         GameState.board.isInfinite = true;
     }
-    infCanvas   = null;
+    // KHÔNG reset infCanvas về null khi đang ở online mode (sẽ phá hủy canvas đang dùng)
+    if (!window.isOnlineModeActive || !window.isOnlineModeActive()) {
+        infCanvas   = null;
+        infCanvasInitialized = false;
+    }
     vRowF = 0; vColF = 0;
     infHoverR = null; infHoverC = null;
 
@@ -184,12 +198,7 @@ function initGame() {
 
     // Sử dụng requestAnimationFrame để render mượt hơn
     requestAnimationFrame(() => {
-        // Use Shared Board Engine if available
-        if (typeof SharedBoardEngine !== 'undefined') {
-            SharedBoardEngine.update();
-        } else if (typeof renderInfiniteBoard === 'function') {
-            renderInfiniteBoard();
-        }
+        renderInfiniteBoard();
         updateStatus();
 
         if (isGameActive && !isSolo && gameMode.startsWith('ai') && currentPlayer === botPiece) {
@@ -211,38 +220,46 @@ function updateStatus() {
 }
 
 // ===== MAKE MOVE =====
-// Global flag to prevent duplicate moves in offline mode
-let offlineMovePending = false;
-const OFFLINE_MOVE_DEBOUNCE = 100; // ms
-
 function makeMove(r, c) {
+    console.log('[DEBUG-BOARD] makeMove called:', {
+        r, c,
+        isGameActive,
+        currentPlayer,
+        gameMode,
+        isOnlineMode: window.isOnlineModeActive ? window.isOnlineModeActive() : false,
+        myOnlineRole: window.myOnlineRole,
+        currentTurn: typeof currentTurn !== 'undefined' ? currentTurn : 'undefined'
+    });
+
     // NẾU ĐANG CHƠI ONLINE
     if (window.isOnlineModeActive && window.isOnlineModeActive()) {
         // Chỉ cho gửi một nước đi tại một thời điểm. Nếu không, người chơi có
         // thể click nhanh nhiều ô trước khi Firebase phản hồi và làm lệch bàn cờ local.
-        if (window.onlineMovePending) return;
+        if (window.onlineMovePending) {
+            console.warn('[DEBUG-BOARD] makeMove blocked: onlineMovePending is true');
+            return;
+        }
         const quanToi = window.myOnlineRole;
 
         // Chặn: viewer hoặc chưa có ghế thì không được đánh
-        if (!quanToi || quanToi === 'viewer') return;
+        if (!quanToi || quanToi === 'viewer') {
+            console.warn('[DEBUG-BOARD] makeMove blocked: role=', quanToi);
+            return;
+        }
 
         // Chặn: không phải lượt mình thì không được đánh
-        if (typeof currentTurn !== 'undefined' && currentTurn !== quanToi) return;
+        if (typeof currentTurn !== 'undefined' && currentTurn !== quanToi) {
+            console.warn('[DEBUG-BOARD] makeMove blocked: currentTurn=', currentTurn, 'myRole=', quanToi);
+            return;
+        }
 
         // Vẽ quân lên bàn trước (optimistic update)
         moveCount++;
         setCell(r, c, quanToi);
         moveHistory.push({ r, c, player: quanToi });
         
-        // Add to Shared Board Engine
-        if (typeof SharedBoardEngine !== 'undefined') {
-            SharedBoardEngine.BoardState.addMove(c, r, quanToi);
-        }
-        
-        // Mark cell as dirty for optimized rendering
-        if (typeof markCellDirty === 'function') {
-            markCellDirty(r, c);
-        }
+        // DISABLED Shared Board Engine sync - use old system only
+        // This prevents conflicts between old system and SharedBoardEngine
 
         if (typeof neuralEvaluator !== 'undefined' && neuralEvaluator.invalidateCache) {
             neuralEvaluator.invalidateCache();
@@ -258,14 +275,7 @@ function makeMove(r, c) {
             if (Math.abs((r - vRowF) - rows / 2) > rows * 0.35 || Math.abs((c - vColF) - cols / 2) > cols * 0.35) {
                 vRowF = r - rows / 2; vColF = c - cols / 2;
             }
-            // Use Shared Board Engine for rendering
-            if (typeof SharedBoardEngine !== 'undefined') {
-                // DO NOT auto-center camera - let user control camera independently
-                // Camera state (zoom, pan) must persist across moves
-                SharedBoardEngine.update();
-            } else {
-                renderInfiniteBoard();
-            }
+            renderInfiniteBoard();
         } else {
             if (lastMoveCell) lastMoveCell.classList.remove('last-move');
             const cell = document.querySelector(`[data-row='${r}'][data-col='${c}']`);
@@ -294,13 +304,7 @@ function makeMove(r, c) {
                     setCell(r, c, '');
                     moveHistory.pop();
                     moveCount--;
-                    // Remove from Shared Board Engine
-                    if (typeof SharedBoardEngine !== 'undefined') {
-                        SharedBoardEngine.BoardState.removeMove(c, r);
-                        SharedBoardEngine.update();
-                    } else if (isInfinite) {
-                        renderInfiniteBoard();
-                    }
+                    if (isInfinite) renderInfiniteBoard();
                     else {
                         const rollbackCell = document.querySelector(`[data-row='${r}'][data-col='${c}']`);
                         if (rollbackCell) rollbackCell.classList.remove(quanToi, 'last-move');
@@ -310,13 +314,7 @@ function makeMove(r, c) {
                     setCell(r, c, '');
                     moveHistory.pop();
                     moveCount--;
-                    // Remove from Shared Board Engine
-                    if (typeof SharedBoardEngine !== 'undefined') {
-                        SharedBoardEngine.BoardState.removeMove(c, r);
-                        SharedBoardEngine.update();
-                    } else if (isInfinite) {
-                        renderInfiniteBoard();
-                    }
+                    if (isInfinite) renderInfiniteBoard();
                 })
                 .finally(() => { window.onlineMovePending = false; });
         }
@@ -330,26 +328,11 @@ function makeMove(r, c) {
         updateStatus();
         return;
     }
-    // --- OFFLINE MODE - GIỮ NGUYÊN LOGIC ĐẤU BOT TỰ ĐỘNG CŨ CỦA ANH Ở DƯỚI ĐÂY ---
-    
-    // Prevent duplicate moves in offline mode (debounce)
-    if (offlineMovePending) return;
-    offlineMovePending = true;
-    setTimeout(() => { offlineMovePending = false; }, OFFLINE_MOVE_DEBOUNCE);
+    // --- GIỮ NGUYÊN LOGIC ĐẤU BOT TỰ ĐỘNG CŨ CỦA ANH Ở DƯỚI ĐÂY ---
     
     moveCount++;
     setCell(r, c, currentPlayer);
     moveHistory.push({ r, c, player: currentPlayer });
-    
-    // Add to Shared Board Engine
-    if (typeof SharedBoardEngine !== 'undefined') {
-        SharedBoardEngine.BoardState.addMove(c, r, currentPlayer);
-    }
-    
-    // Mark cell as dirty for optimized rendering
-    if (typeof markCellDirty === 'function') {
-        markCellDirty(r, c);
-    }
 
     // Invalidate neural cache khi board state thay đổi
     if (typeof neuralEvaluator !== 'undefined' && neuralEvaluator.invalidateCache) {
@@ -372,14 +355,7 @@ function makeMove(r, c) {
             vRowF = r - rows / 2;
             vColF = c - cols / 2;
         }
-        // Use Shared Board Engine for rendering
-        if (typeof SharedBoardEngine !== 'undefined') {
-            // DO NOT auto-center camera - let user control camera independently
-            // Camera state (zoom, pan) must persist across moves
-            SharedBoardEngine.update();
-        } else {
-            renderInfiniteBoard();
-        }
+        renderInfiniteBoard();
     } else {
         if (lastMoveCell) lastMoveCell.classList.remove('last-move');
         let cell = document.querySelector(`[data-row='${r}'][data-col='${c}']`);
@@ -391,12 +367,6 @@ function makeMove(r, c) {
         if (lastMoveCell) lastMoveCell.classList.remove('last-move');
         const isBotWin   = gameMode.startsWith('ai') && currentPlayer === botPiece;
         const boardLabel = '♾️ Vô Hạn';
-
-        // Stop timers immediately when game ends
-        if (gameTotalTimer) clearInterval(gameTotalTimer);
-        if (playerTurnTimer) clearInterval(playerTurnTimer);
-        const timerPanel = document.getElementById('timer-panel');
-        if (timerPanel) timerPanel.style.display = 'none';
 
         // Lưu kết quả cho autoplay
         if (typeof autoplayLastWinner !== 'undefined') {
@@ -415,6 +385,10 @@ function makeMove(r, c) {
             recordMatch('win', currentPlayer);
             setTimeout(() => {
                 showWinOverlay(currentPlayer, false, '', '');
+                if (gameTotalTimer) clearInterval(gameTotalTimer);
+                if (playerTurnTimer) clearInterval(playerTurnTimer);
+                const timerPanel = document.getElementById('timer-panel');
+                if (timerPanel) timerPanel.style.display = 'none';
                 setTimeout(() => promptRankName(moveCount, gameMode, winCount, boardLabel, `Người ${currentPlayer}`, playerDangerScore, gameTotalSeconds), 600);
             }, 500);
         } else {
@@ -448,10 +422,6 @@ function makeMove(r, c) {
                 if (typeof onBotLoss === 'function') {
                     onBotLoss([...moveHistory], humanPiece);
                 }
-                // Thông báo PracticeMode
-                if (typeof PracticeMode !== 'undefined' && PracticeMode.getState().active) {
-                    PracticeMode.onGameEvent('bot-win');
-                }
                 setTimeout(() => {
                     showWinOverlay(botPiece, true, tauntMessage, tauntEmoji);
                     if (gameTotalTimer) clearInterval(gameTotalTimer);
@@ -471,10 +441,6 @@ function makeMove(r, c) {
                 // Cộng Xu khi thắng bot (có giới hạn ngày)
                 if (typeof window.onWinBotXu === 'function') {
                     window.onWinBotXu(gameMode);
-                }
-                // Thông báo PracticeMode (xử lý nhiệm vụ và tránh trùng lặp)
-                if (typeof PracticeMode !== 'undefined' && PracticeMode.getState().active) {
-                    PracticeMode.onGameEvent('player-win');
                 }
                 // Người thắng → bot học pattern của người thắng để tránh bị đánh bại tương tự
                 if (typeof onBotLoss === 'function') {
@@ -585,6 +551,10 @@ function checkWinSilent(r, c) {
 
 // ĐỊNH NGHĨA HÀM XÓA SẠCH BÀN CỜ CHO VÁN MỚI TINH
 window.xoaBanCoCu = function() {
+    // Online mode luôn dùng infinite canvas — đảm bảo flag đúng
+    if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+        isInfinite = true;
+    }
     // Reset mảng dữ liệu logic cờ
     if (typeof infiniteMap !== 'undefined') infiniteMap.clear();
     if (typeof moveHistory !== 'undefined') moveHistory.length = 0;
@@ -595,18 +565,16 @@ window.xoaBanCoCu = function() {
     // Reset hover để không còn chấm xanh
     if (typeof infHoverR !== 'undefined') { infHoverR = null; infHoverC = null; }
 
+    // DISABLED Shared Board Engine clear - use old system only
+    // This prevents conflicts between old system and SharedBoardEngine
+
     document.querySelectorAll('.cell').forEach(cell => {
         cell.innerHTML = '';
         cell.classList.remove('winning-cell');
     });
 
-    // Use Shared Board Engine for rendering
-    if (typeof SharedBoardEngine !== 'undefined') {
-        SharedBoardEngine.update();
-    } else {
-        if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
-        if (typeof renderFixedBoard    === 'function') renderFixedBoard();
-    }
+    if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
+    if (typeof renderFixedBoard    === 'function') renderFixedBoard();
 };
 
 // checkWinLogicOld: Hàm kiểm tra thắng thua hỗ trợ cả Online và Offline với tham số luật chơi tùy chỉnh

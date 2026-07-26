@@ -174,13 +174,8 @@ function reviewGame() {
     
     // Sử dụng requestAnimationFrame để render mượt hơn
     requestAnimationFrame(() => {
-        // Use Shared Board Engine for camera positioning (DO6.TXT)
-        if (typeof SharedBoardEngine !== 'undefined' && winningCellCoords.length > 0) {
-            const [wr, wc] = winningCellCoords[Math.floor(winningCellCoords.length / 2)];
-            SharedBoardEngine.Camera.setPosition(wc, wr);
-            SharedBoardEngine.update();
-        } else if (isInfinite && winningCellCoords.length > 0) {
-            // Fallback to old system
+        // DISABLED Shared Board Engine - use old system only
+        if (isInfinite && winningCellCoords.length > 0) {
             const [wr, wc] = winningCellCoords[Math.floor(winningCellCoords.length / 2)];
             if (typeof vRowF !== 'undefined' && typeof vColF !== 'undefined' && 
                 typeof infCanvasH !== 'undefined' && typeof INF_CS !== 'undefined' &&

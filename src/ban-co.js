@@ -166,15 +166,31 @@ function loadContainerSize() {
 // Ép canvas khớp bề rộng thực của vùng chứa (giữ tỉ lệ hiện tại, tối đa 70%)
 function fitCanvasToContainer() {
     if (!isInfinite || !infCanvas) return;
-    // Khi online mode: bàn cờ nằm trong #match-board-section hoặc #unified-board-slot
-    // Khi offline: bàn cờ nằm trong cột giữa của #ui-game-container
-    // Đo theo #inf-resizable trước, nếu không có thì fallback về game-container
+
+    const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
+
+    // Online: canvas nằm trong #shared-board-online → đo container đó
+    if (isOnline) {
+        const sbOnline = document.getElementById('shared-board-online');
+        if (!sbOnline) return;
+        const rect = sbOnline.getBoundingClientRect();
+        const availW = Math.max(200, rect.width - 4);
+        const availH = Math.max(150, rect.height - 4);
+        if (availW < 100) return;
+        console.log('[DEBUG-BOARD] fitCanvasToContainer (online):', { availW, availH, currentW: infCanvasW, currentH: infCanvasH });
+        // Chỉ resize khi lệch đáng kể (> 1 ô) để tránh loop từ room-health ping
+        const diffW = Math.abs(infCanvasW - availW);
+        const diffH = Math.abs(infCanvasH - availH);
+        if (diffW > INF_CS || diffH > INF_CS) {
+            applyCanvasSize(availW, availH, false);
+        }
+        return;
+    }
+
+    // Offline: logic cũ
     const wrapper = document.getElementById('inf-resizable');
-    
-    // Tìm container chứa canvas — bỏ qua các div wrapper chỉ là flex container rộng hơn
     let host = null;
     if (wrapper) {
-        // Đi lên DOM để tìm phần tử có bề rộng thực (không phải flex toàn màn hình)
         const matchBoard = document.getElementById('match-board-section');
         const unifiedSlot = document.getElementById('unified-board-slot');
         if (matchBoard && matchBoard.contains(wrapper)) {
@@ -182,29 +198,13 @@ function fitCanvasToContainer() {
         } else if (unifiedSlot && unifiedSlot.contains(wrapper)) {
             host = unifiedSlot;
         } else {
-            // Offline: dùng parent trực tiếp của wrapper (cột giữa)
             host = wrapper.parentElement;
         }
     }
     if (!host) host = document.getElementById('ui-game-container');
     if (!host) return;
-
-    // Khi bàn cờ trong unified-board-slot (BattleView): dùng kích thước vuông
-    const unifiedSlotCheck = document.getElementById('unified-board-slot');
-    if (unifiedSlotCheck && host === unifiedSlotCheck) {
-        const r = host.getBoundingClientRect();
-        const sz = (r.width > 50 && r.height > 50)
-            ? Math.max(200, Math.min(r.width, r.height) - 8)
-            : Math.max(200, Math.min(window.innerWidth * 0.85, window.innerHeight * 0.75));
-        if (Math.abs(infCanvasW - sz) > INF_CS || Math.abs(infCanvasH - sz) > INF_CS) {
-            applyCanvasSize(sz, sz, false);
-        }
-        return;
-    }
-
     const availW = host.getBoundingClientRect().width - 8;
     if (availW < 100) return;
-    // Chỉ resize khi lệch đáng kể (hơn 1 ô cờ) để tránh vòng lặp resize
     if (Math.abs(infCanvasW - availW) > INF_CS) {
         const ratio = infCanvasW > 0 ? Math.min(infCanvasH / infCanvasW, 0.7) : 0.7;
         applyCanvasSize(availW, availW * ratio, false);
@@ -391,27 +391,51 @@ function setupDpadControls() {
 }
 
 function initInfCanvas() {
-    // BUG 3 FIX: Prevent duplicate initialization - only if canvas element exists
-    if (infCanvasInitialized && infCanvas) {
-        console.warn('initInfCanvas already called, skipping duplicate initialization');
+    const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
+    const expectedCanvasId = isOnline ? 'inf-canvas-online' : 'inf-canvas';
+
+    // BUG 3 FIX: Only skip if already initialized AND pointing to the correct canvas element
+    if (infCanvasInitialized && infCanvas && infCanvas.id === expectedCanvasId) {
+        console.warn('[DEBUG-BOARD] initInfCanvas already called for', expectedCanvasId, '— skipping duplicate');
         return;
     }
-    
-    infCanvas = document.getElementById('inf-canvas');
+
+    // Reset flag khi chuyển đổi giữa online/offline canvas
+    if (infCanvas && infCanvas.id !== expectedCanvasId) {
+        console.log('[DEBUG-BOARD] Canvas mode switched from', infCanvas.id, 'to', expectedCanvasId, '— re-initializing');
+        infCanvasInitialized = false;
+    }
+
+    infCanvas = document.getElementById(expectedCanvasId);
     if (!infCanvas) {
-        console.warn('inf-canvas element not found, skipping initialization');
+        console.warn('[DEBUG-BOARD] Canvas element not found:', expectedCanvasId, '— skipping initialization');
         return;
     }
-    
+
+    console.log('[DEBUG-BOARD] initInfCanvas called:', {
+        isOnline,
+        canvasId: infCanvas.id,
+        canvasWidth: infCanvas.width,
+        canvasHeight: infCanvas.height,
+        canvasClientWidth: infCanvas.clientWidth,
+        canvasClientHeight: infCanvas.clientHeight,
+        parentElement: infCanvas.parentElement ? infCanvas.parentElement.id : 'none',
+        parentClientWidth: infCanvas.parentElement ? infCanvas.parentElement.clientWidth : 0
+    });
+
     infCanvasInitialized = true;
     infCtx    = infCanvas.getContext('2d');
-    document.getElementById('board').style.display = 'none';
+    const boardEl = document.getElementById('board');
+    if (boardEl) boardEl.style.display = 'none';
 
+    // In online mode, inf-resizable is hidden, use shared-board-online container
     const wrapper = document.getElementById('inf-resizable');
-    if (wrapper) wrapper.style.display = 'inline-block';
+    if (wrapper && !isOnline) {
+        wrapper.style.display = 'inline-block';
+    }
 
-    // ui-game-container no longer exists in new DOM structure (Shared Board Engine)
-    // Removed inf-mode class logic as it's not needed
+    const gc = document.getElementById('ui-game-container');
+    if (gc) gc.classList.add('inf-mode');
 
     // Gắn đầy đủ mouse events cho cả online và offline (giống bản backup)
     infCanvas.onmousedown   = infOnMouseDown;
@@ -430,7 +454,52 @@ function initInfCanvas() {
 
     setupResizeHandles();
     setupDpadControls();
-    INF_CS = loadZoom();
+    // Online dùng zoom riêng để không xung đột với zoom offline
+    if (isOnline) {
+        const savedOnlineZoom = parseFloat(localStorage.getItem('caro_zoom_online'));
+        INF_CS = (savedOnlineZoom >= INF_CS_MIN && savedOnlineZoom <= INF_CS_MAX) ? savedOnlineZoom : 28;
+    } else {
+        INF_CS = loadZoom();
+    }
+
+    // Online mode: đo kích thước từ shared-board-online container thực tế
+    if (isOnline) {
+        const sbOnline = document.getElementById('shared-board-online');
+        const sbRect = sbOnline ? sbOnline.getBoundingClientRect() : null;
+        let containerW = (sbRect && sbRect.width > 50) ? sbRect.width - 4 : 0;
+        let containerH = (sbRect && sbRect.height > 50) ? sbRect.height - 4 : 0;
+
+        // Nếu container chưa có kích thước (layout chưa paint), dùng fallback hợp lý
+        if (containerW <= 50) {
+            // Ước tính từ viewport: battle layout thường chiếm ~55% chiều rộng
+            containerW = Math.max(300, Math.floor(window.innerWidth * 0.50));
+        }
+        if (containerH <= 50) {
+            containerH = Math.max(220, Math.floor(containerW * 0.70));
+        }
+
+        infCanvasW = Math.floor(containerW / INF_CS) * INF_CS;
+        infCanvasH = Math.floor(containerH / INF_CS) * INF_CS;
+        if (infCanvasW < 200) infCanvasW = Math.max(200, containerW);
+        if (infCanvasH < 150) infCanvasH = Math.max(150, containerH);
+
+        infCanvas.width  = infCanvasW;
+        infCanvas.height = infCanvasH;
+        infCanvas.style.width  = infCanvasW + 'px';
+        infCanvas.style.height = infCanvasH + 'px';
+        console.log('[DEBUG-BOARD] Canvas size set for online from container:', {
+            infCanvasW, infCanvasH, sbRect,
+            containerW, containerH
+        });
+        updateCursorByTurn();
+        renderInfiniteBoard();
+        // Fit lại sau khi layout CSS hoàn tất (2 frames để đảm bảo)
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            fitCanvasToContainer();
+            renderInfiniteBoard();
+        }));
+        return;
+    }
 
     // Load saved canvas size ngay lập tức nếu có
     const saved = loadCanvasSize();
@@ -441,24 +510,22 @@ function initInfCanvas() {
         infCanvas.height = infCanvasH;
         infCanvas.style.width = infCanvasW + 'px';
         infCanvas.style.height = infCanvasH + 'px';
+        console.log('[DEBUG-BOARD] Canvas size set from saved:', { infCanvasW, infCanvasH });
         updateInfiniteResizeHandles();
         updateCursorByTurn();
         renderInfiniteBoard();
-        // Saved px có thể lệch với bề rộng container hiện tại (%) — đồng bộ sau khi layout ổn định
         requestAnimationFrame(() => requestAnimationFrame(() => fitCanvasToContainer()));
     } else {
-        // Chỉ set mặc định khi không có saved size
-        // Set kích thước mặc định lớn hơn để tránh bị co
         const defaultW = Math.max(500, window.innerWidth - 100);
-        const defaultH = Math.floor(defaultW * 0.7); // Chiều cao 70% chiều rộng
+        const defaultH = Math.floor(defaultW * 0.7);
         infCanvasW = defaultW; infCanvasH = defaultH;
         infCanvas.width = infCanvasW; infCanvas.height = infCanvasH;
         infCanvas.style.width = infCanvasW + 'px';
         infCanvas.style.height = infCanvasH + 'px';
+        console.log('[DEBUG-BOARD] Canvas size set to default:', { infCanvasW, infCanvasH });
         updateInfiniteResizeHandles();
         updateCursorByTurn();
         renderInfiniteBoard();
-        // Gọi auto-resize sau khi đã render lần đầu để điều chỉnh theo màn hình
         requestAnimationFrame(() => requestAnimationFrame(() => resizeInfCanvas()));
     }
 }
@@ -475,28 +542,30 @@ function saveCanvasSize(w, h) {
 }
 function applyCanvasSize(w, h, forceRatio = false) {
     if (!infCanvas) return;
-    
-    // Chỉ ép 70% ratio khi forceRatio = true (auto-resize, preset buttons)
-    if (forceRatio) {
+
+    const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
+
+    if (isOnline) {
+        // Online: dùng kích thước thực từ container, KHÔNG áp tỉ lệ 70%
+        // Chiều cao do container quyết định (shared-board-container có height tường minh)
+        h = Math.min(h, Math.floor(window.innerHeight * 0.85));
+    } else if (forceRatio) {
         h = Math.floor(w * 0.7);
     } else {
-        // Manual resize: chỉ giới hạn tối đa 70%, cho phép tự do điều chỉnh
         h = Math.min(h, Math.floor(w * 0.7));
+        h = Math.min(h, Math.floor(window.innerHeight * 0.68));
     }
-    
-    // Giới hạn chiều cao theo viewport để bàn cờ + thanh điều khiển không tràn màn hình
-    h = Math.min(h, Math.floor(window.innerHeight * 0.68));
-    
-    // Sử dụng Math.floor thay vì Math.round để đảm bảo không vượt quá kích thước có sẵn
+
+    // Làm tròn xuống bội số INF_CS để grid vừa khít
     infCanvasW = Math.max(8 * INF_CS, Math.floor(w / INF_CS) * INF_CS);
     infCanvasH = Math.max(8 * INF_CS, Math.floor(h / INF_CS) * INF_CS);
-    
-    // Đảm bảo sau khi làm tròn, chiều cao không vượt quá giới hạn
-    const maxH = forceRatio ? Math.floor(infCanvasW * 0.7) : Math.floor(infCanvasW * 0.7);
-    if (infCanvasH > maxH) {
-        infCanvasH = maxH;
+
+    // Offline: đảm bảo chiều cao không vượt 70% chiều rộng
+    if (!isOnline) {
+        const maxH = Math.floor(infCanvasW * 0.7);
+        if (infCanvasH > maxH) infCanvasH = maxH;
     }
-    
+
     infCanvas.width  = infCanvasW;
     infCanvas.height = infCanvasH;
     infCanvas.style.width  = infCanvasW + 'px';
@@ -591,9 +660,28 @@ function autoResizeInfCanvas() {
     // Kiểm tra xem auto resize có được bật không
     const autoCheckbox = document.getElementById('auto-size-checkbox');
     const isAuto = autoCheckbox ? autoCheckbox.checked : true;
-    if (!isAuto) return; // Không auto-resize nếu người dùng đã tắt
-    
-    // Ưu tiên đo theo container thực chứa canvas (tránh đo sai khi online)
+    if (!isAuto) return;
+
+    const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
+
+    // Online: đo theo shared-board-online container (canvas nằm trực tiếp trong đó)
+    if (isOnline) {
+        const sbOnline = document.getElementById('shared-board-online');
+        if (!sbOnline) return;
+        const rect = sbOnline.getBoundingClientRect();
+        const availW = Math.max(200, rect.width - 4);
+        const availH = Math.max(150, rect.height - 4);
+        console.log('[DEBUG-BOARD] autoResizeInfCanvas (online):', { availW, availH });
+        if (availW > 50 && availH > 50) {
+            // Chỉ resize khi lệch đáng kể để tránh loop từ room-health ping
+            if (Math.abs(infCanvasW - availW) > INF_CS || Math.abs(infCanvasH - availH) > INF_CS) {
+                applyCanvasSize(availW, availH, false);
+            }
+        }
+        return;
+    }
+
+    // Offline: logic cũ
     const wrapper = document.getElementById('inf-resizable');
     let availW;
     if (wrapper) {
@@ -616,33 +704,12 @@ function autoResizeInfCanvas() {
         availW = Math.max(300, window.innerWidth - rect.left - 40);
     }
     
-    // Khi bàn cờ nằm trong unified-board-slot (BattleView): dùng kích thước vuông theo slot
-    const unifiedSlot = document.getElementById('unified-board-slot');
-    if (unifiedSlot && wrapper && unifiedSlot.contains(wrapper)) {
-        const slotRect = unifiedSlot.getBoundingClientRect();
-        const slotW = slotRect.width;
-        const slotH = slotRect.height;
-        // Nếu slot chưa render (h=0), fallback về 85% viewport
-        const slotSize = (slotW > 50 && slotH > 50)
-            ? Math.max(200, Math.min(slotW, slotH) - 8)
-            : Math.max(200, Math.min(window.innerWidth * 0.85, window.innerHeight * 0.75));
-        applyCanvasSize(slotSize, slotSize, false);
-        return;
-    }
-
-    // ĐẢM BẢO CHIỀU CAO LÀ 70% CHIỀU RỘNG
     let availH = Math.floor(availW * 0.7);
-
-    // Giới hạn chiều cao tối đa là 70% viewport để tránh tràn
     availH = Math.min(availH, Math.floor(window.innerHeight * 0.7));
-
-    // Trên mobile khi online: giới hạn chiều cao để còn scroll xuống chat/nút
-    if (window.innerWidth <= 768 && window.isOnlineModeActive && window.isOnlineModeActive()) {
-        availH = Math.min(availH, Math.floor(window.innerHeight * 0.55));
+    if (window.innerWidth <= 768 && isOnline) {
+        availH = Math.min(availH, Math.floor(window.innerHeight * 0.45));
     }
-
-    applyCanvasSize(availW, availH, true); // Auto-resize: ép 70% ratio
-    // KHÔNG lưu canvas size khi auto-resize để tránh xung đột
+    applyCanvasSize(availW, availH, true);
 }
 
 let resizeTimeout = null;
@@ -659,12 +726,50 @@ window.addEventListener('resize', () => {
 
 // ===== RENDER BÀN =====
 function renderInfiniteBoard() {
+    // REMOVED GUARD: Allow old system to render in Online mode
+    // SharedBoardEngine is not initialized for Online mode, so old system must handle it
     if (!infCanvas) initInfCanvas();
     // Tắt render khi fullscreen để tránh flickering
     if (isFullscreen) return;
+
+    // Nếu canvas vẫn null sau khi init (element chưa tồn tại trong DOM), bail out sạch
+    if (!infCanvas || !infCtx) {
+        console.warn('[DEBUG-BOARD] renderInfiniteBoard: canvas/ctx not ready, skipping render');
+        return;
+    }
+
+    // Đảm bảo canvas có kích thước hợp lệ — trường hợp bố cục CSS chưa kịp áp dụng
+    if (infCanvasW === 0 || infCanvasH === 0) {
+        console.warn('[DEBUG-BOARD] renderInfiniteBoard: canvas size is 0, attempting resize');
+        const container = infCanvas.parentElement;
+        if (container) {
+            const cw = container.clientWidth || container.getBoundingClientRect().width;
+            if (cw > 0) {
+                const ch = Math.floor(cw * 0.7);
+                infCanvasW = cw; infCanvasH = ch;
+                infCanvas.width = cw; infCanvas.height = ch;
+                infCanvas.style.width = cw + 'px'; infCanvas.style.height = ch + 'px';
+                console.log('[DEBUG-BOARD] Canvas size fixed from container:', { infCanvasW, infCanvasH });
+            }
+        }
+        if (infCanvasW === 0) return; // Vẫn 0 thì bỏ qua
+    }
+
     const c  = infCtx;
     const W  = infCanvasW, H = infCanvasH;
     const CS = INF_CS;
+
+    console.log('[DEBUG-BOARD] renderInfiniteBoard called:', {
+        canvasWidth: W,
+        canvasHeight: H,
+        cellSize: CS,
+        canvasElement: infCanvas.id,
+        canvasClientWidth: infCanvas.clientWidth,
+        canvasClientHeight: infCanvas.clientHeight,
+        infiniteMapSize: typeof infiniteMap !== 'undefined' ? infiniteMap.size : 'undefined',
+        isGameActive: typeof isGameActive !== 'undefined' ? isGameActive : 'undefined',
+        isOnlineMode: typeof isOnlineMode !== 'undefined' ? isOnlineMode : 'undefined'
+    });
 
     const theme = document.getElementById('theme-select').value;
     const themeColors = {
@@ -756,8 +861,7 @@ function renderInfiniteBoard() {
     }
 
     // Hover preview — chỉ hiện khi đến lượt mình và KHÔNG fullscreen
-    // Dùng lại _onlineActive đã tính ở trên (tránh gọi isOnlineModeActive() lần 2)
-    const onlineActive = _onlineActive;
+    const onlineActive = window.isOnlineModeActive && window.isOnlineModeActive();
     const myTurn = onlineActive
         ? (typeof currentTurn !== 'undefined' && currentTurn === (window.myOnlineRole))
         : (gameMode === 'solo' || (gameMode.startsWith('ai') && currentPlayer !== botPiece));
@@ -881,18 +985,6 @@ document.addEventListener('fullscreenchange', () => {
     }
 });
 
-// Dirty rectangle tracking for optimized rendering
-let dirtyCells = new Set();
-let lastRenderedBoardHash = null;
-
-function markCellDirty(r, c) {
-    dirtyCells.add(`${r},${c}`);
-}
-
-function clearDirtyCells() {
-    dirtyCells.clear();
-}
-
 function scheduleRender() {
     // Hover effect đã bị tắt riêng trong infOnMouseMove nên render qua rAF không gây flickering.
     // PHẢI render khi pan (chuột phải / touch kéo) — nếu không bàn cờ sẽ không di chuyển.
@@ -976,25 +1068,37 @@ function infOnClick(e) {
     if (!infCanvas) return;
     if (e.button !== 0) return;
     if (panMoved) { panMoved = false; return; }
-    if (!isGameActive) return;
-    
-    // BUG 1 FIX: Block click if it occurred shortly after touch end (prevent double-firing)
-    const timeSinceTouch = performance.now() - lastTouchEndTime;
-    if (timeSinceTouch < TOUCH_CLICK_DELAY) {
-        return; // Ignore click - it's a duplicate of the touch event
+
+    console.log('[DEBUG-BOARD] infOnClick triggered:', {
+        isGameActive,
+        currentPlayer: typeof currentPlayer !== 'undefined' ? currentPlayer : 'undefined',
+        isOnlineMode: window.isOnlineModeActive ? window.isOnlineModeActive() : false,
+        myOnlineRole: window.myOnlineRole || null,
+        currentTurn: typeof currentTurn !== 'undefined' ? currentTurn : 'undefined',
+        gameMode: typeof gameMode !== 'undefined' ? gameMode : 'undefined',
+        botPiece: typeof botPiece !== 'undefined' ? botPiece : 'undefined'
+    });
+
+    if (!isGameActive) {
+        console.warn('[DEBUG-BOARD] Click blocked: isGameActive is false');
+        return;
     }
-    
+
+    // Chặn double-fire sau touch
+    const timeSinceTouch = performance.now() - lastTouchEndTime;
+    if (timeSinceTouch < TOUCH_CLICK_DELAY) return;
+
     const rect = infCanvas.getBoundingClientRect();
     const { r, c } = canvasPixelToCell(e.clientX - rect.left, e.clientY - rect.top);
 
-    // Chế độ online: giao hết cho makeMove, không xử lý ở đây
+    // ── ONLINE MODE: makeMove xử lý tất cả kiểm tra lượt/role ──
     if (window.isOnlineModeActive && window.isOnlineModeActive()) {
         if (getCell(r, c) !== '') return;
         makeMove(r, c);
         return;
     }
 
-    // --- Offline ---
+    // ── OFFLINE MODE ──
     if (gameMode.startsWith('ai') && currentPlayer === botPiece) return;
     if (getCell(r, c) !== '') return;
     makeMove(r, c);
@@ -1065,17 +1169,19 @@ function infOnTouchMove(e) {
 function infOnTouchEnd(e) {
     e.preventDefault();
     infPanning = false;
-    lastTouchEndTime = performance.now(); // Track touch end time to block click
+    lastTouchEndTime = performance.now();
     if (!panMoved) {
         const t = e.changedTouches[0];
         const rect = infCanvas.getBoundingClientRect();
         const { r, c } = canvasPixelToCell(t.clientX - rect.left, t.clientY - rect.top);
         if (!isGameActive) return;
+        if (typeof r !== 'number' || typeof c !== 'number' || isNaN(r) || isNaN(c)) return;
         if (getCell(r, c) !== '') return;
 
-        // Online: giao cho makeMove
+        // ── ONLINE MODE ──
         if (window.isOnlineModeActive && window.isOnlineModeActive()) {
             makeMove(r, c);
+        // ── OFFLINE MODE ──
         } else if (!(gameMode.startsWith('ai') && currentPlayer === botPiece)) {
             makeMove(r, c);
         }
@@ -1102,7 +1208,12 @@ function infOnWheel(e) {
     INF_CS = Math.round(newCS);
     vRowF  = worldR - my / INF_CS;
     vColF  = worldC - mx / INF_CS;
-    saveZoom();
+    // Lưu zoom riêng theo mode
+    if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+        localStorage.setItem('caro_zoom_online', INF_CS);
+    } else {
+        saveZoom();
+    }
     renderInfiniteBoard();
 }
 
@@ -1121,13 +1232,15 @@ function zoomBoard(direction) {
 
 // ===== UNDO =====
 function undoMove() {
-    // Không cho undo khi đang chơi online
-    if (window.isOnlineModeActive && window.isOnlineModeActive()) return;
+    // REMOVED GUARD: Allow undo in online mode (for testing)
     if (moveHistory.length === 0 || !isGameActive) return;
     const lastMove = moveHistory.pop();
     setCell(lastMove.r, lastMove.c, "");
     moveCount--;
     currentPlayer = lastMove.player;
+
+    // DISABLED Shared Board Engine sync - use old system only
+    // This prevents conflicts between old system and SharedBoardEngine
 
     if (moveHistory.length > 0) {
         const prevMove = moveHistory[moveHistory.length - 1];
@@ -1172,21 +1285,32 @@ function jumpToOrigin() {
 
 // ===== CURSOR =====
 function updateCursorByTurn() {
-    const canvas = document.getElementById('inf-canvas');
+    const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
+    const canvas = document.getElementById(isOnline ? 'inf-canvas-online' : 'inf-canvas');
     if (!canvas) return;
     if (typeof currentPlayer === 'undefined') return;
 
-    // Lấy icon & màu của lượt hiện tại từ skin đang dùng
-    // Online: dùng skin theo role, offline: dùng skin của mình
-    const onlineActive = window.isOnlineModeActive && window.isOnlineModeActive();
-    let icon, color;
+    // Online: khi không phải lượt mình → cursor default (không gây nhầm)
+    if (isOnline) {
+        const myTurn = (typeof currentTurn !== 'undefined' && currentTurn === window.myOnlineRole);
+        if (!myTurn || !isGameActive) {
+            canvas.style.cursor = 'default';
+            return;
+        }
+        // Đến lượt mình: hiện icon quân của mình
+        const myRole = window.myOnlineRole;
+        const skinId = myRole === 'X' ? (window._onlineSkinX || 'skin_default') : (window._onlineSkinO || 'skin_default');
+        const skin = (typeof getSkinById === 'function') ? getSkinById(skinId) : null;
+        const icon  = skin ? (myRole === 'X' ? skin.icon_X : skin.icon_O) : myRole;
+        const color = skin ? (myRole === 'X' ? (skin.color_X || '#2563eb') : (skin.color_O || '#dc2626'))
+                           : (myRole === 'X' ? '#2563eb' : '#dc2626');
+        _setCursorIcon(canvas, icon, color);
+        return;
+    }
 
-    if (onlineActive && typeof getSkinById === 'function') {
-        const skinId = currentPlayer === 'X' ? (window._onlineSkinX || 'skin_default') : (window._onlineSkinO || 'skin_default');
-        const skin = getSkinById(skinId);
-        icon  = currentPlayer === 'X' ? skin.icon_X  : skin.icon_O;
-        color = currentPlayer === 'X' ? (skin.color_X || '#2563eb') : (skin.color_O || '#dc2626');
-    } else if (typeof getEquippedSkin === 'function') {
+    // Offline: dùng skin của mình theo lượt hiện tại
+    let icon, color;
+    if (typeof getEquippedSkin === 'function') {
         const skin = getEquippedSkin();
         icon  = currentPlayer === 'X' ? skin.icon_X  : skin.icon_O;
         color = currentPlayer === 'X' ? (skin.color_X || '#2563eb') : (skin.color_O || '#dc2626');
@@ -1194,31 +1318,31 @@ function updateCursorByTurn() {
         icon  = currentPlayer;
         color = currentPlayer === 'X' ? '#2563eb' : '#dc2626';
     }
+    _setCursorIcon(canvas, icon, color);
+}
 
-    const isEmoji = icon.length <= 2 && /\p{Emoji}/u.test(icon);
+// Helper vẽ cursor icon
+function _setCursorIcon(canvas, icon, color) {
+    const isEmoji = icon && icon.length <= 2 && /\p{Emoji}/u.test(icon);
     const SIZE = 32;
     const HOT  = Math.floor(SIZE / 2);
 
     if (isEmoji) {
-        // Render emoji vào canvas tạm → data URL
         const tmp = document.createElement('canvas');
         tmp.width = tmp.height = SIZE;
         const ctx2 = tmp.getContext('2d');
         ctx2.font = `${Math.floor(SIZE * 0.78)}px Segoe UI Emoji, Apple Color Emoji, sans-serif`;
-        ctx2.textAlign    = 'center';
-        ctx2.textBaseline = 'middle';
+        ctx2.textAlign = 'center'; ctx2.textBaseline = 'middle';
         ctx2.fillText(icon, SIZE / 2, SIZE / 2);
         canvas.style.cursor = `url('${tmp.toDataURL()}') ${HOT} ${HOT}, auto`;
     } else {
-        // X hoặc O: vẽ SVG với màu từ skin
-        const hex = color.replace('#', '');
+        const hex = (color || '#2563eb').replace('#', '');
         let svgContent;
         if (icon === 'X') {
             svgContent = `<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><line x1='2' y1='2' x2='12' y2='12' stroke='%23${hex}' stroke-width='2.5' stroke-linecap='round'/><line x1='12' y1='2' x2='2' y2='12' stroke='%23${hex}' stroke-width='2.5' stroke-linecap='round'/></svg>`;
         } else if (icon === 'O') {
             svgContent = `<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><circle cx='7' cy='7' r='5' stroke='%23${hex}' stroke-width='2.5' fill='none'/></svg>`;
         } else {
-            // Ký tự khác: vẽ text
             svgContent = `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><text x='8' y='13' text-anchor='middle' font-size='14' font-family='sans-serif' fill='%23${hex}'>${icon}</text></svg>`;
         }
         canvas.style.cursor = `url("data:image/svg+xml,${svgContent}") 7 7, auto`;

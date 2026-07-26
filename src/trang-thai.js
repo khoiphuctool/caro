@@ -29,8 +29,10 @@ function getZobristColIndex(c) {
 function updateZobristHash(r, c, oldPiece, newPiece) {
     const zr = getZobristIndex(r);
     const zc = getZobristColIndex(c);
-    const oldVal = oldPiece === '' ? 0 : (oldPiece === 'X' ? 1 : 2);
-    const newVal = newPiece === '' ? 0 : (newPiece === 'X' ? 1 : 2);
+    const oldVal = (oldPiece === 'X') ? 1 : (oldPiece === 'O' ? 2 : 0);
+    const newVal = (newPiece === 'X') ? 1 : (newPiece === 'O' ? 2 : 0);
+    // Guard: bỏ qua nếu table chưa sẵn sàng hoặc index ngoài range
+    if (!zobristTable[zr] || !zobristTable[zr][zc]) return;
     zobristHash ^= zobristTable[zr][zc][oldVal];
     zobristHash ^= zobristTable[zr][zc][newVal];
 }
@@ -160,30 +162,58 @@ function withCell(r, c, val, callback) {
     return result;
 }
 
+// ===== DEBUG HELPER — expose trạng thái ra window để F12 kiểm tra =====
+window.debugGameState = function() {
+    const info = {
+        isGameActive,
+        isInfinite,
+        isOnlineMode: typeof isOnlineMode !== 'undefined' ? isOnlineMode : 'undefined (check firebase-online.js)',
+        currentPlayer,
+        gameMode: typeof gameMode !== 'undefined' ? gameMode : 'undefined',
+        infiniteMapSize: infiniteMap.size,
+        infCanvasId: typeof infCanvas !== 'undefined' && infCanvas ? infCanvas.id : 'null',
+        infCanvasWidth: typeof infCanvasW !== 'undefined' ? infCanvasW : 0,
+        infCanvasHeight: typeof infCanvasH !== 'undefined' ? infCanvasH : 0,
+        infCanvasInitialized: typeof infCanvasInitialized !== 'undefined' ? infCanvasInitialized : 'undefined',
+        myOnlineRole: window.myOnlineRole || null,
+        currentTurn: typeof currentTurn !== 'undefined' ? currentTurn : 'undefined'
+    };
+    console.log('[DEBUG-BOARD] Game State Snapshot:', info);
+    return info;
+};
+console.log('[DEBUG-BOARD] trang-thai.js loaded — call window.debugGameState() in console to inspect state');
+
 // ===== GETTER / SETTER THỐNG NHẤT =====
 function getCell(r, c) {
     if (isInfinite) return infiniteMap.get(`${r},${c}`) || "";
     if (r < 0 || r >= boardSize || c < 0 || c >= boardSize) return "W";
-    return boardState[r][c];
+    // Guard: boardState chưa khởi tạo hoặc hàng chưa tồn tại
+    if (!boardState || !boardState[r]) return "";
+    return boardState[r][c] || "";
 }
 function setCell(r, c, val) {
     const oldVal = getCell(r, c);
     if (isInfinite) {
         if (val === "") {
             infiniteMap.delete(`${r},${c}`);
-            // Đồng bộ với GameState
             if (typeof GameState !== 'undefined' && GameState.board.infiniteMap) {
                 GameState.board.infiniteMap.delete(`${r},${c}`);
             }
         } else {
             infiniteMap.set(`${r},${c}`, val);
-            // Đồng bộ với GameState
             if (typeof GameState !== 'undefined' && GameState.board.infiniteMap) {
                 GameState.board.infiniteMap.set(`${r},${c}`, val);
             }
         }
     } else {
-        boardState[r][c] = val;
+        // Guard: boardState chưa tồn tại hoặc hàng chưa khởi tạo → fallback về infiniteMap
+        if (!boardState || !boardState[r]) {
+            console.warn('[DEBUG-BOARD] setCell: boardState[' + r + '] undefined, falling back to infiniteMap. isInfinite=' + isInfinite);
+            if (val === "") infiniteMap.delete(`${r},${c}`);
+            else infiniteMap.set(`${r},${c}`, val);
+        } else {
+            boardState[r][c] = val;
+        }
     }
     updateZobristHash(r, c, oldVal, val);
 }

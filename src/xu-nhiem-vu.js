@@ -11,6 +11,8 @@ const XU_CONFIG = {
     AVATAR_PRICE: 3000,
     BOT_REWARD: { easy: 300, medium: 400, hard: 400, god: 500 },
     BOT_DAILY_LIMIT: { easy: 5, medium: 8, hard: 10, god: 15 },
+    SOLO_WIN_REWARD: 200,      // Thưởng thắng PvP Solo Online
+    SOLO_WIN_DAILY_LIMIT: 20,  // Tối đa 20 trận/ngày
     BET_MIN: 100,
     BET_MAX: 5000
 };
@@ -379,7 +381,8 @@ function batDauCuoc(roomId, playerXId, playerOId) {
                         database.ref(`rooms/${roomId}/betPlayerX`).set(playerXId),
                         database.ref(`rooms/${roomId}/betPlayerO`).set(playerOId)
                     ]).then(() => {
-                        // Popup trừ xu cho người chơi hiện tại
+                        // Popup trừ xu cho CẢ HAI người chơi (mỗi người thấy trên client của mình)
+                        // Hàm batDauCuoc chạy trên cả 2 client qua langNgheThayDoiPhong
                         showXuPopup(-bet, 'Cược PVP 🎲');
                         if (typeof addNotification === 'function') {
                             addNotification('win', `🎲 Cược kích hoạt! Pot: ${(bet * 2).toLocaleString('vi-VN')} Xu — người thắng nhận tất!`);
@@ -409,14 +412,21 @@ function ketThucCuoc(roomId, winnerRole, isDraw) {
         if (isDraw) {
             database.ref(`users/${xId}/coins`).transaction(c => (c || 0) + bet);
             database.ref(`users/${oId}/coins`).transaction(c => (c || 0) + bet);
+            // Cả 2 bên đều thấy popup hoàn cược
             showXuPopup(bet, 'Hoàn cược (hòa) 🤝');
             if (typeof addNotification === 'function') addNotification('win', `🤝 Hòa! Xu cược hoàn lại.`);
         } else {
             const winnerId = winnerRole === 'X' ? xId : oId;
+            const loserId  = winnerRole === 'X' ? oId  : xId;
+            const myId = localStorage.getItem('current_user_id');
             database.ref(`users/${winnerId}/coins`).transaction(c => (c || 0) + pot)
                 .then(() => {
-                    const myId = localStorage.getItem('current_user_id');
-                    if (myId === winnerId) showXuPopup(pot, 'Thắng cược 🏆');
+                    if (myId === winnerId) {
+                        playCoinBurst(pot, 'Thắng cược! 🏆💰');
+                    } else if (myId === loserId) {
+                        // Người thua thấy popup thông báo mình đã thua xu cược
+                        showXuPopup(-bet, 'Thua cược 😔');
+                    }
                     if (typeof addNotification === 'function') {
                         addNotification('win', `🏆 Người thắng nhận ${pot.toLocaleString('vi-VN')} Xu từ cược!`);
                     }
@@ -694,6 +704,50 @@ function onWinBotXu(modeName) {
     });
 }
 window.onWinBotXu = onWinBotXu;
+
+// ──────────────────────────────────────────────
+// THƯỞNG XU KHI THẮNG SOLO ONLINE (PvP)
+// Giới hạn SOLO_WIN_DAILY_LIMIT trận/ngày
+// ──────────────────────────────────────────────
+function onWinSoloXu() {
+    const uid = _getUid();
+    const database = _getDb();
+    if (!uid || !database) return;
+
+    const today = getTodayStr();
+    const limitsRef = database.ref(`users/${uid}/soloDailyWins`);
+
+    limitsRef.once('value').then(snap => {
+        const data = snap.val() || {};
+        // Reset nếu sang ngày mới
+        const used = (data.date === today) ? (data.count || 0) : 0;
+        const max  = XU_CONFIG.SOLO_WIN_DAILY_LIMIT;
+        const reward = XU_CONFIG.SOLO_WIN_REWARD;
+
+        if (used >= max) {
+            if (typeof addNotification === 'function') {
+                addNotification('win', `Đã đạt giới hạn ${max} trận thắng Solo/ngày — quay lại vào ngày mai!`);
+            }
+            return;
+        }
+
+        // Transaction tăng counter và cộng xu
+        return limitsRef.transaction(() => ({ date: today, count: used + 1 }))
+            .then(res => {
+                if (!res.committed) return;
+                return database.ref(`users/${uid}/coins`).transaction(c => (c || 0) + reward)
+                    .then(coinsRes => {
+                        if (!coinsRes.committed) return;
+                        const rem = max - (used + 1);
+                        playCoinBurst(reward, `Thắng Solo Online! 🏆`);
+                        if (typeof addNotification === 'function') {
+                            addNotification('win', `🏆 Thắng Solo! +${reward} Xu (còn ${rem}/${max} lượt hôm nay)`);
+                        }
+                    });
+            });
+    });
+}
+window.onWinSoloXu = onWinSoloXu;
 
 // ──────────────────────────────────────────────
 // KHỞI TẠO: gọi sau khi Firebase sẵn sàng

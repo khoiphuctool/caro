@@ -32,6 +32,17 @@ body {
     user-select: none;
 }
 
+#inf-canvas-online {
+    animation: none !important;
+    transition: none !important;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    display: block;
+    cursor: default;
+}
+
 /* Tắt tất cả animation khi fullscreen để tránh flickering */
 body.fullscreen-mode * {
     animation: none !important;

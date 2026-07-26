@@ -375,7 +375,7 @@ a { text-decoration: none; }
 
 /* unified-board-slot: chiếm toàn bộ chiều cao còn lại, giữ tỉ lệ vuông */
 #unified-board-slot {
-  flex: 1; width: 100%; min-height: 0;
+  flex: 1; width: 100%; min-height: 280px;
   display: flex; justify-content: center; align-items: center;
   position: relative; overflow: hidden;
 }
@@ -613,6 +613,7 @@ a { text-decoration: none; }
   position: relative;
   width: 100%;
   height: 100%;
+  min-height: 280px;
   overflow: hidden;
   display: flex;
   justify-content: center;
@@ -620,15 +621,15 @@ a { text-decoration: none; }
   background: #f1f5f9;
   border-radius: var(--radius-md);
   min-width: 0;
-  min-height: 0;
   /* DO8.TXT: Ensure container takes available space */
   flex: 1;
+  align-self: stretch;
 }
 
 /* Shared board canvas (DO8.TXT) */
 .shared-board-canvas {
   display: block;
-  cursor: crosshair;
+  cursor: default;
   touch-action: none;
   /* DO8.TXT: Canvas size controlled by ViewportControl, not CSS */
   max-width: 100%;
@@ -644,6 +645,11 @@ a { text-decoration: none; }
   flex-direction: column;
   gap: var(--space-2);
   z-index: 100;
+  pointer-events: none;
+}
+
+.board-control-btn {
+  pointer-events: auto;
 }
 
 .board-control-btn {
@@ -2090,6 +2096,14 @@ function moveBoardToBattle() {
     const domBoard = document.getElementById('board');
     if (!slot) return;
 
+    // DO NOT move board in Online mode - SharedBoardEngine handles it
+    // Online mode uses inf-canvas-online in shared-board-online container
+    // This function is only for Practice mode (inf-canvas in shared-board-practice)
+    if (typeof window.isOnlineModeActive === 'function' && window.isOnlineModeActive()) {
+        console.log('[moveBoardToBattle] Skipping - Online mode uses SharedBoardEngine');
+        return;
+    }
+
     const el = infRes || domBoard;
     if (!el) return;
 
@@ -2104,7 +2118,8 @@ function moveBoardToBattle() {
                     ? Math.max(200, Math.min(slotW, slotH) - 8)
                     : Math.max(200, Math.min(window.innerWidth * 0.85, window.innerHeight * 0.7));
                 if (typeof applyCanvasSize === 'function' && infRes) applyCanvasSize(size, size, false);
-                if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
+                // DO NOT call renderInfiniteBoard() - it conflicts with SharedBoardEngine
+                // SharedBoardEngine handles rendering for Online mode
             });
         });
         return;
@@ -2130,11 +2145,10 @@ function moveBoardToBattle() {
                 : Math.max(200, Math.min(window.innerWidth * 0.85, window.innerHeight * 0.7));
             if (typeof applyCanvasSize === 'function' && infRes) {
                 applyCanvasSize(size, size, false);
-            } else if (typeof fitCanvasToContainer === 'function') {
-                fitCanvasToContainer();
             }
-            if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
-            if (typeof updateInfiniteResizeHandles === 'function') updateInfiniteResizeHandles();
+            // DO NOT call renderInfiniteBoard() or fitCanvasToContainer() - they conflict with SharedBoardEngine
+            // DO NOT call updateInfiniteResizeHandles() - it conflicts with SharedBoardEngine
+            // SharedBoardEngine handles rendering for Online mode
         });
     });
 }
@@ -2170,6 +2184,17 @@ window.switchView = function(name) {
         moveBoardToBattle();
         _syncBattleCards();
         setTimeout(_syncBattleRoomInfo, 300);
+        
+        // For Online mode: trigger SharedBoardEngine render when view becomes active
+        if (typeof window.isOnlineModeActive === 'function' && window.isOnlineModeActive()) {
+            requestAnimationFrame(() => {
+                if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.Renderer.initialized) {
+                    console.log('[switchView battle] Triggering SharedBoardEngine update for Online mode');
+                    SharedBoardEngine.update();
+                }
+            });
+        }
+        
         // Sync bet-info sang battle
         const betSrc = document.getElementById('bet-info-o');
         const betDst = document.getElementById('battle-bet-info');
@@ -2179,7 +2204,12 @@ window.switchView = function(name) {
             if (isVisible) betDst.textContent = betSrc.textContent || '';
         }
     } else if (prevId === 'view-battle' && name !== 'battle') {
-        returnBoardToTraining();
+        // DO NOT return board in Online mode - SharedBoardEngine handles it
+        if (typeof window.isOnlineModeActive === 'function' && window.isOnlineModeActive()) {
+            console.log('[switchView] Skipping returnBoardToTraining - Online mode uses SharedBoardEngine');
+        } else {
+            returnBoardToTraining();
+        }
     }
 
     if (name === 'training') {
