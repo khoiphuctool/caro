@@ -3,165 +3,12 @@
 // Thiết lập kích thước ô cờ mặc định ban đầu
 let kichThuocOCoHienTai = 24;
 
-// Hàm thay đổi kích thước ô cờ cho cả fixed board và infinite board
-function thayDoiKichThuocCo(luongThayDoi) {
-    kichThuocOCoHienTai += luongThayDoi;
-    
-    // Khống chế giới hạn: Thấp nhất là 18px, cao nhất 40px
-    if (kichThuocOCoHienTai < 18) kichThuocOCoHienTai = 18;
-    if (kichThuocOCoHienTai > 40) kichThuocOCoHienTai = 40;
-    
-    // Tắt auto resize khi người dùng thay đổi kích thước thủ công
-    const autoCheckbox = document.getElementById('auto-size-checkbox');
-    if (autoCheckbox) {
-        autoCheckbox.checked = false;
-        localStorage.setItem('caroAutoResize', 'false');
-    }
-    
-    // TRƯỜNG HỢP A: Nếu bàn cờ dùng các ô thẻ <td> (TABLE - Fixed Board)
-    const tatCaOCo = document.querySelectorAll('#board .cell');
-    if (tatCaOCo.length > 0) {
-        const fontSize = kichThuocOCoHienTai >= 30 ? "1.2rem" : (kichThuocOCoHienTai >= 24 ? "1rem" : "0.9rem");
-        boardElement.style.gridTemplateColumns = `repeat(${boardSize}, ${kichThuocOCoHienTai}px)`;
-        boardElement.style.gridTemplateRows = `repeat(${boardSize}, ${kichThuocOCoHienTai}px)`;
-        tatCaOCo.forEach(oCo => {
-            oCo.style.width = kichThuocOCoHienTai + 'px';
-            oCo.style.height = kichThuocOCoHienTai + 'px';
-            oCo.style.minWidth = kichThuocOCoHienTai + 'px';
-            oCo.style.fontSize = fontSize;
-        });
-        return;
-    }
-    
-    // TRƯỜNG HỢP B: Nếu bàn cờ dùng <canvas> (Infinite Board)
-    if (typeof INF_CS !== 'undefined') {
-        INF_CS = kichThuocOCoHienTai;
-        saveZoom();
-        if (typeof renderInfiniteBoard === 'function') {
-            renderInfiniteBoard();
-        }
-    }
-}
+// NOTE: SharedBoardEngine đã thay thế hệ thống cũ
+// Các hàm thayDoiKichThuocCo, setKichThuocCo đã bị xóa
+// Sử dụng SharedBoardEngine.ViewportControl và SharedBoardEngine.Camera thay thế
 
-// Hàm đặt kích thước ô cờ cố định (cho preset buttons)
-function setKichThuocCo(kichThuoc) {
-    // Khống chế giới hạn: Thấp nhất là 18px, cao nhất 40px
-    if (kichThuoc < 18) kichThuoc = 18;
-    if (kichThuoc > 40) kichThuoc = 40;
-    
-    kichThuocOCoHienTai = kichThuoc;
-    
-    // Tắt auto resize khi người dùng chọn kích thước thủ công
-    const autoCheckbox = document.getElementById('auto-size-checkbox');
-    if (autoCheckbox) {
-        autoCheckbox.checked = false;
-        localStorage.setItem('caroAutoResize', 'false');
-    }
-    
-    // TRƯỜNG HỢP A: Nếu bàn cờ dùng các ô thẻ <td> (TABLE - Fixed Board)
-    const tatCaOCo = document.querySelectorAll('#board .cell');
-    if (tatCaOCo.length > 0) {
-        const fontSize = kichThuocOCoHienTai >= 30 ? "1.2rem" : (kichThuocOCoHienTai >= 24 ? "1rem" : "0.9rem");
-        boardElement.style.gridTemplateColumns = `repeat(${boardSize}, ${kichThuocOCoHienTai}px)`;
-        boardElement.style.gridTemplateRows = `repeat(${boardSize}, ${kichThuocOCoHienTai}px)`;
-        tatCaOCo.forEach(oCo => {
-            oCo.style.width = kichThuocOCoHienTai + 'px';
-            oCo.style.height = kichThuocOCoHienTai + 'px';
-            oCo.style.minWidth = kichThuocOCoHienTai + 'px';
-            oCo.style.fontSize = fontSize;
-        });
-        return;
-    }
-    
-    // TRƯỜNG HỢP B: Nếu bàn cờ dùng <canvas> (Infinite Board)
-    if (typeof INF_CS !== 'undefined') {
-        INF_CS = kichThuocOCoHienTai;
-        saveZoom();
-        if (typeof renderInfiniteBoard === 'function') {
-            renderInfiniteBoard();
-        }
-    }
-}
-
-// Hàm đặt kích thước game-container (khung viền ngoài bàn cờ)
-function setContainerSize(percent) {
-    const gameContainer = document.getElementById('ui-game-container');
-    if (gameContainer) {
-        // Tắt auto resize khi người dùng chọn kích thước thủ công
-        const autoCheckbox = document.getElementById('auto-size-checkbox');
-        if (autoCheckbox) {
-            autoCheckbox.checked = false;
-        }
-        
-        // Đặt width theo phần trăm
-        gameContainer.style.width = percent + '%';
-        gameContainer.style.maxWidth = percent + '%';
-        
-        // Giới hạn chiều cao không vượt quá chiều rộng (hình chữ nhật)
-        gameContainer.style.height = 'auto';
-        gameContainer.style.maxHeight = 'none'; // Để container ôm trọn nội dung, tránh clip gây chồng lấp
-        
-        // Resize canvas để khớp với container mới
-        setTimeout(() => {
-            if (isInfinite && infCanvas) {
-                const containerRect = gameContainer.getBoundingClientRect();
-                let newW = containerRect.width;
-                
-                // Preset buttons: ép 70% ratio
-                applyCanvasSize(newW, newW * 0.7, true);
-            }
-        }, 100);
-        
-        // Cập nhật vị trí resize handles
-        updateResizeHandlesPosition();
-        
-        // Lưu vào localStorage
-        localStorage.setItem('caroContainerSize', percent);
-        localStorage.setItem('caroAutoResize', 'false');
-        // Lưu cả canvas size để persistence
-        if (isInfinite && infCanvas) {
-            saveCanvasSize(infCanvasW, infCanvasH);
-        }
-    }
-}
-
-// Cập nhật kích thước handle theo 2% chiều rộng THỰC của container.
-// CSS % theo chiều cao/chiều rộng riêng rẽ khiến handle bị méo và thường kẹt ở min-height.
-function updateResizeHandlesPosition() {
-    const container = document.getElementById('ui-game-container');
-    if (!container) return;
-
-    const containerWidth = container.getBoundingClientRect().width;
-    const handleSize = Math.max(12, Math.min(20, containerWidth * 0.02));
-    container.style.setProperty('--gc-handle-size', `${handleSize}px`);
-}
-
-// Hàm load kích thước container từ localStorage
-function loadContainerSize() {
-    const savedSize = localStorage.getItem('caroContainerSize');
-    const savedAuto = localStorage.getItem('caroAutoResize');
-    
-    const gameContainer = document.getElementById('ui-game-container');
-    const autoCheckbox = document.getElementById('auto-size-checkbox');
-    
-    // Luôn load trạng thái auto-resize checkbox
-    if (savedAuto && autoCheckbox) {
-        autoCheckbox.checked = savedAuto === 'true';
-    }
-    
-    if (savedSize && gameContainer) {
-        // Load kích thước đã lưu - set width, chiều cao tự động theo nội dung
-        const percent = parseInt(savedSize);
-        gameContainer.style.width = percent + '%';
-        gameContainer.style.maxWidth = percent + '%';
-        gameContainer.style.height = 'auto';
-        gameContainer.style.maxHeight = 'none'; // Để container ôm trọn nội dung, tránh clip gây chồng lấp
-    }
-
-    // Đồng bộ canvas với container vừa load — tránh canvas giữ kích thước px cũ
-    // (lưu từ phiên trước) không khớp container mới gây co/méo bàn cờ.
-    setTimeout(fitCanvasToContainer, 100);
-}
+// NOTE: Các hàm setContainerSize, loadContainerSize, updateResizeHandlesPosition đã bị xóa
+// SharedBoardEngine.ViewportControl quản lý viewport size
 
 // Ép canvas khớp bề rộng thực của vùng chứa (giữ tỉ lệ hiện tại, tối đa 70%)
 function fitCanvasToContainer() {
@@ -211,34 +58,7 @@ function fitCanvasToContainer() {
     }
 }
 
-// Hàm toggle auto resize
-function toggleAutoSize() {
-    const autoCheckbox = document.getElementById('auto-size-checkbox');
-    const isAuto = autoCheckbox ? autoCheckbox.checked : false;
-    
-    const gameContainer = document.getElementById('ui-game-container');
-    if (gameContainer) {
-        if (isAuto) {
-            // Bật auto - xóa kích thước cố định để tự động theo màn hình
-            gameContainer.style.width = '';
-            gameContainer.style.height = '';
-            gameContainer.style.maxWidth = '';
-            gameContainer.style.maxHeight = '';
-            
-            // Xóa kích thước đã lưu
-            localStorage.removeItem('caroContainerSize');
-            localStorage.setItem('caroAutoResize', 'true');
-        } else {
-            // Tắt auto - giữ nguyên kích thước hiện tại
-            localStorage.setItem('caroAutoResize', 'false');
-        }
-    }
-    
-    // Nếu auto bật, cũng gọi recalculateCellSizes cho fixed board
-    if (isAuto && !isInfinite) {
-        recalculateCellSizes();
-    }
-}
+// NOTE: Hàm toggleAutoSize đã bị xóa - SharedBoardEngine.ViewportControl quản lý auto mode
 
 // Hàm lưu kích thước canvas hiện tại
 function saveCurrentCanvasSize() {
@@ -778,7 +598,21 @@ function renderInfiniteBoard() {
         'cyber':       { bg:'#1e293b', grid:'#475569', x:'#38bdf8', o:'#f43f5e', lastMove:'#f43f5e', win:'#0284c7' },
         'luxury-wood': { bg:'#c2996b', grid:'#5c3d2e', x:'#ffffff', o:'#111111', lastMove:'#ffd700', win:'#b08556' }
     };
-    const col = themeColors[theme] || themeColors['pure-white'];
+    let col = themeColors[theme] || themeColors['pure-white'];
+    
+    // Override với board skin từ shop nếu đã equip
+    if (typeof getEquippedBoardSkin === 'function') {
+        const boardSkin = getEquippedBoardSkin();
+        if (boardSkin && boardSkin.id !== 'board_default') {
+            col = {
+                ...col,
+                bg: boardSkin.bg,
+                grid: boardSkin.grid,
+                win: boardSkin.win,
+                lastMove: boardSkin.lastMove
+            };
+        }
+    }
 
     c.fillStyle = col.bg;
     c.fillRect(0, 0, W, H);
@@ -887,11 +721,14 @@ function renderInfiniteBoard() {
         }
     }
 
-    // Nav bar
+    // Nav bar (UI đã bị xóa, thêm null check)
     const nav = document.getElementById('inf-nav');
-    const cr  = Math.floor(vRowF + rows/2), cc = Math.floor(vColF + cols/2);
-    document.getElementById('inf-coords').textContent = `Tâm: (${cr}, ${cc})`;
-    nav.style.display = 'block';
+    const coordsEl = document.getElementById('inf-coords');
+    if (nav && coordsEl) {
+        const cr  = Math.floor(vRowF + rows/2), cc = Math.floor(vColF + cols/2);
+        coordsEl.textContent = `Tâm: (${cr}, ${cc})`;
+        nav.style.display = 'block';
+    }
 
     // Vẽ điểm đánh giá ô (debug scores) — PHẢI ở cuối cùng để không bị ghi đè
     const showScores = document.getElementById('show-cell-scores');
@@ -1361,8 +1198,8 @@ function saveBlockBothEndsSetting() {
 }
 
 // Load kích thước container khi trang load
+// NOTE: loadContainerSize đã bị xóa - SharedBoardEngine quản lý viewport
 window.addEventListener('load', () => {
-    setTimeout(loadContainerSize, 500);
     setupGameContainerResize();
 });
 

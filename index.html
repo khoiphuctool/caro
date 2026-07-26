@@ -755,11 +755,11 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 <header id="app-header">
     <!-- Hàng 1: Navigation -->
     <div class="header-row1">
-        <div class="header-logo">⭕✖️ Caro ONLINE <span>Chần Pro</span></div>
+        <div class="header-logo">⭕✖️ Caro ONLINE - Chần Pro</div>
 
         <nav class="header-nav">
             <a href="https://khoiphuctool.github.io/caro/" target="_blank" class="nav-btn">🏠 <span>Trang Chủ</span></a>
-            <button class="nav-btn" onclick="switchView('home')">📖 <span>Giới thiệu</span></button>
+            <button class="nav-btn" onclick="moGioiThieu()">📖 <span>Giới thiệu</span></button>
 
             <!-- Shop dropdown -->
             <div class="shop-dropdown">
@@ -767,6 +767,7 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                 <div class="shop-menu" id="shop-menu">
                     <button class="shop-menu-item" onclick="moShopAvatar(); closeShopMenu()">🎭 Avatar</button>
                     <button class="shop-menu-item" onclick="moShopSkin(); closeShopMenu()">🎨 Quân Cờ</button>
+                    <button class="shop-menu-item" onclick="moShopBoardSkin(); closeShopMenu()">🎨 Bàn Cờ</button>
                 </div>
             </div>
 
@@ -941,30 +942,6 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 
             <!-- ticker đã chuyển lên trước app-header -->
 
-            <!-- DO8.TXT: Viewport size controls (separate from zoom) -->
-            <div class="board-zoom-controls" style="width:100%;">
-                <div class="zoom-presets">
-                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('auto')">Auto</button>
-                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('small')">Nhỏ</button>
-                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('medium')">Vừa</button>
-                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('large')">Lớn</button>
-                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('full')">Toàn màn hình</button>
-                </div>
-                <div class="auto-size-toggle">
-                    <label class="toggle-label">
-                        <input type="checkbox" id="auto-size-checkbox" checked onchange="toggleAutoSize()">
-                        <span class="toggle-slider"></span>
-                        <span class="toggle-text">Auto theo màn hình</span>
-                    </label>
-                    <button type="button" class="btn-save-size" onclick="saveCurrentCanvasSize()" title="Lưu kích thước">💾 Lưu</button>
-                </div>
-                <div id="inf-nav" style="display:none;text-align:center;padding:4px 0;font-size:0.75rem;opacity:0.7;gap:8px;justify-content:center;">
-                    📍 <span id="inf-coords"></span>
-                    <button onclick="jumpToCenter()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">🏠 Tâm</button>
-                    <button onclick="jumpToOrigin()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">⌂ Gốc</button>
-                    <button onclick="resizeInfCanvas()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">⛶ To</button>
-                </div>
-            </div>
 
             <!-- Board slot - Shared Board Engine (DO4.TXT) -->
             <div class="practice-board-slot" id="practice-board-slot">
@@ -1018,9 +995,6 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                 <div style="margin-bottom:6px;color:#94a3b8;font-weight:600;">⚙️ Giao diện</div>
                 <select id="theme-select" onchange="changeTheme()" style="width:100%;padding:4px 6px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:0.75rem;margin-bottom:6px;">
                     <option value="pure-white" selected>Minh Kính (Trắng)</option>
-                    <option value="pure-black">Hắc Dạ (Đen)</option>
-                    <option value="cyber">Cyber Neon</option>
-                    <option value="luxury-wood">Gỗ Thượng Lưu</option>
                 </select>
                 <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
                     <input type="checkbox" id="show-cell-scores"
@@ -1143,6 +1117,14 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                     style="display:none; padding:8px 20px; background:#10b981; color:#fff; border:none; border-radius:20px; font-weight:700; font-size:13px;">
                     BẮT ĐẦU 🎮
                 </button>
+                <button id="btn-guest-ready" onclick="oSanSang()"
+                    style="display:none; padding:8px 20px; background:#16a34a; color:#fff; border:none; border-radius:20px; font-weight:700; font-size:13px;">
+                    🟢 SẴN SÀNG
+                </button>
+                <button id="btn-guest-cancel-ready" onclick="oHuySanSang()"
+                    style="display:none; padding:8px 20px; background:#dc2626; color:#fff; border:none; border-radius:20px; font-weight:700; font-size:13px;">
+                    ↩ HỦY
+                </button>
                 <button id="btn-leave-match" class="btn-leave-room" onclick="xuLyThoatPhong()">Thoát phòng 🚪</button>
             </div>
         </div>
@@ -1227,22 +1209,9 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
             <div class="text-muted mt-2">Người thắng nhận 2× Xu · Bỏ cuộc = thua · Min 100 · Max 5.000 Xu</div>
         </div>
 
-        <!-- KHÁCH (O): Xem cược và bấm SẴN SÀNG -->
+        <!-- KHÁCH (O): Xem cược -->
         <div id="bet-info-o" style="display:none; padding:12px 16px; background:#fef9c3; border:1px solid #fbbf24; border-radius:8px; font-size:13px; color:#92400e;">
             <div id="bet-info-o-text" style="margin-bottom:10px;"></div>
-            <!-- Nút SẴN SÀNG / Hủy sẵn sàng -->
-            <div id="bet-confirm-btns" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                <button id="btn-guest-ready"
-                    onclick="oSanSang()"
-                    style="padding:8px 20px; background:#16a34a; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px;">
-                    🟢 SẴN SÀNG
-                </button>
-                <button id="btn-guest-cancel-ready"
-                    onclick="oHuySanSang()"
-                    style="display:none; padding:8px 16px; background:#dc2626; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px;">
-                    ↩ Hủy Sẵn Sàng
-                </button>
-            </div>
             <!-- Thông báo sau khi sẵn sàng -->
             <div id="guest-ready-msg" style="display:none; margin-top:8px; color:#065f46; font-weight:bold; font-size:13px;"></div>
         </div>
@@ -1303,23 +1272,6 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
         <!-- Cột giữa: Bàn cờ -->
         <div class="battle-center">
             <div class="battle-status-bar" id="battle-status-bar">Đang chơi...</div>
-            <!-- Viewport size controls (same as Practice) -->
-            <div class="board-zoom-controls" style="width:100%;">
-                <div class="zoom-presets">
-                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('auto')">Auto</button>
-                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('small')">Nhỏ</button>
-                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('medium')">Vừa</button>
-                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('large')">Lớn</button>
-                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('full')">Toàn màn hình</button>
-                </div>
-                <div class="auto-size-toggle">
-                    <label class="toggle-label">
-                        <input type="checkbox" id="auto-size-checkbox-online" checked onchange="toggleAutoSizeOnline()">
-                        <span class="toggle-slider"></span>
-                        <span class="toggle-text">Auto theo màn hình</span>
-                    </label>
-                </div>
-            </div>
             <!-- Shared Board Engine (DO4.TXT) -->
             <div id="unified-board-slot">
                 <div class="shared-board-container" id="shared-board-online">
@@ -1542,6 +1494,24 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
             <span>Mua theo <b>cặp O & X</b> — áp dụng cho mọi chế độ</span>
             <span>Số dư: <b id="shop-skin-xu-display">0 Xu</b></span>
         </div>
+        <div id="shop-skin-grid" class="shop-skin-grid"></div>
+    </div>
+</div>
+
+<div id="shop-board-skin-modal" class="xu-modal-overlay">
+    <div class="xu-modal-box" style="max-width:720px;">
+        <div class="xu-modal-header">
+            <h2 class="xu-modal-title">🎨 Cửa Hàng Bàn Cờ</h2>
+            <button class="xu-modal-close" onclick="dongShopBoardSkin()">&times;</button>
+        </div>
+        <div class="shop-skin-info">
+            <span>Mua <b>bàn cờ</b> — áp dụng cho Solo & Online</span>
+            <span>Số dư: <b id="shop-board-skin-xu-display">0 Xu</b></span>
+        </div>
+        <div id="shop-board-skin-grid" class="shop-board-skin-grid"></div>
+    </div>
+</div>
+        </div>
         <div id="shop-skin-grid"></div>
     </div>
 </div>
@@ -1567,6 +1537,54 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
         </div>
         <p style="font-size:12px; color:#9ca3af; margin:0 0 12px;">Top người chơi có nhiều Xu nhất</p>
         <div id="bxh-dagia-list"></div>
+    </div>
+</div>
+
+<!-- ================================================================
+     MODAL GIỚI THIỆU
+     ================================================================ -->
+<div id="gioi-thieu-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:20000; justify-content:center; align-items:center;">
+    <div style="background:white; border-radius:12px; padding:24px; width:90%; max-width:500px; font-family:Arial; position:relative; max-height:90vh; overflow-y:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+            <h2 style="margin:0; color:#333; font-size:18px;">📖 Giới thiệu</h2>
+            <button onclick="dongGioiThieu()" style="background:none; border:none; font-size:24px; cursor:pointer; color:#999;">&times;</button>
+        </div>
+        
+        <div style="color:#555; line-height:1.7; font-size:14px;">
+            <p style="margin-top:0;"><strong>⭕✖️ Caro ONLINE - Chần Pro</strong> là trò chơi cờ Caro (Gomoku) miễn phí với nhiều chế độ chơi hấp dẫn. Được phát triển để mang lại trải nghiệm chơi cờ thú vị và thách thức cho mọi người chơi.</p>
+            
+            <h3 style="color:#10b981; margin:16px 0 10px 0; font-size:15px;">🎯 Các Chế Độ Chơi</h3>
+            <ul style="margin:0; padding-left:20px;">
+                <li><strong>🏋️ Luyện Tập</strong>: Đấu với AI từ Dễ đến Tối Thượng, luyện kỹ năng và thử nghiệm chiến thuật</li>
+                <li><strong>⚔️ Online PvP</strong>: Đấu với người chơi khác, cược xu, leo rank và trở thành huyền thoại</li>
+                <li><strong>🛒 Cửa Hàng</strong>: Mua skin quân cờ, bàn cờ đẹp mắt với xu để tùy chỉnh giao diện</li>
+            </ul>
+            
+            <h3 style="color:#8b5cf6; margin:16px 0 10px 0; font-size:15px;">✨ Tính Năng Nổi Bật</h3>
+            <ul style="margin:0; padding-left:20px;">
+                <li>🤖 AI Tối Thượng với nhiều cấp độ khó (Dễ, Trung Bình, Khó, Tối Thượng)</li>
+                <li>🏆 Bảng Xếp Hạng và hệ thống rank (Gà Con → Hoàng Đế)</li>
+                <li>💰 Hệ thống Xu và nhiệm vụ hàng ngày</li>
+                <li>🎨 Cửa Hàng Skin (Avatar, Quân Cờ, Bàn Cờ) với nhiều độ hiếm</li>
+                <li>📊 Thống kê trận đấu, cấp độ và thành tích cá nhân</li>
+                <li>💬 Chat Thế Giới để trò chuyện với cộng đồng</li>
+            </ul>
+            
+            <h3 style="color:#f59e0b; margin:16px 0 10px 0; font-size:15px;">📞 Liên Hệ & Hỗ Trợ</h3>
+            <div style="background:#f8f9fa; border-radius:8px; padding:12px; margin-bottom:10px;">
+                <p style="margin:0 0 8px 0;"><strong>📱 Zalo kết bạn:</strong> <a href="https://zalo.me/0962768533" target="_blank" style="color:#3b82f6;">0962768533</a></p>
+                <p style="margin:0 0 8px 0;"><strong>📞 SĐT:</strong> 0962768533</p>
+                <p style="margin:0 0 8px 0;"><strong>📧 Email:</strong> khoiphuctool@gmail.com</p>
+            </div>
+            
+            <div style="background:#fef3c7; border-radius:8px; padding:12px; border:1px solid #f59e0b;">
+                <p style="margin:0 0 8px 0; color:#92400e;"><strong>❤️ Hỗ trợ tác giả:</strong></p>
+                <p style="margin:0 0 8px 0; color:#92400e;"><strong>🏦 BIDV:</strong> 4660488425</p>
+                <p style="margin:0; color:#92400e;"><strong>💳 Momo:</strong> 0962768533</p>
+            </div>
+            
+            <p style="margin-top:16px; font-size:13px; color:#888; text-align:center;">Cảm ơn bạn đã sử dụng Caro ONLINE! 🎉</p>
+        </div>
     </div>
 </div>
 
@@ -1620,6 +1638,32 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                 </div>
             </div>
             <div style="margin-top:8px; text-align:center;">Cấp bậc: <span id="st-rank" style="font-weight:bold; color:#ff8c00;">🐣 Gà Con</span></div>
+            <div style="margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <div style="background:white; border-radius:6px; padding:8px; text-align:center;">
+                    <div style="font-size:16px; font-weight:bold; color:#f59e0b;" id="settings-xu-display">0</div>
+                    <div style="font-size:11px; color:#888;">Số dư Xu</div>
+                </div>
+                <div style="background:white; border-radius:6px; padding:8px; text-align:center;">
+                    <div style="font-size:16px; font-weight:bold; color:#6366f1;" id="settings-level-display">Lv.1</div>
+                    <div style="font-size:11px; color:#888;">Cấp độ</div>
+                </div>
+                <div style="background:white; border-radius:6px; padding:8px; text-align:center;">
+                    <div style="font-size:16px; font-weight:bold; color:#10b981;" id="settings-wins-display">0</div>
+                    <div style="font-size:11px; color:#888;">Tổng thắng</div>
+                </div>
+                <div style="background:white; border-radius:6px; padding:8px; text-align:center;">
+                    <div style="font-size:16px; font-weight:bold; color:#ef4444;" id="settings-losses-display">0</div>
+                    <div style="font-size:11px; color:#888;">Tổng thua</div>
+                </div>
+                <div style="background:white; border-radius:6px; padding:8px; text-align:center;">
+                    <div style="font-size:16px; font-weight:bold; color:#3b82f6;" id="settings-skins-display">0</div>
+                    <div style="font-size:11px; color:#888;">Skin Quân</div>
+                </div>
+                <div style="background:white; border-radius:6px; padding:8px; text-align:center;">
+                    <div style="font-size:16px; font-weight:bold; color:#f59e0b;" id="settings-boards-display">0</div>
+                    <div style="font-size:11px; color:#888;">Bàn Cờ</div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -1726,57 +1770,6 @@ function _updateMobileTabs() {
 window.addEventListener('resize', _updateMobileTabs);
 // Chạy lần đầu sau DOM ready
 document.addEventListener('DOMContentLoaded', _updateMobileTabs);
-
-/* ── DO8.TXT: VIEWPORT SIZE CONTROLS (separate from zoom) ── */
-function setViewportSize(preset) {
-    if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.ViewportControl) {
-        SharedBoardEngine.ViewportControl.setPreset(preset);
-    }
-}
-window.setViewportSize = setViewportSize;
-
-function toggleAutoSize() {
-    const checkbox = document.getElementById('auto-size-checkbox');
-    if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.ViewportControl) {
-        SharedBoardEngine.ViewportControl.setAutoMode(checkbox.checked);
-    }
-}
-window.toggleAutoSize = toggleAutoSize;
-
-function toggleAutoSizeOnline() {
-    const checkbox = document.getElementById('auto-size-checkbox-online');
-    if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.ViewportControl) {
-        SharedBoardEngine.ViewportControl.setAutoMode(checkbox.checked);
-    }
-}
-window.toggleAutoSizeOnline = toggleAutoSizeOnline;
-
-function saveCurrentCanvasSize() {
-    // DO8.TXT: Save current viewport size preference to localStorage
-    if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.ViewportControl) {
-        localStorage.setItem('viewport_preset', SharedBoardEngine.ViewportControl.currentPreset);
-        localStorage.setItem('viewport_auto', SharedBoardEngine.ViewportControl.autoMode);
-        alert('Đã lưu kích thước bàn cờ!');
-    }
-}
-window.saveCurrentCanvasSize = saveCurrentCanvasSize;
-
-// Load saved viewport size on init
-document.addEventListener('DOMContentLoaded', () => {
-    const savedPreset = localStorage.getItem('viewport_preset');
-    const savedAuto = localStorage.getItem('viewport_auto');
-    if (savedPreset && typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.ViewportControl) {
-        SharedBoardEngine.ViewportControl.setPreset(savedPreset);
-        if (savedAuto !== null) {
-            SharedBoardEngine.ViewportControl.setAutoMode(savedAuto === 'true');
-            // Sync both checkboxes (Practice and Online)
-            const checkboxPractice = document.getElementById('auto-size-checkbox');
-            const checkboxOnline = document.getElementById('auto-size-checkbox-online');
-            if (checkboxPractice) checkboxPractice.checked = savedAuto === 'true';
-            if (checkboxOnline) checkboxOnline.checked = savedAuto === 'true';
-        }
-    }
-});
 
 /* ── SHOP DROPDOWN ── */
 function toggleShopMenu() {
@@ -2000,6 +1993,7 @@ function resetScoreTableToDefaults() {
 <script src="src/thong-bao.js"></script>
 <script src="src/xu-nhiem-vu.js"></script>
 <script src="src/shop-skin.js"></script>
+<script src="src/shop-board-skin.js"></script>
 <script src="src/room-health.js"></script>
 
 

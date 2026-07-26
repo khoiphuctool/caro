@@ -633,6 +633,11 @@ function highlightWinners(winningCells) {
         const cell = document.querySelector(`[data-row='${r}'][data-col='${c}']`);
         if (cell) cell.classList.add('winning-cell');
     });
+    // Sync winning cells to SharedBoardEngine for online mode
+    if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine && SharedBoardEngine.BoardState) {
+        const cellObjects = winningCells.map(([r, c]) => ({ x: r, y: c }));
+        SharedBoardEngine.BoardState.setWinningCells(cellObjects);
+    }
 }
 
 // ===== CANDIDATES =====

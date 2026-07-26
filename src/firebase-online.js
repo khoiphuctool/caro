@@ -1271,49 +1271,23 @@ function roiKhoiPhong(onDone) {
                         status: 'waiting', updatedAt: Date.now()
                     }).then(done);
                 } else {
-                    db.ref(`rooms/${rid}`).update({
-                        playerX_id: '', playerX_name: '', playerX_status: 'offline',
-                        status: 'empty', updatedAt: Date.now()
-                    }).then(done);
+                    db.ref(`rooms/${rid}`).remove().then(done);
                 }
             } else if (role === 'O' && myId === room.playerO_id) {
+                // Khách O thoát → reset guestReady và playerOConfirmed
                 db.ref(`rooms/${rid}`).update({
-                    playerO_id: '', playerO_name: '', playerO_status: 'offline', updatedAt: Date.now()
+                    playerO_id: '', playerO_name: '', playerO_status: 'offline',
+                    guestReady: false,
+                    playerOConfirmed: null,
+                    status: 'waiting', updatedAt: Date.now()
                 }).then(done);
             } else {
                 done();
             }
-
-        } else if (room.status === 'ended') {
-            if (role === 'viewer') { done(); return; }
-            const updates = { updatedAt: Date.now() };
-            if (role === 'X' && myId === room.playerX_id) {
-                if (room.playerO_id) {
-                    Object.assign(updates, {
-                        playerX_id: room.playerO_id, playerX_name: room.playerO_name,
-                        playerX_status: room.playerO_status || 'offline',
-                        playerO_id: '', playerO_name: '', playerO_status: 'offline',
-                        status: 'waiting'
-                    });
-                } else {
-                    Object.assign(updates, {
-                        playerX_id: '', playerX_name: '', playerX_status: 'offline',
-                        status: 'empty'
-                    });
-                }
-            } else if (role === 'O' && myId === room.playerO_id) {
-                Object.assign(updates, {
-                    playerO_id: '', playerO_name: '', playerO_status: 'offline',
-                    status: room.playerX_id ? 'waiting' : 'empty'
-                });
-            }
-            Object.assign(updates, { winner: '', endReason: '', moves: { init: true }, lastMove: { row: -1, col: -1, by: '' } });
-            db.ref(`rooms/${rid}`).update(updates).then(done);
-
         } else {
             done();
         }
-    });
+    }).catch(() => { done(); });
 }
 
 function _resetSauThoat(rid) {
@@ -1938,7 +1912,8 @@ function capNhatUIPhong(room) {
     // bet-info-o: khi waiting hiện thông báo tĩnh cho O; khi bet_confirm thì realtime listener xử lý
     const betInfo  = document.getElementById('bet-info-o');
     const betInfoText = document.getElementById('bet-info-o-text');
-    const betConfirmBtns = document.getElementById('bet-confirm-btns');
+    const btnGuestReady = document.getElementById('btn-guest-ready');
+    const btnGuestCancel = document.getElementById('btn-guest-cancel-ready');
     if (betInfo) {
         if (!laChuX && (room.status === 'waiting' || room.status === 'bet_confirm')) {
             const hasBet = room.betAmount && room.betAmount >= 100;
@@ -1946,27 +1921,22 @@ function capNhatUIPhong(room) {
             if (hasBet) {
                 if (betInfoText) betInfoText.textContent =
                     `🎲 Chủ phòng đặt cược: ${Number(room.betAmount).toLocaleString('vi-VN')} Xu — hãy xác nhận!`;
-                // Hiện nút SẴN SÀNG nếu O chưa confirm
-                const oConfirmed = room.playerOConfirmed || room.guestReady;
-                if (betConfirmBtns) betConfirmBtns.style.display = oConfirmed ? 'none' : 'flex';
-                const guestMsg = document.getElementById('guest-ready-msg');
-                const btnReady  = document.getElementById('btn-guest-ready');
-                const btnCancel = document.getElementById('btn-guest-cancel-ready');
-                if (oConfirmed) {
-                    if (btnReady)  btnReady.style.display  = 'none';
-                    if (btnCancel) btnCancel.style.display = 'inline-block';
-                    if (guestMsg) { guestMsg.style.display = 'block'; guestMsg.textContent = '✅ Đã sẵn sàng! Chờ chủ phòng bắt đầu...'; }
-                } else {
-                    if (btnReady)  btnReady.style.display  = 'inline-block';
-                    if (btnCancel) btnCancel.style.display = 'none';
-                    if (guestMsg) guestMsg.style.display   = 'none';
-                }
+            }
+            // Luôn hiển thị nút SẴN SÀNG ở header cho khách O khi vào phòng
+            const oConfirmed = room.playerOConfirmed || room.guestReady;
+            if (btnGuestReady) btnGuestReady.style.display = oConfirmed ? 'none' : 'inline-block';
+            if (btnGuestCancel) btnGuestCancel.style.display = oConfirmed ? 'inline-block' : 'none';
+            const guestMsg = document.getElementById('guest-ready-msg');
+            if (oConfirmed) {
+                if (guestMsg) { guestMsg.style.display = 'block'; guestMsg.textContent = '✅ Đã sẵn sàng! Chờ chủ phòng bắt đầu...'; }
             } else {
-                if (betConfirmBtns) betConfirmBtns.style.display = 'none';
+                if (guestMsg) guestMsg.style.display = 'none';
             }
         } else if (room.status !== 'bet_confirm') {
             betInfo.style.display = 'none';
-            if (betConfirmBtns) betConfirmBtns.style.display = 'none';
+            // Ẩn nút Sẵn sàng khi không phải khách O
+            if (btnGuestReady) btnGuestReady.style.display = 'none';
+            if (btnGuestCancel) btnGuestCancel.style.display = 'none';
         }
     }
 }
@@ -2679,25 +2649,70 @@ const SHOP_AVATAR_LIST = [
     { id: 'av_30', emoji: '💗', name: 'Trái Tim', free: false }
 ];
 
+function _getRank(wins, losses) {
+    const total = wins + losses;
+    if (total === 0) return '🐣 Gà Con';
+    const winRate = wins / total;
+    if (total < 5) return '🐣 Gà Con';
+    if (winRate < 0.3) return '🐤 Gà Mới';
+    if (winRate < 0.5) return '🐔 Gà Chơi';
+    if (winRate < 0.7) return '🦅 Đại Bàng';
+    if (winRate < 0.85) return '🦁 Sư Tử';
+    if (total < 20) return '🐉 Rồng';
+    return '👑 Hoàng Đế';
+}
+
 function moCapNhatTaiKhoan() {
     const modal = document.getElementById('account-settings-modal');
     if (!modal) return;
     modal.style.display = 'flex';
-
-    // Điền thông tin hiện tại
-    if (currentUserData) {
+    
+    // Cập nhật thống kê
+    if (typeof currentUserData !== 'undefined' && currentUserData) {
+        const data = currentUserData;
+        
+        // Xu
+        const xuEl = document.getElementById('settings-xu-display');
+        if (xuEl) xuEl.textContent = (data.coins || 0).toLocaleString('vi-VN');
+        
+        // Cấp độ
+        const wins = data.wins || 0;
+        const losses = data.losses || 0;
+        const level = Math.floor((wins + losses) / 10) + 1;
+        const levelEl = document.getElementById('settings-level-display');
+        if (levelEl) levelEl.textContent = 'Lv.' + level;
+        
+        // Thắng/Thua
+        const winsEl = document.getElementById('settings-wins-display');
+        if (winsEl) winsEl.textContent = wins;
+        const lossesEl = document.getElementById('settings-losses-display');
+        if (lossesEl) lossesEl.textContent = losses;
+        
+        // Skin Quân
+        const skinsEl = document.getElementById('settings-skins-display');
+        if (skinsEl) skinsEl.textContent = (data.ownedSkins || []).length;
+        
+        // Bàn Cờ
+        const boardsEl = document.getElementById('settings-boards-display');
+        if (boardsEl) boardsEl.textContent = (data.ownedBoardSkins || []).length;
+        
+        // Cập nhật thống kê cũ (để tương thích)
+        const stWinBot = document.getElementById('st-win-bot');
+        if (stWinBot) stWinBot.textContent = data.wins || 0;
+        const stRank = document.getElementById('st-rank');
+        if (stRank) {
+            const rank = _getRank(wins, losses);
+            stRank.textContent = rank;
+        }
+        
+        // Điền thông tin hiện tại
         const dn = document.getElementById('settings-display-name');
-        if (dn) dn.value = currentUserData.displayName || currentUserData.username || '';
+        if (dn) dn.value = data.displayName || data.username || '';
 
         const av = document.getElementById('settings-avatar-display');
-        if (av) av.textContent = currentUserData.avatar || (currentUserData.displayName || '?')[0].toUpperCase();
-
-        document.getElementById('st-win-bot').textContent  = currentUserData.winBot   || 0;
-        document.getElementById('st-win-solo').textContent = currentUserData.winSolo  || 0;
-        document.getElementById('st-lose-solo').textContent= currentUserData.loseSolo || 0;
-        document.getElementById('st-rank').textContent     = getRankName(currentUserData.winBot, currentUserData.winSolo);
+        if (av) av.textContent = data.avatar || (data.displayName || '?')[0].toUpperCase();
     }
-
+    
     // Build avatar picker — redirect sang Shop Avatar
     const pickerGrid = document.querySelector('#avatar-picker > div');
     if (pickerGrid) {
@@ -2726,6 +2741,18 @@ function moChonAvatar() {
     if (picker) picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
 }
 window.moChonAvatar = moChonAvatar;
+
+function moGioiThieu() {
+    const modal = document.getElementById('gioi-thieu-modal');
+    if (modal) modal.style.display = 'flex';
+}
+window.moGioiThieu = moGioiThieu;
+
+function dongGioiThieu() {
+    const modal = document.getElementById('gioi-thieu-modal');
+    if (modal) modal.style.display = 'none';
+}
+window.dongGioiThieu = dongGioiThieu;
 
 function chonAvatar(emoji) {
     const userId = localStorage.getItem('current_user_id');

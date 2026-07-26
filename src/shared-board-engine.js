@@ -253,6 +253,7 @@ const SharedBoardEngine = (function() {
             'luxury-wood': { bg: '#c2996b', grid: '#5c3d2e', x: '#ffffff', o: '#111111', lastMove: '#ffd700', win: '#b08556' }
         },
         currentTheme: 'pure-white',
+        boardSkin: null,  // Board skin from shop
         
         // Skin support
         skinX: { icon: 'X', color: null },
@@ -317,6 +318,11 @@ const SharedBoardEngine = (function() {
             this.skinO = skinO || { icon: 'O', color: null };
         },
         
+        // Set board skin from shop
+        setBoardSkin(skin) {
+            this.boardSkin = skin;
+        },
+        
         // Main render function
         render() {
             if (!this.ctx || !this.canvas) {
@@ -331,7 +337,18 @@ const SharedBoardEngine = (function() {
             const ctx = this.ctx;
             const W = this.viewportWidth;
             const H = this.viewportHeight;
-            const theme = this.themes[this.currentTheme];
+            let theme = this.themes[this.currentTheme];
+            
+            // Override with board skin if equipped
+            if (this.boardSkin) {
+                theme = {
+                    ...theme,
+                    bg: this.boardSkin.bg,
+                    grid: this.boardSkin.grid,
+                    win: this.boardSkin.win,
+                    lastMove: this.boardSkin.lastMove
+                };
+            }
             
             console.log('[SharedBoardEngine.render] Rendering:', {
                 viewportWidth: W,

@@ -348,6 +348,7 @@ function datCuocMoi(amount) {
         playerOConfirmed: null
     }).then(() => {
         currentBetAmount = amount;
+        thongBaoHeThong(`💰 Đã đặt cược ${amount.toLocaleString('vi-VN')} Xu — khách cần xác nhận lại!`);
         return true;
     });
 }
@@ -359,21 +360,44 @@ function oSanSang() {
     const roomId   = (typeof currentRoomId !== 'undefined') ? currentRoomId : null;
     if (!database || !roomId) return;
 
-    database.ref(`rooms/${roomId}`).update({
-        guestReady: true,
-        playerOConfirmed: true,
-        updatedAt: Date.now()
+    // Kiểm tra xem có cược không
+    database.ref(`rooms/${roomId}`).once('value').then(snap => {
+        const room = snap.val();
+        if (!room) return;
+
+        const hasBet = room.betAmount && room.betAmount >= 100;
+
+        if (hasBet) {
+            // Có cược → yêu cầu xác nhận
+            const dongY = confirm(`🎰 Chủ phòng cược ${room.betAmount.toLocaleString('vi-VN')} Xu\n\nBạn có đồng ý cược này không?\n\nBấm OK để đồng ý, Cancel để từ chối.`);
+            if (!dongY) {
+                thongBaoHeThong('❌ Bạn đã từ chối cược — hãy yêu cầu chủ phòng thay đổi cược!');
+                return;
+            }
+            // Đồng ý cược → set cả guestReady và playerOConfirmed
+            database.ref(`rooms/${roomId}`).update({
+                guestReady: true,
+                playerOConfirmed: true,
+                updatedAt: Date.now()
+            });
+        } else {
+            // Không có cược → chỉ cần guestReady
+            database.ref(`rooms/${roomId}`).update({
+                guestReady: true,
+                updatedAt: Date.now()
+            });
+        }
+
+        // Cập nhật UI
+        const btnReady  = document.getElementById('btn-guest-ready');
+        const btnCancel = document.getElementById('btn-guest-cancel-ready');
+        const msgEl     = document.getElementById('guest-ready-msg');
+        if (btnReady)  btnReady.style.display  = 'none';
+        if (btnCancel) btnCancel.style.display = 'inline-block';
+        if (msgEl)   { msgEl.style.display = 'block'; msgEl.textContent = '✅ Bạn đã sẵn sàng! Chờ chủ phòng bắt đầu...'; }
+
+        if (typeof thongBaoHeThong === 'function') thongBaoHeThong('✅ Đã sẵn sàng — chờ chủ phòng...');
     });
-
-    // Cập nhật UI
-    const btnReady  = document.getElementById('btn-guest-ready');
-    const btnCancel = document.getElementById('btn-guest-cancel-ready');
-    const msgEl     = document.getElementById('guest-ready-msg');
-    if (btnReady)  btnReady.style.display  = 'none';
-    if (btnCancel) btnCancel.style.display = 'inline-block';
-    if (msgEl)   { msgEl.style.display = 'block'; msgEl.textContent = '✅ Bạn đã sẵn sàng! Chờ chủ phòng bắt đầu...'; }
-
-    if (typeof thongBaoHeThong === 'function') thongBaoHeThong('✅ Đã sẵn sàng — chờ chủ phòng...');
 }
 window.oSanSang = oSanSang;
 
@@ -627,7 +651,7 @@ window.showXuPopup = showXuPopup;
 // ──────────────────────────────────────────────
 function playCoinBurst(amount, label) {
     // Popup +xu vàng với label tùy chỉnh
-    showXuPopup(amount, label || 'Nhận thưởng! �');
+    showXuPopup(amount, label || 'Nhận thưởng! 🎉');
 
     // Hiệu ứng đồng xu nổ trên canvas
     const canvas = document.getElementById('confetti-canvas');
@@ -635,33 +659,88 @@ function playCoinBurst(amount, label) {
     const ctx2 = canvas.getContext('2d');
     const cx = canvas.width / 2;
     const cy = canvas.height / 2;
+    
     let coins = [];
-    for (let i = 0; i < 30; i++) {
+    let animationId = null;
+    let startTime = Date.now();
+    const MAX_DURATION = 2000; // 2 giây
+    
+    // Tạo particles (giảm từ 30 xuống 20 để tối ưu)
+    for (let i = 0; i < 20; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const speed = Math.random() * 8 + 4;
+        const speed = Math.random() * 6 + 3;
         coins.push({
             x: cx, y: cy,
             vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed - 3,
-            alpha: 1, size: Math.random() * 16 + 10
+            vy: Math.sin(angle) * speed - 2,
+            alpha: 1, 
+            size: Math.random() * 12 + 8,
+            rotation: Math.random() * Math.PI * 2,
+            rotationSpeed: (Math.random() - 0.5) * 0.2
         });
     }
 
     function animCoins() {
+        // Kiểm tra thời gian
+        if (Date.now() - startTime > MAX_DURATION) {
+            stopAnimation();
+            return;
+        }
+        
+        // Clear canvas trước mỗi frame
+        ctx2.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Lọc particles còn visible
         coins = coins.filter(c => c.alpha > 0.05);
-        if (coins.length === 0) return;
+        if (coins.length === 0) {
+            stopAnimation();
+            return;
+        }
+        
+        // Render mỗi particle
         for (const c of coins) {
             ctx2.save();
             ctx2.globalAlpha = c.alpha;
-            ctx2.font = `${c.size}px serif`;
-            ctx2.fillText('🪙', c.x, c.y);
+            ctx2.translate(c.x, c.y);
+            ctx2.rotate(c.rotation);
+            
+            // Vẽ hình tròn vàng với gradient (thay vì emoji)
+            const gradient = ctx2.createRadialGradient(0, 0, 0, 0, 0, c.size);
+            gradient.addColorStop(0, '#FFD700'); // Vàng sáng
+            gradient.addColorStop(0.7, '#FFA500'); // Cam
+            gradient.addColorStop(1, '#FF8C00'); // Cam đậm
+            
+            ctx2.beginPath();
+            ctx2.arc(0, 0, c.size, 0, Math.PI * 2);
+            ctx2.fillStyle = gradient;
+            ctx2.fill();
+            
+            // Thêm viền vàng nhạt
+            ctx2.strokeStyle = '#FFF8DC';
+            ctx2.lineWidth = 1;
+            ctx2.stroke();
+            
             ctx2.restore();
-            c.x += c.vx; c.y += c.vy;
-            c.vy += 0.3;
-            c.alpha -= 0.025;
+            
+            // Cập nhật vị trí
+            c.x += c.vx;
+            c.y += c.vy;
+            c.vy += 0.25; // Gravity
+            c.rotation += c.rotationSpeed;
+            c.alpha -= 0.02; // Fade out
         }
-        requestAnimationFrame(animCoins);
+        
+        animationId = requestAnimationFrame(animCoins);
     }
+    
+    function stopAnimation() {
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+        }
+        ctx2.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    
     animCoins();
 }
 window.playCoinBurst = playCoinBurst;

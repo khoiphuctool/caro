@@ -2453,7 +2453,116 @@ body.in-game-active #inf-canvas {
    SHOP SKIN QUÂN CỜ
    ══════════════════════════════════════════════════════════════════ */
 
-/* Grid hiển thị danh sách skin */
+/* Grid hiển thị danh sách board skin */
+#shop-board-skin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 4px;
+}
+
+.shop-board-skin-card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: all 0.2s;
+}
+
+.shop-board-skin-card:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.2);
+    transform: translateY(-2px);
+}
+
+.shop-board-skin-preview {
+    width: 100%;
+    height: 80px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+}
+
+.shop-board-skin-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.shop-board-skin-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #e2e8f0;
+}
+
+.shop-board-skin-rarity {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.shop-board-skin-desc {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    line-height: 1.3;
+}
+
+.shop-board-skin-actions {
+    margin-top: auto;
+}
+
+.shop-board-skin-btn {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: none;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.shop-board-skin-btn.buy {
+    background: #3b82f6;
+    color: white;
+}
+
+.shop-board-skin-btn.buy:hover {
+    background: #2563eb;
+}
+
+.shop-board-skin-btn.equip {
+    background: #10b981;
+    color: white;
+}
+
+.shop-board-skin-btn.equip:hover {
+    background: #059669;
+}
+
+.shop-board-skin-btn.equipped {
+    background: #6b7280;
+    color: white;
+    cursor: not-allowed;
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+    #shop-board-skin-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 12px;
+        max-height: 60vh;
+    }
+}
+
+/* Grid hiển thị danh sách skin quân cờ */
 #shop-skin-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));

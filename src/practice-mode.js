@@ -142,6 +142,11 @@ const PracticeMode = (function() {
         _state.missionProcessed = false;
         _state.active        = true;
 
+        // Ẩn header để bàn cờ rộng hơn
+        const appHeader = document.getElementById('app-header');
+        if (appHeader) appHeader.style.display = 'none';
+        document.body.classList.add('in-game-active');
+
         // Set game-mode selector để logic-game.js đọc đúng
         const modeEl = document.getElementById('game-mode');
         if (modeEl) {
@@ -164,6 +169,11 @@ const PracticeMode = (function() {
         // Khởi tạo game qua engine hiện có
         if (typeof initGame === 'function') {
             initGame();
+        }
+
+        // Áp dụng board skin từ shop
+        if (typeof applyBoardSkinToEngine === 'function') {
+            applyBoardSkinToEngine();
         }
 
         _setStatus('🟢 LƯỢT CỦA BẠN (X)');
