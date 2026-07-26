@@ -1,0 +1,404 @@
+// ===================================================================
+// PRACTICE MODE — Chế độ Luyện Tập
+// Phòng đấu giả lập: Người chơi vs Bot
+// Không cần đăng nhập, không cược, không đuổi
+// Dùng chung Shared Board Engine với Online (DO4.TXT implementation)
+// ===================================================================
+
+const PracticeMode = (function() {
+    // ── STATE ──────────────────────────────────────────────────────
+    let _state = {
+        active:     false,
+        botLevel:   null,   // 'ai-easy' | 'ai-medium' | 'ai-hard' | 'ai-god'
+        sessionId:  null,
+        missionProcessed: false,
+        phase: 'select',    // 'select' | 'playing' | 'ended'
+        boardInitialized: false
+    };
+
+    const BOT_LEVELS = [
+        { value: 'ai-easy',   label: '🤖 BOT DỄ',        emoji: '🟢' },
+        { value: 'ai-medium', label: '🤖 BOT TRUNG BÌNH', emoji: '🟡' },
+        { value: 'ai-hard',   label: '🤖 BOT KHÓ',        emoji: '🟠' },
+        { value: 'ai-god',    label: '👑 BOT TỐI THƯỢNG', emoji: '💀' }
+    ];
+
+    // Tên hiển thị rút gọn
+    const BOT_DISPLAY = {
+        'ai-easy':   'Bot Dễ',
+        'ai-medium': 'Bot Trung Bình',
+        'ai-hard':   'Bot Khó',
+        'ai-god':    'Bot Tối Thượng 💀'
+    };
+
+    // ── HELPERS ────────────────────────────────────────────────────
+    function _genSessionId() {
+        return 'ps_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    }
+
+    function _getPlayerName() {
+        // Ưu tiên tên đăng nhập; fallback khách
+        if (typeof window.currentUserData !== 'undefined' && window.currentUserData) {
+            return window.currentUserData.displayName || window.currentUserData.username || 'Bạn';
+        }
+        if (typeof window.currentUsername !== 'undefined' && window.currentUsername) {
+            return window.currentUsername;
+        }
+        return 'Bạn';
+    }
+
+    function _isLoggedIn() {
+        return !!(
+            (typeof window.currentUserData !== 'undefined' && window.currentUserData) ||
+            (typeof window.currentUsername !== 'undefined' && window.currentUsername)
+        );
+    }
+
+    // ── UI HELPERS ─────────────────────────────────────────────────
+    function _setStatus(html) {
+        const el = document.getElementById('practice-status-bar');
+        if (el) el.innerHTML = html;
+        // Sync sang status-panel cũ (dùng bởi logic-game.js)
+        const sp = document.getElementById('status-panel');
+        if (sp) sp.innerHTML = html;
+    }
+
+    function _setIndicator(activePlayer) {
+        // activePlayer: 'X' = lượt người, 'O' = lượt bot, null = kết thúc
+        const indX = document.getElementById('practice-indicator-x');
+        const indO = document.getElementById('practice-indicator-o');
+        if (!indX || !indO) return;
+        if (activePlayer === 'X') {
+            indX.textContent = '🟢 Lượt của bạn';
+            indX.className   = 'practice-indicator practice-indicator-active';
+            indO.textContent = 'Đang chờ';
+            indO.className   = 'practice-indicator practice-indicator-inactive';
+        } else if (activePlayer === 'O') {
+            indX.textContent = 'Đang chờ';
+            indX.className   = 'practice-indicator practice-indicator-inactive';
+            indO.textContent = '🤖 Đang tính...';
+            indO.className   = 'practice-indicator practice-indicator-active';
+        } else {
+            indX.className = 'practice-indicator practice-indicator-inactive';
+            indO.className = 'practice-indicator practice-indicator-inactive';
+        }
+    }
+
+    function _updatePlayerCards() {
+        // Card X (người chơi)
+        const nameX = document.getElementById('practice-name-x');
+        if (nameX) nameX.textContent = _getPlayerName();
+
+        // Card O (bot)
+        const nameO = document.getElementById('practice-name-o');
+        if (nameO) nameO.textContent = BOT_DISPLAY[_state.botLevel] || 'Bot';
+
+        // Stats nếu đăng nhập
+        const statsX = document.getElementById('practice-stats-x');
+        if (statsX) {
+            if (_isLoggedIn() && typeof window.currentUserData !== 'undefined' && window.currentUserData) {
+                const d = window.currentUserData;
+                statsX.textContent = `🤖${d.winBot||0} ⚔️${d.winSolo||0} 📉${d.loseSolo||0}`;
+            } else {
+                statsX.textContent = '🎯 Khách';
+            }
+        }
+    }
+
+    // ── RENDER PHASE: SELECT BOT ────────────────────────────────────
+    function _showSelectPhase() {
+        _state.phase = 'select';
+        const overlay = document.getElementById('practice-select-overlay');
+        if (overlay) overlay.style.display = 'flex';
+    }
+
+    function _hideSelectPhase() {
+        const overlay = document.getElementById('practice-select-overlay');
+        if (overlay) overlay.style.display = 'none';
+    }
+
+    function _showPlayingPhase() {
+        _state.phase = 'playing';
+        _hideSelectPhase();
+
+        // Hiện các nút điều khiển
+        const ctrl = document.getElementById('practice-controls');
+        if (ctrl) ctrl.style.display = 'flex';
+
+        // Cập nhật thẻ tên bot
+        const badgeO = document.getElementById('practice-badge-o');
+        if (badgeO) badgeO.textContent = '⚔️ ' + (BOT_DISPLAY[_state.botLevel] || 'Bot') + ' · Đối thủ';
+
+        _updatePlayerCards();
+    }
+
+    // ── KHỞI ĐỘNG LUYỆN TẬP ────────────────────────────────────────
+    function startWithBot(level) {
+        if (!BOT_LEVELS.find(b => b.value === level)) {
+            level = 'ai-god';
+        }
+        _state.botLevel      = level;
+        _state.sessionId     = _genSessionId();
+        _state.missionProcessed = false;
+        _state.active        = true;
+
+        // Set game-mode selector để logic-game.js đọc đúng
+        const modeEl = document.getElementById('game-mode');
+        if (modeEl) {
+            modeEl.value = level;
+        }
+
+        // Người chơi luôn là X, bot là O
+        const pieceEl = document.getElementById('player-piece');
+        if (pieceEl) pieceEl.value = 'X';
+
+        const firstEl = document.getElementById('first-move');
+        if (firstEl) firstEl.value = 'X';
+
+        _showPlayingPhase();
+
+        // Initialize Shared Board Engine (DO4.TXT)
+        _initSharedBoard();
+
+        // Khởi tạo game qua engine hiện có
+        if (typeof initGame === 'function') {
+            initGame();
+        }
+
+        _setStatus('🟢 LƯỢT CỦA BẠN (X)');
+        _setIndicator('X');
+    }
+
+    // ── INITIALIZE SHARED BOARD ENGINE ─────────────────────────────
+    function _initSharedBoard() {
+        // Reset Shared Board Engine if it was initialized for Online mode
+        // This prevents canvas ID conflict between Online (inf-canvas-online) and Practice (inf-canvas)
+        if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.Renderer.initialized) {
+            console.log('Resetting Shared Board Engine for Practice mode (was previously initialized for Online)');
+            SharedBoardEngine.Renderer.destroy();
+            SharedBoardEngine.InputController.destroy();
+            SharedBoardEngine.ResponsiveLayout.destroy();
+            _state.boardInitialized = false;
+        }
+        
+        if (_state.boardInitialized) return;
+        
+        const canvas = document.getElementById('inf-canvas');
+        if (!canvas) {
+            console.warn('Shared Board Engine: canvas not found');
+            return;
+        }
+
+        // Initialize Shared Board Engine with move callback (only once)
+        if (typeof SharedBoardEngine !== 'undefined' && !_state.boardInitialized) {
+            SharedBoardEngine.init(canvas, _handleBoardMove);
+            _state.boardInitialized = true;
+            
+            // Set theme
+            const themeSelect = document.getElementById('theme-select');
+            if (themeSelect) {
+                SharedBoardEngine.Renderer.setTheme(themeSelect.value);
+            }
+            
+            console.log('Shared Board Engine initialized for Practice mode');
+        } else if (_state.boardInitialized) {
+            console.log('Shared Board Engine already initialized for Practice mode, skipping duplicate init');
+        } else {
+            console.warn('Shared Board Engine not available, falling back to old system');
+        }
+    }
+
+    // ── HANDLE BOARD MOVE FROM SHARED ENGINE ───────────────────────
+    function _handleBoardMove(worldX, worldY) {
+        if (!_state.active) return;
+        
+        // Convert world coordinates to the format expected by logic-game.js
+        // The old system uses row/col, new system uses world X/Y
+        // For practice, we can map world coordinates directly to row/col
+        const row = worldY;
+        const col = worldX;
+        
+        // Call the existing move handler from logic-game.js
+        if (typeof makeMove === 'function') {
+            makeMove(row, col);
+        }
+    }
+
+    // ── CHƠI LẠI ────────────────────────────────────────────────────
+    function playAgain() {
+        if (!_state.botLevel) {
+            _showSelectPhase();
+            return;
+        }
+        _state.sessionId        = _genSessionId();
+        _state.missionProcessed = false;
+        _state.phase            = 'playing';
+
+        const modeEl = document.getElementById('game-mode');
+        if (modeEl) modeEl.value = _state.botLevel;
+
+        // Clear Shared Board Engine state
+        if (typeof SharedBoardEngine !== 'undefined') {
+            SharedBoardEngine.BoardState.clear();
+            SharedBoardEngine.Camera.reset();
+            SharedBoardEngine.update();
+        }
+
+        if (typeof initGame === 'function') initGame();
+
+        _setStatus('🟢 LƯỢT CỦA BẠN (X)');
+        _setIndicator('X');
+
+        const ctrl = document.getElementById('practice-controls');
+        if (ctrl) ctrl.style.display = 'flex';
+    }
+
+    // ── ĐỔI BOT ─────────────────────────────────────────────────────
+    function changeBot() {
+        _state.phase  = 'select';
+        _state.active = false;
+        _showSelectPhase();
+
+        const ctrl = document.getElementById('practice-controls');
+        if (ctrl) ctrl.style.display = 'none';
+    }
+
+    // ── THOÁT ────────────────────────────────────────────────────────
+    function exit() {
+        _state.active = false;
+        _state.phase  = 'select';
+        _hideSelectPhase();
+        if (typeof switchView === 'function') switchView('home');
+    }
+
+    // ── CẬP NHẬT TRẠNG THÁI (gọi từ logic-game.js hooks) ───────────
+    function onGameEvent(event, data) {
+        if (!_state.active) return;
+        switch (event) {
+            case 'bot-thinking':
+                if (_state.phase !== 'ended') {
+                    _setStatus('🤖 BOT ĐANG SUY NGHĨ...');
+                    _setIndicator('O');
+                }
+                break;
+            case 'player-turn':
+                if (_state.phase !== 'ended') {
+                    _setStatus('🟢 LƯỢT CỦA BẠN (X)');
+                    _setIndicator('X');
+                }
+                break;
+            case 'player-win':
+                _setStatus('🏆 BẠN ĐÃ THẮNG!');
+                _setIndicator(null);
+                _state.phase = 'ended';
+                _state.active = false; // Stop accepting moves
+                _processMission('player-win');
+                break;
+            case 'bot-win':
+                _setStatus('🤖 BOT ĐÃ THẮNG!');
+                _setIndicator(null);
+                _state.phase = 'ended';
+                _state.active = false; // Stop accepting moves
+                break;
+            case 'game-end':
+                _state.phase = 'ended';
+                _state.active = false; // Stop accepting moves
+                break;
+        }
+    }
+
+    // ── XỬ LÝ NHIỆM VỤ ─────────────────────────────────────────────
+    function _processMission(event) {
+        // Chống tính trùng trong cùng session
+        if (_state.missionProcessed) return;
+        _state.missionProcessed = true;
+
+        if (!_isLoggedIn()) {
+            // Lưu tạm vào localStorage cho khách
+            _saveGuestProgress();
+            return;
+        }
+
+        if (event === 'player-win') {
+            // Cập nhật thống kê winBot
+            if (typeof window.updateUserStats === 'function') {
+                const wc = parseInt(document.getElementById('win-count')?.value || '5');
+                if (wc >= 5) {
+                    window.updateUserStats('winBot', 1);
+                }
+            }
+            // Cộng Xu khi thắng bot (có giới hạn ngày)
+            if (typeof window.onWinBotXu === 'function') {
+                window.onWinBotXu(_state.botLevel);
+            }
+        }
+    }
+
+    // ── LƯU TIẾN ĐỘ KHÁCH ─────────────────────────────────────────
+    function _saveGuestProgress() {
+        try {
+            const key = 'guestMissionProgress';
+            const cur = JSON.parse(localStorage.getItem(key) || '{}');
+            cur.winBot = (cur.winBot || 0) + 1;
+            cur[_state.botLevel] = (cur[_state.botLevel] || 0) + 1;
+            cur.lastWin = new Date().toISOString();
+            localStorage.setItem(key, JSON.stringify(cur));
+        } catch(e) {}
+    }
+
+    // ── KHỞI TẠO VIEW ──────────────────────────────────────────────
+    function initView() {
+        // Reset state về select khi vào view
+        _state.active = false;
+        _state.phase  = 'select';
+
+        _showSelectPhase();
+        _updatePlayerCards();
+
+        // Ẩn controls
+        const ctrl = document.getElementById('practice-controls');
+        if (ctrl) ctrl.style.display = 'none';
+
+        _setStatus('Chọn Bot để bắt đầu luyện tập');
+        _setIndicator(null);
+    }
+
+    // ── PUBLIC API ─────────────────────────────────────────────────
+    return {
+        initView,
+        startWithBot,
+        playAgain,
+        changeBot,
+        exit,
+        onGameEvent,
+        getState: () => ({ ..._state }),
+        BOT_LEVELS,
+        BOT_DISPLAY
+    };
+})();
+
+window.PracticeMode = PracticeMode;
+
+// ── HOOKS VÀO LOGIC-GAME.JS ────────────────────────────────────────
+// Patch updateStatus để PracticeMode nhận thông báo trạng thái
+(function() {
+    const _origUpdateStatus = window.updateStatus || function(){};
+    window.updateStatus = function() {
+        _origUpdateStatus.apply(this, arguments);
+
+        // Chỉ hook khi đang ở view-training và practice active
+        const vt = document.getElementById('view-training');
+        if (!vt || !vt.classList.contains('active')) return;
+        if (!PracticeMode.getState().active) return;
+
+        if (typeof gameMode !== 'undefined' && gameMode.startsWith('ai')) {
+            if (typeof currentPlayer !== 'undefined' && typeof botPiece !== 'undefined') {
+                if (currentPlayer === botPiece) {
+                    PracticeMode.onGameEvent('bot-thinking');
+                } else {
+                    PracticeMode.onGameEvent('player-turn');
+                }
+            }
+        }
+    };
+})();

@@ -26,6 +26,10 @@ function randomColor() {
 }
 
 function spawnConfetti(count = 160) {
+    if (!confettiCanvas || !ctx) {
+        console.warn('Confetti canvas not initialized, skipping spawnConfetti');
+        return;
+    }
     for (let i = 0; i < count; i++) {
         confettiParticles.push({
             x:     Math.random() * confettiCanvas.width,
@@ -170,11 +174,21 @@ function reviewGame() {
     
     // Sử dụng requestAnimationFrame để render mượt hơn
     requestAnimationFrame(() => {
-        if (isInfinite && winningCellCoords.length > 0) {
+        // Use Shared Board Engine for camera positioning (DO6.TXT)
+        if (typeof SharedBoardEngine !== 'undefined' && winningCellCoords.length > 0) {
             const [wr, wc] = winningCellCoords[Math.floor(winningCellCoords.length / 2)];
-            vRowF = wr - (infCanvasH / INF_CS) / 2;
-            vColF = wc - (infCanvasW / INF_CS) / 2;
-            renderInfiniteBoard();
+            SharedBoardEngine.Camera.setPosition(wc, wr);
+            SharedBoardEngine.update();
+        } else if (isInfinite && winningCellCoords.length > 0) {
+            // Fallback to old system
+            const [wr, wc] = winningCellCoords[Math.floor(winningCellCoords.length / 2)];
+            if (typeof vRowF !== 'undefined' && typeof vColF !== 'undefined' && 
+                typeof infCanvasH !== 'undefined' && typeof INF_CS !== 'undefined' &&
+                typeof infCanvasW !== 'undefined' && typeof renderInfiniteBoard === 'function') {
+                vRowF = wr - (infCanvasH / INF_CS) / 2;
+                vColF = wc - (infCanvasW / INF_CS) / 2;
+                renderInfiniteBoard();
+            }
         }
         statusPanel.innerHTML = `⬆️ Đang xem lại ván đấu &nbsp;|&nbsp; <button onclick="closeWinAndRestart()" style="padding:4px 16px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:0.9rem;">🔄 Đấu Lại</button>`;
     });

@@ -2,494 +2,1122 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Caro BOT CỦA CHẦN PRO - NÂNG CẤP BOT M2 TỐI THƯỢNG</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+    <title>Caro BOT CHẦN PRO - V4.0</title>
 
-    <!-- Firebase SDK — load tĩnh để đảm bảo luôn có, không phụ thuộc dynamic injection -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
-    <!-- Theme styles (được JS ghi đè khi đổi theme) -->
+    <!-- Theme styles -->
     <style id="theme-styles"></style>
 
     <!-- Giao diện chính -->
     <link rel="stylesheet" href="src/giao-dien.css">
+
+    <!-- Shared Board Engine (NEW - DO4.TXT implementation) -->
+    <script src="src/shared-board-engine.js"></script>
+
+    <style>
+/* ================================================================
+   DESIGN SYSTEM — 8px Grid
+   ================================================================ */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  --font-xs: 11px;
+  --font-sm: 12px;
+  --font-base: 14px;
+  --font-md: 15px;
+  --font-lg: 16px;
+  --font-xl: 18px;
+  --font-2xl: 22px;
+
+  --color-primary: #6366f1;
+  --color-primary-dark: #4f46e5;
+  --color-success: #10b981;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+  --color-info: #3b82f6;
+  --color-orange: #f97316;
+
+  --header-bg: #1e1b4b;
+  --header-h1-bg: #13102e;
+  --header-text: #e0e7ff;
+  --header-sub: #a5b4fc;
+
+  --view-bg: #f1f5f9;
+  --card-bg: #ffffff;
+  --card-border: #e2e8f0;
+  --card-shadow: 0 2px 8px rgba(0,0,0,.08);
+
+  --transition: 0.2s ease;
+}
+
+/* ================================================================
+   RESET & BASE
+   ================================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: 'Segoe UI', Arial, sans-serif; font-size: var(--font-base); background: var(--view-bg); color: #1e293b; }
+button { cursor: pointer; font-family: inherit; }
+a { text-decoration: none; }
+
+/* ================================================================
+   APP SHELL — VIEW ROUTER
+   ================================================================ */
+#app { display: flex; flex-direction: column; min-height: 100vh; }
+
+.view { display: none; flex: 1; }
+.view.active { display: flex; flex-direction: column; }
+
+/* ================================================================
+   HEADER — Hàng 1: Navigation
+   ================================================================ */
+#app-header { background: var(--header-bg); color: var(--header-text); position: sticky; top: 0; z-index: 200; box-shadow: 0 2px 12px rgba(0,0,0,.3); }
+
+.header-row1 {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid rgba(255,255,255,.07);
+  min-height: 48px; gap: var(--space-2);
+}
+.header-logo {
+  font-size: var(--font-lg); font-weight: 800; color: #c7d2fe;
+  letter-spacing: -.3px; white-space: nowrap;
+}
+.header-logo span { color: var(--color-warning); }
+
+.header-nav { display: flex; align-items: center; gap: var(--space-1); flex-wrap: wrap; }
+.nav-btn {
+  background: transparent; border: none; color: var(--header-sub);
+  padding: var(--space-1) var(--space-3); border-radius: var(--radius-full);
+  font-size: var(--font-sm); font-weight: 600; transition: background var(--transition), color var(--transition);
+  white-space: nowrap;
+}
+.nav-btn:hover, .nav-btn.active { background: rgba(255,255,255,.12); color: #fff; }
+
+/* Shop dropdown */
+.shop-dropdown { position: relative; }
+.shop-menu {
+  display: none; position: absolute; top: calc(100% + 4px); left: 0;
+  background: #fff; border: 1px solid var(--card-border); border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0,0,0,.15); min-width: 160px; z-index: 300; overflow: hidden;
+}
+.shop-menu.open { display: block; }
+.shop-menu-item {
+  display: block; padding: var(--space-3) var(--space-4);
+  font-size: var(--font-base); color: #334155; background: none; border: none;
+  width: 100%; text-align: left; transition: background var(--transition);
+}
+.shop-menu-item:hover { background: #f1f5f9; }
+
+/* ================================================================
+   HEADER — Hàng 2: User Bar
+   ================================================================ */
+.header-row2 {
+  display: flex; align-items: center; justify-content: flex-end;
+  padding: var(--space-1) var(--space-4); min-height: 40px; gap: var(--space-2);
+  background: var(--header-h1-bg);
+}
+
+/* Guest buttons */
+.auth-btns { display: flex; gap: var(--space-2); }
+.btn-login {
+  padding: var(--space-1) var(--space-4); background: var(--color-info);
+  color: #fff; border: none; border-radius: var(--radius-full); font-size: var(--font-sm); font-weight: 700;
+}
+.btn-register {
+  padding: var(--space-1) var(--space-4); background: var(--color-success);
+  color: #fff; border: none; border-radius: var(--radius-full); font-size: var(--font-sm); font-weight: 700;
+}
+
+/* Logged-in user bar */
+.user-bar { display: flex; align-items: center; gap: var(--space-3); }
+.user-avatar-mini {
+  width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,.2);
+  border: 2px solid rgba(255,255,255,.4); display: flex; align-items: center;
+  justify-content: center; font-size: 16px; cursor: pointer;
+}
+.user-info-mini { display: flex; flex-direction: column; line-height: 1.3; }
+.user-info-mini .u-name { font-size: var(--font-sm); font-weight: 700; color: #e0e7ff; }
+.user-info-mini .u-meta { font-size: var(--font-xs); color: var(--header-sub); }
+.user-xu { font-size: var(--font-sm); font-weight: 700; color: var(--color-warning); cursor: pointer; white-space: nowrap; }
+.btn-settings, .btn-logout {
+  padding: 4px 10px; border: none; border-radius: var(--radius-sm);
+  font-size: var(--font-xs); font-weight: 700;
+}
+.btn-settings { background: rgba(255,255,255,.12); color: #e0e7ff; }
+.btn-logout   { background: rgba(220,53,69,.7); color: #fff; }
+
+/* ================================================================
+   HOME VIEW — Lobby
+   ================================================================ */
+#view-home { background: var(--view-bg); }
+
+.home-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  max-width: 1200px; width: 100%; margin: 0 auto;
+  flex: 1;
+}
+
+.lobby-main { display: flex; flex-direction: column; gap: var(--space-4); }
+.lobby-side  { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.card {
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: var(--radius-md); box-shadow: var(--card-shadow); overflow: hidden;
+}
+.card-header {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--card-border);
+  font-size: var(--font-base); font-weight: 700; color: #1e293b;
+  display: flex; align-items: center; gap: var(--space-2);
+}
+.card-body { padding: var(--space-3) var(--space-4); }
+
+/* Room list */
+.room-list { display: flex; flex-direction: column; gap: var(--space-2); max-height: 420px; overflow-y: auto; }
+.room-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--space-3) var(--space-4); border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm); background: #fafafa; gap: var(--space-2);
+  transition: background var(--transition);
+}
+.room-item:hover { background: #f0f4ff; }
+.room-name { font-weight: 700; font-size: var(--font-base); }
+.room-count { font-size: var(--font-sm); color: #64748b; }
+.room-status { font-size: var(--font-xs); font-weight: 600; padding: 2px 8px; border-radius: var(--radius-full); }
+.room-status.waiting  { background: #d1fae5; color: #065f46; }
+.room-status.playing  { background: #fee2e2; color: #991b1b; }
+.room-status.full     { background: #f1f5f9; color: #64748b; }
+.btn-join {
+  padding: 5px 14px; background: var(--color-primary); color: #fff;
+  border: none; border-radius: var(--radius-full); font-size: var(--font-sm); font-weight: 700;
+}
+.btn-join:disabled { background: #cbd5e1; cursor: not-allowed; }
+
+/* Online users */
+.online-users-list { display: flex; flex-direction: column; gap: var(--space-1); max-height: 160px; overflow-y: auto; }
+.online-user-item { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); font-size: var(--font-sm); }
+.online-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-success); flex-shrink: 0; }
+
+/* Leaderboard */
+.bxh-tabs { display: flex; gap: var(--space-1); margin-bottom: var(--space-2); }
+.bxh-tab {
+  padding: 4px 12px; border: 1px solid var(--card-border); background: #f8fafc;
+  border-radius: var(--radius-full); font-size: var(--font-sm); font-weight: 600; color: #64748b;
+}
+.bxh-tab.active { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+.bxh-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-1); }
+
+/* World Chat */
+.chat-messages-box {
+  height: 200px; overflow-y: auto; background: #f8fafc;
+  border: 1px solid var(--card-border); border-radius: var(--radius-sm);
+  padding: var(--space-2); font-size: var(--font-sm); margin-bottom: var(--space-2);
+}
+.chat-input-row { display: flex; gap: var(--space-2); }
+.chat-input-row input {
+  flex: 1; padding: 7px var(--space-3); border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm); font-size: var(--font-sm);
+}
+.chat-input-row button {
+  padding: 7px 14px; background: var(--color-primary); color: #fff;
+  border: none; border-radius: var(--radius-sm); font-size: var(--font-sm); font-weight: 700;
+}
+
+/* ================================================================
+   TRAINING VIEW
+   ================================================================ */
+#view-training {
+  background: var(--view-bg);
+  flex: 1; display: none; flex-direction: column;
+}
+#view-training.active { display: flex; }
+
+.training-layout {
+  display: flex; flex-direction: column; flex: 1;
+  max-width: 1200px; width: 100%; margin: 0 auto; padding: var(--space-4);
+  gap: var(--space-3);
+}
+
+/* Re-use existing config panel inside training */
+.training-config-wrapper {
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: var(--radius-md); padding: var(--space-3) var(--space-4);
+  box-shadow: var(--card-shadow);
+}
+
+.training-board-wrapper {
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: var(--radius-md); padding: var(--space-4);
+  box-shadow: var(--card-shadow); display: flex; flex-direction: column; align-items: center;
+  flex: 1;
+}
+
+/* ================================================================
+   ROOM VIEW
+   ================================================================ */
+#view-room { background: var(--view-bg); }
+
+.room-layout {
+  max-width: 800px; width: 100%; margin: 0 auto; padding: var(--space-4);
+  display: flex; flex-direction: column; gap: var(--space-4);
+}
+
+.room-header-card {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  border-radius: var(--radius-md); padding: var(--space-4);
+  color: #fff; display: flex; align-items: center; justify-content: space-between;
+}
+.room-header-title { font-size: var(--font-xl); font-weight: 800; }
+.btn-leave-room {
+  padding: 6px 16px; background: rgba(255,255,255,.2); color: #fff;
+  border: 1px solid rgba(255,255,255,.4); border-radius: var(--radius-full);
+  font-size: var(--font-sm); font-weight: 700;
+}
+
+.versus-row {
+  display: flex; align-items: center; justify-content: center; gap: var(--space-6);
+  background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-md);
+  padding: var(--space-5); box-shadow: var(--card-shadow);
+}
+.player-slot-card { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); flex: 1; }
+.player-name { font-size: var(--font-base); font-weight: 700; color: #f1f5f9; text-align: center; word-break: break-word; }
+.pc-info { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); }
+.avatar-circle-lg {
+  width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; font-size: 28px; font-weight: 900; border: 3px solid;
+}
+.avatar-circle-lg.player-x { background: #fee2e2; border-color: #ef4444; color: #ef4444; }
+.avatar-circle-lg.player-o { background: #dbeafe; border-color: #3b82f6; color: #3b82f6; }
+.vs-badge {
+  width: 48px; height: 48px; border-radius: 50%; background: #1e293b; color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: var(--font-base); font-weight: 900;
+}
+
+/* Bet card */
+.bet-card { background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius-md); padding: var(--space-4); }
+.bet-row { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.bet-input { padding: 7px var(--space-3); border: 1px solid var(--card-border); border-radius: var(--radius-sm); font-size: var(--font-base); width: 120px; }
+.btn-bet { padding: 7px 18px; background: var(--color-warning); color: #fff; border: none; border-radius: var(--radius-sm); font-weight: 700; font-size: var(--font-sm); }
+
+/* Nút chọn mức cược nhanh */
+.btn-bet-quick {
+    padding: 5px 12px; background: #fff; border: 2px solid #fbbf24;
+    border-radius: var(--radius-full); font-size: var(--font-sm); font-weight: 600;
+    color: #92400e; cursor: pointer; transition: all .15s;
+}
+.btn-bet-quick:hover, .btn-bet-quick.active { background: #fbbf24; color: #fff; }
+.btn-bet-quick.btn-no-bet { border-color: #94a3b8; color: #64748b; }
+.btn-bet-quick.btn-no-bet:hover { background: #94a3b8; color: #fff; }
+
+/* ================================================================
+   BATTLE VIEW
+   ================================================================ */
+#view-battle { background: #0f172a; overflow: hidden; }
+
+/* Desktop: 3 cột 20% / 60% / 20% */
+.battle-layout-desktop {
+  display: grid;
+  grid-template-columns: minmax(160px, 20%) 1fr minmax(200px, 22%);
+  gap: var(--space-3);
+  padding: var(--space-3);
+  height: calc(100vh - 88px);  /* trừ header 2 hàng */
+  max-width: 1800px; margin: 0 auto; width: 100%;
+  box-sizing: border-box;
+}
+
+.battle-player-card {
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+  border-radius: var(--radius-md); padding: var(--space-4);
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
+  color: #e2e8f0; overflow: hidden;
+}
+.battle-avatar {
+  width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; font-size: 26px; font-weight: 900; border: 3px solid;
+  flex-shrink: 0;
+}
+.battle-avatar.bx { background: rgba(239,68,68,.2); border-color: #ef4444; color: #ef4444; }
+.battle-avatar.bo { background: rgba(59,130,246,.2); border-color: #3b82f6; color: #3b82f6; }
+.battle-pname { font-size: var(--font-base); font-weight: 700; text-align: center; word-break: break-word; }
+.battle-pstats { font-size: var(--font-xs); color: #94a3b8; text-align: center; }
+.battle-indicator {
+  padding: 6px 14px; border-radius: var(--radius-full); font-size: var(--font-sm); font-weight: 700;
+  background: rgba(16,185,129,.25); color: #6ee7b7; border: 1px solid rgba(16,185,129,.4);
+  text-align: center;
+}
+.battle-indicator.inactive { background: rgba(255,255,255,.08); color: #cbd5e1; border-color: rgba(255,255,255,.15); }
+
+/* Cột giữa — bàn cờ */
+.battle-center {
+  display: flex; flex-direction: column; align-items: center;
+  position: relative; overflow: hidden; min-width: 0;
+  justify-content: flex-start;
+  /* Đảm bảo #unified-board-slot có thể flex: 1 */
+  min-height: 0; flex: 1 1 0;
+}
+
+/* unified-board-slot: chiếm toàn bộ chiều cao còn lại, giữ tỉ lệ vuông */
+#unified-board-slot {
+  flex: 1; width: 100%; min-height: 0;
+  display: flex; justify-content: center; align-items: center;
+  position: relative; overflow: hidden;
+}
+
+/* Board bên trong slot: lấy kích thước từ JS (applyCanvasSize),
+   không dùng CSS width/height 100% vì canvas cần px chính xác */
+#unified-board-slot > #inf-resizable {
+  flex-shrink: 0;
+  position: relative;
+}
+#unified-board-slot > #board {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.battle-status-bar {
+  width: 100%; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2);
+  border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4);
+  color: #f1f5f9; font-size: var(--font-sm); font-weight: 700; text-align: center;
+  margin-bottom: var(--space-2); flex-shrink: 0;
+}
+
+.battle-right {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  overflow-y: auto; min-width: 0;
+}
+.battle-chat { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.battle-chat-messages {
+  flex: 1; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08);
+  border-radius: var(--radius-sm); padding: var(--space-2); overflow-y: auto;
+  font-size: var(--font-xs); color: #cbd5e1; height: 180px; max-height: 180px;
+}
+.quick-chat-bar { display: flex; flex-wrap: wrap; gap: var(--space-1); padding: var(--space-1) 0; }
+.qc-btn {
+  padding: 4px 8px; background: rgba(255,255,255,.08); color: #e2e8f0;
+  border: 1px solid rgba(255,255,255,.15); border-radius: var(--radius-full); font-size: 14px;
+  transition: background var(--transition);
+}
+.qc-btn:hover { background: rgba(255,255,255,.2); }
+.battle-chat-input { display: flex; gap: var(--space-1); margin-top: var(--space-2); }
+.battle-chat-input input {
+  flex: 1; padding: 6px var(--space-2); background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.15); border-radius: var(--radius-sm);
+  color: #e2e8f0; font-size: var(--font-xs);
+}
+.battle-chat-input input::placeholder { color: #64748b; }
+.battle-chat-input button {
+  padding: 6px 12px; background: var(--color-primary); color: #fff; border: none;
+  border-radius: var(--radius-sm); font-size: var(--font-xs); font-weight: 700;
+}
+
+/* Thông tin phòng trong battle */
+.battle-room-info-card {
+  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+  border-radius: var(--radius-sm); padding: var(--space-3);
+  color: #94a3b8; font-size: var(--font-xs);
+}
+
+/* ================================================================
+   MOBILE — Tablet (768–1024px)
+   ================================================================ */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .battle-layout-desktop {
+    grid-template-columns: 140px 1fr 200px;
+    gap: var(--space-2);
+    padding: var(--space-2);
+    height: calc(100vh - 80px);
+  }
+  .battle-avatar { width: 48px; height: 48px; font-size: 20px; }
+  .home-layout { grid-template-columns: 1fr 280px; }
+}
+
+/* ================================================================
+   MOBILE — Android / iPhone ≤768px
+   ================================================================ */
+@media (max-width: 768px) {
+
+  /* ── Header mobile ── */
+  .header-row1 { padding: var(--space-2) var(--space-3); min-height: 44px; }
+  .header-row2 { padding: var(--space-1) var(--space-3); min-height: 36px; }
+  .header-logo { font-size: 13px; }
+  .nav-btn { padding: 4px var(--space-2); font-size: 11px; }
+  .nav-btn span { display: none; }  /* Chỉ icon trên mobile nhỏ */
+  .user-info-mini { display: none; }
+  .user-xu { font-size: 11px; }
+  .btn-settings { display: none; }
+
+  /* ── HomeView mobile ── */
+  .home-layout {
+    grid-template-columns: 1fr;
+    padding: var(--space-2);
+    gap: var(--space-2);
+  }
+  /* Lobby side: ẩn mặc định, hiện qua tabs */
+  .lobby-side { display: none; }
+  .lobby-side.mobile-tab-active { display: flex; flex-direction: column; gap: var(--space-2); }
+
+  /* Mobile tabs cho lobby */
+  .lobby-mobile-tabs {
+    display: flex; gap: var(--space-1); margin-bottom: var(--space-2);
+    background: var(--card-bg); border-radius: var(--radius-md);
+    padding: var(--space-1); border: 1px solid var(--card-border);
+  }
+  .lobby-tab-btn {
+    flex: 1; padding: var(--space-2); background: transparent;
+    border: none; border-radius: var(--radius-sm); font-size: var(--font-sm);
+    font-weight: 600; color: #64748b; transition: all var(--transition);
+  }
+  .lobby-tab-btn.active {
+    background: var(--color-primary); color: #fff;
+  }
+
+  /* ── BattleView mobile: vertical stack ── */
+  .battle-layout-desktop {
+    display: flex; flex-direction: column;
+    height: auto; min-height: calc(100vh - 80px);
+    padding: var(--space-2); gap: var(--space-2);
+    overflow-y: auto;
+  }
+
+  /* Player cards: nằm ngang compact */
+  .battle-player-card {
+    flex-direction: row; padding: var(--space-2) var(--space-3);
+    align-items: center; justify-content: flex-start; gap: var(--space-3);
+  }
+  .battle-avatar { width: 40px; height: 40px; font-size: 18px; }
+  .battle-pstats { display: none; }
+
+  /* Board: chiếm không gian vuông lớn nhất có thể */
+  .battle-center {
+    width: 100%; order: 2; flex: 0 0 auto;
+    min-height: 0;
+  }
+  #unified-board-slot {
+    width: 100%;
+    /* Chiều cao = min(85vw, 55vh) để vừa màn hình dù portrait hay landscape */
+    height: min(85vw, 55vh);
+    min-height: 220px;
+    flex: 0 0 auto;
+  }
+  #unified-board-slot > #inf-resizable {
+    /* JS sẽ set kích thước chính xác qua applyCanvasSize */
+    flex-shrink: 0;
+  }
+  #unified-board-slot > #board {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  /* Player X lên trên board */
+  .battle-player-card:first-child { order: 1; }
+  /* Player O xuống dưới board */
+  .battle-player-card:nth-child(3) { order: 3; }
+  /* Right panel: chat + info xuống cuối */
+  .battle-right { order: 4; max-height: 280px; overflow-y: auto; }
+  .battle-chat-messages { height: 120px; max-height: 120px; }
+
+  /* ── RoomView mobile ── */
+  .room-layout { padding: var(--space-2); gap: var(--space-2); }
+  .versus-row { flex-direction: column; gap: var(--space-3); padding: var(--space-3); }
+  .avatar-circle-lg { width: 56px; height: 56px; font-size: 22px; }
+}
+
+/* ── iPhone SE / nhỏ hơn ≤375px ── */
+@media (max-width: 375px) {
+  .battle-layout-desktop { padding: var(--space-1); gap: var(--space-1); }
+  .header-logo { font-size: 12px; }
+  .room-layout { padding: var(--space-1); }
+}
+
+/* ================================================================
+   XI. FIX QUÂN O KHÔNG HIỂN THỊ
+   CSS cell DOM fallback (bàn cờ DOM — không phải canvas)
+   ================================================================ */
+.cell { position: relative; display: flex; align-items: center; justify-content: center; }
+.cell.X { color: #dc2626 !important; font-weight: 900 !important; }
+.cell.O { color: #2563eb !important; font-weight: 900 !important; }
+/* Canvas: thông qua themeColors trong ban-co.js — o:'#2563eb' */
+
+/* ================================================================
+   MISC UTILITIES
+   ================================================================ */
+.hidden  { display: none !important; }
+.mt-2 { margin-top: var(--space-2); }
+.mt-3 { margin-top: var(--space-3); }
+.text-muted { color: #94a3b8; font-size: var(--font-sm); font-weight: 500; }
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: var(--radius-full);
+  font-size: var(--font-xs); font-weight: 700;
+}
+.badge-gold   { background: #fef3c7; color: #92400e; }
+.badge-green  { background: #d1fae5; color: #065f46; }
+.badge-blue   { background: #dbeafe; color: #1e40af; }
+.badge-purple { background: #ede9fe; color: #5b21b6; }
+
+/* Overlay backdrop */
+.overlay-backdrop {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.5); z-index: 9000;
+  justify-content: center; align-items: center;
+}
+.overlay-backdrop.open { display: flex; }
+
+.modal-box {
+  background: #fff; border-radius: var(--radius-lg); padding: var(--space-6);
+  width: 90%; max-width: 440px; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,.3); position: relative;
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: var(--space-4);
+}
+.modal-title { font-size: var(--font-xl); font-weight: 800; color: #1e293b; }
+.modal-close {
+  background: none; border: none; font-size: 24px; color: #94a3b8; line-height: 1;
+}
+
+/* Notification ticker */
+#notification-ticker {
+  display: none; width: 100%; box-sizing: border-box;
+  overflow: hidden; border-radius: var(--radius-sm);
+  position: absolute; top: 0; left: 0; z-index: 1000;
+}
+#ticker-content {
+  display: flex; flex-wrap: wrap; gap: var(--space-2);
+  padding: 7px 14px; align-items: center; justify-content: center;
+}
+
+/* ================================================================
+   SHARED BOARD ENGINE STYLES (DO4.TXT + DO8.TXT implementation)
+   ================================================================ */
+
+/* Shared board container - responsive for all screen sizes (DO8.TXT) */
+.shared-board-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #f1f5f9;
+  border-radius: var(--radius-md);
+  min-width: 0;
+  min-height: 0;
+  /* DO8.TXT: Ensure container takes available space */
+  flex: 1;
+}
+
+/* Shared board canvas (DO8.TXT) */
+.shared-board-canvas {
+  display: block;
+  cursor: crosshair;
+  touch-action: none;
+  /* DO8.TXT: Canvas size controlled by ViewportControl, not CSS */
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* Board controls overlay */
+.board-controls-overlay {
+  position: absolute;
+  bottom: var(--space-3);
+  right: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  z-index: 100;
+}
+
+.board-control-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: all var(--transition);
+}
+
+.board-control-btn:hover {
+  background: #fff;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.board-control-btn:active {
+  transform: scale(0.95);
+}
+
+/* Coordinate display */
+.board-coords-display {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  font-family: monospace;
+  z-index: 100;
+  pointer-events: none;
+}
+
+/* Mobile-specific board controls */
+@media (max-width: 768px) {
+  .board-controls-overlay {
+    bottom: var(--space-2);
+    right: var(--space-2);
+  }
+  
+  .board-control-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+  
+  .board-coords-display {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+}
+
+    </style>
 </head>
 <body>
+<div id="app">
 
-    <h1 id="game-title">Caro BOT TIÊN CHI THẾ CỜ CHẦN PRO</h1>
+<!-- ================================================================
+     APP HEADER
+     ================================================================ -->
+<header id="app-header">
+    <!-- Hàng 1: Navigation -->
+    <div class="header-row1">
+        <div class="header-logo">⭕✖️ Caro ONLINE <span>Chần Pro</span></div>
 
-    <!-- Nút trang chủ + giới thiệu + USER INFO gọn -->
-    <div id="top-bar" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin:-6px 0 8px; padding:8px 16px; background:#f8f9fa; border-radius:8px; border:1px solid #e2e8f0; font-size:13px;">
-        <!-- BÊN TRÁI: Trang chủ + link + Solo Online -->
-        <div style="display:flex; align-items:center; gap:8px; flex-shrink:0; flex-wrap:wrap;">
-            <a href="https://khoiphuctool.github.io/caro/" target="_blank"
-               style="padding:6px 16px; background:#6366f1; color:white; border-radius:20px; text-decoration:none; font-weight:bold; font-size:12px; white-space:nowrap;">
-                🏠 Trang Chủ
-            </a>
-            <a href="https://tiny.cc/carochan" target="_blank"
-               style="color:#6366f1; font-size:11px; text-decoration:underline; white-space:nowrap;">tiny.cc/carochan</a>
-            <button id="btn-go-online" style="padding:6px 16px; background:#ff9800; color:white; border:none; border-radius:20px; cursor:pointer; font-weight:bold; font-size:12px; white-space:nowrap;">
-                🌐 Solo Online
-            </button>
-        </div>
+        <nav class="header-nav">
+            <a href="https://khoiphuctool.github.io/caro/" target="_blank" class="nav-btn">🏠 <span>Trang Chủ</span></a>
+            <button class="nav-btn" onclick="switchView('home')">📖 <span>Giới thiệu</span></button>
 
-        <!-- BÊN PHẢI: Chưa đăng nhập -->
-        <div id="top-auth-buttons" style="display:flex; gap:6px; flex-shrink:0;">
-            <button id="btn-show-login" style="padding:5px 12px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Đăng Nhập</button>
-            <button id="btn-show-register" style="padding:5px 12px; background:#28a745; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Đăng Ký</button>
-        </div>
-
-        <!-- BÊN PHẢI: Đã đăng nhập -->
-        <div id="user-logged-in" style="display:none; align-items:center; gap:10px; flex-wrap:wrap; flex-shrink:0;">
-            <!-- Hiển thị Xu -->
-            <div id="xu-header-area" onclick="moNhiemVu()" title="Nhiệm vụ & Xu">
-                💰 <span id="xu-balance">0 Xu</span>
-            </div>
-            <!-- Nút nhanh -->
-            <div class="xu-action-btns">
-                <button class="xu-action-btn btn-nhiem-vu" onclick="moNhiemVu()">📋 Nhiệm Vụ</button>
-                <button class="xu-action-btn btn-shop-av"  onclick="moShopAvatar()">🎭 Shop Avatar</button>
-                <button class="xu-action-btn btn-shop-skin" onclick="moShopSkin()">🎨 Shop Quân Cờ</button>
-                <button class="xu-action-btn btn-dagia"    onclick="moBxhDaiGia()">👑 Đại Gia</button>
-            </div>
-            <div id="user-avatar-display" style="width:36px;height:36px;border-radius:50%;background:#6366f1;color:white;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:bold;cursor:pointer;flex-shrink:0;" onclick="moCapNhatTaiKhoan()">?</div>
-            <div style="line-height:1.5;">
-                <div>
-                    <span style="font-weight:bold;color:#007bff;" id="user-display-name">...</span>
-                    <span id="my-rank" style="margin-left:6px;font-size:11px;color:#ff8c00;font-weight:bold;">🐣 Gà Con</span>
-                </div>
-                <div style="font-size:11px;color:#666;">
-                    🤖<b id="my-win-bot" style="color:#28a745;">0</b>
-                    &nbsp;⚔️<b id="my-win-solo" style="color:#007bff;">0</b>
-                    &nbsp;📉<b id="my-lose-solo" style="color:#dc3545;">0</b>
+            <!-- Shop dropdown -->
+            <div class="shop-dropdown">
+                <button class="nav-btn" onclick="toggleShopMenu()">🛒 <span>Shop ▾</span></button>
+                <div class="shop-menu" id="shop-menu">
+                    <button class="shop-menu-item" onclick="moShopAvatar(); closeShopMenu()">🎭 Avatar</button>
+                    <button class="shop-menu-item" onclick="moShopSkin(); closeShopMenu()">🎨 Quân Cờ</button>
                 </div>
             </div>
-            <div style="display:flex;gap:5px;">
-                <button onclick="moCapNhatTaiKhoan()" style="padding:4px 10px;background:#6366f1;color:white;border:none;border-radius:4px;cursor:pointer;font-size:12px;">⚙️ Tài khoản</button>
-                <button id="btn-logout" style="padding:4px 10px;background:#dc3545;color:white;border:none;border-radius:4px;cursor:pointer;font-size:12px;">Đăng xuất</button>
-            </div>
-        </div>
+
+            <button class="nav-btn" onclick="switchView('training')">🎯 <span>Luyện tập</span></button>
+            <button class="nav-btn" id="nav-mission-btn" onclick="moNhiemVu()">📋 <span>Nhiệm vụ</span></button>
+        </nav>
     </div>
 
-    <div class="control-wrapper">
-        <div class="config-panel" id="ui-config-panel">
-            <div class="config-group">
-                <label for="theme-select">🎨 Giao diện:</label>
-                <select id="theme-select" onchange="changeTheme()">
-                    <option value="pure-white" selected>Minh Kính (Nền Trắng)</option>
-                    <option value="pure-black">Hắc Dạ (Nền Đen)</option>
-                    <option value="cyber">Cyber Neon</option>
-                    <option value="luxury-wood">Gỗ Thượng Lưu</option>
-                </select>
+    <!-- Hàng 2: User bar -->
+    <div class="header-row2">
+        <!-- Khi chưa đăng nhập -->
+        <div class="auth-btns" id="header-guest-btns">
+            <button class="btn-login" id="btn-show-login">Đăng Nhập</button>
+            <button class="btn-register" id="btn-show-register">Đăng Ký</button>
+        </div>
+
+        <!-- Khi đã đăng nhập -->
+        <div class="user-bar hidden" id="header-user-bar">
+            <div class="user-avatar-mini" id="user-avatar-display" onclick="moCapNhatTaiKhoan()">?</div>
+            <div class="user-info-mini">
+                <span class="u-name" id="user-display-name">...</span>
+                <span class="u-meta">
+                    <span id="my-rank">🐣 Gà Con</span>
+                </span>
             </div>
-            <div class="config-group">
-                <label for="game-mode">🤖 Chế độ Bot:</label>
-                <select id="game-mode" onchange="initGame()">
-                    <option value="solo">Solo (2 Người)</option>
-                    <option value="ai-easy">Bot Dễ</option>
-                    <option value="ai-medium">Bot Trung Bình</option>
-                    <option value="ai-hard">Mức Khó</option>
-                    <option value="ai-god" selected>MỨC TỐI THƯỢNG 💀BOT M2</option>
-                </select>
-            </div>
-            <div class="config-group">
-                <label for="win-count">🏆 Số quân thắng:</label>
-                <select id="win-count" onchange="initGame()">
-                    <option value="3">3 quân</option>
-                    <option value="4">4 quân</option>
-                    <option value="5" selected>5 quân</option>
-                    <option value="6">6 quân</option>
-                    <option value="7">7 quân</option>
-                    <option value="8">8 quân</option>
-                    <option value="9">9 quân</option>
-                    <option value="10">10 quân</option>
-                </select>
-            </div>
-            <div class="config-group">
-                <label for="block-both-ends">🚫chặn 2 đầu KHÔNG THẮNG:</label>
-                <input type="checkbox" id="block-both-ends" checked onchange="saveBlockBothEndsSetting(); if(typeof invalidateBlockBothEndsCache==='function') invalidateBlockBothEndsCache();">
-            </div>
-            <div class="config-group">
-                <label for="show-cell-scores">🔢 Hiện điểm ô:</label>
-                <input type="checkbox" id="show-cell-scores"
-                    onchange="if(typeof renderInfiniteBoard==='function')renderInfiniteBoard();if(typeof renderCellScoresDOM==='function')renderCellScoresDOM();">
-            </div>
-            <div class="config-group" id="group-piece" style="display:none;">
-                <label for="player-piece">♟️ Bạn chọn:</label>
-                <select id="player-piece" onchange="initGame()">
-                    <option value="X" selected>X</option>
-                    <option value="O">O</option>
-                </select>
-            </div>
-            <div class="config-group" id="group-first" style="display:none;">
-                <label for="first-move">🚀 Đi trước:</label>
-                <select id="first-move" onchange="initGame()">
-                    <option value="X" selected>X</option>
-                    <option value="O">O</option>
-                </select>
-            </div>
-            
-            <!-- 🎓 HUẤN LUYỆN BOT TỰ ĐÁNH — CHỈ ADMIN/CHẦN -->
-            <div id="admin-training-panel" style="display:none; margin-top: 16px; padding: 8px 12px; border: 2px solid #10b981; border-radius: 8px; background: #f0fdf4; align-items: center; gap: 12px; flex-wrap: wrap;">
-                <div style="font-weight: bold; color: #065f46; font-size: 0.85rem; min-width: 140px;">
-                    🎓 HUẤN LUYỆN
-                </div>
-                <div class="config-group" style="margin: 0;">
-                    <label for="autoplay-games">Ván:</label>
-                    <select id="autoplay-games" style="padding:4px 8px;border-radius:4px;border:1px solid #cbd5e1;">
-                        <option value="10">10</option>
-                        <option value="50" selected>50</option>
-                        <option value="100">100</option>
-                        <option value="500">500</option>
-                    </select>
-                </div>
-                <div class="config-group" style="margin: 0;">
-                    <label for="autoplay-win-count">Thắng:</label>
-                    <select id="autoplay-win-count" style="padding:4px 8px;border-radius:4px;border:1px solid #cbd5e1;">
-                        <option value="3">3</option>
-                        <option value="4">4</option>
-                        <option value="5" selected>5</option>
-                        <option value="6">6</option>
-                        <option value="7">7</option>
-                        <option value="8">8</option>
-                        <option value="9">9</option>
-                        <option value="10">10</option>
-                    </select>
-                </div>
-                <div class="config-group" style="margin: 0;">
-                    <label for="training-bot-x">X:</label>
-                    <select id="training-bot-x" style="padding:4px 8px;border-radius:4px;border:1px solid #cbd5e1;">
-                        <option value="ai-easy">Dễ</option>
-                        <option value="ai-medium">TB</option>
-                        <option value="ai-hard">Khó</option>
-                        <option value="ai-god" selected>Tối Thượng</option>
-                    </select>
-                </div>
-                <div class="config-group" style="margin: 0;">
-                    <label for="training-bot-o">O:</label>
-                    <select id="training-bot-o" style="padding:4px 8px;border-radius:4px;border:1px solid #cbd5e1;">
-                        <option value="ai-easy">Dễ</option>
-                        <option value="ai-medium" selected>TB</option>
-                        <option value="ai-hard">Khó</option>
-                        <option value="ai-god">Tối Thượng</option>
-                    </select>
-                </div>
-                <div class="config-group" style="margin: 0;">
-                    <button onclick="startAutoplay()" id="btn-autoplay"
-                        style="padding:4px 10px;border-radius:6px;border:1px solid #10b981;background:#d1fae5;color:#065f46;cursor:pointer;font-size:0.8rem;font-weight:bold;">
-                        ▶️
-                    </button>
-                    <button onclick="stopAutoplay()" id="btn-stop-autoplay"
-                        style="padding:4px 10px;border-radius:6px;border:1px solid #ef4444;background:#fee2e2;color:#991b1b;cursor:pointer;font-size:0.8rem;font-weight:bold;display:none;">
-                        ⏹️
-                    </button>
-                </div>
-                <!-- Progress training -->
-                <div id="training-progress" style="display:none; align-items:center; gap:6px; margin:0;">
-                    <span id="training-progress-text" style="font-size:0.75rem;color:#065f46;font-weight:bold;white-space:nowrap;">0/0</span>
-                    <div style="width:80px;height:6px;background:#d1fae5;border-radius:3px;overflow:hidden;">
-                        <div id="training-progress-bar" style="height:100%;width:0%;background:#10b981;border-radius:3px;transition:width 0.3s;"></div>
+            <span class="user-xu" id="xu-balance" onclick="moNhiemVu()">💰 0 Xu</span>
+            <button class="btn-settings" onclick="moCapNhatTaiKhoan()">⚙️ Cài đặt</button>
+            <button class="btn-logout" id="btn-logout">🚪 Đăng xuất</button>
+        </div>
+
+        <!-- Mini stats (chỉ hiện khi đăng nhập) - Solo stats hidden per DO6.TXT -->
+        <div class="hidden" id="header-mini-stats" style="font-size:11px; color:#a5b4fc; margin-left:8px;">
+            🤖<b id="my-win-bot" style="color:#86efac;">0</b>
+            <!-- Solo stats kept for backward compatibility but hidden -->
+            <span id="my-win-solo" style="display:none;">0</span>
+            <span id="my-lose-solo" style="display:none;">0</span>
+        </div>
+    </div>
+</header>
+
+<!-- ================================================================
+     VIEW: HOME (LOBBY)
+     ================================================================ -->
+<main class="view active" id="view-home">
+    <!-- Mobile tabs: chỉ hiện trên mobile -->
+    <div class="lobby-mobile-tabs" id="lobby-mobile-tabs" style="display:none; margin:8px 8px 0;">
+        <button class="lobby-tab-btn active" onclick="switchLobbyTab('rooms')">🎮 Phòng</button>
+        <button class="lobby-tab-btn" onclick="switchLobbyTab('rank')">🏆 BXH</button>
+        <button class="lobby-tab-btn" onclick="switchLobbyTab('online')">👥 Online</button>
+        <button class="lobby-tab-btn" onclick="switchLobbyTab('chat')">🌍 Chat</button>
+    </div>
+    <div class="home-layout">
+        <!-- CỘT CHÍNH: Danh sách phòng -->
+        <div class="lobby-main">
+            <div class="card">
+                <div class="card-header">🎮 Thách Đấu Online</div>
+                <div class="card-body">
+                    <p class="text-muted" style="margin-bottom:12px;">Chọn phòng để tham gia. Người vào trước là chủ phòng (X), người sau là khách (O).</p>
+                    <div class="room-list" id="room-list">
+                        <div class="text-muted" style="text-align:center; padding:24px;">Đang tải danh sách phòng...</div>
                     </div>
-                    <span id="training-progress-wr" style="font-size:0.7rem;color:#6b7280;white-space:nowrap;">W:0 L:0</span>
                 </div>
             </div>
-            <!-- ══════════════════════════════════════════════════════════════════ -->
-            <div id="admin-ai-config-panel" class="config-group" style="display:none;">
-                <div style="font-size:0.75rem;opacity:0.8;">
-                    🧠 Pattern: <span id="memory-patterns">0</span> | 
-                    <span style="color:#10b981;">✓<span id="memory-effective">0</span></span> |
-                    🎯 Elo: <span id="elo-current">1500</span> (Best: <span id="elo-best">1500</span>) |
-                    <button onclick="showMemoryStats()" style="padding:2px 6px;border-radius:4px;border:1px solid #8b5cf6;background:#ede9fe;color:#5b21b6;cursor:pointer;font-size:0.7rem;">📊</button>
-                    <button onclick="exportBotMemory()" style="padding:2px 6px;border-radius:4px;border:1px solid #3b82f6;background:#dbeafe;color:#1e40af;cursor:pointer;font-size:0.7rem;">Xuất</button>
-                    <button onclick="document.getElementById('import-memory-input').click()" style="padding:2px 6px;border-radius:4px;border:1px solid #10b981;background:#d1fae5;color:#065f46;cursor:pointer;font-size:0.7rem;">Nhập</button>
-                    <input type="file" id="import-memory-input" accept=".json" style="display:none;" onchange="importBotMemory(this)">
-                    <button onclick="resetMemory()" style="padding:2px 6px;border-radius:4px;border:1px solid #ef4444;background:#fee2e2;color:#991b1b;cursor:pointer;font-size:0.7rem;">Reset</button>
-                    <button onclick="openScoreTableConfig()" style="padding:2px 6px;border-radius:4px;border:1px solid #f59e0b;background:#fef3c7;color:#92400e;cursor:pointer;font-size:0.7rem;">⚙️ AI</button>
+
+            <!-- Lịch sử trận đấu online -->
+            <div class="card">
+                <div class="card-header">📜 Lịch Sử Trận Đấu Trực Tuyến</div>
+                <div class="card-body">
+                    <div id="lich-su-online-container" style="max-height:200px; overflow-y:auto;">
+                        <span class="text-muted">Đang tải lịch sử...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CỘT PHỤ: BXH + Online + Chat -->
+        <div class="lobby-side">
+            <!-- BXH -->
+            <div class="card">
+                <div class="card-header">🏆 Bảng Xếp Hạng</div>
+                <div class="card-body">
+                    <div class="bxh-tabs">
+                        <button class="bxh-tab active" id="bxh-tab-elo" onclick="switchBxhTab('elo')">TỐP🏅 Rank</button>
+                        <button class="bxh-tab" id="bxh-tab-dagia" onclick="switchBxhTab('dagia')">TỐP👑 Đại Gia</button>
+                    </div>
+                    <div id="bxh-online-container" class="bxh-list">Đang tải...</div>
+                    <div id="bxh-dagia-lobby" style="display:none;" class="bxh-list"></div>
+                </div>
+            </div>
+
+            <!-- Người online -->
+            <div class="card">
+                <div class="card-header">👥 Kỳ Thủ Trực Tuyến</div>
+                <div class="card-body">
+                    <div class="online-users-list" id="danh-sach-online">
+                        <span class="text-muted">Đang tải...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat thế giới -->
+            <div class="card">
+                <div class="card-header">🌍 Chat Thế Giới</div>
+                <div class="card-body">
+                    <div class="chat-messages-box" id="world-chat-messages"></div>
+                    <div class="chat-input-row">
+                        <input type="text" id="world-chat-input" placeholder="Nhắn với mọi người..." maxlength="120"
+                               onkeydown="if(event.key==='Enter') guiChatTheGioi()">
+                        <button onclick="guiChatTheGioi()">Gửi</button>
+                    </div>
+                    <div class="text-muted mt-2">* Cần đăng nhập để chat</div>
                 </div>
             </div>
         </div>
     </div>
+</main>
 
-    <div style="display:flex; gap:8px; justify-content:center; align-items:center; margin:8px 0; width:100%; box-sizing:border-box; padding:0 10px;">
-        <div class="status-panel" id="status-panel" style="flex:1;">Đang tải...</div>
+<!-- ================================================================
+     VIEW: TRAINING (Luyện tập vs Bot)
+     ================================================================ -->
+<!-- REPLACED_VIEW_TRAINING_MARKER -->
+<main class="view" id="view-training">
+    <!-- PRACTICE VIEW — Phòng đấu giả lập -->
+
+    <!-- Overlay chọn Bot -->
+    <div id="practice-select-overlay" style="display:flex;position:absolute;inset:0;z-index:500;background:rgba(15,23,42,0.93);justify-content:center;align-items:center;flex-direction:column;">
+        <div style="background:#1e293b;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:32px 28px;width:90%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.5);color:#e2e8f0;text-align:center;">
+            <div style="font-size:2rem;margin-bottom:8px;">🎯</div>
+            <div style="font-size:1.2rem;font-weight:800;color:#c7d2fe;margin-bottom:4px;">LUYỆN TẬP</div>
+            <div style="font-size:0.8rem;color:#94a3b8;margin-bottom:22px;">Không cần đăng nhập · Chọn đối thủ Bot</div>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px;">
+                <button class="practice-bot-btn" onclick="PracticeMode.startWithBot('ai-easy')">🟢 BOT DỄ</button>
+                <button class="practice-bot-btn" onclick="PracticeMode.startWithBot('ai-medium')">🟡 BOT TRUNG BÌNH</button>
+                <button class="practice-bot-btn" onclick="PracticeMode.startWithBot('ai-hard')">🟠 BOT KHÓ</button>
+                <button class="practice-bot-btn practice-bot-btn-god" onclick="PracticeMode.startWithBot('ai-god')">👑 BOT TỐI THƯỢNG 💀</button>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;font-size:0.78rem;color:#94a3b8;margin-bottom:14px;">
+                <label style="display:flex;align-items:center;gap:4px;">
+                    Số quân thắng:
+                    <select id="win-count" style="padding:3px 6px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:0.78rem;">
+                        <option value="3">3</option><option value="4">4</option>
+                        <option value="5" selected>5</option><option value="6">6</option>
+                        <option value="7">7</option><option value="8">8</option>
+                        <option value="9">9</option><option value="10">10</option>
+                    </select>
+                </label>
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+                    <input type="checkbox" id="block-both-ends" checked
+                        onchange="saveBlockBothEndsSetting();if(typeof invalidateBlockBothEndsCache==='function')invalidateBlockBothEndsCache();">
+                    <span>Chặn 2 đầu</span>
+                </label>
+            </div>
+            <button onclick="if(typeof switchView==='function')switchView('home')" style="width:100%;padding:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#94a3b8;font-size:0.82rem;cursor:pointer;">← Quay lại</button>
+        </div>
     </div>
-    <div class="timer-panel" id="timer-panel" style="display:none; text-align:center; font-size:0.85rem; opacity:0.8; margin:6px 0; width:100%; box-sizing:border-box;">
-        ⏱️ <span id="game-timer">00:00</span> · <span id="turn-timer">00:00</span>
-    </div>
 
-    <div class="keyboard-hint" style="text-align:center; font-size:0.8rem; opacity:0.6; margin:8px 0 10px 0; width:100%;">
-        ⌨️ <b>Phím tắt:</b> Mũi tên ↑↓←→ di chuyển BÀN CỜ · Shift+Mũi tên di chuyển CON TRỎ THỨ 2 · Enter để đánh quân
-    </div>
+    <!-- Layout phòng đấu giả lập -->
+    <div class="practice-layout">
 
-    <div class="main-layout">
+        <!-- Cột trái: Người chơi X (Chủ phòng) -->
+        <div class="practice-player-card">
+            <div class="practice-avatar practice-avatar-x">X</div>
+            <div class="practice-pname" id="practice-name-x">Bạn</div>
+            <div style="font-size:10px;color:#94a3b8;text-align:center;">Chủ phòng</div>
+            <div class="practice-pstats" id="practice-stats-x">🎯 Người chơi</div>
+            <div class="practice-indicator practice-indicator-inactive" id="practice-indicator-x">Đang chờ</div>
+        </div>
 
-        <div class="game-container" id="ui-game-container" style="display: flex; justify-content: center; align-items: center; gap: 12px; position: relative;">
-            <!-- Resize handles cho game-container -->
-            <div class="gc-resize-handle gc-resize-se" data-dir="se"></div>
-            <div class="gc-resize-handle gc-resize-sw" data-dir="sw"></div>
-            <div class="gc-resize-handle gc-resize-ne" data-dir="ne"></div>
-            <div class="gc-resize-handle gc-resize-nw" data-dir="nw"></div>
-            
-            <!-- BÊN TRÁI: THÔNG TIN NGƯỜI CHƠI X (CHỦ PHÒNG) -->
-            <div id="panel-playerX" class="player-card player-card-x" style="display: none;">
-                <div class="pc-avatar pc-avatar-x">X</div>
-                <div class="pc-info">
-                    <div class="pc-name" id="view-name-X">Đang chờ...</div>
-                    <div class="pc-badge">🔴 Quân X · Đi trước</div>
-                    <div class="pc-stats">
-                        <span>🤖 <b id="view-winbot-X">0</b></span>
-                        <span>⚔️ <b id="view-winsolo-X">0</b></span>
-                        <span>📉 <b id="view-losesolo-X">0</b></span>
-                    </div>
+        <!-- Cột giữa: Bàn cờ -->
+        <div class="practice-center">
+            <div class="practice-status-bar" id="practice-status-bar">Chọn Bot để bắt đầu</div>
+
+            <div id="notification-ticker" style="position:relative;width:100%;"><div id="ticker-content"></div></div>
+
+            <!-- DO8.TXT: Viewport size controls (separate from zoom) -->
+            <div class="board-zoom-controls" style="width:100%;">
+                <div class="zoom-presets">
+                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('auto')">Auto</button>
+                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('small')">Nhỏ</button>
+                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('medium')">Vừa</button>
+                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('large')">Lớn</button>
+                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('full')">Toàn màn hình</button>
+                </div>
+                <div class="auto-size-toggle">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="auto-size-checkbox" checked onchange="toggleAutoSize()">
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-text">Auto theo màn hình</span>
+                    </label>
+                    <button type="button" class="btn-save-size" onclick="saveCurrentCanvasSize()" title="Lưu kích thước">💾 Lưu</button>
+                </div>
+                <div id="inf-nav" style="display:none;text-align:center;padding:4px 0;font-size:0.75rem;opacity:0.7;gap:8px;justify-content:center;">
+                    📍 <span id="inf-coords"></span>
+                    <button onclick="jumpToCenter()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">🏠 Tâm</button>
+                    <button onclick="jumpToOrigin()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">⌂ Gốc</button>
+                    <button onclick="resizeInfCanvas()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">⛶ To</button>
                 </div>
             </div>
 
-            <!-- Ở GIỮA: BÀN CỜ VÀ BOT AVATAR -->
-            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; position: relative; padding-top: 40px;">
-
-                <!-- THANH THÔNG BÁO — ghim đầu trên trong bàn cờ -->
-                <div id="notification-ticker" style="display:none; width:100%; box-sizing:border-box; overflow:hidden; border-radius:8px; position: absolute; top:0; left:0; z-index:1000;">
-                    <div id="ticker-content" style="display:flex; flex-wrap:wrap; gap:6px; padding:7px 14px; align-items:center; justify-content:center;">
+            <!-- Board slot - Shared Board Engine (DO4.TXT) -->
+            <div class="practice-board-slot" id="practice-board-slot">
+                <div class="shared-board-container" id="shared-board-practice">
+                    <canvas id="inf-canvas" class="shared-board-canvas"></canvas>
+                    <div class="board-coords-display" id="board-coords-practice">X: 0, Y: 0</div>
+                    <div class="board-controls-overlay">
+                        <button class="board-control-btn" onclick="SharedBoardEngine.Camera.reset(); SharedBoardEngine.update();" title="Reset Camera">🏠</button>
+                        <button class="board-control-btn" onclick="SharedBoardEngine.Camera.setZoom(SharedBoardEngine.Camera.zoom + 0.2); SharedBoardEngine.update();" title="Zoom In">+</button>
+                        <button class="board-control-btn" onclick="SharedBoardEngine.Camera.setZoom(SharedBoardEngine.Camera.zoom - 0.2); SharedBoardEngine.update();" title="Zoom Out">−</button>
                     </div>
                 </div>
-
-                <!-- Bot Avatar — đã chuyển vào trong khung bàn cờ (#inf-resizable) để neo góc trên-trái bàn cờ -->
-
-                <!-- Thanh điều khiển thu/phóng bàn cờ -->
-                <div class="board-zoom-controls">
-                    <div class="zoom-presets">
-                        <button type="button" class="btn-zoom-preset" onclick="setContainerSize(40)">40%</button>
-                        <button type="button" class="btn-zoom-preset" onclick="setContainerSize(50)">50%</button>
-                        <button type="button" class="btn-zoom-preset" onclick="setContainerSize(60)">60%</button>
-                        <button type="button" class="btn-zoom-preset" onclick="setContainerSize(70)">70%</button>
-                        <button type="button" class="btn-zoom-preset" onclick="setContainerSize(80)">80%</button>
-                        <button type="button" class="btn-zoom-preset" onclick="setContainerSize(90)">90%</button>
-                        <button type="button" class="btn-zoom-preset" onclick="setContainerSize(100)">100%</button>
-                    </div>
-                    <div class="auto-size-toggle">
-                        <label class="toggle-label">
-                            <input type="checkbox" id="auto-size-checkbox" checked onchange="toggleAutoSize()">
-                            <span class="toggle-slider"></span>
-                            <span class="toggle-text">Auto theo màn hình</span>
-                        </label>
-                        <button type="button" class="btn-save-size" onclick="saveCurrentCanvasSize()" title="Lưu kích thước hiện tại">💾 Lưu</button>
-                    </div>
-                    <!-- Nút điều hướng bàn cờ vô hạn -->
-                    <div id="inf-nav" style="display:none; text-align:center; padding:4px 0; font-size:0.75rem; opacity:0.7; gap:8px; justify-content:center;">
-                        📍 <span id="inf-coords"></span>
-                        <button onclick="jumpToCenter()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">🏠 Tâm</button>
-                        <button onclick="jumpToOrigin()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">⌂ Gốc</button>
-                        <button onclick="resizeInfCanvas()" style="padding:2px 8px;border-radius:4px;border:none;cursor:pointer;font-size:0.75rem;font-weight:bold;">⛶ To</button>
-                    </div>
-                </div>
-                <div class="board" id="board"></div>
-                <div id="inf-resizable" style="display:none; position:relative; user-select:none;">
-                    <canvas id="inf-canvas" style="display:block;"></canvas>
-                    <!-- Bot Avatar — neo góc trên-trái BÀN CỜ (không đè nút % / thanh công cụ) -->
+                <!-- Legacy board fallback -->
+                <div class="board" id="board" style="display:none;"></div>
+                <div id="inf-resizable" style="display:none;position:relative;user-select:none;">
                     <div id="bot-avatar" class="bot-avatar">
                         <div class="bot-face">🤖</div>
                         <div class="bot-bubble" id="bot-bubble">
-                            <div class="bot-message" id="bot-message">Xin chào! Tôi là Bot của anh Chần</div>
+                            <div class="bot-message" id="bot-message">Xin chào! Tôi sẵn sàng đấu!</div>
                         </div>
                     </div>
-                    <div class="rs-handle rs-n"  data-dir="n"></div>
-                    <div class="rs-handle rs-s"  data-dir="s"></div>
-                    <div class="rs-handle rs-w"  data-dir="w"></div>
-                    <div class="rs-handle rs-e"  data-dir="e"></div>
-                    <div class="rs-handle rs-nw" data-dir="nw"></div>
-                    <div class="rs-handle rs-ne" data-dir="ne"></div>
-                    <div class="rs-handle rs-sw" data-dir="sw"></div>
-                    <div class="rs-handle rs-se" data-dir="se"></div>
-                    <div class="zoom-controls">
-                        <button class="zoom-btn zoom-in"   onclick="zoomBoard(1)"   title="Phóng to">+</button>
-                        <button class="zoom-btn zoom-out"  onclick="zoomBoard(-1)"  title="Thu nhỏ">−</button>
-                        <button class="zoom-btn zoom-undo" onclick="undoMove()"     title="Thu lại nước đi">↩</button>
-                    </div>
-                    <!-- D-Pad dịch chuyển bàn cờ (mobile / màn hình nhỏ) -->
-                    <div id="inf-dpad" class="inf-dpad">
-                        <button type="button" class="dpad-btn dpad-up"    data-dr="-1" data-dc="0"  title="Lên">▲</button>
-                        <button type="button" class="dpad-btn dpad-left"  data-dr="0"  data-dc="-1" title="Trái">◀</button>
-                        <button type="button" class="dpad-btn dpad-right" data-dr="0"  data-dc="1"  title="Phải">▶</button>
-                        <button type="button" class="dpad-btn dpad-down"  data-dr="1"  data-dc="0"  title="Xuống">▼</button>
-                    </div>
                 </div>
             </div>
 
-            <!-- BÊN PHẢI: THÔNG TIN NGƯỜI CHƠI O (KHÁCH) -->
-            <div id="panel-playerO" class="player-card player-card-o" style="display: none;">
-                <div class="pc-avatar pc-avatar-o">O</div>
-                <div class="pc-info">
-                    <div class="pc-name" id="view-name-O">Đang chờ...</div>
-                    <div class="pc-badge">🔵 Quân O · Đi sau</div>
-                    <div class="pc-stats">
-                        <span>🤖 <b id="view-winbot-O">0</b></span>
-                        <span>⚔️ <b id="view-winsolo-O">0</b></span>
-                        <span>📉 <b id="view-losesolo-O">0</b></span>
-                    </div>
-                </div>
+            <div style="text-align:center;font-size:0.72rem;opacity:0.5;padding:4px 0;">
+                ⌨️ ↑↓←→ di chuyển bàn cờ · Shift+Mũi tên con trỏ · Enter đánh quân
             </div>
         </div>
 
-        <!-- LỊCH SỬ & XẾP HẠNG -->
-        <div class="panels-wrapper">
-            <div id="history-panel">
-                <div class="resize-handle" data-panel="history"></div>
-                <div class="history-header" onclick="toggleHistory()">
-                    <h3 id="history-title">📜 Lịch Sử</h3>
-                    <button class="history-toggle-btn" id="history-toggle-icon" title="Ẩn/Hiện">▶</button>
+        <!-- Cột phải: Bot O (Đối thủ) + Controls -->
+        <div class="practice-right">
+            <div class="practice-player-card">
+                <div class="practice-avatar practice-avatar-o">O</div>
+                <div class="practice-pname" id="practice-name-o">Bot</div>
+                <div id="practice-badge-o" style="font-size:10px;color:#94a3b8;text-align:center;">⚔️ Đối thủ</div>
+                <div class="practice-indicator practice-indicator-inactive" id="practice-indicator-o">Đang chờ</div>
+            </div>
+
+            <div id="practice-controls" style="display:none;flex-direction:column;gap:8px;">
+                <button class="practice-ctrl-btn practice-ctrl-replay" onclick="PracticeMode.playAgain()">🔄 Chơi lại</button>
+                <button class="practice-ctrl-btn practice-ctrl-change" onclick="PracticeMode.changeBot()">🤖 Đổi Bot</button>
+                <button class="practice-ctrl-btn practice-ctrl-exit"   onclick="PracticeMode.exit()">🚪 Thoát</button>
+            </div>
+
+            <div id="timer-panel" style="display:none;text-align:center;font-size:0.8rem;opacity:0.7;color:#94a3b8;">
+                ⏱️ <span id="game-timer">00:00</span> · 🔄 <span id="turn-timer">00:00</span>
+            </div>
+
+            <!-- Cài đặt giao diện -->
+            <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px 10px;font-size:0.75rem;color:#64748b;">
+                <div style="margin-bottom:6px;color:#94a3b8;font-weight:600;">⚙️ Giao diện</div>
+                <select id="theme-select" onchange="changeTheme()" style="width:100%;padding:4px 6px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:0.75rem;margin-bottom:6px;">
+                    <option value="pure-white" selected>Minh Kính (Trắng)</option>
+                    <option value="pure-black">Hắc Dạ (Đen)</option>
+                    <option value="cyber">Cyber Neon</option>
+                    <option value="luxury-wood">Gỗ Thượng Lưu</option>
+                </select>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                    <input type="checkbox" id="show-cell-scores"
+                        onchange="if(typeof renderInfiniteBoard==='function')renderInfiniteBoard();">
+                    <span>Hiện điểm ô (debug)</span>
+                </label>
+            </div>
+
+            <!-- Admin Training Panel -->
+            <div id="admin-training-panel" style="display:none;flex-direction:column;gap:6px;padding:8px 10px;border:1px solid #10b981;border-radius:8px;background:rgba(16,185,129,.08);">
+                <div style="font-weight:bold;color:#10b981;font-size:0.8rem;">🎓 HUẤN LUYỆN AI</div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:0.75rem;color:#94a3b8;">
+                    <label>Ván:
+                        <select id="autoplay-games" style="padding:2px 4px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;">
+                            <option value="10">10</option><option value="50" selected>50</option>
+                            <option value="100">100</option><option value="500">500</option>
+                        </select>
+                    </label>
+                    <label>Thắng:
+                        <select id="autoplay-win-count" style="padding:2px 4px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;">
+                            <option value="3">3</option><option value="4">4</option>
+                            <option value="5" selected>5</option><option value="6">6</option><option value="7">7</option>
+                        </select>
+                    </label>
                 </div>
-                <div class="history-body" id="history-body">
-                    <div id="history-list">
-                        <div id="history-empty">Chưa có ván.</div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:0.75rem;color:#94a3b8;">
+                    <label>X:
+                        <select id="training-bot-x" style="padding:2px 4px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;">
+                            <option value="ai-easy">Dễ</option><option value="ai-medium">TB</option>
+                            <option value="ai-hard">Khó</option><option value="ai-god" selected>Tối Thượng</option>
+                        </select>
+                    </label>
+                    <label>O:
+                        <select id="training-bot-o" style="padding:2px 4px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;">
+                            <option value="ai-easy">Dễ</option><option value="ai-medium" selected>TB</option>
+                            <option value="ai-hard">Khó</option><option value="ai-god">Tối Thượng</option>
+                        </select>
+                    </label>
+                </div>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <button onclick="startAutoplay()" id="btn-autoplay" style="padding:4px 10px;border-radius:6px;border:1px solid #10b981;background:#d1fae5;color:#065f46;cursor:pointer;font-size:0.75rem;font-weight:bold;">▶️</button>
+                    <button onclick="stopAutoplay()" id="btn-stop-autoplay" style="padding:4px 10px;border-radius:6px;border:1px solid #ef4444;background:#fee2e2;color:#991b1b;cursor:pointer;font-size:0.75rem;font-weight:bold;display:none;">⏹️</button>
+                    <div id="training-progress" style="display:none;align-items:center;gap:4px;">
+                        <span id="training-progress-text" style="font-size:0.7rem;color:#10b981;font-weight:bold;">0/0</span>
+                        <div style="width:60px;height:5px;background:#d1fae5;border-radius:3px;overflow:hidden;">
+                            <div id="training-progress-bar" style="height:100%;width:0%;background:#10b981;border-radius:3px;transition:width 0.3s;"></div>
+                        </div>
+                        <span id="training-progress-wr" style="font-size:0.65rem;color:#6b7280;">W:0 L:0</span>
                     </div>
-                    <button class="btn-clear-history" id="btn-clear-history" onclick="clearHistory()" style="display:none;">🗑️ Xóa</button>
                 </div>
             </div>
 
-            <div id="rank-panel">
-                <div class="resize-handle" data-panel="rank"></div>
-                <h3 id="rank-title">🏅 XẾP HẠNG</h3>
-                <div class="rank-tabs" id="rank-tabs"></div>
-                <div id="rank-list"></div>
-                <button class="btn-clear-rank" id="btn-clear-rank" onclick="clearRank()" style="display:none;">🗑️ Xóa</button>
+            <!-- Admin AI Config -->
+            <div id="admin-ai-config-panel" style="display:none;font-size:0.72rem;color:#94a3b8;">
+                🧠 <span id="memory-patterns">0</span>p | ✓<span id="memory-effective">0</span> | 🎯 Elo:<span id="elo-current">1500</span>(<span id="elo-best">1500</span>)
+                <div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:4px;">
+                    <button onclick="showMemoryStats()" style="padding:2px 5px;border-radius:3px;border:1px solid #8b5cf6;background:#ede9fe;color:#5b21b6;cursor:pointer;font-size:0.65rem;">📊</button>
+                    <button onclick="exportBotMemory()" style="padding:2px 5px;border-radius:3px;border:1px solid #3b82f6;background:#dbeafe;color:#1e40af;cursor:pointer;font-size:0.65rem;">Xuất</button>
+                    <button onclick="document.getElementById('import-memory-input').click()" style="padding:2px 5px;border-radius:3px;border:1px solid #10b981;background:#d1fae5;color:#065f46;cursor:pointer;font-size:0.65rem;">Nhập</button>
+                    <input type="file" id="import-memory-input" accept=".json" style="display:none;" onchange="importBotMemory(this)">
+                    <button onclick="resetMemory()" style="padding:2px 5px;border-radius:3px;border:1px solid #ef4444;background:#fee2e2;color:#991b1b;cursor:pointer;font-size:0.65rem;">Reset</button>
+                    <button onclick="openScoreTableConfig()" style="padding:2px 5px;border-radius:3px;border:1px solid #f59e0b;background:#fef3c7;color:#92400e;cursor:pointer;font-size:0.65rem;">⚙️ AI</button>
+                </div>
             </div>
         </div>
-
-        <button class="btn-restart" id="ui-btn-restart" onclick="initGame()">🔄 Ván Mới</button>
     </div>
 
-    <!-- PHÁO HOA -->
-    <canvas id="confetti-canvas"></canvas>
+    <!-- Selects ẩn cho logic-game.js -->
+    <select id="game-mode" style="display:none;">
+        <!-- Solo local removed per DO6.TXT - use Online PvP instead -->
+        <option value="ai-easy">Bot Dễ</option>
+        <option value="ai-medium">Bot Trung Bình</option>
+        <option value="ai-hard">Bot Khó</option>
+        <option value="ai-god" selected>Bot Tối Thượng</option>
+    </select>
+    <select id="player-piece" style="display:none;"><option value="X" selected>X</option><option value="O">O</option></select>
+    <select id="first-move" style="display:none;"><option value="X" selected>X</option><option value="O">O</option></select>
+    <div id="group-piece" style="display:none;"></div>
+    <div id="group-first" style="display:none;"></div>
 
-    <!-- Thêm dòng thông báo trạng thái online -->
-    <div id="online-status-banner" style="display: none; text-align: center; background: #fff3cd; padding: 8px; font-weight: bold; color: #856404;">
-        <span id="game-info">Đang kết nối phòng...</span>
-        <button id="btn-quit-match" style="margin-left: 15px; padding: 2px 8px; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">Thoát Online</button>
+    <!-- Status panel (ẩn, dùng bởi logic-game.js) -->
+    <div id="status-panel" style="display:none;"></div>
+
+    <!-- History/Rank DOM placeholders (giữ để lich-su-va-xep-hang.js không bị lỗi) -->
+    <div id="rank-panel"    style="display:none;">
+        <div id="rank-tabs" style="display:none;"></div>
+        <div id="rank-list" style="display:none;"></div>
+    </div>
+    <div id="history-list"  style="display:none;"></div>
+    <div id="history-empty" style="display:none;"></div>
+    <button id="btn-clear-history" style="display:none;" onclick="clearHistory()"></button>
+    <button id="btn-clear-rank"    style="display:none;" onclick="clearRank()"></button>
+    <button id="ui-btn-restart"    style="display:none;" onclick="initGame()"></button>
+    <!-- name-overlay: dùng để save rank sau trận thắng bot -->
+    <div id="name-overlay" style="display:none;">
+        <div class="name-box">
+            <h2>🏆 LƯU KẾT QUẢ</h2>
+            <p id="name-overlay-sub"></p>
+            <input type="text" id="name-input" maxlength="20" placeholder="Tên của bạn..." />
+            <br>
+            <button onclick="saveRankEntry()">💾 LƯU XẾP HẠNG</button>
+        </div>
     </div>
 
-    <!-- AUTHENTICATION UI (ĐĂNG NHẬP/ĐĂNG KÝ) -->
-    <div id="auth-container" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 400px; background: white; padding: 25px; border-radius: 10px; box-shadow: 0px 0px 20px rgba(0,0,0,0.3); z-index: 10000; font-family: Arial;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2 style="margin: 0; color: #333;" id="auth-title">🔐 ĐĂNG NHẬP</h2>
-            <button id="btn-close-auth" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">&times;</button>
-        </div>
-        
-        <div style="margin-bottom: 15px;">
-            <label><b>Tên đăng nhập:</b></label>
-            <input type="text" id="auth-username" placeholder="Nhập tên đăng nhập..." style="width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px;">
-        </div>
-        
-        <div style="margin-bottom: 15px;">
-            <label><b>Mật khẩu:</b></label>
-            <input type="password" id="auth-password" placeholder="Nhập mật khẩu..." style="width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px;">
-        </div>
-        
-        <div style="display: flex; gap: 10px; margin-top: 20px;">
-            <button id="btn-login" style="flex: 1; padding: 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Đăng Nhập</button>
-            <button id="btn-register" style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Đăng Ký</button>
-        </div>
-        
-        <p style="text-align: center; margin-top: 15px; font-size: 13px; color: #666;">
-            💡 Chỉ cần tên đăng nhập và mật khẩu để chơi
-        </p>
-    </div>
+</main>
 
-    <!-- SẢNH CHỜ ONLINE (ẨN MẶC ĐỊNH) -->
-    <div id="lobby-screen" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95%; max-width: 1200px; max-height: 90vh; background: white; padding: 20px; border-radius: 8px; box-shadow: 0px 0px 15px rgba(0,0,0,0.3); z-index: 9999; font-family: Arial; overflow-y: auto;">
-        
-        <div class="lobby-layout">
-            
-            <!-- CỘT CHÍNH 1: DANH SÁCH 20 PHÒNG CỐ ĐỊNH -->
-            <div class="lobby-column-left">
-                <div class="panel-box">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h2 class="panel-title" style="margin: 0; border: none;">🎮 THÁCH ĐẤU ONLINE</h2>
-                        <button id="btn-close-lobby" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">&times;</button>
-                    </div>
-                    <p style="font-size:13px;color:#666;margin:0 0 6px;">Chọn phòng trống để ngồi vào. Ai vào trước là chủ phòng (X), người kia là khách (O). Chủ phòng mời người chơi rảnh rồi bấm Bắt đầu.</p>
-                </div>
-
-                <div class="panel-box">
-                    <h3 class="panel-title">20 Phòng đấu:</h3>
-                    <div id="room-list" style="max-height: 380px; overflow-y: auto;">Đang tải...</div>
-                </div>
-                
-                <div id="online-users-panel" class="panel-box">
-                    <h3 class="panel-title">👥 Kỳ thủ đang trực tuyến</h3>
-                    <div id="danh-sach-online" style="max-height: 150px; overflow-y: auto;">
-                        <p style='color:#888; font-size:13px;'>Đang tải danh sách...</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- CỘT CHÍNH 2: BẢNG XẾP HẠNG & LỊCH SỬ & CHAT THẾ GIỚI -->
-            <div class="lobby-column-right">
-                <div class="panel-box">
-                    <h3 class="panel-title">🏆 BẢNG XẾP HẠNG TRỰC TUYẾN</h3>
-                    <div class="bxh-tabs">
-                        <button class="bxh-tab active" id="bxh-tab-elo" onclick="switchBxhTab('elo')">🏅 Elo / Thắng</button>
-                        <button class="bxh-tab" id="bxh-tab-dagia" onclick="switchBxhTab('dagia')">👑 Đại Gia</button>
-                    </div>
-                    <div id="bxh-online-container"> Đang tải bảng xếp hạng... </div>
-                    <div id="bxh-dagia-lobby" style="display:none;"></div>
-                </div>
-
-                <div class="panel-box">
-                    <h3 class="panel-title">📜 LỊCH SỬ TRẬN ĐẤU TRỰC TUYẾN</h3>
-                    <div id="lich-su-online-container" style="max-height: 200px; overflow-y: auto;"> Đang tải lịch sử... </div>
-                </div>
-
-                <!-- CHAT THẾ GIỚI -->
-                <div class="panel-box">
-                    <h3 class="panel-title">🌍 Chat Thế Giới</h3>
-                    <div id="world-chat-messages" style="height:180px; overflow-y:auto; background:white; border:1px solid #e2e8f0; border-radius:6px; padding:8px; font-size:13px; margin-bottom:8px;"></div>
-                    <div style="display:flex; gap:6px;">
-                        <input type="text" id="world-chat-input" placeholder="Nhắn với mọi người..." maxlength="120"
-                               style="flex:1; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;"
-                               onkeydown="if(event.key==='Enter') guiChatTheGioi()">
-                        <button onclick="guiChatTheGioi()" style="padding:7px 14px; background:#6366f1; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:bold;">Gửi</button>
-                    </div>
-                    <div style="font-size:11px; color:#aaa; margin-top:4px;">* Cần đăng nhập để chat</div>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- KHU VỰC 2: Không còn dùng, giữ lại cho tương thích -->
-        <div id="lobby-waiting-area" style="display: none;"></div>
-
-    </div>
-
-    <!-- KHUNG PHÒNG ĐẤU CARO ONLINE CHUYÊN NGHIỆP -->
-    <div id="game-match-screen" style="display: none;">
-        
-        <div class="match-header">
-            <span id="txt-room-title">Phòng chờ đấu...</span>
+<!-- ================================================================
+     VIEW: ROOM (Phòng chờ)
+     ================================================================ -->
+<main class="view" id="view-room">
+    <div class="room-layout">
+        <!-- Room header -->
+        <div class="room-header-card">
             <div>
-                <button id="btn-start-game" onclick="chuPhongBatDauGame()" class="btn-success" style="display:none; margin-right:10px;">BẮT ĐẦU GAME 🎮</button>
-                <button id="btn-leave-match" onclick="xuLyThoatPhong()" class="btn-danger">Thoát phòng 🚪</button>
+                <div class="room-header-title" id="txt-room-title">Phòng chờ đấu...</div>
+                <div style="font-size:12px; color:rgba(255,255,255,.7); margin-top:4px;" id="turn-indicator">⏳ Đang chờ bắt đầu...</div>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button id="btn-start-game" onclick="chuPhongBatDauGame()"
+                    style="display:none; padding:8px 20px; background:#10b981; color:#fff; border:none; border-radius:20px; font-weight:700; font-size:13px;">
+                    BẮT ĐẦU 🎮
+                </button>
+                <button id="btn-leave-match" class="btn-leave-room" onclick="xuLyThoatPhong()">Thoát phòng 🚪</button>
             </div>
         </div>
 
-        <!-- LƯỢT ĐI INDICATOR -->
-        <div id="turn-indicator">⏳ Đang chờ bắt đầu...</div>
-
-        <!-- LUẬT CHƠI — chỉ chủ phòng thấy khi waiting -->
-        <div id="room-rules-panel" style="display:none; background:#f0f8ff; border:1px solid #b8d4f0; border-radius:8px; padding:10px 14px; margin:6px 0; font-size:13px;">
+        <!-- Luật chơi (chỉ chủ phòng) -->
+        <div id="room-rules-panel" style="display:none; background:#f0f8ff; border:1px solid #b8d4f0; border-radius:8px; padding:12px 16px; font-size:13px;">
             <span style="font-weight:bold; margin-right:12px;">⚙️ Luật phòng:</span>
-            <label style="margin-right:14px;">
-                Số quân thắng:
+            <label style="margin-right:14px;">Số quân thắng:
                 <select id="room-win-count" onchange="capNhatLuatPhong()" style="padding:3px 7px; border-radius:4px; border:1px solid #ccc; margin-left:4px;">
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                    <option value="5" selected>5</option>
-                    <option value="6">6</option>
-                    <option value="7">7</option>
+                    <option value="3">3</option><option value="4">4</option><option value="5" selected>5</option>
+                    <option value="6">6</option><option value="7">7</option>
                 </select>
             </label>
-            <label style="margin-right:14px;">
-                Đi trước:
+            <label style="margin-right:14px;">Đi trước:
                 <select id="room-first-turn" onchange="capNhatLuatPhong()" style="padding:3px 7px; border-radius:4px; border:1px solid #ccc; margin-left:4px;">
                     <option value="X" selected>X (Chủ phòng)</option>
                     <option value="O">O (Khách)</option>
@@ -501,70 +1129,99 @@
             </label>
         </div>
 
-        <!-- CƯỢC PVP -->
-        <div id="bet-panel-room" class="bet-panel" style="display:none;">
-            <label>🎲 Cược Xu (Chủ phòng đặt):</label>
-            <input type="number" id="bet-amount-input" class="bet-input"
-                   placeholder="100–5000" min="100" max="5000" step="100" value="500">
-            <button class="bet-btn" onclick="xuLyDatCuoc()">Đặt Cược</button>
-            <span id="bet-status" style="margin-left:8px;font-size:12px;color:#6b7280;"></span>
-            <div style="font-size:11px;color:#9ca3af;margin-top:4px;">
-                Người thắng nhận 2x Xu · Bỏ cuộc = thua mất xu · Min 100 · Max 5.000 Xu
-            </div>
-        </div>
-        <!-- Thông báo cược + nút xác nhận cho người chơi O -->
-        <div id="bet-info-o" style="display:none;padding:8px 12px;background:#fef9c3;border:1px solid #fbbf24;border-radius:8px;font-size:13px;color:#92400e;margin-top:6px;">
-            <span id="bet-info-o-text"></span>
-            <div id="bet-confirm-btns" style="display:none;margin-top:8px;display:flex;gap:8px;">
-                <button onclick="oChapNhanCuoc()" style="padding:6px 16px;background:#16a34a;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">✅ Chấp Nhận</button>
-                <button onclick="oTuChoiCuoc()" style="padding:6px 16px;background:#dc2626;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">❌ Từ Chối</button>
-            </div>
-        </div>
-
-        <!-- KHU VỰC ĐỐI KHÁNG -->
-        <div class="versus-container">
-            <div class="player-slot" id="slot-playerX">
-                <div class="avatar-circle">X</div>
-                <div class="player-info">
-                    <div class="player-name" id="name-pX">Đang chờ...
-                        <span class="ping-led" id="led-pX" title="Trạng thái kết nối"></span>
+        <!-- Versus -->
+        <div class="card">
+            <div class="card-body versus-row">
+                <div class="player-slot-card" id="slot-playerX">
+                    <div class="avatar-circle-lg player-x" id="room-avatar-x">X</div>
+                    <div class="pc-info" style="text-align:center;">
+                        <div class="player-name" id="name-pX">Đang chờ...
+                            <span class="ping-led" id="led-pX" title="Kết nối"></span>
+                        </div>
+                        <div class="text-muted" id="status-pX">Chủ phòng</div>
                     </div>
-                    <div class="player-status" id="status-pX">Chủ phòng</div>
+                </div>
+
+                <div class="vs-badge">VS</div>
+
+                <div class="player-slot-card" id="slot-playerO">
+                    <div class="avatar-circle-lg player-o" id="room-avatar-o">O</div>
+                    <div class="pc-info" style="text-align:center;">
+                        <div class="player-name" id="name-pO">Đang chờ đối thủ...
+                            <span class="ping-led" id="led-pO" title="Kết nối"></span>
+                        </div>
+                        <div class="text-muted" id="status-pO">Trống ghế</div>
+                    </div>
+                    <button id="btn-kick-player" onclick="kickDoiThu()"
+                        style="display:none; padding:4px 10px; background:#ef4444; color:#fff; border:none; border-radius:6px; font-size:12px; cursor:pointer; margin-top:6px;">
+                        Đuổi ❌
+                    </button>
                 </div>
             </div>
+        </div>
 
-            <div class="vs-text">VS</div>
+        <!-- ================================================================
+             PANEL CƯỢC MỚI (DO1.txt Phần 5-8)
+             ================================================================ -->
 
-            <div class="player-slot" id="slot-playerO">
-                <div class="avatar-circle avatar-o">O</div>
-                <div class="player-info">
-                    <div class="player-name" id="name-pO">Đang chờ đối thủ...
-                        <span class="ping-led" id="led-pO" title="Trạng thái kết nối"></span>
-                    </div>
-                    <div class="player-status" id="status-pO">Trống ghế</div>
-                </div>
-                <button id="btn-kick-player" onclick="kickDoiThu()" class="btn-kick" style="display: none;">Đuổi ❌</button>
+        <!-- CHỦ PHÒNG (X): Đặt cược -->
+        <div id="bet-panel-room" class="bet-card" style="display:none;">
+            <div style="font-weight:700; margin-bottom:10px; color:#92400e;">🎲 Đặt Cược (Chủ phòng)</div>
+
+            <!-- Chọn mức cược nhanh -->
+            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+                <button onclick="chonMucCuoc(0)"    class="btn-bet-quick btn-no-bet">Không cược</button>
+                <button onclick="chonMucCuoc(100)"  class="btn-bet-quick">100 Xu</button>
+                <button onclick="chonMucCuoc(500)"  class="btn-bet-quick">500 Xu</button>
+                <button onclick="chonMucCuoc(1000)" class="btn-bet-quick">1.000 Xu</button>
+                <button onclick="chonMucCuoc(3000)" class="btn-bet-quick">3.000 Xu</button>
+                <button onclick="chonMucCuoc(5000)" class="btn-bet-quick">5.000 Xu</button>
+            </div>
+            <div class="bet-row">
+                <input type="number" id="bet-amount-input" class="bet-input"
+                    placeholder="Tùy chỉnh (0 = hủy cược)" min="0" max="5000" step="100" value="0">
+                <button class="btn-bet" onclick="xuLyDatCuoc()">Xác nhận</button>
+                <span id="bet-status" style="font-size:12px; color:#6b7280;"></span>
+            </div>
+            <!-- Trạng thái cược + guest ready -->
+            <div id="bet-status-host" style="margin-top:8px; font-size:13px; min-height:36px;"></div>
+            <div class="text-muted mt-2">Người thắng nhận 2× Xu · Bỏ cuộc = thua · Min 100 · Max 5.000 Xu</div>
+        </div>
+
+        <!-- KHÁCH (O): Xem cược và bấm SẴN SÀNG -->
+        <div id="bet-info-o" style="display:none; padding:12px 16px; background:#fef9c3; border:1px solid #fbbf24; border-radius:8px; font-size:13px; color:#92400e;">
+            <div id="bet-info-o-text" style="margin-bottom:10px;"></div>
+            <!-- Nút SẴN SÀNG / Hủy sẵn sàng -->
+            <div id="bet-confirm-btns" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                <button id="btn-guest-ready"
+                    onclick="oSanSang()"
+                    style="padding:8px 20px; background:#16a34a; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px;">
+                    🟢 SẴN SÀNG
+                </button>
+                <button id="btn-guest-cancel-ready"
+                    onclick="oHuySanSang()"
+                    style="display:none; padding:8px 16px; background:#dc2626; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px;">
+                    ↩ Hủy Sẵn Sàng
+                </button>
+            </div>
+            <!-- Thông báo sau khi sẵn sàng -->
+            <div id="guest-ready-msg" style="display:none; margin-top:8px; color:#065f46; font-weight:bold; font-size:13px;"></div>
+        </div>
+
+        <!-- Mời người online -->
+        <div class="card">
+            <div class="card-header">👥 Mời Kỳ Thủ Online</div>
+            <div class="card-body">
+                <div id="room-online-users-list" style="max-height:160px; overflow-y:auto;"></div>
             </div>
         </div>
 
-        <!-- BÀN CỜ PHÒNG ĐẤU ONLINE — dùng chung bàn cờ từ main-layout -->
-        <div class="match-board-section">
-            <!-- #unified-board-slot: bàn cờ thật sẽ được JS move vào đây khi online -->
-            <div id="unified-board-slot"></div>
-        </div>
-
-        <!-- KHU VỰC KHÁN GIẢ, CHAT & MỜI ONLINE -->
-        <div class="match-footer-panels">
-            <div class="invite-panel">
-                <h4> Mời kỳ thủ online vào Solo</h4>
-                <div id="room-online-users-list" class="scroll-list"></div>
-            </div>
-
-            <div class="chat-panel">
-                <h4>🌍 Chat Thế Giới</h4>
-                <div id="chat-messages" class="scroll-list"></div>
-
-                <!-- QUICK CHAT BUBBLES -->
+        <!-- Chat phòng -->
+        <div class="card">
+            <div class="card-header">🌍 Chat Thế Giới</div>
+            <div class="card-body">
+                <div id="chat-messages" style="height:180px; overflow-y:auto; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px; font-size:13px; margin-bottom:8px;"></div>
+                <!-- Quick chat -->
                 <div class="quick-chat-bar">
                     <button class="qc-btn" onclick="guiQuickChat('👍 Hay đó!')">👍</button>
                     <button class="qc-btn" onclick="guiQuickChat('😂 Haha!')">😂</button>
@@ -573,559 +1230,1287 @@
                     <button class="qc-btn" onclick="guiQuickChat('🔥 Nóng rồi!')">🔥</button>
                     <button class="qc-btn qc-more" onclick="toggleQuickChatMenu()" title="Thêm">＋</button>
                 </div>
-                <!-- QUICK CHAT MENU MỞ RỘNG -->
-                <div id="quick-chat-menu" style="display:none;">
+                <div id="quick-chat-menu" style="display:none; flex-wrap:wrap; gap:6px; margin:6px 0;">
                     <button class="qc-full" onclick="guiQuickChat('Hay quá! 🎉')">Hay quá! 🎉</button>
                     <button class="qc-full" onclick="guiQuickChat('Đợi tí nhé... ⏳')">Đợi tí nhé... ⏳</button>
                     <button class="qc-full" onclick="guiQuickChat('Nước đó hay thật! 👏')">Nước đó hay thật! 👏</button>
                     <button class="qc-full" onclick="guiQuickChat('Sơ rồi bạn ơi! 😬')">Sơ rồi bạn ơi! 😬</button>
                     <button class="qc-full" onclick="guiQuickChat('Chơi lại nhé! 🔄')">Chơi lại nhé! 🔄</button>
                     <button class="qc-full" onclick="guiQuickChat('Chúc mừng! 🏆')">Chúc mừng! 🏆</button>
-                    <button class="qc-full" onclick="guiQuickChat('Ăn hên thôi! 😜')">Ăn hên thôi! 😜</button>
-                    <button class="qc-full" onclick="guiQuickChat('Mình cần nghĩ tí... 🧠')">Mình cần nghĩ tí... 🧠</button>
                 </div>
-
                 <div class="chat-input-row">
                     <input type="text" id="chat-input" placeholder="Nhắn với tất cả mọi người..." onkeydown="if(event.key==='Enter') guiTinNhanOnline()">
                     <button onclick="guiTinNhanOnline()">Gửi</button>
                 </div>
             </div>
         </div>
-
     </div>
+</main>
 
-    <!-- NHẬP TÊN -->
-    <div id="name-overlay">
-        <div class="name-box">
-            <h2>🏆 NHẬP TÊN CỦA BẠN</h2>
-            <p id="name-overlay-sub">Thời gian của bạn sẽ được lưu vào bảng xếp hạng!</p>
-            <input type="text" id="name-input" maxlength="20" placeholder="Tên của bạn..." />
-            <br>
-            <button class="btn-save-name" onclick="saveRankEntry()">💾 LƯU XẾP HẠNG</button>
+<!-- ================================================================
+     VIEW: BATTLE (Đang đấu)
+     ================================================================ -->
+<main class="view" id="view-battle">
+    <div class="battle-layout-desktop">
+
+        <!-- Cột trái: Player X -->
+        <div class="battle-player-card">
+            <div class="battle-avatar bx" id="battle-avatar-x">X</div>
+            <div class="battle-pname" id="battle-name-x">Người chơi X</div>
+            <div class="battle-pstats" id="battle-stats-x">🤖 0 · ⚔️ 0 · 📉 0</div>
+            <div class="battle-indicator" id="battle-indicator-x">Lượt của bạn</div>
         </div>
-    </div>
 
-    <!-- WIN OVERLAY -->
-    <div id="win-overlay">
-        <div class="win-box">
-            <span class="win-emoji" id="win-emoji">🏆</span>
-            <div class="win-title"    id="win-title">CHIẾN THẮNG!</div>
-            <div class="win-subtitle" id="win-subtitle"></div>
-            <div style="display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
-                <button class="btn-play-again" onclick="reviewGame()" id="btn-review"
-                    style="background:linear-gradient(135deg,#475569,#1e293b);">
-                    🔍 XEM LẠI
-                </button>
-                <button class="btn-play-again" onclick="closeWinAndRestart()">🔄 ĐẤU LẠI</button>
+        <!-- Cột giữa: Bàn cờ -->
+        <div class="battle-center">
+            <div class="battle-status-bar" id="battle-status-bar">Đang chơi...</div>
+            <!-- Viewport size controls (same as Practice) -->
+            <div class="board-zoom-controls" style="width:100%;">
+                <div class="zoom-presets">
+                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('auto')">Auto</button>
+                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('small')">Nhỏ</button>
+                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('medium')">Vừa</button>
+                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('large')">Lớn</button>
+                    <button type="button" class="btn-zoom-preset" onclick="setViewportSize('full')">Toàn màn hình</button>
+                </div>
+                <div class="auto-size-toggle">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="auto-size-checkbox-online" checked onchange="toggleAutoSizeOnline()">
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-text">Auto theo màn hình</span>
+                    </label>
+                </div>
+            </div>
+            <!-- Shared Board Engine (DO4.TXT) -->
+            <div id="unified-board-slot">
+                <div class="shared-board-container" id="shared-board-online">
+                    <canvas id="inf-canvas-online" class="shared-board-canvas"></canvas>
+                    <div class="board-coords-display" id="board-coords-online">X: 0, Y: 0</div>
+                    <div class="board-controls-overlay">
+                        <button class="board-control-btn" onclick="SharedBoardEngine.Camera.reset(); SharedBoardEngine.update();" title="Reset Camera">🏠</button>
+                        <button class="board-control-btn" onclick="SharedBoardEngine.Camera.setZoom(SharedBoardEngine.Camera.zoom + 0.2); SharedBoardEngine.update();" title="Zoom In">+</button>
+                        <button class="board-control-btn" onclick="SharedBoardEngine.Camera.setZoom(SharedBoardEngine.Camera.zoom - 0.2); SharedBoardEngine.update();" title="Zoom Out">−</button>
+                    </div>
+                </div>
+                <!-- Legacy board fallback -->
+                <div id="inf-resizable" style="display:none;position:relative;user-select:none;"></div>
+                <div class="board" id="board" style="display:none;"></div>
             </div>
         </div>
-    </div>
 
-    <!-- SCORE TABLE CONFIG OVERLAY -->
-    <div id="scoretable-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:500; justify-content:center; align-items:center;">
-        <div style="background:#1e293b; border-radius:12px; padding:20px; max-width:800px; max-height:90vh; overflow-y:auto; color:#e2e8f0; box-shadow:0 10px 40px rgba(0,0,0,0.5);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h2 style="margin:0; color:#f59e0b;">⚙️ Cấu Hình AI - ScoreTable</h2>
-                <button onclick="closeScoreTableConfig()" style="background:#ef4444; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:bold;">✕ Đóng</button>
-            </div>
-            
-            <div style="margin-bottom:20px;">
-                <p style="font-size:0.85rem; color:#94a3b8; margin:0;">Chỉnh điểm số để thay đổi cách bot ra quyết định. Điểm càng cao thì bot càng ưu tiên hành động đó.</p>
+        <!-- Cột phải: Player O + Chat -->
+        <div class="battle-right">
+            <div class="battle-player-card">
+                <div class="battle-avatar bo" id="battle-avatar-o">O</div>
+                <div class="battle-pname" id="battle-name-o">Người chơi O</div>
+                <div class="battle-pstats" id="battle-stats-o">🤖 0 · ⚔️ 0 · 📉 0</div>
+                <div class="battle-indicator inactive" id="battle-indicator-o">Đang chờ</div>
             </div>
 
-            <!-- ATTACK SCORES -->
-            <div style="margin-bottom:24px; padding:16px; background:#334155; border-radius:8px;">
-                <h3 style="margin:0 0 12px 0; color:#10b981; font-size:1rem;">⚔️ Điểm Tấn Công (ATTACK)</h3>
-                <p style="font-size:0.8rem; color:#94a3b8; margin:0 0 12px 0;">Bot đánh quân của chính mình để tạo chuỗi chiến thắng</p>
-                
-                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">FIVE (5 quân)</label>
-                        <input type="number" id="st-attack-five" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">Thắng ngay lập tức</small>
+            <!-- Nút thoát trong battle -->
+            <button id="btn-leave-battle"
+                onclick="if(confirm('Thoát khỏi trận đấu?')) xuLyThoatPhong()"
+                style="width:100%; padding:8px; background:rgba(239,68,68,.15);
+                       color:#fca5a5; border:1px solid rgba(239,68,68,.3);
+                       border-radius:var(--radius-sm); font-size:12px;
+                       font-weight:700; cursor:pointer; transition:background .2s;">
+                🚪 Thoát trận
+            </button>
+
+            <!-- Bet info trong battle (hiện khi có cược) -->
+            <div id="battle-bet-info" style="display:none;
+                 background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.3);
+                 border-radius:var(--radius-sm); padding:var(--space-2) var(--space-3);
+                 font-size:11px; color:#fbbf24; text-align:center; font-weight:700;">
+            </div>
+
+            <!-- Chat trong battle -->
+            <div class="battle-chat card" style="background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.1); flex:1;">
+                <div class="card-header" style="background:transparent; border-color:rgba(255,255,255,.1); color:#e2e8f0;">🌍 Chat</div>
+                <div class="card-body" style="padding:8px;">
+                    <div class="battle-chat-messages" id="battle-chat-messages"></div>
+                    <div class="quick-chat-bar">
+                        <button class="qc-btn" onclick="guiQuickChat('👍 Hay đó!')">👍</button>
+                        <button class="qc-btn" onclick="guiQuickChat('😂')">😂</button>
+                        <button class="qc-btn" onclick="guiQuickChat('😤')">😤</button>
+                        <button class="qc-btn" onclick="guiQuickChat('🔥')">🔥</button>
                     </div>
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">FOUR_OPEN (4 quân mở)</label>
-                        <input type="number" id="st-attack-four-open" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">4 quân, 2 đầu mở - sắp thắng</small>
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">FOUR_BLOCKED (4 quân chặn)</label>
-                        <input type="number" id="st-attack-four-blocked" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">4 quân, 1 đầu bị chặn</small>
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">THREE_OPEN (3 quân mở)</label>
-                        <input type="number" id="st-attack-three-open" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">3 quân, 2 đầu mở - ưu tiên tấn công</small>
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">THREE_BLOCKED (3 quân chặn)</label>
-                        <input type="number" id="st-attack-three-blocked" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">3 quân, 1 đầu bị chặn</small>
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">TWO_OPEN (2 quân mở)</label>
-                        <input type="number" id="st-attack-two-open" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">2 quân, 2 đầu mở</small>
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">TWO_BLOCKED (2 quân chặn)</label>
-                        <input type="number" id="st-attack-two-blocked" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">2 quân, 1 đầu bị chặn</small>
+                    <div class="battle-chat-input">
+                        <input type="text" id="battle-chat-input-field" placeholder="Nhắn tin..." onkeydown="if(event.key==='Enter') guiTinNhanOnline()">
+                        <button onclick="guiTinNhanOnline()">Gửi</button>
                     </div>
                 </div>
             </div>
 
-            <!-- DEFENSE SCORES -->
-            <div style="margin-bottom:24px; padding:16px; background:#334155; border-radius:8px;">
-                <h3 style="margin:0 0 12px 0; color:#ef4444; font-size:1rem;">🛡️ Điểm Phòng Thủ (DEFENSE)</h3>
-                <p style="font-size:0.8rem; color:#94a3b8; margin:0 0 12px 0;">Bot chặn quân của đối thủ để ngăn họ thắng</p>
-                
-                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">FIVE (5 quân)</label>
-                        <input type="number" id="st-defense-five" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">Đối thủ sắp thắng - PHẢI chặn ngay</small>
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">FOUR_OPEN (4 quân mở)</label>
-                        <input type="number" id="st-defense-four-open" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">Đối thủ có 4 quân mở</small>
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">FOUR_BLOCKED (4 quân chặn)</label>
-                        <input type="number" id="st-defense-four-blocked" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">Đối thủ có 4 quân bị chặn</small>
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">THREE_OPEN (3 quân mở) ⚠️</label>
-                        <input type="number" id="st-defense-three-open" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">Đối thủ có 3 quân mở - NGUY HIỂM, chặn ngay</small>
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">THREE_BLOCKED (3 quân chặn)</label>
-                        <input type="number" id="st-defense-three-blocked" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">Đối thủ có 3 quân bị chặn</small>
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">TWO_OPEN (2 quân mở)</label>
-                        <input type="number" id="st-defense-two-open" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">Đối thủ có 2 quân mở</small>
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">TWO_BLOCKED (2 quân chặn)</label>
-                        <input type="number" id="st-defense-two-blocked" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">Đối thủ có 2 quân bị chặn</small>
-                    </div>
-                </div>
-            </div>
-
-            <!-- BONUS SCORES -->
-            <div style="margin-bottom:24px; padding:16px; background:#334155; border-radius:8px;">
-                <h3 style="margin:0 0 12px 0; color:#f59e0b; font-size:1rem;">🎁 Điểm Thưởng (BONUS)</h3>
-                <p style="font-size:0.8rem; color:#94a3b8; margin:0 0 12px 0;">Điểm thưởng cho các pattern đặc biệt</p>
-                
-                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">DOUBLE_THREE (Kép 3)</label>
-                        <input type="number" id="st-bonus-double-three" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">Hai đường THREE_OPEN cùng lúc</small>
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">FOUR_THREE (4-3)</label>
-                        <input type="number" id="st-bonus-four-three" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">Có cả FOUR và THREE_OPEN</small>
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">DOUBLE_FOUR (Kép 4)</label>
-                        <input type="number" id="st-bonus-double-four" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">Hai đường FOUR cùng lúc</small>
-                    </div>
-                </div>
-            </div>
-
-            <!-- CENTER BIAS -->
-            <div style="margin-bottom:24px; padding:16px; background:#334155; border-radius:8px;">
-                <h3 style="margin:0 0 12px 0; color:#8b5cf6; font-size:1rem;">🎯 Ưu Tiên Trung Tâm (CENTER_BIAS)</h3>
-                <p style="font-size:0.8rem; color:#94a3b8; margin:0 0 12px 0;">Bot ưu tiên đánh gần trung tâm bàn cờ</p>
-                
-                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">MAX (Tối đa)</label>
-                        <input type="number" id="st-center-max" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">Điểm ưu tiên trung tâm tối đa</small>
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:0.8rem; margin-bottom:4px;">DISTANCE (Bán kính)</label>
-                        <input type="number" id="st-center-distance" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;">
-                        <small style="font-size:0.7rem; color:#64748b;">Bán kính tính ưu tiên trung tâm</small>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ACTION BUTTONS -->
-            <div style="display:flex; gap:12px; justify-content:flex-end; padding-top:16px; border-top:1px solid #475569;">
-                <button onclick="resetScoreTableToDefaults()" style="padding:10px 20px; border-radius:6px; border:1px solid #ef4444; background:#fee2e2; color:#991b1b; cursor:pointer; font-weight:bold;">🔄 Reset Mặc Định</button>
-                <button onclick="ScoreTable.exportAsFile()" style="padding:10px 20px; border-radius:6px; border:1px solid #8b5cf6; background:#ede9fe; color:#5b21b6; cursor:pointer; font-weight:bold;">📥 Xuất File JS</button>
-                <button onclick="saveScoreTableConfig()" style="padding:10px 20px; border-radius:6px; border:1px solid #10b981; background:#d1fae5; color:#065f46; cursor:pointer; font-weight:bold;">💾 Lưu Thay Đổi</button>
+            <!-- Thông tin phòng (luật) -->
+            <div class="battle-room-info-card">
+                <div id="battle-room-info">Đang tải thông tin phòng...</div>
             </div>
         </div>
     </div>
+</main>
 
-    <!-- ===== SCRIPTS ===== -->
-    <script src="src/cau-hinh.js"></script>
-    <script src="src/ScoreTable.js"></script>
-    <script src="src/GameState.js"></script>
-    <script src="src/DebugLogger.js"></script>
-    <script src="src/Cache.js"></script>
-    <script src="src/trang-thai.js"></script>
-    <script src="src/PatternDetector.js"></script>
-    <script src="src/ThreatDetector.js"></script>
-    <script src="src/Evaluation.js"></script>
-    <script src="src/Search.js"></script>
-    <script src="src/AIController.js"></script>
-    <script src="src/logic-game.js"></script>
-    <script src="src/hoc-kinh-nghiem.js"></script>
-    <script src="src/ai-nao.js"></script>
-    <script src="src/ban-co.js"></script>
-    <script src="src/phat-sung.js"></script>
-    <script src="src/BatchLearning.js"></script>
-    <script src="src/autoplay.js"></script>
-    <script src="src/lich-su-va-xep-hang.js"></script>
+<!-- ================================================================
+     ONLINE STATUS BANNER (dùng chung)
+     ================================================================ -->
+<div id="online-status-banner" style="display:none; text-align:center; background:#fff3cd; padding:8px; font-weight:bold; color:#856404;">
+    <span id="game-info">Đang kết nối phòng...</span>
+</div>
 
-    <!-- Khởi động -->
-    <script>
-        var boardElement = document.getElementById('board');
-        var statusPanel  = document.getElementById('status-panel');
-        var modeSelect   = document.getElementById('game-mode');
+<!-- ================================================================
+     PHÁO HOA
+     ================================================================ -->
+<canvas id="confetti-canvas"></canvas>
 
-        if (typeof GameState !== 'undefined') {
-            GameState.initialize();
+<!-- ================================================================
+     NHẬP TÊN OVERLAY
+     ================================================================ -->
+<div id="name-overlay">
+    <div class="name-box">
+        <h2>🏆 NHẬP TÊN CỦA BẠN</h2>
+        <p id="name-overlay-sub">Thời gian của bạn sẽ được lưu vào bảng xếp hạng!</p>
+        <input type="text" id="name-input" maxlength="20" placeholder="Tên của bạn..." />
+        <br>
+        <button class="btn-save-name" onclick="saveRankEntry()">💾 LƯU XẾP HẠNG</button>
+    </div>
+</div>
+
+<!-- ================================================================
+     WIN OVERLAY
+     ================================================================ -->
+<div id="win-overlay">
+    <div class="win-box">
+        <span class="win-emoji" id="win-emoji">🏆</span>
+        <div class="win-title"    id="win-title">CHIẾN THẮNG!</div>
+        <div class="win-subtitle" id="win-subtitle"></div>
+        <div style="display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+            <button class="btn-play-again" onclick="reviewGame()" id="btn-review"
+                style="background:linear-gradient(135deg,#475569,#1e293b);">🔍 XEM LẠI</button>
+            <button class="btn-play-again" onclick="closeWinAndRestart()">🔄 ĐẤU LẠI</button>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================
+     AUTH MODAL (Đăng nhập / Đăng ký)
+     firebase-online.js dùng style.display='block/none' trực tiếp
+     ================================================================ -->
+<div id="auth-container" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:90%; max-width:420px; background:#fff; padding:28px; border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.35); z-index:20000; font-family:inherit;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+        <h2 style="margin:0; color:#1e293b; font-size:18px;" id="auth-title">🔐 ĐĂNG NHẬP</h2>
+        <button id="btn-close-auth" style="background:none; border:none; font-size:26px; cursor:pointer; color:#94a3b8; line-height:1;">&times;</button>
+    </div>
+    <div style="margin-bottom:14px;">
+        <label style="font-size:13px; font-weight:600; display:block; margin-bottom:4px; color:#475569;">Tên đăng nhập:</label>
+        <input type="text" id="auth-username" placeholder="Nhập tên đăng nhập..."
+            style="width:100%; padding:10px 12px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:18px;">
+        <label style="font-size:13px; font-weight:600; display:block; margin-bottom:4px; color:#475569;">Mật khẩu:</label>
+        <input type="password" id="auth-password" placeholder="Nhập mật khẩu..."
+            style="width:100%; padding:10px 12px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; box-sizing:border-box;">
+    </div>
+    <div style="display:flex; gap:10px;">
+        <button id="btn-login"    style="flex:1; padding:12px; background:#007bff; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer;">Đăng Nhập</button>
+        <button id="btn-register" style="flex:1; padding:12px; background:#28a745; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer;">Đăng Ký</button>
+    </div>
+    <p style="text-align:center; margin-top:14px; font-size:12px; color:#94a3b8;">💡 Chỉ cần tên đăng nhập và mật khẩu để chơi</p>
+</div>
+
+<!-- ================================================================
+     SCORE TABLE CONFIG OVERLAY (Admin)
+     ================================================================ -->
+<div id="scoretable-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:500; justify-content:center; align-items:center;">
+    <div style="background:#1e293b; border-radius:12px; padding:20px; max-width:800px; max-height:90vh; overflow-y:auto; color:#e2e8f0; box-shadow:0 10px 40px rgba(0,0,0,0.5);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 style="margin:0; color:#f59e0b;">⚙️ Cấu Hình AI - ScoreTable</h2>
+            <button onclick="closeScoreTableConfig()" style="background:#ef4444; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:bold;">✕ Đóng</button>
+        </div>
+        <div style="margin-bottom:20px;">
+            <p style="font-size:0.85rem; color:#94a3b8; margin:0;">Chỉnh điểm số để thay đổi cách bot ra quyết định.</p>
+        </div>
+        <!-- ATTACK SCORES -->
+        <div style="margin-bottom:24px; padding:16px; background:#334155; border-radius:8px;">
+            <h3 style="margin:0 0 12px 0; color:#10b981; font-size:1rem;">⚔️ Điểm Tấn Công (ATTACK)</h3>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">FIVE</label><input type="number" id="st-attack-five" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"><small style="font-size:0.7rem; color:#64748b;">Thắng ngay</small></div>
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">FOUR_OPEN</label><input type="number" id="st-attack-four-open" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"></div>
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">FOUR_BLOCKED</label><input type="number" id="st-attack-four-blocked" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"></div>
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">THREE_OPEN</label><input type="number" id="st-attack-three-open" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"></div>
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">THREE_BLOCKED</label><input type="number" id="st-attack-three-blocked" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"></div>
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">TWO_OPEN</label><input type="number" id="st-attack-two-open" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"></div>
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">TWO_BLOCKED</label><input type="number" id="st-attack-two-blocked" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"></div>
+            </div>
+        </div>
+        <!-- DEFENSE -->
+        <div style="margin-bottom:24px; padding:16px; background:#334155; border-radius:8px;">
+            <h3 style="margin:0 0 12px 0; color:#ef4444; font-size:1rem;">🛡️ Điểm Phòng Thủ (DEFENSE)</h3>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">FIVE</label><input type="number" id="st-defense-five" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"></div>
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">FOUR_OPEN</label><input type="number" id="st-defense-four-open" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"></div>
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">FOUR_BLOCKED</label><input type="number" id="st-defense-four-blocked" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"></div>
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">THREE_OPEN</label><input type="number" id="st-defense-three-open" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"></div>
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">THREE_BLOCKED</label><input type="number" id="st-defense-three-blocked" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"></div>
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">TWO_OPEN</label><input type="number" id="st-defense-two-open" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"></div>
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">TWO_BLOCKED</label><input type="number" id="st-defense-two-blocked" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"></div>
+            </div>
+        </div>
+        <!-- BONUS -->
+        <div style="margin-bottom:24px; padding:16px; background:#334155; border-radius:8px;">
+            <h3 style="margin:0 0 12px 0; color:#f59e0b; font-size:1rem;">🎁 Điểm Thưởng (BONUS)</h3>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">DOUBLE_THREE</label><input type="number" id="st-bonus-double-three" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"></div>
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">FOUR_THREE</label><input type="number" id="st-bonus-four-three" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"></div>
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">DOUBLE_FOUR</label><input type="number" id="st-bonus-double-four" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"></div>
+            </div>
+        </div>
+        <!-- CENTER BIAS -->
+        <div style="margin-bottom:24px; padding:16px; background:#334155; border-radius:8px;">
+            <h3 style="margin:0 0 12px 0; color:#8b5cf6; font-size:1rem;">🎯 Ưu Tiên Trung Tâm</h3>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">MAX</label><input type="number" id="st-center-max" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"></div>
+                <div><label style="display:block; font-size:0.8rem; margin-bottom:4px;">DISTANCE</label><input type="number" id="st-center-distance" style="width:100%; padding:6px; border-radius:4px; border:1px solid #475569; background:#1e293b; color:#e2e8f0;"></div>
+            </div>
+        </div>
+        <div style="display:flex; gap:12px; justify-content:flex-end; padding-top:16px; border-top:1px solid #475569;">
+            <button onclick="resetScoreTableToDefaults()" style="padding:10px 20px; border-radius:6px; border:1px solid #ef4444; background:#fee2e2; color:#991b1b; cursor:pointer; font-weight:bold;">🔄 Reset</button>
+            <button onclick="ScoreTable.exportAsFile()" style="padding:10px 20px; border-radius:6px; border:1px solid #8b5cf6; background:#ede9fe; color:#5b21b6; cursor:pointer; font-weight:bold;">📥 Xuất JS</button>
+            <button onclick="saveScoreTableConfig()" style="padding:10px 20px; border-radius:6px; border:1px solid #10b981; background:#d1fae5; color:#065f46; cursor:pointer; font-weight:bold;">💾 Lưu</button>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================
+     MODALS: Nhiệm Vụ, Shop Skin, Shop Avatar, BXH Đại Gia
+     ================================================================ -->
+<div id="nhiem-vu-modal" class="xu-modal-overlay">
+    <div class="xu-modal-box">
+        <div class="xu-modal-header">
+            <h2 class="xu-modal-title">📋 Nhiệm Vụ & Xu</h2>
+            <button class="xu-modal-close" onclick="dongNhiemVu()">&times;</button>
+        </div>
+        <div id="nhiem-vu-container"></div>
+    </div>
+</div>
+
+<div id="shop-skin-modal" class="xu-modal-overlay">
+    <div class="xu-modal-box" style="max-width:720px;">
+        <div class="xu-modal-header">
+            <h2 class="xu-modal-title">🎨 Cửa Hàng Quân Cờ</h2>
+            <button class="xu-modal-close" onclick="dongShopSkin()">&times;</button>
+        </div>
+        <div class="shop-skin-info">
+            <span>Mua theo <b>cặp O & X</b> — áp dụng cho mọi chế độ</span>
+            <span>Số dư: <b id="shop-skin-xu-display">0 Xu</b></span>
+        </div>
+        <div id="shop-skin-grid"></div>
+    </div>
+</div>
+
+<div id="shop-avatar-modal" class="xu-modal-overlay">
+    <div class="xu-modal-box" style="max-width:640px;">
+        <div class="xu-modal-header">
+            <h2 class="xu-modal-title">🎭 Cửa Hàng Avatar</h2>
+            <button class="xu-modal-close" onclick="dongShopAvatar()">&times;</button>
+        </div>
+        <div style="font-size:13px; color:#6b7280; margin-bottom:10px;">
+            Mỗi avatar <b style="color:#d97706;">3.000 Xu</b>. Số dư: <b id="shop-xu-display" style="color:#d97706;">0 Xu</b>
+        </div>
+        <div id="shop-avatar-grid"></div>
+    </div>
+</div>
+
+<div id="bxh-dagia-modal" class="xu-modal-overlay">
+    <div class="xu-modal-box">
+        <div class="xu-modal-header">
+            <h2 class="xu-modal-title">👑 Bảng Xếp Hạng Đại Gia</h2>
+            <button class="xu-modal-close" onclick="dongBxhDaiGia()">&times;</button>
+        </div>
+        <p style="font-size:12px; color:#9ca3af; margin:0 0 12px;">Top người chơi có nhiều Xu nhất</p>
+        <div id="bxh-dagia-list"></div>
+    </div>
+</div>
+
+<!-- ================================================================
+     MODAL CÀI ĐẶT TÀI KHOẢN
+     ================================================================ -->
+<div id="account-settings-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:20000; justify-content:center; align-items:center;">
+    <div style="background:white; border-radius:12px; padding:24px; width:90%; max-width:420px; font-family:Arial; position:relative; max-height:90vh; overflow-y:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+            <h2 style="margin:0; color:#333; font-size:18px;">⚙️ Cài đặt tài khoản</h2>
+            <button onclick="dongCapNhatTaiKhoan()" style="background:none; border:none; font-size:24px; cursor:pointer; color:#999;">&times;</button>
+        </div>
+        <div style="text-align:center; margin-bottom:18px;">
+            <div id="settings-avatar-display" onclick="moChonAvatar()" style="width:72px; height:72px; border-radius:50%; background:#6366f1; color:white; font-size:32px; display:flex; align-items:center; justify-content:center; margin:0 auto 8px; cursor:pointer; border:3px solid #e0e0ff;">?</div>
+            <button onclick="moChonAvatar()" style="padding:4px 12px; background:#f0f0ff; color:#6366f1; border:1px solid #6366f1; border-radius:6px; cursor:pointer; font-size:12px;">🖼️ Đổi Avatar</button>
+            <div id="avatar-picker" style="display:none; margin-top:10px; background:#f8f9fa; border-radius:8px; padding:10px;">
+                <div style="font-size:11px; color:#888; margin-bottom:6px;">Chọn avatar:</div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center;"></div>
+            </div>
+        </div>
+        <div style="margin-bottom:14px;">
+            <label style="font-size:13px; font-weight:bold; display:block; margin-bottom:4px;">Tên hiển thị</label>
+            <div style="display:flex; gap:6px;">
+                <input type="text" id="settings-display-name" placeholder="Tên hiển thị..." maxlength="20"
+                    style="flex:1; padding:8px 10px; border:1px solid #ddd; border-radius:6px; font-size:14px;">
+                <button onclick="luuTenHienThi()" style="padding:8px 14px; background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:bold;">Lưu</button>
+            </div>
+        </div>
+        <div style="margin-bottom:14px;">
+            <label style="font-size:13px; font-weight:bold; display:block; margin-bottom:4px;">Đổi mật khẩu</label>
+            <input type="password" id="settings-old-pass" placeholder="Mật khẩu hiện tại..." maxlength="30" style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:6px; font-size:14px; box-sizing:border-box; margin-bottom:6px;">
+            <input type="password" id="settings-new-pass" placeholder="Mật khẩu mới..." maxlength="30" style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:6px; font-size:14px; box-sizing:border-box; margin-bottom:6px;">
+            <input type="password" id="settings-confirm-pass" placeholder="Nhập lại mật khẩu mới..." maxlength="30" style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:6px; font-size:14px; box-sizing:border-box; margin-bottom:8px;">
+            <button onclick="luuMatKhau()" style="width:100%; padding:9px; background:#007bff; color:white; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-weight:bold;">🔒 Đổi mật khẩu</button>
+        </div>
+        <div style="background:#f8f9fa; border-radius:8px; padding:12px; font-size:13px; color:#555;">
+            <div style="font-weight:bold; margin-bottom:8px;">📊 Thống kê</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; text-align:center;">
+                <div style="background:white; border-radius:6px; padding:8px;">
+                    <div style="font-size:20px; font-weight:bold; color:#28a745;" id="st-win-bot">0</div>
+                    <div style="font-size:11px; color:#888;">Thắng Bot</div>
+                </div>
+                <!-- Solo stats hidden per DO6.TXT - use Online PvP instead -->
+                <div style="background:white; border-radius:6px; padding:8px; display:none;">
+                    <div style="font-size:20px; font-weight:bold; color:#007bff;" id="st-win-solo">0</div>
+                    <div style="font-size:11px; color:#888;">Thắng Solo</div>
+                </div>
+                <div style="background:white; border-radius:6px; padding:8px; display:none;">
+                    <div style="font-size:20px; font-weight:bold; color:#dc3545;" id="st-lose-solo">0</div>
+                    <div style="font-size:11px; color:#888;">Thua Solo</div>
+                </div>
+            </div>
+            <div style="margin-top:8px; text-align:center;">Cấp bậc: <span id="st-rank" style="font-weight:bold; color:#ff8c00;">🐣 Gà Con</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================
+     SCRIPTS
+     ================================================================ -->
+<script src="src/cau-hinh.js"></script>
+<script src="src/ScoreTable.js"></script>
+<script src="src/GameState.js"></script>
+<script src="src/DebugLogger.js"></script>
+<script src="src/Cache.js"></script>
+<script src="src/trang-thai.js"></script>
+<script src="src/PatternDetector.js"></script>
+<script src="src/ThreatDetector.js"></script>
+<script src="src/Evaluation.js"></script>
+<script src="src/Search.js"></script>
+<script src="src/AIController.js"></script>
+<script src="src/logic-game.js"></script>
+<script src="src/hoc-kinh-nghiem.js"></script>
+<script src="src/ai-nao.js"></script>
+<script src="src/ban-co.js"></script>
+<script src="src/phat-sung.js"></script>
+<script src="src/BatchLearning.js"></script>
+<script src="src/autoplay.js"></script>
+<script src="src/lich-su-va-xep-hang.js"></script>
+
+<!-- ================================================================
+     VIEW ROUTER + UI CONTROLLER
+     ================================================================ -->
+<script>
+/* ── VIEW ROUTER ── */
+const VIEWS = ['home', 'training', 'room', 'battle'];
+
+function switchView(name) {
+    VIEWS.forEach(v => {
+        const el = document.getElementById('view-' + v);
+        if (el) el.classList.toggle('active', v === name);
+    });
+    // Khi chuyển sang training thì init game nếu chưa có
+    if (name === 'training') {
+        if (typeof initGame === 'function') initGame();
+    }
+    // Active nav button
+    document.querySelectorAll('.nav-btn[data-view]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === name);
+    });
+}
+
+/* Expose để các script khác gọi */
+window.switchView = switchView;
+
+/* ── MOBILE LOBBY TABS ── */
+function switchLobbyTab(tab) {
+    const main = document.querySelector('.lobby-main');
+    const side = document.querySelector('.lobby-side');
+    const btns = document.querySelectorAll('.lobby-tab-btn');
+
+    // Map tab → panel
+    const tabMap = { rooms: main, rank: side, online: side, chat: side };
+
+    // Ẩn hết
+    if (main) main.style.display = 'none';
+    if (side) { side.style.display = 'none'; side.classList.remove('mobile-tab-active'); }
+
+    // Hiện đúng tab
+    if (tab === 'rooms' && main) {
+        main.style.display = 'flex';
+    } else if (side) {
+        side.style.display = 'flex';
+        side.classList.add('mobile-tab-active');
+        // Scroll đến đúng card trong side
+        const cardMap = { rank: 'bxh-online-container', online: 'danh-sach-online', chat: 'world-chat-messages' };
+        const targetId = cardMap[tab];
+        if (targetId) {
+            setTimeout(() => {
+                const el = document.getElementById(targetId);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 50);
         }
+    }
 
-        if (typeof DebugLogger !== 'undefined') {
-            DebugLogger.initialize({
-                enabled: false,
-                logLevel: 'info',
-                consoleOutput: true,
-                persistToStorage: false
-            });
+    // Active button
+    btns.forEach(btn => btn.classList.remove('active'));
+    const idx = ['rooms','rank','online','chat'].indexOf(tab);
+    if (btns[idx]) btns[idx].classList.add('active');
+}
+window.switchLobbyTab = switchLobbyTab;
+
+// Hiện/ẩn mobile tabs theo viewport
+function _updateMobileTabs() {
+    const tabs = document.getElementById('lobby-mobile-tabs');
+    if (!tabs) return;
+    const isMobile = window.innerWidth <= 768;
+    tabs.style.display = isMobile ? 'flex' : 'none';
+    // Restore layout khi desktop
+    if (!isMobile) {
+        const main = document.querySelector('.lobby-main');
+        const side = document.querySelector('.lobby-side');
+        if (main) main.style.display = '';
+        if (side) { side.style.display = ''; side.classList.remove('mobile-tab-active'); }
+    }
+}
+window.addEventListener('resize', _updateMobileTabs);
+// Chạy lần đầu sau DOM ready
+document.addEventListener('DOMContentLoaded', _updateMobileTabs);
+
+/* ── DO8.TXT: VIEWPORT SIZE CONTROLS (separate from zoom) ── */
+function setViewportSize(preset) {
+    if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.ViewportControl) {
+        SharedBoardEngine.ViewportControl.setPreset(preset);
+    }
+}
+window.setViewportSize = setViewportSize;
+
+function toggleAutoSize() {
+    const checkbox = document.getElementById('auto-size-checkbox');
+    if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.ViewportControl) {
+        SharedBoardEngine.ViewportControl.setAutoMode(checkbox.checked);
+    }
+}
+window.toggleAutoSize = toggleAutoSize;
+
+function toggleAutoSizeOnline() {
+    const checkbox = document.getElementById('auto-size-checkbox-online');
+    if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.ViewportControl) {
+        SharedBoardEngine.ViewportControl.setAutoMode(checkbox.checked);
+    }
+}
+window.toggleAutoSizeOnline = toggleAutoSizeOnline;
+
+function saveCurrentCanvasSize() {
+    // DO8.TXT: Save current viewport size preference to localStorage
+    if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.ViewportControl) {
+        localStorage.setItem('viewport_preset', SharedBoardEngine.ViewportControl.currentPreset);
+        localStorage.setItem('viewport_auto', SharedBoardEngine.ViewportControl.autoMode);
+        alert('Đã lưu kích thước bàn cờ!');
+    }
+}
+window.saveCurrentCanvasSize = saveCurrentCanvasSize;
+
+// Load saved viewport size on init
+document.addEventListener('DOMContentLoaded', () => {
+    const savedPreset = localStorage.getItem('viewport_preset');
+    const savedAuto = localStorage.getItem('viewport_auto');
+    if (savedPreset && typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.ViewportControl) {
+        SharedBoardEngine.ViewportControl.setPreset(savedPreset);
+        if (savedAuto !== null) {
+            SharedBoardEngine.ViewportControl.setAutoMode(savedAuto === 'true');
+            // Sync both checkboxes (Practice and Online)
+            const checkboxPractice = document.getElementById('auto-size-checkbox');
+            const checkboxOnline = document.getElementById('auto-size-checkbox-online');
+            if (checkboxPractice) checkboxPractice.checked = savedAuto === 'true';
+            if (checkboxOnline) checkboxOnline.checked = savedAuto === 'true';
         }
+    }
+});
 
-        if (typeof Cache !== 'undefined') {
-            Cache.initialize();
-        }
+/* ── SHOP DROPDOWN ── */
+function toggleShopMenu() {
+    document.getElementById('shop-menu').classList.toggle('open');
+}
+function closeShopMenu() {
+    document.getElementById('shop-menu').classList.remove('open');
+}
+document.addEventListener('click', function(e) {
+    const dd = document.querySelector('.shop-dropdown');
+    if (dd && !dd.contains(e.target)) closeShopMenu();
+});
 
-        if (typeof AIController === 'undefined') {
-            console.error('AIController not loaded! AI functionality may not work correctly.');
-        }
+/* ── AUTH MODAL ── */
+// Nút đăng nhập/đăng ký xử lý bởi bridge script ở cuối file
+// (tránh conflict với firebase-online.js early-bind)
 
-        changeTheme();
+/* ── HEADER: cập nhật trạng thái đăng nhập ── */
+function updateHeaderAuth(user) {
+    const guestBtns = document.getElementById('header-guest-btns');
+    const userBar   = document.getElementById('header-user-bar');
+    const miniStats = document.getElementById('header-mini-stats');
+    if (user) {
+        guestBtns.classList.add('hidden');
+        userBar.classList.remove('hidden');
+        miniStats.classList.remove('hidden');
+    } else {
+        guestBtns.classList.remove('hidden');
+        userBar.classList.add('hidden');
+        miniStats.classList.add('hidden');
+    }
+}
+window.updateHeaderAuth = updateHeaderAuth;
 
-        setTimeout(() => {
-            updateMemoryDisplay();
-        }, 500);
+/* ── ROOM: chuyển vào phòng ── */
+function enterRoom(roomId) {
+    window._pendingRoomId = roomId;
+    switchView('room');
+    if (typeof thamGiaPhong === 'function') thamGiaPhong(roomId);
+}
+window.enterRoom = enterRoom;
 
-        initGame();
+/* ── BATTLE: chuyển sang trận đấu ── */
+function startBattleView() {
+    switchView('battle');
+}
+window.startBattleView = startBattleView;
+
+/* ── BXH TABS (Lobby) ── */
+function switchBxhTab(tab) {
+    const eloC  = document.getElementById('bxh-online-container');
+    const dagC  = document.getElementById('bxh-dagia-lobby');
+    const tabE  = document.getElementById('bxh-tab-elo');
+    const tabD  = document.getElementById('bxh-tab-dagia');
+    if (tab === 'elo') {
+        if (eloC)  eloC.style.display  = '';
+        if (dagC)  dagC.style.display  = 'none';
+        if (tabE)  tabE.classList.add('active');
+        if (tabD)  tabD.classList.remove('active');
+    } else {
+        if (eloC)  eloC.style.display  = 'none';
+        if (dagC)  dagC.style.display  = '';
+        if (tabE)  tabE.classList.remove('active');
+        if (tabD)  tabD.classList.add('active');
+        if (typeof loadBxhDaiGia === 'function') loadBxhDaiGia('bxh-dagia-lobby');
+    }
+}
+window.switchBxhTab = switchBxhTab;
+
+/* ── CẶP XU (phòng) ── */
+function xuLyDatCuoc() {
+    const amount = parseInt(document.getElementById('bet-amount-input')?.value || '0');
+    if (!currentRoomId) { alert('Bạn chưa vào phòng!'); return; }
+    if (isNaN(amount) || amount < 0) { alert('Số Xu không hợp lệ!'); return; }
+    // Dùng datCuocMoi mới — tự kiểm tra xu + reset guestReady
+    if (typeof datCuocMoi === 'function') {
+        datCuocMoi(amount).then(ok => {
+            const statusEl = document.getElementById('bet-status');
+            if (ok && statusEl) {
+                statusEl.textContent = amount > 0
+                    ? `✅ Đã đặt ${amount.toLocaleString('vi-VN')} Xu`
+                    : '🚫 Đã hủy cược';
+            }
+        });
+    }
+}
+function capNhatHienThiBetPanel() {
+    const panel = document.getElementById('bet-panel-room');
+    if (!panel) return;
+    panel.style.display = (typeof myRole !== 'undefined' && myRole === 'X') ? 'block' : 'none';
+}
+window.capNhatHienThiBetPanel = capNhatHienThiBetPanel;
+window.xuLyDatCuoc = xuLyDatCuoc;
+
+/* Chọn mức cược nhanh — điền vào input và gọi đặt cược ngay */
+function chonMucCuoc(amount) {
+    const inp = document.getElementById('bet-amount-input');
+    if (inp) inp.value = amount;
+    // Highlight nút được chọn
+    document.querySelectorAll('.btn-bet-quick').forEach(btn => btn.classList.remove('active'));
+    const btnMap = { 0: 0, 100: 1, 500: 2, 1000: 3, 3000: 4, 5000: 5 };
+    const btns = document.querySelectorAll('.btn-bet-quick');
+    const idx = Object.keys(btnMap).indexOf(String(amount));
+    if (idx >= 0 && btns[idx]) btns[idx].classList.add('active');
+    // Đặt cược ngay
+    xuLyDatCuoc();
+}
+window.chonMucCuoc = chonMucCuoc;
+</script>
+
+<!-- ================================================================
+     KHỞI ĐỘNG
+     ================================================================ -->
+<script>
+var boardElement = document.getElementById('board');
+var statusPanel  = document.getElementById('status-panel');
+var modeSelect   = document.getElementById('game-mode');
+
+if (typeof GameState !== 'undefined')    GameState.initialize();
+if (typeof DebugLogger !== 'undefined')  DebugLogger.initialize({ enabled: false, logLevel: 'info', consoleOutput: true, persistToStorage: false });
+if (typeof Cache !== 'undefined')        Cache.initialize();
+if (typeof ScoreTable !== 'undefined')   ScoreTable.loadSettings();
+
+changeTheme();
+setTimeout(() => { if (typeof updateMemoryDisplay === 'function') updateMemoryDisplay(); }, 500);
+
+// Training view: init game sau khi chuyển view
+// Home là view mặc định, không init game ở đây
+renderRankPanel();
+renderHistory();
+applyHistoryTheme(document.getElementById('theme-select').value);
+setupNameInputListener();
+initConfetti();
+
+document.getElementById('block-both-ends').checked = loadBlockBothEndsSetting();
+applyPanelSizes();
+setupPanelResize();
+</script>
+
+<!-- ScoreTable Config Functions -->
+<script>
+function openScoreTableConfig() {
+    if (typeof ScoreTable === 'undefined') { alert('ScoreTable chưa tải!'); return; }
+    if (typeof isAdminUser === 'function' && typeof currentUserData !== 'undefined' && !isAdminUser(currentUserData)) {
+        alert('Tính năng chỉ dành cho Admin!'); return;
+    }
+    document.getElementById('st-attack-five').value          = ScoreTable.ATTACK.FIVE;
+    document.getElementById('st-attack-four-open').value     = ScoreTable.ATTACK.FOUR_OPEN;
+    document.getElementById('st-attack-four-blocked').value  = ScoreTable.ATTACK.FOUR_BLOCKED;
+    document.getElementById('st-attack-three-open').value    = ScoreTable.ATTACK.THREE_OPEN;
+    document.getElementById('st-attack-three-blocked').value = ScoreTable.ATTACK.THREE_BLOCKED;
+    document.getElementById('st-attack-two-open').value      = ScoreTable.ATTACK.TWO_OPEN;
+    document.getElementById('st-attack-two-blocked').value   = ScoreTable.ATTACK.TWO_BLOCKED;
+    document.getElementById('st-defense-five').value          = ScoreTable.DEFENSE.FIVE;
+    document.getElementById('st-defense-four-open').value     = ScoreTable.DEFENSE.FOUR_OPEN;
+    document.getElementById('st-defense-four-blocked').value  = ScoreTable.DEFENSE.FOUR_BLOCKED;
+    document.getElementById('st-defense-three-open').value    = ScoreTable.DEFENSE.THREE_OPEN;
+    document.getElementById('st-defense-three-blocked').value = ScoreTable.DEFENSE.THREE_BLOCKED;
+    document.getElementById('st-defense-two-open').value      = ScoreTable.DEFENSE.TWO_OPEN;
+    document.getElementById('st-defense-two-blocked').value   = ScoreTable.DEFENSE.TWO_BLOCKED;
+    document.getElementById('st-bonus-double-three').value = ScoreTable.BONUS.DOUBLE_THREE;
+    document.getElementById('st-bonus-four-three').value   = ScoreTable.BONUS.FOUR_THREE;
+    document.getElementById('st-bonus-double-four').value  = ScoreTable.BONUS.DOUBLE_FOUR;
+    document.getElementById('st-center-max').value      = ScoreTable.CENTER_BIAS.MAX;
+    document.getElementById('st-center-distance').value = ScoreTable.CENTER_BIAS.DISTANCE;
+    document.getElementById('scoretable-overlay').style.display = 'flex';
+}
+function closeScoreTableConfig() { document.getElementById('scoretable-overlay').style.display = 'none'; }
+function saveScoreTableConfig() {
+    if (typeof ScoreTable === 'undefined') { alert('ScoreTable chưa tải!'); return; }
+    ScoreTable.updateScore('ATTACK', 'FIVE',          document.getElementById('st-attack-five').value);
+    ScoreTable.updateScore('ATTACK', 'FOUR_OPEN',     document.getElementById('st-attack-four-open').value);
+    ScoreTable.updateScore('ATTACK', 'FOUR_BLOCKED',  document.getElementById('st-attack-four-blocked').value);
+    ScoreTable.updateScore('ATTACK', 'THREE_OPEN',    document.getElementById('st-attack-three-open').value);
+    ScoreTable.updateScore('ATTACK', 'THREE_BLOCKED', document.getElementById('st-attack-three-blocked').value);
+    ScoreTable.updateScore('ATTACK', 'TWO_OPEN',      document.getElementById('st-attack-two-open').value);
+    ScoreTable.updateScore('ATTACK', 'TWO_BLOCKED',   document.getElementById('st-attack-two-blocked').value);
+    ScoreTable.updateScore('DEFENSE', 'FIVE',          document.getElementById('st-defense-five').value);
+    ScoreTable.updateScore('DEFENSE', 'FOUR_OPEN',     document.getElementById('st-defense-four-open').value);
+    ScoreTable.updateScore('DEFENSE', 'FOUR_BLOCKED',  document.getElementById('st-defense-four-blocked').value);
+    ScoreTable.updateScore('DEFENSE', 'THREE_OPEN',    document.getElementById('st-defense-three-open').value);
+    ScoreTable.updateScore('DEFENSE', 'THREE_BLOCKED', document.getElementById('st-defense-three-blocked').value);
+    ScoreTable.updateScore('DEFENSE', 'TWO_OPEN',      document.getElementById('st-defense-two-open').value);
+    ScoreTable.updateScore('DEFENSE', 'TWO_BLOCKED',   document.getElementById('st-defense-two-blocked').value);
+    ScoreTable.updateScore('BONUS', 'DOUBLE_THREE', document.getElementById('st-bonus-double-three').value);
+    ScoreTable.updateScore('BONUS', 'FOUR_THREE',   document.getElementById('st-bonus-four-three').value);
+    ScoreTable.updateScore('BONUS', 'DOUBLE_FOUR',  document.getElementById('st-bonus-double-four').value);
+    ScoreTable.updateScore('CENTER_BIAS', 'MAX',      document.getElementById('st-center-max').value);
+    ScoreTable.updateScore('CENTER_BIAS', 'DISTANCE', document.getElementById('st-center-distance').value);
+    alert('Đã lưu cấu hình AI!');
+    closeScoreTableConfig();
+}
+function resetScoreTableToDefaults() {
+    if (typeof ScoreTable === 'undefined') { alert('ScoreTable chưa tải!'); return; }
+    if (confirm('Reset về giá trị mặc định?')) { ScoreTable.resetToDefaults(); openScoreTableConfig(); alert('Đã reset!'); }
+}
+</script>
+
+<script>
+(async () => {
+    const serverRank = await apiGet('/api/rank');
+    if (serverRank) {
+        const local  = loadRank();
+        const merged = { ...local, ...serverRank };
+        saveRank(merged);
         renderRankPanel();
+    }
+    const serverHistory = await apiGet('/api/history');
+    if (serverHistory && Array.isArray(serverHistory)) {
+        const local  = loadHistory();
+        const merged = [...serverHistory, ...local].slice(0, MAX_HISTORY);
+        saveHistory(merged);
+        matchHistory = merged;
         renderHistory();
-        applyHistoryTheme(document.getElementById('theme-select').value);
-        setupNameInputListener();
-        initConfetti();
+    }
+})();
+</script>
 
-        document.getElementById('block-both-ends').checked = loadBlockBothEndsSetting();
-        applyPanelSizes();
-        setupPanelResize();
+<script src="src/practice-mode.js"></script>
+<script src="src/firebase-online.js"></script>
+<script src="src/thong-bao.js"></script>
+<script src="src/xu-nhiem-vu.js"></script>
+<script src="src/shop-skin.js"></script>
+<script src="src/room-health.js"></script>
 
-        if (typeof ScoreTable !== 'undefined') {
-            ScoreTable.loadSettings();
+
+<!-- ================================================================
+     COMPATIBILITY BRIDGE
+     Các ID cũ mà firebase-online.js cần — giữ ẩn, JS sẽ tự điều khiển
+     ================================================================ -->
+
+<!-- Auth UI bridge: firebase-online.js dùng top-auth-buttons / nav-quick-btns / user-info-card -->
+<div id="top-auth-buttons"  style="display:flex;"></div>
+<div id="nav-quick-btns"    style="display:none;"></div>
+<div id="user-info-card"    style="display:none;"></div>
+<div id="game-title"        style="display:none;"></div>
+<div id="top-bar"           style="display:none;"></div>
+
+<!--
+    lobby-screen: firebase-online.js dùng lobby-screen.style.display để quyết định
+    có render danh sách phòng hay không (nếu 'none' → bỏ qua).
+    Giải pháp: giữ lobby-screen luôn display='block' (dạng ẩn thật bằng visibility/opacity),
+    nhưng không chiếm không gian hay hiện ra màn hình.
+-->
+<div id="lobby-screen" style="position:fixed; pointer-events:none; opacity:0; width:0; height:0; overflow:hidden; z-index:-1;">
+    <button id="btn-close-lobby" onclick="switchView('home')">Đóng Lobby</button>
+</div>
+
+<!-- Match screen bridge -->
+<div id="game-match-screen" style="display:none;"></div>
+
+<!-- Quit match bridge -->
+<button id="btn-quit-match" style="display:none;" onclick="xuLyThoatPhong()">Thoát Online</button>
+
+<!-- xu-header-area bridge -->
+<div id="xu-header-area" style="display:none;" onclick="moNhiemVu()"></div>
+
+<script>
+/* ================================================================
+   BRIDGE SCRIPT — Kết nối firebase-online.js với View Router mới
+   ================================================================ */
+
+// ── 1. AUTH CONTAINER ──────────────────────────────────────────
+// firebase dùng style.display='block/none' trực tiếp
+document.getElementById('auth-container').addEventListener('click', function(e) {
+    if (e.target === this) this.style.display = 'none';
+});
+document.getElementById('btn-show-login').addEventListener('click', () => {
+    document.getElementById('auth-title').innerText = '🔐 ĐĂNG NHẬP';
+    document.getElementById('auth-container').style.display = 'block';
+});
+document.getElementById('btn-show-register').addEventListener('click', () => {
+    document.getElementById('auth-title').innerText = '📝 ĐĂNG KÝ';
+    document.getElementById('auth-container').style.display = 'block';
+});
+
+// ── 2. AUTH UI BRIDGE ──────────────────────────────────────────
+// firebase gọi updateAuthUI → ẩn/hiện top-auth-buttons
+// Ta sync sang header mới qua MutationObserver
+const _authBridge = new MutationObserver(() => {
+    const guestOld  = document.getElementById('top-auth-buttons');
+    const guestNew  = document.getElementById('header-guest-btns');
+    const userNew   = document.getElementById('header-user-bar');
+    const miniStats = document.getElementById('header-mini-stats');
+    if (!guestOld || !guestNew || !userNew) return;
+    const isLoggedIn = (guestOld.style.display === 'none');
+    guestNew.classList.toggle('hidden', isLoggedIn);
+    userNew.classList.toggle('hidden', !isLoggedIn);
+    if (miniStats) miniStats.classList.toggle('hidden', !isLoggedIn);
+});
+_authBridge.observe(document.getElementById('top-auth-buttons'),
+    { attributes: true, attributeFilter: ['style'] });
+
+// ── 3. LOBBY-SCREEN BRIDGE ─────────────────────────────────────
+// firebase kiểm tra lobby-screen.style.display==='none' → không render
+// Giải pháp: giữ lobby-screen luôn display='block' nhưng ẩn bằng CSS
+// Khi firebase set 'none' (vào phòng) → ta restore 'block' + chuyển view
+const _lobbyScreen = document.getElementById('lobby-screen');
+const _lobbyBridge = new MutationObserver(() => {
+    if (_lobbyScreen.style.display === 'none') {
+        _lobbyScreen.style.display = 'block'; // khôi phục ngay
+        setTimeout(() => {
+            if (typeof currentRoomId !== 'undefined' && currentRoomId) {
+                switchView('room');
+            }
+        }, 80);
+    }
+});
+_lobbyBridge.observe(_lobbyScreen, { attributes: true, attributeFilter: ['style'] });
+
+// ── 4. GAME-MATCH-SCREEN BRIDGE ────────────────────────────────
+// firebase gọi game-match-screen.style.display='block' khi vào phòng
+// → ta reset về none, RoomView đã được kích hoạt từ lobby bridge
+const _gmsBridge = new MutationObserver(() => {
+    const gms = document.getElementById('game-match-screen');
+    if (gms && gms.style.display === 'block') gms.style.display = 'none';
+});
+_gmsBridge.observe(document.getElementById('game-match-screen'),
+    { attributes: true, attributeFilter: ['style'] });
+
+// ── 5. BOARD MOVE: đưa bàn cờ vào BattleView ──────────────────
+// firebase không move DOM, bàn cờ ở #inf-resizable trong view-training.
+// Khi battle bắt đầu: move vào #unified-board-slot
+// Khi kết thúc: trả về #training-board-home
+let _boardOrigParent = null;
+let _boardOrigNextSib = null;
+
+// ResizeObserver cho unified-board-slot — tự fit bàn cờ khi layout thay đổi
+let _slotResizeObserver = null;
+function _attachSlotResizeObserver() {
+    const slot = document.getElementById('unified-board-slot');
+    if (!slot || _slotResizeObserver) return;
+    _slotResizeObserver = new ResizeObserver((entries) => {
+        const infRes = document.getElementById('inf-resizable');
+        if (!infRes || infRes.parentNode !== slot) return;
+        for (const entry of entries) {
+            const rect = entry.contentRect;
+            if (rect.width < 50 || rect.height < 50) continue;
+            const size = Math.max(200, Math.min(rect.width, rect.height) - 8);
+            if (typeof applyCanvasSize === 'function') applyCanvasSize(size, size, false);
+            if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
         }
-    </script>
+    });
+    _slotResizeObserver.observe(slot);
+}
 
-    <!-- XU SYSTEM & BXH ĐẠI GIA INTEGRATION -->
-    <script>
-        // Switch tab BXH trong lobby (Elo vs Đại Gia)
-        function switchBxhTab(tab) {
-            const eloContainer  = document.getElementById('bxh-online-container');
-            const dagiaContainer= document.getElementById('bxh-dagia-lobby');
-            const tabElo  = document.getElementById('bxh-tab-elo');
-            const tabDagia= document.getElementById('bxh-tab-dagia');
-            if (tab === 'elo') {
-                if (eloContainer)   eloContainer.style.display   = '';
-                if (dagiaContainer) dagiaContainer.style.display = 'none';
-                if (tabElo)   tabElo.classList.add('active');
-                if (tabDagia) tabDagia.classList.remove('active');
-            } else {
-                if (eloContainer)   eloContainer.style.display   = 'none';
-                if (dagiaContainer) dagiaContainer.style.display = '';
-                if (tabElo)   tabElo.classList.remove('active');
-                if (tabDagia) tabDagia.classList.add('active');
-                if (typeof loadBxhDaiGia === 'function') loadBxhDaiGia('bxh-dagia-lobby');
+function moveBoardToBattle() {
+    const slot   = document.getElementById('unified-board-slot');
+    const infRes = document.getElementById('inf-resizable');
+    const domBoard = document.getElementById('board');
+    if (!slot) return;
+
+    const el = infRes || domBoard;
+    if (!el) return;
+
+    // Guard: đã move rồi thì không move lại (tránh _boardOrigParent bị overwrite)
+    if (el.parentNode === slot) {
+        // Chỉ resize lại theo slot hiện tại
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const slotRect = slot.getBoundingClientRect();
+                const slotW = slotRect.width, slotH = slotRect.height;
+                const size = (slotW > 50 && slotH > 50)
+                    ? Math.max(200, Math.min(slotW, slotH) - 8)
+                    : Math.max(200, Math.min(window.innerWidth * 0.85, window.innerHeight * 0.7));
+                if (typeof applyCanvasSize === 'function' && infRes) applyCanvasSize(size, size, false);
+                if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
+            });
+        });
+        return;
+    }
+
+    // Lưu vị trí gốc để trả về sau
+    _boardOrigParent  = el.parentNode;
+    _boardOrigNextSib = el.nextSibling;
+
+    slot.appendChild(el);
+    el.style.display = '';
+
+    // Attach ResizeObserver để bàn cờ luôn fit slot
+    _attachSlotResizeObserver();
+
+    // Dùng requestAnimationFrame để đảm bảo layout CSS đã tính xong trước khi đo slot
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            const slotRect = slot.getBoundingClientRect();
+            const slotW = slotRect.width, slotH = slotRect.height;
+            const size = (slotW > 50 && slotH > 50)
+                ? Math.max(200, Math.min(slotW, slotH) - 8)
+                : Math.max(200, Math.min(window.innerWidth * 0.85, window.innerHeight * 0.7));
+            if (typeof applyCanvasSize === 'function' && infRes) {
+                applyCanvasSize(size, size, false);
+            } else if (typeof fitCanvasToContainer === 'function') {
+                fitCanvasToContainer();
+            }
+            if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
+            if (typeof updateInfiniteResizeHandles === 'function') updateInfiniteResizeHandles();
+        });
+    });
+}
+
+function returnBoardToTraining() {
+    const infRes   = document.getElementById('inf-resizable');
+    const domBoard = document.getElementById('board');
+    const el = infRes || domBoard;
+    if (!el || !_boardOrigParent) return;
+    if (_boardOrigNextSib) {
+        _boardOrigParent.insertBefore(el, _boardOrigNextSib);
+    } else {
+        _boardOrigParent.appendChild(el);
+    }
+    _boardOrigParent = null;
+    _boardOrigNextSib = null;
+}
+
+window.moveBoardToBattle   = moveBoardToBattle;
+window.returnBoardToTraining = returnBoardToTraining;
+
+// ── 6. VIEW SWITCH HOOK (DUY NHẤT) ────────────────────────────
+// Gộp toàn bộ logic khi chuyển view: board move + sync cards + training + room info
+const _origSwitchView = window.switchView;
+window.switchView = function(name) {
+    const prev = document.querySelector('.view.active');
+    const prevId = prev ? prev.id : '';
+
+    _origSwitchView(name);
+
+    if (name === 'battle') {
+        // _origSwitchView đã set view-battle.active → đo slot sau 1 frame
+        moveBoardToBattle();
+        _syncBattleCards();
+        setTimeout(_syncBattleRoomInfo, 300);
+        // Sync bet-info sang battle
+        const betSrc = document.getElementById('bet-info-o');
+        const betDst = document.getElementById('battle-bet-info');
+        if (betSrc && betDst) {
+            const isVisible = betSrc.style.display !== 'none' && betSrc.style.display !== '';
+            betDst.style.display = isVisible ? 'block' : 'none';
+            if (isVisible) betDst.textContent = betSrc.textContent || '';
+        }
+    } else if (prevId === 'view-battle' && name !== 'battle') {
+        returnBoardToTraining();
+    }
+
+    if (name === 'training') {
+        // PracticeMode: hiển thị overlay chọn Bot, không auto-initGame
+        if (typeof PracticeMode !== 'undefined') {
+            PracticeMode.initView();
+        } else if (typeof initGame === 'function') {
+            // Fallback nếu PracticeMode chưa load
+            if (!(window.isOnlineModeActive && window.isOnlineModeActive())) {
+                initGame();
             }
         }
+    }
+};
 
-        // Đặt cược trong phòng (chỉ chủ phòng)
-        function xuLyDatCuoc() {
-            const amount = parseInt(document.getElementById('bet-amount-input').value);
-            if (!currentRoomId) { alert('Bạn chưa vào phòng!'); return; }
-            if (typeof thietLapCuoc === 'function') {
-                thietLapCuoc(currentRoomId, amount).then(ok => {
-                    const statusEl = document.getElementById('bet-status');
-                    if (ok && statusEl) statusEl.textContent = `✅ Đã đặt cược ${amount.toLocaleString('vi-VN')} Xu`;
-                });
+// ── 7. BATTLE PLAYER CARDS SYNC ───────────────────────────────
+function _syncBattleCards() {
+    // Lấy tên/stats từ room view sang battle view
+    const nameX = (document.getElementById('name-pX') || {}).innerText || '';
+    const nameO = (document.getElementById('name-pO') || {}).innerText || '';
+    const bNameX = document.getElementById('battle-name-x');
+    const bNameO = document.getElementById('battle-name-o');
+    if (bNameX && nameX) bNameX.textContent = nameX;
+    if (bNameO && nameO) bNameO.textContent = nameO;
+
+    // Sync turn indicator → battle-status-bar
+    const ti = document.getElementById('turn-indicator');
+    const bs = document.getElementById('battle-status-bar');
+    if (ti && bs) bs.textContent = ti.textContent;
+
+    // Keep battle-status-bar in sync with turn-indicator going forward
+    if (ti && bs && !ti._battleSyncBound) {
+        ti._battleSyncBound = true;
+        new MutationObserver(() => {
+            bs.textContent = ti.textContent;
+            // Also sync indicator highlight
+            const bIx = document.getElementById('battle-indicator-x');
+            const bIo = document.getElementById('battle-indicator-o');
+            const isMyTurn = (typeof myRole !== 'undefined') && ti.classList.contains('my-turn');
+            if (bIx) bIx.classList.toggle('inactive', !isMyTurn);
+            if (bIo) bIo.classList.toggle('inactive',  isMyTurn);
+        }).observe(ti, { characterData: true, childList: true, subtree: true, attributes: true });
+    }
+}
+window._syncBattleCards = _syncBattleCards;
+
+// ── 8. CHUPHOONG BAT DAU (Override) ───────────────────────────
+// Guard: tránh chuyển BattleView nhiều lần cho cùng 1 ván
+let _battleViewActivated = false;
+
+// Theo dõi Firebase status='playing' để O cũng chuyển sang BattleView.
+// X chuyển qua override chuPhongBatDauGame, O cần được kích hoạt riêng.
+// Hook vào capNhatUIPhong — được gọi mỗi khi room snapshot thay đổi.
+function _hookCapNhatUIPhong() {
+    const _orig = window.capNhatUIPhong;
+    if (!_orig || _orig._hooked) return;
+    window.capNhatUIPhong = function(room) {
+        if (typeof _orig === 'function') _orig.call(this, room);
+        // Nếu status chuyển sang playing → switch BattleView (cho cả X và O)
+        if (room && room.status === 'playing' && !_battleViewActivated) {
+            _battleViewActivated = true;
+            const viewBattle = document.getElementById('view-battle');
+            if (!viewBattle || !viewBattle.classList.contains('active')) {
+                setTimeout(() => switchView('battle'), 200);
             }
         }
-
-        // Hiện panel cược khi là chủ phòng (myRole === 'X') ở trạng thái waiting
-        // Việc hiển thị chi tiết được xử lý bởi capNhatUIPhong() realtime
-        function capNhatHienThiBetPanel() {
-            const panel = document.getElementById('bet-panel-room');
-            if (!panel) return;
-            panel.style.display = (typeof myRole !== 'undefined' && myRole === 'X') ? 'block' : 'none';
+        // Reset guard khi room không còn playing
+        if (room && room.status !== 'playing') {
+            _battleViewActivated = false;
         }
-        window.capNhatHienThiBetPanel = capNhatHienThiBetPanel;
-    </script>
+    };
+    window.capNhatUIPhong._hooked = true;
+}
 
-    <!-- ScoreTable Config Functions -->
-    <script>
-        function openScoreTableConfig() {
-            if (typeof ScoreTable === 'undefined') {
-                alert('ScoreTable chưa được tải!');
-                return;
-            }
-            // Chỉ admin/Chần mới được dùng
-            if (typeof isAdminUser === 'function' && typeof currentUserData !== 'undefined' && !isAdminUser(currentUserData)) {
-                alert('Tính năng này chỉ dành cho Admin!');
-                return;
-            }
-            
-            document.getElementById('st-attack-five').value = ScoreTable.ATTACK.FIVE;
-            document.getElementById('st-attack-four-open').value = ScoreTable.ATTACK.FOUR_OPEN;
-            document.getElementById('st-attack-four-blocked').value = ScoreTable.ATTACK.FOUR_BLOCKED;
-            document.getElementById('st-attack-three-open').value = ScoreTable.ATTACK.THREE_OPEN;
-            document.getElementById('st-attack-three-blocked').value = ScoreTable.ATTACK.THREE_BLOCKED;
-            document.getElementById('st-attack-two-open').value = ScoreTable.ATTACK.TWO_OPEN;
-            document.getElementById('st-attack-two-blocked').value = ScoreTable.ATTACK.TWO_BLOCKED;
-            
-            document.getElementById('st-defense-five').value = ScoreTable.DEFENSE.FIVE;
-            document.getElementById('st-defense-four-open').value = ScoreTable.DEFENSE.FOUR_OPEN;
-            document.getElementById('st-defense-four-blocked').value = ScoreTable.DEFENSE.FOUR_BLOCKED;
-            document.getElementById('st-defense-three-open').value = ScoreTable.DEFENSE.THREE_OPEN;
-            document.getElementById('st-defense-three-blocked').value = ScoreTable.DEFENSE.THREE_BLOCKED;
-            document.getElementById('st-defense-two-open').value = ScoreTable.DEFENSE.TWO_OPEN;
-            document.getElementById('st-defense-two-blocked').value = ScoreTable.DEFENSE.TWO_BLOCKED;
-            
-            document.getElementById('st-bonus-double-three').value = ScoreTable.BONUS.DOUBLE_THREE;
-            document.getElementById('st-bonus-four-three').value = ScoreTable.BONUS.FOUR_THREE;
-            document.getElementById('st-bonus-double-four').value = ScoreTable.BONUS.DOUBLE_FOUR;
-            
-            document.getElementById('st-center-max').value = ScoreTable.CENTER_BIAS.MAX;
-            document.getElementById('st-center-distance').value = ScoreTable.CENTER_BIAS.DISTANCE;
-            
-            document.getElementById('scoretable-overlay').style.display = 'flex';
+window.addEventListener('load', () => {
+    // Hook capNhatUIPhong ngay sau khi firebase-online.js đã load
+    setTimeout(_hookCapNhatUIPhong, 300);
+    if (typeof hienDanhSachPhong         === 'function') hienDanhSachPhong();
+    if (typeof langNgheBangXepHangOnline === 'function') langNgheBangXepHangOnline();
+    if (typeof langNgheLichSuOnline      === 'function') langNgheLichSuOnline();
+    if (typeof khoiDongChatTheGioi       === 'function') khoiDongChatTheGioi();
+
+    // Đảm bảo header không bị ẩn
+    const header = document.getElementById('app-header');
+    if (header) {
+        new MutationObserver(() => { header.style.display = ''; })
+            .observe(header, { attributes: true, attributeFilter: ['style'] });
+    }
+
+    // Override chuPhongBatDauGame: sau khi firebase xử lý xong → chuyển BattleView
+    const _origChuPhong = window.chuPhongBatDauGame;
+    window.chuPhongBatDauGame = function() {
+        if (typeof _origChuPhong === 'function') _origChuPhong.apply(this, arguments);
+        _battleViewActivated = true; // Mark ngay để capNhatUIPhong không switch lại
+        setTimeout(() => switchView('battle'), 200);
+    };
+
+    // Override thoatGiaoDienOnline: trả board về training + về HomeView
+    const _origThoat = window.thoatGiaoDienOnline;
+    window.thoatGiaoDienOnline = function() {
+        returnBoardToTraining();
+        // Reset _battleViewActivated để ván sau có thể chuyển lại
+        _battleViewActivated = false;
+        if (typeof _origThoat === 'function') _origThoat.apply(this, arguments);
+        switchView('home');
+    };
+
+    // Override batDauGiaoDienOnline: bản mới dùng view router, không cần ẩn/hiện DOM cũ
+    const _origBatDau = window.batDauGiaoDienOnline;
+    window.batDauGiaoDienOnline = function() {
+        if (typeof _origBatDau === 'function') _origBatDau.apply(this, arguments);
+        // Practice view đã được cập nhật — không cần khôi phục panels-wrapper cũ
+    };
+
+    // ── IX. KẾT THÚC VÁN ──────────────────────────────────────
+    // Override batDauVanMoi → về RoomView (host đặt cược lại, tiếp tục)
+    const _origBatDauVanMoi = window.batDauVanMoi;
+    window.batDauVanMoi = function() {
+        if (typeof _origBatDauVanMoi === 'function') _origBatDauVanMoi.apply(this, arguments);
+        // Reset guard để ván mới có thể chuyển sang BattleView lại
+        _battleViewActivated = false;
+        // Trả board về training tạm (sẽ move lại khi battle start)
+        returnBoardToTraining();
+        switchView('room');
+    };
+
+    // Override thoatPhongSauVan → thoát về Home
+    const _origThoatSauVan = window.thoatPhongSauVan;
+    window.thoatPhongSauVan = function() {
+        returnBoardToTraining();
+        if (typeof _origThoatSauVan === 'function') _origThoatSauVan.apply(this, arguments);
+        // thoatPhongSauVan gọi xuLyThoatPhong → thoatGiaoDienOnline → đã switchView('home')
+    };
+
+    // Đảm bảo van-moi-overlay xuất hiện đúng trong BattleView
+    // (nó dùng position:fixed nên sẽ hiện ở trung tâm màn hình bất kể view nào)
+
+    // Patch lần đầu và định kỳ
+    setTimeout(_patchRoomButtons, 800);
+    setTimeout(_patchRoomButtons, 2500);
+});
+
+// ── 9. CHƯA ĐĂNG NHẬP VÀO PHÒNG ──────────────────────────────
+window.ngoimVaoPhongGuard = function(roomId) {
+    if (!window.currentUsername && !localStorage.getItem('current_username')) {
+        document.getElementById('auth-title').innerText = '🔐 Đăng nhập để vào phòng';
+        document.getElementById('auth-container').style.display = 'block';
+        return;
+    }
+    if (typeof ngoimVaoPhong === 'function') ngoimVaoPhong(roomId);
+};
+window.xemPhongGuard = function(roomId) {
+    if (!window.currentUsername && !localStorage.getItem('current_username')) {
+        document.getElementById('auth-title').innerText = '🔐 Đăng nhập để xem phòng';
+        document.getElementById('auth-container').style.display = 'block';
+        return;
+    }
+    if (typeof xemPhong === 'function') xemPhong(roomId);
+};
+
+// ── 10. PATCH ROOM BUTTONS ─────────────────────────────────────
+function _patchRoomButtons() {
+    const container = document.getElementById('room-list');
+    if (!container) return;
+    container.querySelectorAll('button[onclick*="ngoimVaoPhong("]').forEach(btn => {
+        const m = btn.getAttribute('onclick').match(/ngoimVaoPhong\(['"](.+?)['"]\)/);
+        if (m) btn.setAttribute('onclick', `ngoimVaoPhongGuard('${m[1]}')`);
+    });
+    container.querySelectorAll('button[onclick*="xemPhong("]').forEach(btn => {
+        const m = btn.getAttribute('onclick').match(/xemPhong\(['"](.+?)['"]\)/);
+        if (m) btn.setAttribute('onclick', `xemPhongGuard('${m[1]}')`);
+    });
+}
+window._patchRoomButtons = _patchRoomButtons;
+
+// Observer để patch ngay khi room-list thay đổi (firebase render realtime)
+const _roomListObs = new MutationObserver(_patchRoomButtons);
+const _roomListEl  = document.getElementById('room-list');
+if (_roomListEl) _roomListObs.observe(_roomListEl, { childList: true, subtree: true });
+
+// ── 11. TRAINING: init game đã được xử lý trong override switchView (#6) ──
+
+// ── 12. SYNC CHAT → BATTLE CHAT ────────────────────────────────
+// firebase ghi vào #chat-messages (trong view-room)
+// Ta mirror sang #battle-chat-messages khi đang ở BattleView
+(function() {
+    const chatSrc = document.getElementById('chat-messages');
+    const chatDst = document.getElementById('battle-chat-messages');
+    if (!chatSrc || !chatDst) return;
+    new MutationObserver(() => {
+        chatDst.innerHTML = chatSrc.innerHTML;
+        chatDst.scrollTop = chatDst.scrollHeight;
+    }).observe(chatSrc, { childList: true, subtree: true });
+})();
+
+// ── 12b. BATTLE CHAT INPUT → chat-input bridge ─────────────────
+// guiTinNhanOnline() đọc từ #chat-input (view-room)
+// Khi gửi từ battle-chat-input-field: copy value qua, gửi, xóa field nguồn
+(function() {
+    const battleInp = document.getElementById('battle-chat-input-field');
+    if (!battleInp) return;
+    const _origGuiTin = window.guiTinNhanOnline;
+    battleInp.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            const roomInp = document.getElementById('chat-input');
+            if (roomInp) { roomInp.value = battleInp.value; battleInp.value = ''; }
+            if (typeof guiTinNhanOnline === 'function') guiTinNhanOnline();
         }
+    });
+    // Nút Gửi trong battle view
+    const battleSendBtn = battleInp.parentElement && battleInp.parentElement.querySelector('button');
+    if (battleSendBtn) {
+        battleSendBtn.onclick = function() {
+            const roomInp = document.getElementById('chat-input');
+            if (roomInp) { roomInp.value = battleInp.value; battleInp.value = ''; }
+            if (typeof guiTinNhanOnline === 'function') guiTinNhanOnline();
+        };
+    }
+})();
 
-        function closeScoreTableConfig() {
-            document.getElementById('scoretable-overlay').style.display = 'none';
+// ── 13. BATTLE BET INFO SYNC ───────────────────────────────────
+// Mirror bet-info-o vào #battle-bet-info khi đang battle
+(function() {
+    const betSrc = document.getElementById('bet-info-o');
+    const betDst = document.getElementById('battle-bet-info');
+    if (!betSrc || !betDst) return;
+    new MutationObserver(() => {
+        const isVisible = betSrc.style.display !== 'none' && betSrc.style.display !== '';
+        const viewBattle = document.getElementById('view-battle');
+        if (viewBattle && viewBattle.classList.contains('active')) {
+            betDst.style.display = isVisible ? 'block' : 'none';
+            betDst.textContent   = isVisible ? (betSrc.textContent || '') : '';
         }
+    }).observe(betSrc, { attributes: true, childList: true, subtree: true, attributeFilter: ['style'] });
+})();
 
-        function saveScoreTableConfig() {
-            if (typeof ScoreTable === 'undefined') {
-                alert('ScoreTable chưa được tải!');
-                return;
+// ── 14. HEADER LEVEL hiển thị ─────────────────────────────────
+// fetchUserData cập nhật user-display-name và my-rank
+// Thêm level vào header dựa trên winBot + winSolo
+function _calcLevel(wb, ws) {
+    const t = (wb||0) + (ws||0);
+    return t<5?1:t<15?2:t<30?3:t<60?4:t<100?5:t<200?6:t<400?7:t<700?8:t<1000?9:10;
+}
+function _updateHeaderLevel() {
+    const wb  = parseInt((document.getElementById('my-win-bot')  || {}).innerText)  || 0;
+    const ws  = parseInt((document.getElementById('my-win-solo') || {}).innerText) || 0;
+    let lvEl  = document.getElementById('header-user-level');
+    if (!lvEl) {
+        lvEl = document.createElement('span');
+        lvEl.id = 'header-user-level';
+        lvEl.style.cssText = 'color:#818cf8;font-size:10px;margin-left:3px;font-weight:700;';
+        const metaEl = document.querySelector('.user-info-mini .u-meta');
+        if (metaEl) metaEl.appendChild(lvEl);
+    }
+    lvEl.textContent = 'Lv.' + _calcLevel(wb, ws);
+}
+// Observer theo dõi my-win-bot thay đổi → cập nhật level
+(function() {
+    const wbEl = document.getElementById('my-win-bot');
+    if (!wbEl) return;
+    new MutationObserver(_updateHeaderLevel)
+        .observe(wbEl, { childList: true, characterData: true, subtree: true });
+})();
+
+// ── 15. HEADER AVATAR PLACEHOLDER ─────────────────────────────
+// Khi chưa đăng nhập hiện avatar placeholder đẹp hơn
+(function() {
+    const avMini = document.getElementById('user-avatar-display');
+    if (avMini && avMini.textContent === '?') {
+        avMini.textContent = '👤';
+        avMini.style.fontSize = '18px';
+    }
+    // Observer: khi firebase cập nhật avatar (emoji / chữ cái)
+    if (avMini) {
+        new MutationObserver(() => {
+            if (!avMini.textContent || avMini.textContent === '?') {
+                avMini.textContent = '👤';
             }
-            
-            ScoreTable.updateScore('ATTACK', 'FIVE', document.getElementById('st-attack-five').value);
-            ScoreTable.updateScore('ATTACK', 'FOUR_OPEN', document.getElementById('st-attack-four-open').value);
-            ScoreTable.updateScore('ATTACK', 'FOUR_BLOCKED', document.getElementById('st-attack-four-blocked').value);
-            ScoreTable.updateScore('ATTACK', 'THREE_OPEN', document.getElementById('st-attack-three-open').value);
-            ScoreTable.updateScore('ATTACK', 'THREE_BLOCKED', document.getElementById('st-attack-three-blocked').value);
-            ScoreTable.updateScore('ATTACK', 'TWO_OPEN', document.getElementById('st-attack-two-open').value);
-            ScoreTable.updateScore('ATTACK', 'TWO_BLOCKED', document.getElementById('st-attack-two-blocked').value);
-            
-            ScoreTable.updateScore('DEFENSE', 'FIVE', document.getElementById('st-defense-five').value);
-            ScoreTable.updateScore('DEFENSE', 'FOUR_OPEN', document.getElementById('st-defense-four-open').value);
-            ScoreTable.updateScore('DEFENSE', 'FOUR_BLOCKED', document.getElementById('st-defense-four-blocked').value);
-            ScoreTable.updateScore('DEFENSE', 'THREE_OPEN', document.getElementById('st-defense-three-open').value);
-            ScoreTable.updateScore('DEFENSE', 'THREE_BLOCKED', document.getElementById('st-defense-three-blocked').value);
-            ScoreTable.updateScore('DEFENSE', 'TWO_OPEN', document.getElementById('st-defense-two-open').value);
-            ScoreTable.updateScore('DEFENSE', 'TWO_BLOCKED', document.getElementById('st-defense-two-blocked').value);
-            
-            ScoreTable.updateScore('BONUS', 'DOUBLE_THREE', document.getElementById('st-bonus-double-three').value);
-            ScoreTable.updateScore('BONUS', 'FOUR_THREE', document.getElementById('st-bonus-four-three').value);
-            ScoreTable.updateScore('BONUS', 'DOUBLE_FOUR', document.getElementById('st-bonus-double-four').value);
-            
-            ScoreTable.updateScore('CENTER_BIAS', 'MAX', document.getElementById('st-center-max').value);
-            ScoreTable.updateScore('CENTER_BIAS', 'DISTANCE', document.getElementById('st-center-distance').value);
-            
-            alert('Đã lưu cấu hình AI thành công!');
-            closeScoreTableConfig();
-        }
+        }).observe(avMini, { childList: true, characterData: true, subtree: true });
+    }
+})();
 
-        function resetScoreTableToDefaults() {
-            if (typeof ScoreTable === 'undefined') {
-                alert('ScoreTable chưa được tải!');
-                return;
-            }
-            
-            if (confirm('Bạn có chắc muốn reset về giá trị mặc định?')) {
-                ScoreTable.resetToDefaults();
-                openScoreTableConfig();
-                alert('Đã reset về giá trị mặc định!');
-            }
-        }
-    </script>
+// ── 16. BATTLE ROOM INFO + BATTLE VIEW SYNC đã được xử lý trong override switchView (#6) ──
 
-    <script>
-        (async () => {
-            const serverRank = await apiGet('/api/rank');
-            if (serverRank) {
-                const local  = loadRank();
-                const merged = { ...local, ...serverRank };
-                saveRank(merged);
-                renderRankPanel();
-            }
-            const serverHistory = await apiGet('/api/history');
-            if (serverHistory && Array.isArray(serverHistory)) {
-                const local  = loadHistory();
-                const merged = [...serverHistory, ...local].slice(0, MAX_HISTORY);
-                saveHistory(merged);
-                matchHistory = merged;
-                renderHistory();
-            }
-        })();
-    </script>
+// ── 16b. BATTLE ROOM INFO: đọc từ DOM room-view (không cần biến nội bộ firebase) ──
+function _syncBattleRoomInfo() {
+    const infoEl = document.getElementById('battle-room-info');
+    if (!infoEl) return;
+    // Đọc luật từ DOM room-rules-panel (giá trị đã được firebase cập nhật)
+    const wcEl  = document.getElementById('room-win-count');
+    const c2dEl = document.getElementById('room-chan-2-dau');
+    const wc  = wcEl  ? parseInt(wcEl.value)  : 5;
+    const c2d = c2dEl ? c2dEl.checked          : true;
+    // Đọc bet pot từ #bet-info-o text nếu đang hiện
+    const betSrc = document.getElementById('bet-info-o');
+    const hasBet = betSrc && betSrc.style.display !== 'none' && betSrc.style.display !== '';
+    let html = `⚙️ ${wc} quân${c2d ? ' · Chặn 2 đầu' : ''}`;
+    if (hasBet && window.currentBetPot && window.currentBetPot > 0) {
+        html += `<br>🎲 Cược: <b style="color:#fbbf24">${Number(window.currentBetPot).toLocaleString('vi-VN')} Xu</b>`;
+    }
+    infoEl.innerHTML = html;
+}
+window._syncBattleRoomInfo = _syncBattleRoomInfo;
 
-    <script src="src/firebase-online.js"></script>
-    <script src="src/thong-bao.js"></script>
-    <script src="src/xu-nhiem-vu.js"></script>
-    <script src="src/shop-skin.js"></script>
+// ── 17. WIN OVERLAY: nút Tiếp tục = về Room, Xem lại = giữ Battle ─
+// firebase tạo win-overlay với nút "Tiếp tục" / "Thoát"
+// Override để "Tiếp tục" (batDauVanMoi) đã được xử lý ở override #9
+// Thêm style cho win-overlay khi đang ở BattleView (nền tối)
+(function() {
+    const styleEl = document.createElement('style');
+    styleEl.textContent = `
+        #win-overlay.show { display:flex !important; }
+        #van-moi-overlay  { z-index:10000 !important; }
+        #afk-warning-box  { z-index:10001 !important; }
+    `;
+    document.head.appendChild(styleEl);
+})();
 
-    <!-- ══════════════════════════════════════════════
-         MODAL NHIỆM VỤ
-         ══════════════════════════════════════════════ -->
-    <div id="nhiem-vu-modal" class="xu-modal-overlay">
-        <div class="xu-modal-box">
-            <div class="xu-modal-header">
-                <h2 class="xu-modal-title">📋 Nhiệm Vụ & Xu</h2>
-                <button class="xu-modal-close" onclick="dongNhiemVu()">&times;</button>
-            </div>
-            <div id="nhiem-vu-container"></div>
-        </div>
-    </div>
+// ── 11. BET-CONFIRM-BTNS display fix ──────────────────────────
+// firebase dùng betConfirmBtns.style.display = 'flex' → CSS inline ghi đè display:none
+// Đảm bảo nó hoạt động đúng
+const _betConfirmBtns = document.getElementById('bet-confirm-btns');
+if (_betConfirmBtns) {
+    // Override display property để 'flex' hoạt động đúng khi firebase set
+    Object.defineProperty(_betConfirmBtns.style, '_display', {
+        get: function() { return this.display; },
+        set: function(v) { this.display = v; }
+    });
+}
+</script>
 
-    <!-- ══════════════════════════════════════════════
-         MODAL SHOP SKIN QUÂN CỜ
-         ══════════════════════════════════════════════ -->
-    <div id="shop-skin-modal" class="xu-modal-overlay">
-        <div class="xu-modal-box" style="max-width:720px;">
-            <div class="xu-modal-header">
-                <h2 class="xu-modal-title">🎨 Cửa Hàng Quân Cờ</h2>
-                <button class="xu-modal-close" onclick="dongShopSkin()">&times;</button>
-            </div>
-            <div class="shop-skin-info">
-                <span>Mua theo <b>cặp O & X</b> — áp dụng cho mọi chế độ chơi</span>
-                <span>Số dư: <b id="shop-skin-xu-display">0 Xu</b></span>
-            </div>
-            <div id="shop-skin-grid"></div>
-        </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════
-         MODAL SHOP AVATAR
-         ══════════════════════════════════════════════ -->
-    <div id="shop-avatar-modal" class="xu-modal-overlay">
-        <div class="xu-modal-box" style="max-width:640px;">
-            <div class="xu-modal-header">
-                <h2 class="xu-modal-title">🎭 Cửa Hàng Avatar</h2>
-                <button class="xu-modal-close" onclick="dongShopAvatar()">&times;</button>
-            </div>
-            <div style="font-size:13px;color:#6b7280;margin-bottom:10px;">
-                Mỗi avatar có giá <b style="color:#d97706;">3.000 Xu</b>. Số dư hiện tại: <b id="shop-xu-display" style="color:#d97706;">0 Xu</b>
-            </div>
-            <div id="shop-avatar-grid"></div>
-        </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════
-         MODAL BXH ĐẠI GIA
-         ══════════════════════════════════════════════ -->
-    <div id="bxh-dagia-modal" class="xu-modal-overlay">
-        <div class="xu-modal-box">
-            <div class="xu-modal-header">
-                <h2 class="xu-modal-title">👑 Bảng Xếp Hạng Đại Gia</h2>
-                <button class="xu-modal-close" onclick="dongBxhDaiGia()">&times;</button>
-            </div>
-            <p style="font-size:12px;color:#9ca3af;margin:0 0 12px;">Top người chơi có nhiều Xu nhất</p>
-            <div id="bxh-dagia-list"></div>
-        </div>
-    </div>
-
-    <!-- MODAL CÀI ĐẶT TÀI KHOẢN -->
-    <div id="account-settings-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:20000; justify-content:center; align-items:center;">
-        <div style="background:white; border-radius:12px; padding:24px; width:90%; max-width:420px; font-family:Arial; position:relative; max-height:90vh; overflow-y:auto;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
-                <h2 style="margin:0; color:#333; font-size:18px;">⚙️ Cài đặt tài khoản</h2>
-                <button onclick="dongCapNhatTaiKhoan()" style="background:none; border:none; font-size:24px; cursor:pointer; color:#999; line-height:1;">&times;</button>
-            </div>
-
-            <!-- Avatar -->
-            <div style="text-align:center; margin-bottom:18px;">
-                <div id="settings-avatar-display" onclick="moChonAvatar()" style="width:72px; height:72px; border-radius:50%; background:#6366f1; color:white; font-size:32px; display:flex; align-items:center; justify-content:center; margin:0 auto 8px; cursor:pointer; border:3px solid #e0e0ff; transition:opacity .2s;" title="Click để đổi avatar">?</div>
-                <button onclick="moChonAvatar()" style="padding:4px 12px; background:#f0f0ff; color:#6366f1; border:1px solid #6366f1; border-radius:6px; cursor:pointer; font-size:12px;">🖼️ Đổi Avatar</button>
-                <!-- Lưới chọn emoji avatar -->
-                <div id="avatar-picker" style="display:none; margin-top:10px; background:#f8f9fa; border-radius:8px; padding:10px;">
-                    <div style="font-size:11px; color:#888; margin-bottom:6px;">Chọn avatar:</div>
-                    <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center;">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tên hiển thị -->
-            <div style="margin-bottom:14px;">
-                <label style="font-size:13px; font-weight:bold; color:#555; display:block; margin-bottom:4px;">Tên hiển thị</label>
-                <div style="display:flex; gap:6px;">
-                    <input type="text" id="settings-display-name" placeholder="Tên hiển thị..." maxlength="20"
-                           style="flex:1; padding:8px 10px; border:1px solid #ddd; border-radius:6px; font-size:14px;">
-                    <button onclick="luuTenHienThi()" style="padding:8px 14px; background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:bold;">Lưu</button>
-                </div>
-            </div>
-
-            <!-- Đổi mật khẩu -->
-            <div style="margin-bottom:14px;">
-                <label style="font-size:13px; font-weight:bold; color:#555; display:block; margin-bottom:4px;">Đổi mật khẩu</label>
-                <input type="password" id="settings-old-pass" placeholder="Mật khẩu hiện tại..." maxlength="30"
-                       style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:6px; font-size:14px; box-sizing:border-box; margin-bottom:6px;">
-                <input type="password" id="settings-new-pass" placeholder="Mật khẩu mới (ít nhất 4 ký tự)..." maxlength="30"
-                       style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:6px; font-size:14px; box-sizing:border-box; margin-bottom:6px;">
-                <input type="password" id="settings-confirm-pass" placeholder="Nhập lại mật khẩu mới..." maxlength="30"
-                       style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:6px; font-size:14px; box-sizing:border-box; margin-bottom:8px;">
-                <button onclick="luuMatKhau()" style="width:100%; padding:9px; background:#007bff; color:white; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-weight:bold;">🔒 Đổi mật khẩu</button>
-            </div>
-
-            <!-- Thống kê -->
-            <div style="background:#f8f9fa; border-radius:8px; padding:12px; font-size:13px; color:#555;">
-                <div style="font-weight:bold; margin-bottom:8px; color:#333;">📊 Thống kê</div>
-                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; text-align:center;">
-                    <div style="background:white; border-radius:6px; padding:8px;">
-                        <div style="font-size:20px; font-weight:bold; color:#28a745;" id="st-win-bot">0</div>
-                        <div style="font-size:11px; color:#888;">Thắng Bot</div>
-                    </div>
-                    <div style="background:white; border-radius:6px; padding:8px;">
-                        <div style="font-size:20px; font-weight:bold; color:#007bff;" id="st-win-solo">0</div>
-                        <div style="font-size:11px; color:#888;">Thắng Solo</div>
-                    </div>
-                    <div style="background:white; border-radius:6px; padding:8px;">
-                        <div style="font-size:20px; font-weight:bold; color:#dc3545;" id="st-lose-solo">0</div>
-                        <div style="font-size:11px; color:#888;">Thua Solo</div>
-                    </div>
-                </div>
-                <div style="margin-top:8px; text-align:center;">
-                    Cấp bậc: <span id="st-rank" style="font-weight:bold; color:#ff8c00;">🐣 Gà Con</span>
-                </div>
-            </div>
-        </div>
-    </div>
+</div><!-- #app -->
 </body>
 </html>

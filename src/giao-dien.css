@@ -16,6 +16,7 @@ body {
 .cell {
     animation: none !important;
     transition: none !important;
+    touch-action: manipulation;
 }
 
 .cell:hover {
@@ -25,6 +26,10 @@ body {
 #inf-canvas {
     animation: none !important;
     transition: none !important;
+    touch-action: none; /* Allow custom touch handling for canvas */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 /* Tắt tất cả animation khi fullscreen để tránh flickering */
@@ -116,6 +121,88 @@ body.fullscreen-mode #inf-canvas {
         padding: 3px 8px !important;
         font-size: 0.72rem !important;
     }
+    
+    /* Nav bar responsive */
+    #nav-bar {
+        padding: 6px 10px !important;
+        gap: 6px !important;
+        font-size: 11px !important;
+    }
+    
+    #nav-quick-btns .xu-action-btn {
+        padding: 3px 6px !important;
+        font-size: 10px !important;
+    }
+    
+    /* User info card responsive */
+    #user-info-card {
+        padding: 8px 12px !important;
+        gap: 8px !important;
+    }
+    
+    #user-info-card #user-avatar-display {
+        width: 36px !important;
+        height: 36px !important;
+        font-size: 16px !important;
+    }
+    
+    #user-info-card #user-display-name {
+        font-size: 12px !important;
+    }
+    
+    #user-info-card #my-rank {
+        font-size: 9px !important;
+        padding: 2px 6px !important;
+    }
+    
+    #user-info-card button {
+        padding: 4px 8px !important;
+        font-size: 10px !important;
+    }
+    
+    /* Config panel responsive */
+    .config-panel {
+        gap: 6px !important;
+        padding: 6px 8px !important;
+    }
+    
+    .config-group {
+        font-size: 0.8rem !important;
+        gap: 4px !important;
+    }
+    
+    select {
+        padding: 4px 8px !important;
+        font-size: 0.75rem !important;
+    }
+    
+    input[type="checkbox"] {
+        width: 16px !important;
+        height: 16px !important;
+    }
+    
+    /* Title responsive */
+    h1 {
+        font-size: 1.3rem !important;
+        margin: 6px 0 8px !important;
+    }
+    
+    /* Control wrapper */
+    .control-wrapper {
+        padding: 4px 8px !important;
+    }
+    
+    /* Status panel */
+    .status-panel {
+        font-size: 0.85rem !important;
+        padding: 6px 10px !important;
+    }
+    
+    /* Keyboard hint */
+    .keyboard-hint {
+        font-size: 0.7rem !important;
+        margin: 6px 0 8px 0 !important;
+    }
 }
 
 @media (max-width: 480px) {
@@ -126,6 +213,188 @@ body.fullscreen-mode #inf-canvas {
     .ticker-item {
         padding: 2px 7px !important;
         font-size: 0.68rem !important;
+    }
+    
+    /* Nav bar mobile nhỏ */
+    #nav-bar {
+        padding: 4px 8px !important;
+        gap: 4px !important;
+        font-size: 10px !important;
+    }
+    
+    /* Ẩn một số nút trên mobile rất nhỏ */
+    #nav-quick-btns .btn-dagia {
+        display: none !important;
+    }
+    
+    #nav-quick-btns .xu-action-btn {
+        padding: 2px 5px !important;
+        font-size: 9px !important;
+    }
+    
+    /* Ẩn link tiny.cc trên mobile nhỏ */
+    #nav-bar a[href*="tiny.cc"] {
+        display: none !important;
+    }
+    
+    /* User info card mobile nhỏ */
+    #user-info-card {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        padding: 8px !important;
+        gap: 8px !important;
+    }
+    
+    #user-info-card > div:first-child {
+        width: 100% !important;
+    }
+    
+    #user-info-card #user-avatar-display {
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 14px !important;
+    }
+    
+    #user-info-card #user-display-name {
+        font-size: 11px !important;
+    }
+    
+    #user-info-card #my-rank {
+        font-size: 8px !important;
+        padding: 2px 6px !important;
+    }
+    
+    #user-info-card > div:last-child {
+        width: 100% !important;
+        justify-content: flex-end !important;
+    }
+    
+    #user-info-card button {
+        padding: 4px 8px !important;
+        font-size: 10px !important;
+    }
+    
+    /* Config panel mobile nhỏ */
+    .config-panel {
+        gap: 4px !important;
+        padding: 4px 6px !important;
+    }
+    
+    .config-group {
+        font-size: 0.75rem !important;
+        gap: 3px !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+    }
+    
+    .config-group label {
+        font-size: 0.7rem !important;
+    }
+    
+    select {
+        padding: 3px 6px !important;
+        font-size: 0.7rem !important;
+        width: 100% !important;
+    }
+    
+    input[type="checkbox"] {
+        width: 14px !important;
+        height: 14px !important;
+    }
+    
+    /* Title mobile nhỏ */
+    h1 {
+        font-size: 1.1rem !important;
+        margin: 4px 0 6px !important;
+        letter-spacing: 1px !important;
+    }
+    
+    /* Control wrapper mobile nhỏ */
+    .control-wrapper {
+        padding: 3px 6px !important;
+    }
+    
+    /* Status panel mobile nhỏ */
+    .status-panel {
+        font-size: 0.8rem !important;
+        padding: 5px 8px !important;
+        min-width: auto !important;
+    }
+    
+    /* Keyboard hint ẩn trên mobile nhỏ */
+    .keyboard-hint {
+        display: none !important;
+    }
+    
+    /* Main layout padding */
+    .main-layout {
+        padding: 0 6px 6px !important;
+    }
+    
+    /* Game container mobile - xếp player cards lên hàng riêng */
+    .game-container {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+    
+    /* Player cards container - 2 player cards xếp ngang trên mobile */
+    #ui-game-container {
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+    }
+    
+    /* Player cards mobile - xếp ngang ở trên bàn cờ */
+    .player-card {
+        width: 48% !important;
+        max-width: 48% !important;
+        flex-direction: row !important;
+        gap: 6px !important;
+        padding: 6px !important;
+        justify-content: center !important;
+    }
+    
+    .pc-avatar {
+        width: 28px !important;
+        height: 28px !important;
+        font-size: 12px !important;
+    }
+    
+    .player-card .pc-info {
+        flex: 1 !important;
+        text-align: left !important;
+    }
+    
+    .player-card .pc-name {
+        font-size: 0.75rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    
+    .player-card .pc-badge {
+        font-size: 0.65rem !important;
+    }
+    
+    .player-card .pc-stats {
+        font-size: 0.6rem !important;
+        gap: 4px !important;
+        flex-wrap: wrap !important;
+    }
+    
+    /* Bàn cờ chiếm full width trên mobile */
+    #ui-game-container > div:not(.player-card) {
+        width: 100% !important;
+        order: 2 !important;
+    }
+    
+    /* Player cards lên đầu */
+    .player-card {
+        order: 1 !important;
+    }
+    
+    /* Ẩn resize handles trên mobile */
+    .gc-resize-handle {
+        display: none !important;
     }
 }
 
@@ -2310,4 +2579,162 @@ body.in-game-active #inf-canvas {
     }
     .skin-preview { font-size: 1.5rem; }
     .skin-name { font-size: 0.75rem; }
+}
+
+/* ================================================================
+   PRACTICE MODE — Phòng đấu giả lập (DO3.txt)
+   ================================================================ */
+
+#view-training {
+  background: #0f172a;
+  position: relative;
+  overflow: hidden;
+}
+
+.practice-layout {
+  display: grid;
+  grid-template-columns: minmax(140px, 18%) 1fr minmax(180px, 20%);
+  gap: 12px;
+  padding: 12px;
+  height: calc(100vh - 88px);
+  max-width: 1800px; margin: 0 auto; width: 100%;
+  box-sizing: border-box;
+}
+
+.practice-player-card {
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 8px;
+  color: #e2e8f0;
+}
+
+.practice-avatar {
+  width: 60px; height: 60px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; font-weight: 900; border: 3px solid;
+  flex-shrink: 0;
+}
+.practice-avatar-x { background: rgba(239,68,68,.2); border-color: #ef4444; color: #ef4444; }
+.practice-avatar-o { background: rgba(59,130,246,.2); border-color: #3b82f6; color: #3b82f6; }
+
+.practice-pname {
+  font-size: 14px; font-weight: 700;
+  text-align: center; word-break: break-word; color: #e2e8f0;
+}
+.practice-pstats { font-size: 11px; color: #94a3b8; text-align: center; }
+
+.practice-indicator {
+  padding: 4px 12px; border-radius: 9999px;
+  font-size: 11px; font-weight: 700; text-align: center;
+}
+.practice-indicator-active {
+  background: rgba(16,185,129,.15); color: #34d399;
+  border: 1px solid rgba(16,185,129,.3);
+}
+.practice-indicator-inactive {
+  background: rgba(255,255,255,.05); color: #64748b;
+  border: 1px solid transparent;
+}
+
+.practice-center {
+  display: flex; flex-direction: column;
+  align-items: center; position: relative;
+  overflow: hidden; min-width: 0;
+  justify-content: flex-start;
+  min-height: 0; flex: 1 1 0;
+}
+
+.practice-status-bar {
+  width: 100%;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 6px;
+  padding: 8px 16px;
+  color: #e2e8f0; font-size: 12px; font-weight: 600;
+  text-align: center; margin-bottom: 8px; flex-shrink: 0;
+}
+
+.practice-board-slot {
+  flex: 1; width: 100%; min-height: 0;
+  display: flex; justify-content: center; align-items: center;
+  position: relative; overflow: hidden;
+}
+.practice-board-slot > #inf-resizable { flex-shrink: 0; position: relative; }
+.practice-board-slot > #board { width: 100% !important; height: 100% !important; }
+
+.practice-right {
+  display: flex; flex-direction: column; gap: 8px;
+  overflow-y: auto; min-width: 0;
+}
+
+/* Nút chọn Bot */
+.practice-bot-btn {
+  width: 100%; padding: 12px 16px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 6px;
+  color: #e2e8f0; font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: background .15s, border-color .15s;
+  text-align: center;
+}
+.practice-bot-btn:hover {
+  background: rgba(99,102,241,.25); border-color: #6366f1;
+}
+.practice-bot-btn-god {
+  border-color: rgba(239,68,68,.5);
+  background: rgba(239,68,68,.1);
+  color: #fca5a5;
+}
+.practice-bot-btn-god:hover {
+  background: rgba(239,68,68,.25); border-color: #ef4444;
+}
+
+/* Nút controls */
+.practice-ctrl-btn {
+  width: 100%; padding: 9px 12px;
+  border-radius: 6px; border: 1px solid;
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: background .15s;
+}
+.practice-ctrl-replay {
+  background: rgba(16,185,129,.15); color: #34d399;
+  border-color: rgba(16,185,129,.35);
+}
+.practice-ctrl-replay:hover { background: rgba(16,185,129,.3); }
+.practice-ctrl-change {
+  background: rgba(99,102,241,.15); color: #a5b4fc;
+  border-color: rgba(99,102,241,.35);
+}
+.practice-ctrl-change:hover { background: rgba(99,102,241,.3); }
+.practice-ctrl-exit {
+  background: rgba(239,68,68,.1); color: #fca5a5;
+  border-color: rgba(239,68,68,.3);
+}
+.practice-ctrl-exit:hover { background: rgba(239,68,68,.2); }
+
+/* Mobile practice */
+@media (max-width: 768px) {
+  .practice-layout {
+    display: flex; flex-direction: column;
+    height: auto; min-height: calc(100vh - 80px);
+    padding: 8px; gap: 8px;
+    overflow-y: auto;
+  }
+  .practice-player-card {
+    flex-direction: row; padding: 8px 12px;
+    align-items: center; justify-content: flex-start; gap: 12px;
+  }
+  .practice-avatar { width: 40px; height: 40px; font-size: 18px; }
+  .practice-pstats { display: none; }
+  .practice-center { width: 100%; }
+  .practice-board-slot {
+    width: 100%;
+    height: min(85vw, 55vh);
+    min-height: 220px;
+    flex: 0 0 auto;
+  }
+  .practice-right { max-height: 220px; overflow-y: auto; }
 }

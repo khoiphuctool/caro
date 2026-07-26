@@ -290,6 +290,26 @@ function loadRankHistory(index) {
 }
 
 function renderBoardFromHistory() {
+    // Use Shared Board Engine for rendering (DO6.TXT)
+    if (typeof SharedBoardEngine !== 'undefined') {
+        SharedBoardEngine.BoardState.clear();
+        SharedBoardEngine.Camera.reset();
+        
+        for (const move of moveHistory) {
+            const { r, c, player } = move;
+            SharedBoardEngine.BoardState.addMove(c, r, player);
+        }
+        
+        if (moveHistory.length > 0) {
+            const lastMove = moveHistory[moveHistory.length - 1];
+            SharedBoardEngine.Camera.setPosition(lastMove.c, lastMove.r);
+        }
+        
+        SharedBoardEngine.update();
+        return;
+    }
+    
+    // Fallback to old system
     // BUG 5 FIX: Use centralized setCell function instead of direct state modification
     if (isInfinite) {
         infiniteMap.clear();

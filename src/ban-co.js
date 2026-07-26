@@ -188,6 +188,20 @@ function fitCanvasToContainer() {
     }
     if (!host) host = document.getElementById('ui-game-container');
     if (!host) return;
+
+    // Khi bàn cờ trong unified-board-slot (BattleView): dùng kích thước vuông
+    const unifiedSlotCheck = document.getElementById('unified-board-slot');
+    if (unifiedSlotCheck && host === unifiedSlotCheck) {
+        const r = host.getBoundingClientRect();
+        const sz = (r.width > 50 && r.height > 50)
+            ? Math.max(200, Math.min(r.width, r.height) - 8)
+            : Math.max(200, Math.min(window.innerWidth * 0.85, window.innerHeight * 0.75));
+        if (Math.abs(infCanvasW - sz) > INF_CS || Math.abs(infCanvasH - sz) > INF_CS) {
+            applyCanvasSize(sz, sz, false);
+        }
+        return;
+    }
+
     const availW = host.getBoundingClientRect().width - 8;
     if (availW < 100) return;
     // Chỉ resize khi lệch đáng kể (hơn 1 ô cờ) để tránh vòng lặp resize
@@ -394,10 +408,10 @@ function initInfCanvas() {
     document.getElementById('board').style.display = 'none';
 
     const wrapper = document.getElementById('inf-resizable');
-    wrapper.style.display = 'inline-block';
+    if (wrapper) wrapper.style.display = 'inline-block';
 
-    const gc = document.getElementById('ui-game-container');
-    gc.classList.add('inf-mode');
+    // ui-game-container no longer exists in new DOM structure (Shared Board Engine)
+    // Removed inf-mode class logic as it's not needed
 
     // Gắn đầy đủ mouse events cho cả online và offline (giống bản backup)
     infCanvas.onmousedown   = infOnMouseDown;
@@ -602,15 +616,29 @@ function autoResizeInfCanvas() {
         availW = Math.max(300, window.innerWidth - rect.left - 40);
     }
     
+    // Khi bàn cờ nằm trong unified-board-slot (BattleView): dùng kích thước vuông theo slot
+    const unifiedSlot = document.getElementById('unified-board-slot');
+    if (unifiedSlot && wrapper && unifiedSlot.contains(wrapper)) {
+        const slotRect = unifiedSlot.getBoundingClientRect();
+        const slotW = slotRect.width;
+        const slotH = slotRect.height;
+        // Nếu slot chưa render (h=0), fallback về 85% viewport
+        const slotSize = (slotW > 50 && slotH > 50)
+            ? Math.max(200, Math.min(slotW, slotH) - 8)
+            : Math.max(200, Math.min(window.innerWidth * 0.85, window.innerHeight * 0.75));
+        applyCanvasSize(slotSize, slotSize, false);
+        return;
+    }
+
     // ĐẢM BẢO CHIỀU CAO LÀ 70% CHIỀU RỘNG
     let availH = Math.floor(availW * 0.7);
 
     // Giới hạn chiều cao tối đa là 70% viewport để tránh tràn
     availH = Math.min(availH, Math.floor(window.innerHeight * 0.7));
 
-    // Trên mobile khi online: giới hạn chiều cao để còn scroll xuống nút Bắt đầu
+    // Trên mobile khi online: giới hạn chiều cao để còn scroll xuống chat/nút
     if (window.innerWidth <= 768 && window.isOnlineModeActive && window.isOnlineModeActive()) {
-        availH = Math.min(availH, Math.floor(window.innerHeight * 0.45));
+        availH = Math.min(availH, Math.floor(window.innerHeight * 0.55));
     }
 
     applyCanvasSize(availW, availH, true); // Auto-resize: ép 70% ratio
@@ -728,7 +756,8 @@ function renderInfiniteBoard() {
     }
 
     // Hover preview — chỉ hiện khi đến lượt mình và KHÔNG fullscreen
-    const onlineActive = window.isOnlineModeActive && window.isOnlineModeActive();
+    // Dùng lại _onlineActive đã tính ở trên (tránh gọi isOnlineModeActive() lần 2)
+    const onlineActive = _onlineActive;
     const myTurn = onlineActive
         ? (typeof currentTurn !== 'undefined' && currentTurn === (window.myOnlineRole))
         : (gameMode === 'solo' || (gameMode.startsWith('ai') && currentPlayer !== botPiece));
@@ -851,6 +880,18 @@ document.addEventListener('fullscreenchange', () => {
         }
     }
 });
+
+// Dirty rectangle tracking for optimized rendering
+let dirtyCells = new Set();
+let lastRenderedBoardHash = null;
+
+function markCellDirty(r, c) {
+    dirtyCells.add(`${r},${c}`);
+}
+
+function clearDirtyCells() {
+    dirtyCells.clear();
+}
 
 function scheduleRender() {
     // Hover effect đã bị tắt riêng trong infOnMouseMove nên render qua rAF không gây flickering.
