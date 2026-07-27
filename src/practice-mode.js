@@ -17,18 +17,29 @@ const PracticeMode = (function() {
     };
 
     const BOT_LEVELS = [
-        { value: 'ai-easy',   label: '🤖 BOT DỄ',        emoji: '🟢' },
-        { value: 'ai-medium', label: '🤖 BOT TRUNG BÌNH', emoji: '🟡' },
-        { value: 'ai-hard',   label: '🤖 BOT KHÓ',        emoji: '🟠' },
-        { value: 'ai-god',    label: '👑 BOT TỐI THƯỢNG', emoji: '💀' }
+        { value: 'ai-easy',        label: '🤖 BOT DỄ',          emoji: '🟢' },
+        { value: 'ai-medium',      label: '🤖 BOT TRUNG BÌNH',   emoji: '🟡' },
+        { value: 'ai-hard',        label: '🤖 BOT KHÓ',          emoji: '🟠' },
+        { value: 'bot-toi-thuong', label: '👑 BOT TỐI THƯỢNG',  emoji: '💀' },
+        { value: 'bot-tia-chop',   label: '⚡ BOT TIA CHỚP',    emoji: '⚡' }
     ];
 
     // Tên hiển thị rút gọn
     const BOT_DISPLAY = {
-        'ai-easy':   'Bot Dễ',
-        'ai-medium': 'Bot Trung Bình',
-        'ai-hard':   'Bot Khó',
-        'ai-god':    'Bot Tối Thượng 💀'
+        'ai-easy':        'Bot Dễ',
+        'ai-medium':      'Bot Trung Bình',
+        'ai-hard':        'Bot Khó',
+        'bot-tia-chop':   'Bot Tia Chớp ⚡',
+        'bot-toi-thuong': 'Bot Tối Thượng 💀'
+    };
+
+    // Cấu hình thưởng — chỉ dùng để hiển thị UI, logic thực tế do xu-nhiem-vu.js xử lý
+    const BOT_REWARDS = {
+        'ai-easy':        { xu: 700  },
+        'ai-medium':      { xu: 900  },
+        'ai-hard':        { xu: 1300 },
+        'bot-tia-chop':   { xu: 2000 },
+        'bot-toi-thuong': { xu: 2300 }
     };
 
     // ── HELPERS ────────────────────────────────────────────────────
@@ -221,6 +232,28 @@ const PracticeMode = (function() {
         if (ctrl) ctrl.style.display = 'none';
     }
 
+    // ── HOÀN TÁC ─────────────────────────────────────────────────────
+    // Undo 2 nước (người + bot) để trả lượt về cho người chơi
+    function undoPracticeMove() {
+        if (!_state.active || _state.phase !== 'playing') return;
+        if (typeof undoMove !== 'function' || typeof moveHistory === 'undefined') return;
+
+        const isVsBot = _state.botLevel && !_state.botLevel.startsWith('solo');
+        if (isVsBot) {
+            // Undo nước bot (nếu có), rồi undo nước người
+            if (moveHistory.length >= 2) {
+                undoMove(); // undo bot
+                undoMove(); // undo người
+            } else if (moveHistory.length === 1) {
+                undoMove();
+            }
+        } else {
+            undoMove();
+        }
+        _setStatus('🟢 LƯỢT CỦA BẠN (X)');
+        _setIndicator('X');
+    }
+
     // ── THOÁT ────────────────────────────────────────────────────────
     function exit() {
         _state.active = false;
@@ -285,7 +318,7 @@ const PracticeMode = (function() {
                     window.updateUserStats('winBot', 1);
                 }
             }
-            // Cộng Xu khi thắng bot (có giới hạn ngày)
+            // Cộng Xu — toàn bộ giới hạn ngày do xu-nhiem-vu.js xử lý qua Firebase
             if (typeof window.onWinBotXu === 'function') {
                 window.onWinBotXu(_state.botLevel);
             }
@@ -328,6 +361,7 @@ const PracticeMode = (function() {
         playAgain,
         changeBot,
         exit,
+        undoPracticeMove,
         onGameEvent,
         getState: () => ({ ..._state }),
         BOT_LEVELS,

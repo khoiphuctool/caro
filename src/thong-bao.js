@@ -1,26 +1,25 @@
 // ===== THANH THÔNG BÁO TOÀN CỤC (GLOBAL NOTIFICATION TICKER) =====
 // Ticker cố định ở top màn hình, hiển thị mọi lúc kể cả trong trận
 
-let notificationQueue = [];
+let notificationQueue = [];   // chờ hiển thị
 let notificationCache = new Map();
 let notificationListenersStarted = false;
 let welcomeShown = false;
+let tickerRunning = false;    // đang cuộn hay không
 
-const DEDUPE_TIME = 20000; // không lặp cùng nội dung trong 20 giây
+const DEDUPE_TIME = 20000;
 const MAX_QUEUE = 8;
 
-// ── Thêm thông báo vào queue và cập nhật ticker ──
+// ── Thêm thông báo vào queue ──
 function addNotification(type, message) {
     if (!message) return;
     const cacheKey = `${type}_${message}`;
     const now = Date.now();
 
-    // Dedup
     const lastShown = notificationCache.get(cacheKey) || 0;
     if (now - lastShown < DEDUPE_TIME) return;
     notificationCache.set(cacheKey, now);
 
-    // Dọn cache cũ
     for (const [k, t] of notificationCache) {
         if (now - t > DEDUPE_TIME) notificationCache.delete(k);
     }
@@ -28,31 +27,28 @@ function addNotification(type, message) {
     notificationQueue.push({ type, message });
     if (notificationQueue.length > MAX_QUEUE) notificationQueue.shift();
 
-    _renderTicker();
+    // Nếu ticker đang ẩn thì khởi động lại, còn đang chạy thì để tự nhiên
+    if (!tickerRunning) _startTicker();
 }
 
-// ── Render ticker marquee ──
-function _renderTicker() {
+// ── Lấy batch hiện tại và cuộn 1 lần ──
+function _startTicker() {
+    if (notificationQueue.length === 0) return;
+
     const ticker  = document.getElementById('notification-ticker');
     const content = document.getElementById('ticker-content');
     if (!ticker || !content) return;
 
-    if (notificationQueue.length === 0) {
-        ticker.classList.remove('has-content');
-        document.body.classList.remove('ticker-on');
-        return;
-    }
+    // Snapshot toàn bộ queue hiện tại vào ticker
+    const batch = notificationQueue.splice(0);
 
-    // Build nội dung: các item cách nhau bằng dấu phân cách
     const fragment = document.createDocumentFragment();
-    notificationQueue.forEach((notif, i) => {
+    batch.forEach((notif, i) => {
         const span = document.createElement('span');
         span.className = `ticker-item ${notif.type}`;
         span.textContent = notif.message;
         fragment.appendChild(span);
-
-        // Dấu phân cách giữa các item
-        if (i < notificationQueue.length - 1) {
+        if (i < batch.length - 1) {
             const sep = document.createElement('span');
             sep.className = 'ticker-sep';
             sep.textContent = ' ✦ ';
@@ -61,19 +57,41 @@ function _renderTicker() {
     });
     content.replaceChildren(fragment);
 
-    // Điều chỉnh tốc độ scroll theo độ dài nội dung
-    const charCount = notificationQueue.reduce((s, n) => s + n.message.length, 0);
-    const duration = Math.max(15, Math.min(50, charCount * 0.25));
+    // Tính duration theo độ dài text
+    const charCount = batch.reduce((s, n) => s + n.message.length, 0);
+    const duration  = Math.max(15, Math.min(50, charCount * 0.25));
+
+    // Reset animation
+    content.style.animation = 'none';
+    content.offsetHeight; // force reflow
+    content.style.animation = '';
     content.style.animationDuration = `${duration}s`;
 
-    // Reset animation để bắt đầu từ bên phải mỗi khi có thông báo mới
-    content.style.animation = 'none';
-    content.offsetHeight; // Trigger reflow
-    content.style.animation = `ticker-scroll ${duration}s linear infinite`;
-
+    tickerRunning = true;
     ticker.classList.add('has-content');
     document.body.classList.add('ticker-on');
 }
+
+// ── Sau khi cuộn xong: ẩn hoặc chạy tiếp nếu có thông báo mới vào trong lúc đang chạy ──
+(function _setupTickerEnd() {
+    function init() {
+        const content = document.getElementById('ticker-content');
+        if (!content) { window.addEventListener('load', init, { once: true }); return; }
+        content.addEventListener('animationend', () => {
+            tickerRunning = false;
+            if (notificationQueue.length > 0) {
+                // Có thông báo mới vào trong lúc đang cuộn → chạy tiếp ngay
+                _startTicker();
+            } else {
+                // Hết thông báo → ẩn
+                const ticker = document.getElementById('notification-ticker');
+                if (ticker) ticker.classList.remove('has-content');
+                document.body.classList.remove('ticker-on');
+            }
+        });
+    }
+    init();
+})();
 
 // ── Listeners ──
 

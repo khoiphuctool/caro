@@ -107,6 +107,19 @@ a { text-decoration: none; }
 }
 .nav-btn:hover, .nav-btn.active { background: rgba(255,255,255,.12); color: #fff; }
 
+@media (min-width: 1440px) {
+  .header-row1 { padding: var(--space-3) var(--space-6); min-height: 56px; }
+  .header-row2 { padding: var(--space-2) var(--space-6); min-height: 44px; }
+  .header-logo { font-size: 20px; }
+  .nav-btn     { font-size: 13px; padding: var(--space-2) var(--space-4); }
+  .user-xu     { font-size: 14px; }
+}
+@media (min-width: 1920px) {
+  .header-row1 { padding: var(--space-3) 60px; min-height: 60px; }
+  .header-logo { font-size: 22px; }
+  .nav-btn     { font-size: 14px; }
+}
+
 /* Shop dropdown */
 .shop-dropdown { position: relative; }
 .shop-menu {
@@ -167,15 +180,69 @@ a { text-decoration: none; }
 
 .home-layout {
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: 1fr 300px 300px;
   gap: var(--space-4);
   padding: var(--space-4);
-  max-width: 1200px; width: 100%; margin: 0 auto;
+  width: 100%;
   flex: 1;
+  box-sizing: border-box;
+  align-items: stretch;
 }
 
-.lobby-main { display: flex; flex-direction: column; gap: var(--space-4); }
-.lobby-side  { display: flex; flex-direction: column; gap: var(--space-4); }
+/* Màn hình vừa (1024-1366px): tối ưu layout */
+@media (min-width: 1024px) and (max-width: 1366px) {
+  .home-layout {
+    grid-template-columns: 1fr 280px 280px;
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
+  .lobby-main, .lobby-side { gap: var(--space-3); }
+  .room-list { max-height: 350px; }
+  .bxh-list { max-height: 400px; }
+  .chat-messages-box { height: 200px; }
+  .card { min-height: 200px; }
+}
+
+/* Tablet: gộp BXH + Social thành 1 cột */
+@media (max-width: 1023px) and (min-width: 769px) {
+  .home-layout { grid-template-columns: 1fr 300px; }
+  .lobby-side-rank, .lobby-side-social { grid-column: 2; }
+}
+
+@media (min-width: 1440px) {
+  .home-layout { grid-template-columns: 1fr 320px 320px; padding: var(--space-4) var(--space-6); }
+}
+@media (min-width: 1600px) {
+  .home-layout { grid-template-columns: 1fr 360px 360px; gap: var(--space-6); padding: var(--space-5) 40px; }
+  .room-list { max-height: 540px; }
+  .bxh-list  { max-height: 400px; }
+  .chat-messages-box { height: 320px; }
+}
+@media (min-width: 1920px) {
+  .home-layout { grid-template-columns: 1fr 400px 400px; gap: 32px; padding: var(--space-6) 60px; }
+  .room-list { max-height: 660px; }
+  .card-header { font-size: 16px; padding: var(--space-4) var(--space-5); }
+  .card-body   { padding: var(--space-4) var(--space-5); }
+  .room-item   { padding: var(--space-4) var(--space-5); }
+  .room-name   { font-size: 15px; }
+  .btn-join    { padding: 7px 18px; font-size: 13px; }
+}
+
+.lobby-main      { display: flex; flex-direction: column; gap: var(--space-4); }
+.lobby-side      { display: flex; flex-direction: column; gap: var(--space-4); }
+.lobby-side-rank   { display: flex; flex-direction: column; gap: var(--space-4); }
+.lobby-side-social { display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* Đảm bảo các card trong cột chiếm đầy đủ chiều cao */
+.lobby-main > .card, .lobby-side > .card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.card-body {
+  flex: 1;
+  overflow-y: auto;
+}
 
 .card {
   background: var(--card-bg); border: 1px solid var(--card-border);
@@ -222,7 +289,7 @@ a { text-decoration: none; }
   border-radius: var(--radius-full); font-size: var(--font-sm); font-weight: 600; color: #64748b;
 }
 .bxh-tab.active { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
-.bxh-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-1); }
+.bxh-list { max-height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-1); }
 
 /* World Chat */
 .chat-messages-box {
@@ -334,12 +401,21 @@ a { text-decoration: none; }
 /* Desktop: 3 cột 20% / 60% / 20% */
 .battle-layout-desktop {
   display: grid;
-  grid-template-columns: minmax(160px, 20%) 1fr minmax(200px, 22%);
+  grid-template-columns: minmax(160px, 18%) 1fr minmax(200px, 20%);
   gap: var(--space-3);
   padding: var(--space-3);
-  height: calc(100vh - 88px);  /* trừ header 2 hàng */
-  max-width: 1800px; margin: 0 auto; width: 100%;
+  height: calc(100vh - 88px);
+  max-width: 2400px; margin: 0 auto; width: 100%;
   box-sizing: border-box;
+}
+
+@media (min-width: 1440px) {
+  .battle-layout-desktop {
+    grid-template-columns: minmax(180px, 15%) 1fr minmax(220px, 18%);
+    gap: var(--space-4);
+    padding: var(--space-4);
+  }
+  #unified-board-slot { min-height: 500px; }
 }
 
 .battle-player-card {
@@ -471,23 +547,36 @@ a { text-decoration: none; }
     gap: var(--space-2);
   }
   /* Lobby side: ẩn mặc định, hiện qua tabs */
-  .lobby-side { display: none; }
-  .lobby-side.mobile-tab-active { display: flex; flex-direction: column; gap: var(--space-2); }
+  .lobby-side, .lobby-side-rank, .lobby-side-social { display: none; }
+  .lobby-side.mobile-tab-active,
+  .lobby-side-rank.mobile-tab-active,
+  .lobby-side-social.mobile-tab-active { display: flex; flex-direction: column; gap: var(--space-2); }
 
   /* Mobile tabs cho lobby */
   .lobby-mobile-tabs {
-    display: flex; gap: var(--space-1); margin-bottom: var(--space-2);
-    background: var(--card-bg); border-radius: var(--radius-md);
-    padding: var(--space-1); border: 1px solid var(--card-border);
+    display: flex; gap: 4px; margin-bottom: var(--space-2);
+    background: #1e293b; border-radius: var(--radius-md);
+    padding: 5px; border: 1px solid rgba(255,255,255,.1);
   }
   .lobby-tab-btn {
-    flex: 1; padding: var(--space-2); background: transparent;
-    border: none; border-radius: var(--radius-sm); font-size: var(--font-sm);
-    font-weight: 600; color: #64748b; transition: all var(--transition);
+    flex: 1; padding: 8px 4px; background: transparent;
+    border: none; border-radius: var(--radius-sm); font-size: 11px;
+    font-weight: 700; color: #94a3b8; transition: all var(--transition);
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    line-height: 1.2;
   }
-  .lobby-tab-btn.active {
-    background: var(--color-primary); color: #fff;
-  }
+  .lobby-tab-btn .tab-icon { font-size: 16px; }
+  .lobby-tab-btn .tab-label { font-size: 10px; }
+
+  /* Màu riêng từng tab khi active */
+  .lobby-tab-btn[data-tab="rooms"].active      { background: #6366f1; color: #fff; }
+  .lobby-tab-btn[data-tab="rank"].active       { background: #f59e0b; color: #fff; }
+  .lobby-tab-btn[data-tab="community"].active  { background: #10b981; color: #fff; }
+
+  /* Hover: tint nhẹ theo màu tab */
+  .lobby-tab-btn[data-tab="rooms"]:not(.active):hover      { background: rgba(99,102,241,.15); color: #818cf8; }
+  .lobby-tab-btn[data-tab="rank"]:not(.active):hover       { background: rgba(245,158,11,.15); color: #fbbf24; }
+  .lobby-tab-btn[data-tab="community"]:not(.active):hover  { background: rgba(16,185,129,.15); color: #34d399; }
 
   /* ── BattleView mobile: vertical stack ── */
   .battle-layout-desktop {
@@ -613,7 +702,7 @@ a { text-decoration: none; }
 #ticker-content {
   display: inline-flex; white-space: nowrap; gap: 60px;
   padding: 0 20px; align-items: center;
-  animation: ticker-scroll 30s linear infinite;
+  animation: ticker-scroll 30s linear 1;
   font-size: 13px; color: #e2e8f0;
 }
 #ticker-content:hover { animation-play-state: paused; }
@@ -814,10 +903,9 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 <main class="view active" id="view-home">
     <!-- Mobile tabs: chỉ hiện trên mobile -->
     <div class="lobby-mobile-tabs" id="lobby-mobile-tabs" style="display:none; margin:8px 8px 0;">
-        <button class="lobby-tab-btn active" onclick="switchLobbyTab('rooms')">🎮 Phòng</button>
-        <button class="lobby-tab-btn" onclick="switchLobbyTab('rank')">🏆 BXH</button>
-        <button class="lobby-tab-btn" onclick="switchLobbyTab('online')">👥 Online</button>
-        <button class="lobby-tab-btn" onclick="switchLobbyTab('chat')">🌍 Chat</button>
+        <button class="lobby-tab-btn active" data-tab="rooms"     onclick="switchLobbyTab('rooms')"    ><span class="tab-icon">🎮</span><span class="tab-label">Phòng</span></button>
+        <button class="lobby-tab-btn"        data-tab="rank"      onclick="switchLobbyTab('rank')"     ><span class="tab-icon">🏆</span><span class="tab-label">BXH</span></button>
+        <button class="lobby-tab-btn"        data-tab="community" onclick="switchLobbyTab('community')"><span class="tab-icon">🌍</span><span class="tab-label">Cộng đồng</span></button>
     </div>
     <div class="home-layout">
         <!-- CỘT CHÍNH: Danh sách phòng -->
@@ -843,21 +931,28 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
             </div>
         </div>
 
-        <!-- CỘT PHỤ: BXH + Online + Chat -->
-        <div class="lobby-side">
+        <!-- CỘT PHỤ: BXH (đưa lên cột thứ 2) -->
+        <div class="lobby-side lobby-side-rank">
             <!-- BXH -->
             <div class="card">
                 <div class="card-header">🏆 Bảng Xếp Hạng</div>
                 <div class="card-body">
                     <div class="bxh-tabs">
-                        <button class="bxh-tab active" id="bxh-tab-elo" onclick="switchBxhTab('elo')">TỐP🏅 Rank</button>
-                        <button class="bxh-tab" id="bxh-tab-dagia" onclick="switchBxhTab('dagia')">TỐP👑 Đại Gia</button>
+                        <button class="bxh-tab active" id="bxh-tab-elo"    onclick="switchBxhTab('elo')"   >🏅 Rank</button>
+                        <button class="bxh-tab"        id="bxh-tab-bot"    onclick="switchBxhTab('bot')"   >🤖 Bot</button>
+                        <button class="bxh-tab"        id="bxh-tab-solo"   onclick="switchBxhTab('solo')"  >⚔️ Solo</button>
+                        <button class="bxh-tab"        id="bxh-tab-dagia"  onclick="switchBxhTab('dagia')" >👑 Đại Gia</button>
                     </div>
-                    <div id="bxh-online-container" class="bxh-list">Đang tải...</div>
-                    <div id="bxh-dagia-lobby" style="display:none;" class="bxh-list"></div>
+                    <div id="bxh-online-container"  class="bxh-list">Đang tải...</div>
+                    <div id="bxh-bot-container"     class="bxh-list" style="display:none;"></div>
+                    <div id="bxh-solo-container"    class="bxh-list" style="display:none;"></div>
+                    <div id="bxh-dagia-lobby"       class="bxh-list" style="display:none;"></div>
                 </div>
             </div>
+        </div>
 
+        <!-- CỘT PHỤ: Online + Chat (xuống cột thứ 3) -->
+        <div class="lobby-side lobby-side-social">
             <!-- Người online -->
             <div class="card">
                 <div class="card-header">👥 Kỳ Thủ Trực Tuyến</div>
@@ -902,7 +997,8 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                 <button class="practice-bot-btn" onclick="PracticeMode.startWithBot('ai-easy')">🟢 BOT DỄ</button>
                 <button class="practice-bot-btn" onclick="PracticeMode.startWithBot('ai-medium')">🟡 BOT TRUNG BÌNH</button>
                 <button class="practice-bot-btn" onclick="PracticeMode.startWithBot('ai-hard')">🟠 BOT KHÓ</button>
-                <button class="practice-bot-btn practice-bot-btn-god" onclick="PracticeMode.startWithBot('ai-god')">👑 BOT TỐI THƯỢNG 💀</button>
+                <button class="practice-bot-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);border-color:#fbbf24;" onclick="PracticeMode.startWithBot('bot-tia-chop')">⚡ BOT TIA CHỚP (2000x)</button>
+                <button class="practice-bot-btn practice-bot-btn-god" onclick="PracticeMode.startWithBot('bot-toi-thuong')">👑 BOT TỐI THƯỢNG (1500x)</button>
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;font-size:0.78rem;color:#94a3b8;margin-bottom:14px;">
                 <label style="display:flex;align-items:center;gap:4px;">
@@ -949,9 +1045,9 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                     <canvas id="inf-canvas" class="shared-board-canvas"></canvas>
                     <div class="board-coords-display" id="board-coords-practice">X: 0, Y: 0</div>
                     <div class="board-controls-overlay">
-                        <button class="board-control-btn" onclick="SharedBoardEngine.Camera.reset(); SharedBoardEngine.update();" title="Reset Camera">🏠</button>
-                        <button class="board-control-btn" onclick="SharedBoardEngine.Camera.setZoom(SharedBoardEngine.Camera.zoom + 0.2); SharedBoardEngine.update();" title="Zoom In">+</button>
-                        <button class="board-control-btn" onclick="SharedBoardEngine.Camera.setZoom(SharedBoardEngine.Camera.zoom - 0.2); SharedBoardEngine.update();" title="Zoom Out">−</button>
+                        <button class="board-control-btn" onclick="if(typeof PracticeMode!=='undefined')PracticeMode.undoPracticeMove();" title="Hoàn tác nước cờ">⬅️</button>
+                        <button class="board-control-btn" onclick="if(typeof zoomBoard==='function')zoomBoard(1);" title="Phóng to">+</button>
+                        <button class="board-control-btn" onclick="if(typeof zoomBoard==='function')zoomBoard(-1);" title="Thu nhỏ">−</button>
                     </div>
                 </div>
                 <!-- Legacy board fallback -->
@@ -1064,11 +1160,12 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 
     <!-- Selects ẩn cho logic-game.js -->
     <select id="game-mode" style="display:none;">
-        <!-- Solo local removed per DO6.TXT - use Online PvP instead -->
         <option value="ai-easy">Bot Dễ</option>
         <option value="ai-medium">Bot Trung Bình</option>
         <option value="ai-hard">Bot Khó</option>
-        <option value="ai-god" selected>Bot Tối Thượng</option>
+        <option value="ai-god" selected>Bot Tối Thượng (cũ)</option>
+        <option value="bot-toi-thuong">Bot Tối Thượng</option>
+        <option value="bot-tia-chop">Bot Tia Chớp</option>
     </select>
     <select id="player-piece" style="display:none;"><option value="X" selected>X</option><option value="O">O</option></select>
     <select id="first-move" style="display:none;"><option value="X" selected>X</option><option value="O">O</option></select>
@@ -1685,6 +1782,7 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 <script src="src/logic-game.js"></script>
 <script src="src/hoc-kinh-nghiem.js"></script>
 <script src="src/ai-nao.js"></script>
+<script src="src/bot-tia-chop.js"></script>
 <script src="src/ban-co.js"></script>
 <script src="src/phat-sung.js"></script>
 <script src="src/BatchLearning.js"></script>
@@ -1718,37 +1816,31 @@ window.switchView = switchView;
 
 /* ── MOBILE LOBBY TABS ── */
 function switchLobbyTab(tab) {
-    const main = document.querySelector('.lobby-main');
-    const side = document.querySelector('.lobby-side');
-    const btns = document.querySelectorAll('.lobby-tab-btn');
-
-    // Map tab → panel
-    const tabMap = { rooms: main, rank: side, online: side, chat: side };
+    const main   = document.querySelector('.lobby-main');
+    const rank   = document.querySelector('.lobby-side-rank');
+    const social = document.querySelector('.lobby-side-social');
+    const btns   = document.querySelectorAll('.lobby-tab-btn');
 
     // Ẩn hết
-    if (main) main.style.display = 'none';
-    if (side) { side.style.display = 'none'; side.classList.remove('mobile-tab-active'); }
+    [main, rank, social].forEach(el => {
+        if (el) { el.style.display = 'none'; el.classList.remove('mobile-tab-active'); }
+    });
 
-    // Hiện đúng tab
     if (tab === 'rooms' && main) {
         main.style.display = 'flex';
-    } else if (side) {
-        side.style.display = 'flex';
-        side.classList.add('mobile-tab-active');
-        // Scroll đến đúng card trong side
-        const cardMap = { rank: 'bxh-online-container', online: 'danh-sach-online', chat: 'world-chat-messages' };
-        const targetId = cardMap[tab];
-        if (targetId) {
-            setTimeout(() => {
-                const el = document.getElementById(targetId);
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }, 50);
-        }
+    } else if (tab === 'rank' && rank) {
+        rank.style.display = 'flex';
+        rank.classList.add('mobile-tab-active');
+    } else if (tab === 'community' && social) {
+        // Cộng đồng = Online + Chat gộp
+        social.style.display = 'flex';
+        social.classList.add('mobile-tab-active');
     }
 
     // Active button
     btns.forEach(btn => btn.classList.remove('active'));
-    const idx = ['rooms','rank','online','chat'].indexOf(tab);
+    const tabOrder = ['rooms','rank','community'];
+    const idx = tabOrder.indexOf(tab);
     if (btns[idx]) btns[idx].classList.add('active');
 }
 window.switchLobbyTab = switchLobbyTab;
@@ -1759,12 +1851,14 @@ function _updateMobileTabs() {
     if (!tabs) return;
     const isMobile = window.innerWidth <= 768;
     tabs.style.display = isMobile ? 'flex' : 'none';
-    // Restore layout khi desktop
     if (!isMobile) {
-        const main = document.querySelector('.lobby-main');
-        const side = document.querySelector('.lobby-side');
-        if (main) main.style.display = '';
-        if (side) { side.style.display = ''; side.classList.remove('mobile-tab-active'); }
+        // Restore tất cả panels khi desktop
+        const main   = document.querySelector('.lobby-main');
+        const rank   = document.querySelector('.lobby-side-rank');
+        const social = document.querySelector('.lobby-side-social');
+        [main, rank, social].forEach(el => {
+            if (el) { el.style.display = ''; el.classList.remove('mobile-tab-active'); }
+        });
     }
 }
 window.addEventListener('resize', _updateMobileTabs);
@@ -1820,24 +1914,100 @@ window.startBattleView = startBattleView;
 
 /* ── BXH TABS (Lobby) ── */
 function switchBxhTab(tab) {
-    const eloC  = document.getElementById('bxh-online-container');
-    const dagC  = document.getElementById('bxh-dagia-lobby');
-    const tabE  = document.getElementById('bxh-tab-elo');
-    const tabD  = document.getElementById('bxh-tab-dagia');
-    if (tab === 'elo') {
-        if (eloC)  eloC.style.display  = '';
-        if (dagC)  dagC.style.display  = 'none';
-        if (tabE)  tabE.classList.add('active');
-        if (tabD)  tabD.classList.remove('active');
-    } else {
-        if (eloC)  eloC.style.display  = 'none';
-        if (dagC)  dagC.style.display  = '';
-        if (tabE)  tabE.classList.remove('active');
-        if (tabD)  tabD.classList.add('active');
-        if (typeof loadBxhDaiGia === 'function') loadBxhDaiGia('bxh-dagia-lobby');
+    const tabs = ['elo','bot','solo','dagia'];
+    const containers = {
+        elo:   document.getElementById('bxh-online-container'),
+        bot:   document.getElementById('bxh-bot-container'),
+        solo:  document.getElementById('bxh-solo-container'),
+        dagia: document.getElementById('bxh-dagia-lobby')
+    };
+    // Ẩn hết, deactivate hết
+    tabs.forEach(t => {
+        if (containers[t]) containers[t].style.display = 'none';
+        const btn = document.getElementById(`bxh-tab-${t}`);
+        if (btn) btn.classList.remove('active');
+    });
+    // Hiện tab được chọn
+    if (containers[tab]) containers[tab].style.display = '';
+    const activeBtn = document.getElementById(`bxh-tab-${tab}`);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    // Lazy load từng tab
+    if (tab === 'dagia' && typeof loadBxhDaiGia === 'function') {
+        loadBxhDaiGia('bxh-dagia-lobby');
+    } else if (tab === 'bot') {
+        loadBxhBot('bxh-bot-container');
+    } else if (tab === 'solo') {
+        loadBxhSolo('bxh-solo-container');
     }
 }
 window.switchBxhTab = switchBxhTab;
+
+// ── BXH WIN BOT ──
+function loadBxhBot(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    if (typeof db === 'undefined' || !db) { container.innerHTML = '<p style="color:#888;">Chưa kết nối.</p>'; return; }
+    container.innerHTML = '<div style="text-align:center;color:#aaa;padding:10px;">Đang tải...</div>';
+    db.ref('users').once('value').then(snap => {
+        const d = snap.val();
+        if (!d) { container.innerHTML = '<p style="color:#888;">Chưa có dữ liệu.</p>'; return; }
+        const list = Object.values(d)
+            .filter(u => u && u.username && (u.winBot || 0) > 0)
+            .map(u => ({ name: u.displayName || u.username, winBot: u.winBot || 0 }))
+            .sort((a, b) => b.winBot - a.winBot)
+            .slice(0, 20);
+        if (!list.length) { container.innerHTML = '<p style="color:#888;">Chưa có dữ liệu.</p>'; return; }
+        const medals = ['🥇','🥈','🥉'];
+        container.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="border-bottom:2px solid #e2e8f0;">
+                <th style="padding:5px 4px;text-align:left;">Hạng</th>
+                <th style="padding:5px 4px;text-align:left;">Kỳ thủ</th>
+                <th style="padding:5px 4px;text-align:right;">🤖 Thắng Bot</th>
+            </tr></thead><tbody>` +
+            list.map((u, i) => `<tr style="border-bottom:1px solid #f1f5f9;height:30px;">
+                <td style="padding:4px;">${medals[i] || i+1}</td>
+                <td style="padding:4px;font-weight:600;">${u.name}</td>
+                <td style="padding:4px;text-align:right;color:#6366f1;font-weight:700;">${u.winBot}</td>
+            </tr>`).join('') +
+            '</tbody></table>';
+    });
+}
+window.loadBxhBot = loadBxhBot;
+
+// ── BXH WIN SOLO ONLINE ──
+function loadBxhSolo(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    if (typeof db === 'undefined' || !db) { container.innerHTML = '<p style="color:#888;">Chưa kết nối.</p>'; return; }
+    container.innerHTML = '<div style="text-align:center;color:#aaa;padding:10px;">Đang tải...</div>';
+    db.ref('users').once('value').then(snap => {
+        const d = snap.val();
+        if (!d) { container.innerHTML = '<p style="color:#888;">Chưa có dữ liệu.</p>'; return; }
+        const list = Object.values(d)
+            .filter(u => u && u.username && (u.winSolo || 0) > 0)
+            .map(u => ({ name: u.displayName || u.username, winSolo: u.winSolo || 0, loseSolo: u.loseSolo || 0 }))
+            .sort((a, b) => b.winSolo - a.winSolo)
+            .slice(0, 20);
+        if (!list.length) { container.innerHTML = '<p style="color:#888;">Chưa có dữ liệu.</p>'; return; }
+        const medals = ['🥇','🥈','🥉'];
+        container.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="border-bottom:2px solid #e2e8f0;">
+                <th style="padding:5px 4px;text-align:left;">Hạng</th>
+                <th style="padding:5px 4px;text-align:left;">Kỳ thủ</th>
+                <th style="padding:5px 4px;text-align:right;">⚔️ Thắng</th>
+                <th style="padding:5px 4px;text-align:right;">📉 Thua</th>
+            </tr></thead><tbody>` +
+            list.map((u, i) => `<tr style="border-bottom:1px solid #f1f5f9;height:30px;">
+                <td style="padding:4px;">${medals[i] || i+1}</td>
+                <td style="padding:4px;font-weight:600;">${u.name}</td>
+                <td style="padding:4px;text-align:right;color:#10b981;font-weight:700;">${u.winSolo}</td>
+                <td style="padding:4px;text-align:right;color:#ef4444;">${u.loseSolo}</td>
+            </tr>`).join('') +
+            '</tbody></table>';
+    });
+}
+window.loadBxhSolo = loadBxhSolo;
 
 /* ── CẶP XU (phòng) ── */
 function xuLyDatCuoc() {

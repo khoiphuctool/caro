@@ -2203,12 +2203,36 @@ function getBotMove() {
     // ════════════════════════════════════════════════════════════════════════════
     // DIFFICULTY-BASED PIPELINE - Điều chỉnh theo level bot
     // ════════════════════════════════════════════════════════════════════════════
-    const isEasy   = gameMode === 'ai-easy';
-    const isMedium = gameMode === 'ai-medium';
-    const isHard   = gameMode === 'ai-hard';
-    const isGod    = gameMode === 'ai-god';
+    const isEasy      = gameMode === 'ai-easy';
+    const isMedium    = gameMode === 'ai-medium';
+    const isHard      = gameMode === 'ai-hard';
+    const isGod       = gameMode === 'ai-god';
+    const isTiaChop   = gameMode === 'bot-tia-chop';
+    const isToiThuong = gameMode === 'bot-toi-thuong';
 
     updateBotThinking('Đang phân tích bàn cờ...');
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // BOT TIA CHỚP - Dùng logic riêng từ BotTiaChop
+    // ════════════════════════════════════════════════════════════════════════════
+    if (isTiaChop) {
+        console.log('[ai-nao] Bot Tia Chớp mode detected');
+        if (typeof BotTiaChop !== 'undefined' && typeof BotTiaChop.getBotMove === 'function') {
+            console.log('[ai-nao] BotTiaChop available, calling getBotMove');
+            const move = BotTiaChop.getBotMove({
+                player: bp,
+                opponent: hp,
+                winCount: winCount
+            });
+            console.log('[ai-nao] BotTiaChop returned move:', move);
+            if (move) {
+                updateBotThinking('Tia Chớp! ⚡');
+                return move;
+            }
+        }
+        // Fallback nếu BotTiaChop không khả dụng
+        console.warn('[ai-nao] BotTiaChop not available or returned null, using fallback');
+    }
 
     // ══ 1. BOT THẮNG NGAY — quét tất cả ô tactical, không bị giới hạn 50 ══
     const tacticalCells = getAllTacticalCells();

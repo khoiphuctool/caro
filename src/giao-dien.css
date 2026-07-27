@@ -2713,12 +2713,20 @@ body.in-game-active #inf-canvas {
 
 .practice-layout {
   display: grid;
-  grid-template-columns: minmax(140px, 18%) 1fr minmax(180px, 20%);
+  grid-template-columns: minmax(140px, 16%) 1fr minmax(180px, 18%);
   gap: 12px;
   padding: 12px;
   height: calc(100vh - 88px);
-  max-width: 1800px; margin: 0 auto; width: 100%;
+  max-width: 2400px; margin: 0 auto; width: 100%;
   box-sizing: border-box;
+}
+
+@media (min-width: 1440px) {
+  .practice-layout {
+    grid-template-columns: minmax(160px, 13%) 1fr minmax(200px, 16%);
+    gap: 16px;
+    padding: 16px;
+  }
 }
 
 .practice-player-card {
@@ -2775,25 +2783,15 @@ body.in-game-active #inf-canvas {
   padding: 8px 16px;
   color: #e2e8f0; font-size: 12px; font-weight: 600;
   text-align: center; margin-bottom: 8px; flex-shrink: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Mobile: cho phép wrap với font-size nhỏ hơn */
-@media (max-width: 768px) {
-  .practice-status-bar {
-    font-size: 10px;
-    padding: 6px 12px;
-    white-space: normal;
-    line-height: 1.3;
-  }
 }
 
 .practice-board-slot {
   flex: 1; width: 100%; min-height: 0;
   display: flex; justify-content: center; align-items: center;
   position: relative; overflow: hidden;
+  /* Cho phép kéo resize */
+  resize: vertical;
+  min-height: 300px;
 }
 .practice-board-slot > #inf-resizable { flex-shrink: 0; position: relative; }
 .practice-board-slot > #board { width: 100% !important; height: 100% !important; }

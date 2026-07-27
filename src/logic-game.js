@@ -1,5 +1,11 @@
 // ===== LOGIC GAME - initGame, makeMove, checkWin, timer =====
-// boardElement, statusPanel, modeSelect được khai báo trong index.html sau khi DOM sẵn sàng
+// boardElement, statusPanel, modeSelect Ä‘Æ°á»£c khai bĂ¡o trong index.html sau khi DOM sáºµn sĂ ng
+
+// Helper: kiá»ƒm tra cĂ³ pháº£i cháº¿ Ä‘á»™ Ä‘áº¥u bot (báº¥t ká»³ loáº¡i bot nĂ o)
+function isBotMode(mode) {
+    const m = mode || (typeof gameMode !== 'undefined' ? gameMode : '');
+    return m.startsWith('ai') || m === 'bot-tia-chop' || m === 'bot-toi-thuong';
+}
 
 // ===== TIMER =====
 function updateTimerDisplay() {
@@ -26,17 +32,17 @@ function startPlayerTurnTimer() {
         playerTurnSeconds++;
         updateTimerDisplay();
 
-        if (playerTurnSeconds === 10 && gameMode.startsWith('ai') && currentPlayer === humanPiece) {
+        if (playerTurnSeconds === 10 && isBotMode() && currentPlayer === humanPiece) {
             const messages = [
-                'Lâu thế, tôi còn phải đi đái! 🚽',
-                'Nhanh lên! Bắp rang của tôi nguội mất rồi 🍿',
-                'Ơ kìa, ngủ quên à? 😴',
-                'Tôi đang chờ đấy... thở dài nghe không? 😮‍💨',
-                'Bấm đi! Bàn cờ không tự di chuyển đâu nhé 🎯',
-                'Còn đây không? Hay đã bỏ trốn rồi? 👀',
-                'Suy nghĩ hay đang gọi viện binh vậy? 📞',
+                'LĂ¢u tháº¿, tĂ´i cĂ²n pháº£i Ä‘i Ä‘Ă¡i! đŸ½',
+                'Nhanh lĂªn! Báº¯p rang cá»§a tĂ´i nguá»™i máº¥t rá»“i đŸ¿',
+                'Æ  kĂ¬a, ngá»§ quĂªn Ă ? đŸ˜´',
+                'TĂ´i Ä‘ang chá» Ä‘áº¥y... thá»Ÿ dĂ i nghe khĂ´ng? đŸ˜®â€đŸ’¨',
+                'Báº¥m Ä‘i! BĂ n cá» khĂ´ng tá»± di chuyá»ƒn Ä‘Ă¢u nhĂ© đŸ¯',
+                'CĂ²n Ä‘Ă¢y khĂ´ng? Hay Ä‘Ă£ bá» trá»‘n rá»“i? đŸ‘€',
+                'Suy nghÄ© hay Ä‘ang gá»i viá»‡n binh váº­y? đŸ“',
             ];
-            // CHẶN LỜI THOẠI: Nếu chơi Online thì không cho xuất chữ ra khung chat nữa
+            // CHáº¶N Lá»œI THOáº I: Náº¿u chÆ¡i Online thĂ¬ khĂ´ng cho xuáº¥t chá»¯ ra khung chat ná»¯a
             if (window.isOnlineModeActive && window.isOnlineModeActive()) {
                 return; 
             }
@@ -50,16 +56,16 @@ function startPlayerTurnTimer() {
                 setTimeout(() => botBubble.classList.remove('annoying'), 3000);
             }
         }
-        if (playerTurnSeconds === 15 && gameMode.startsWith('ai') && currentPlayer === humanPiece) {
+        if (playerTurnSeconds === 15 && isBotMode() && currentPlayer === humanPiece) {
             const messages = [
-                'Trời ơi 15 giây rồi! Tôi chờ mà sắp tè ra quần rồi 😤',
-                'Chậm như rùa! Rùa còn đang cười bạn kìa 🐢😂',
-                'OK tôi đi pha cà phê đây, xong về còn chưa đi thì thôi ☕',
-                '15 giây... Tôi đã nghĩ xong 5 nước tiếp theo rồi đấy 😏',
-                'Bạn đang thiền à? Thiền bàn cờ kiểu mới? 🧘',
-                'Nước cờ không phải rượu, ngâm lâu không ngon hơn đâu! 🍷',
+                'Trá»i Æ¡i 15 giĂ¢y rá»“i! TĂ´i chá» mĂ  sáº¯p tĂ¨ ra quáº§n rá»“i đŸ˜¤',
+                'Cháº­m nhÆ° rĂ¹a! RĂ¹a cĂ²n Ä‘ang cÆ°á»i báº¡n kĂ¬a đŸ¢đŸ˜‚',
+                'OK tĂ´i Ä‘i pha cĂ  phĂª Ä‘Ă¢y, xong vá» cĂ²n chÆ°a Ä‘i thĂ¬ thĂ´i â˜•',
+                '15 giĂ¢y... TĂ´i Ä‘Ă£ nghÄ© xong 5 nÆ°á»›c tiáº¿p theo rá»“i Ä‘áº¥y đŸ˜',
+                'Báº¡n Ä‘ang thiá»n Ă ? Thiá»n bĂ n cá» kiá»ƒu má»›i? đŸ§˜',
+                'NÆ°á»›c cá» khĂ´ng pháº£i rÆ°á»£u, ngĂ¢m lĂ¢u khĂ´ng ngon hÆ¡n Ä‘Ă¢u! đŸ·',
             ];
-            // CHẶN LỜI THOẠI: Nếu chơi Online thì không cho xuất chữ ra khung chat nữa
+            // CHáº¶N Lá»œI THOáº I: Náº¿u chÆ¡i Online thĂ¬ khĂ´ng cho xuáº¥t chá»¯ ra khung chat ná»¯a
             if (window.isOnlineModeActive && window.isOnlineModeActive()) {
                 return; 
             }
@@ -73,16 +79,16 @@ function startPlayerTurnTimer() {
                 setTimeout(() => botBubble.classList.remove('annoying'), 4000);
             }
         }
-        if (playerTurnSeconds === 25 && gameMode.startsWith('ai') && currentPlayer === humanPiece) {
+        if (playerTurnSeconds === 25 && isBotMode() && currentPlayer === humanPiece) {
             const messages = [
-                'Ơ bạn vẫn còn đây không?? Tôi tưởng bạn đã ngủ rồi 😂',
-                '25 giây! Kỷ lục chần chừ mới! 🏆',
-                'Bạn đang nhờ ChatGPT tính nước à? Gian lận đấy nhé 😒',
-                'Thôi được rồi, tôi sẽ dùng thời gian này học thêm 1 pattern mới 🧠',
-                'Cứ từ từ đi, tôi không đi đâu cả... ngoại trừ lên bục chiến thắng 😈',
-                'OK OK tôi hiểu rồi, bạn đang cố làm tôi mất tập trung phải không 🤔',
+                'Æ  báº¡n váº«n cĂ²n Ä‘Ă¢y khĂ´ng?? TĂ´i tÆ°á»Ÿng báº¡n Ä‘Ă£ ngá»§ rá»“i đŸ˜‚',
+                '25 giĂ¢y! Ká»· lá»¥c cháº§n chá»« má»›i! đŸ†',
+                'Báº¡n Ä‘ang nhá» ChatGPT tĂ­nh nÆ°á»›c Ă ? Gian láº­n Ä‘áº¥y nhĂ© đŸ˜’',
+                'ThĂ´i Ä‘Æ°á»£c rá»“i, tĂ´i sáº½ dĂ¹ng thá»i gian nĂ y há»c thĂªm 1 pattern má»›i đŸ§ ',
+                'Cá»© tá»« tá»« Ä‘i, tĂ´i khĂ´ng Ä‘i Ä‘Ă¢u cáº£... ngoáº¡i trá»« lĂªn bá»¥c chiáº¿n tháº¯ng đŸ˜ˆ',
+                'OK OK tĂ´i hiá»ƒu rá»“i, báº¡n Ä‘ang cá»‘ lĂ m tĂ´i máº¥t táº­p trung pháº£i khĂ´ng đŸ¤”',
             ];
-            // CHẶN LỜI THOẠI: Nếu chơi Online thì không cho xuất chữ ra khung chat nữa
+            // CHáº¶N Lá»œI THOáº I: Náº¿u chÆ¡i Online thĂ¬ khĂ´ng cho xuáº¥t chá»¯ ra khung chat ná»¯a
             if (window.isOnlineModeActive && window.isOnlineModeActive()) {
                 return; 
             }
@@ -96,15 +102,15 @@ function startPlayerTurnTimer() {
                 setTimeout(() => botBubble.classList.remove('annoying'), 5000);
             }
         }
-        if (playerTurnSeconds === 40 && gameMode.startsWith('ai') && currentPlayer === humanPiece) {
+        if (playerTurnSeconds === 40 && isBotMode() && currentPlayer === humanPiece) {
             const messages = [
-                '40 GIÂY!! Bạn ổn không? Cần gọi cấp cứu không? 🚑',
-                'Tôi đã ngủ một giấc ngắn rồi thức dậy mà bạn vẫn chưa đi 😴',
-                'Kỷ lục thế giới về đứng im nhìn bàn cờ đây rồi 🌍',
-                'Bao lâu nữa? Tôi đặt hẹn cắt tóc chiều nay rồi 💈',
-                'Thôi được, tôi sẽ tweet về trận này: "Đối thủ đang thiền định" 🐦',
+                '40 GIĂ‚Y!! Báº¡n á»•n khĂ´ng? Cáº§n gá»i cáº¥p cá»©u khĂ´ng? đŸ‘',
+                'TĂ´i Ä‘Ă£ ngá»§ má»™t giáº¥c ngáº¯n rá»“i thá»©c dáº­y mĂ  báº¡n váº«n chÆ°a Ä‘i đŸ˜´',
+                'Ká»· lá»¥c tháº¿ giá»›i vá» Ä‘á»©ng im nhĂ¬n bĂ n cá» Ä‘Ă¢y rá»“i đŸŒ',
+                'Bao lĂ¢u ná»¯a? TĂ´i Ä‘áº·t háº¹n cáº¯t tĂ³c chiá»u nay rá»“i đŸ’ˆ',
+                'ThĂ´i Ä‘Æ°á»£c, tĂ´i sáº½ tweet vá» tráº­n nĂ y: "Äá»‘i thá»§ Ä‘ang thiá»n Ä‘á»‹nh" đŸ¦',
             ];
-            // CHẶN LỜI THOẠI: Nếu chơi Online thì không cho xuất chữ ra khung chat nữa
+            // CHáº¶N Lá»œI THOáº I: Náº¿u chÆ¡i Online thĂ¬ khĂ´ng cho xuáº¥t chá»¯ ra khung chat ná»¯a
             if (window.isOnlineModeActive && window.isOnlineModeActive()) {
                 return; 
             }
@@ -123,9 +129,9 @@ function startPlayerTurnTimer() {
 
 // ===== INIT GAME =====
 function initGame() {
-    // Chặn restart khi đang chơi online
+    // Cháº·n restart khi Ä‘ang chÆ¡i online
     if (window.isOnlineModeActive && window.isOnlineModeActive()) {
-        alert("Bạn đang trong trận đấu Online, không thể tự làm mới ván cờ!");
+        alert("Báº¡n Ä‘ang trong tráº­n Ä‘áº¥u Online, khĂ´ng thá»ƒ tá»± lĂ m má»›i vĂ¡n cá»!");
         return;
     }
     
@@ -181,12 +187,12 @@ function initGame() {
     startPlayerTurnTimer();
 
     infiniteMap = new Map();
-    // Đồng bộ với GameState
+    // Äá»“ng bá»™ vá»›i GameState
     if (typeof GameState !== 'undefined' && GameState.board) {
         GameState.board.infiniteMap = infiniteMap;
         GameState.board.isInfinite = true;
     }
-    // KHÔNG reset infCanvas về null khi đang ở online mode (sẽ phá hủy canvas đang dùng)
+    // KHĂ”NG reset infCanvas vá» null khi Ä‘ang á»Ÿ online mode (sáº½ phĂ¡ há»§y canvas Ä‘ang dĂ¹ng)
     if (!window.isOnlineModeActive || !window.isOnlineModeActive()) {
         infCanvas   = null;
         infCanvasInitialized = false;
@@ -196,14 +202,16 @@ function initGame() {
 
     zobristHash = 0;
 
-    // Sử dụng requestAnimationFrame để render mượt hơn
+    // Sá»­ dá»¥ng requestAnimationFrame Ä‘á»ƒ render mÆ°á»£t hÆ¡n
     requestAnimationFrame(() => {
         renderInfiniteBoard();
         updateStatus();
 
-        if (isGameActive && !isSolo && gameMode.startsWith('ai') && currentPlayer === botPiece) {
-            const thinkTime = gameMode === 'ai-god' ? 500 : gameMode === 'ai-hard' ? 300 : 180;
-            statusPanel.innerHTML = `🤖 <span style="opacity:0.7">Đang tính toán</span> <span class="think-dots">...</span>`;
+        if (isGameActive && !isSolo && isBotMode() && currentPlayer === botPiece) {
+            const thinkTime = gameMode === 'ai-god' || gameMode === 'bot-toi-thuong' ? 500 :
+                            gameMode === 'bot-tia-chop' ? 200 :
+                            gameMode === 'ai-hard' ? 300 : 180;
+            statusPanel.innerHTML = `đŸ¤– <span style="opacity:0.7">Äang tĂ­nh toĂ¡n</span> <span class="think-dots">...</span>`;
             setTimeout(makeAIMove, thinkTime);
         }
     });
@@ -212,10 +220,10 @@ function initGame() {
 // ===== STATUS =====
 function updateStatus() {
     if (!isGameActive) return;
-    if (gameMode.startsWith('ai') && currentPlayer === botPiece) {
-        statusPanel.innerHTML = `🤖 Siêu Não AI đang phong tỏa các hướng đi...`;
+    if (isBotMode() && currentPlayer === botPiece) {
+        statusPanel.innerHTML = `đŸ¤– SiĂªu NĂ£o AI Ä‘ang phong tá»a cĂ¡c hÆ°á»›ng Ä‘i...`;
     } else {
-        statusPanel.innerHTML = `Lượt của bạn: <span class="turn-${currentPlayer}">${currentPlayer}</span>`;
+        statusPanel.innerHTML = `LÆ°á»£t cá»§a báº¡n: <span class="turn-${currentPlayer}">${currentPlayer}</span>`;
     }
 }
 
@@ -231,29 +239,29 @@ function makeMove(r, c) {
         currentTurn: typeof currentTurn !== 'undefined' ? currentTurn : 'undefined'
     });
 
-    // NẾU ĐANG CHƠI ONLINE
+    // Náº¾U ÄANG CHÆ I ONLINE
     if (window.isOnlineModeActive && window.isOnlineModeActive()) {
-        // Chỉ cho gửi một nước đi tại một thời điểm. Nếu không, người chơi có
-        // thể click nhanh nhiều ô trước khi Firebase phản hồi và làm lệch bàn cờ local.
+        // Chá»‰ cho gá»­i má»™t nÆ°á»›c Ä‘i táº¡i má»™t thá»i Ä‘iá»ƒm. Náº¿u khĂ´ng, ngÆ°á»i chÆ¡i cĂ³
+        // thá»ƒ click nhanh nhiá»u Ă´ trÆ°á»›c khi Firebase pháº£n há»“i vĂ  lĂ m lá»‡ch bĂ n cá» local.
         if (window.onlineMovePending) {
             console.warn('[DEBUG-BOARD] makeMove blocked: onlineMovePending is true');
             return;
         }
         const quanToi = window.myOnlineRole;
 
-        // Chặn: viewer hoặc chưa có ghế thì không được đánh
+        // Cháº·n: viewer hoáº·c chÆ°a cĂ³ gháº¿ thĂ¬ khĂ´ng Ä‘Æ°á»£c Ä‘Ă¡nh
         if (!quanToi || quanToi === 'viewer') {
             console.warn('[DEBUG-BOARD] makeMove blocked: role=', quanToi);
             return;
         }
 
-        // Chặn: không phải lượt mình thì không được đánh
+        // Cháº·n: khĂ´ng pháº£i lÆ°á»£t mĂ¬nh thĂ¬ khĂ´ng Ä‘Æ°á»£c Ä‘Ă¡nh
         if (typeof currentTurn !== 'undefined' && currentTurn !== quanToi) {
             console.warn('[DEBUG-BOARD] makeMove blocked: currentTurn=', currentTurn, 'myRole=', quanToi);
             return;
         }
 
-        // Vẽ quân lên bàn trước (optimistic update)
+        // Váº½ quĂ¢n lĂªn bĂ n trÆ°á»›c (optimistic update)
         moveCount++;
         setCell(r, c, quanToi);
         moveHistory.push({ r, c, player: quanToi });
@@ -282,8 +290,8 @@ function makeMove(r, c) {
             if (cell) { cell.classList.add(quanToi); cell.classList.add('last-move'); lastMoveCell = cell; }
         }
 
-        // Gửi lên Firebase SAU KHI đã setCell (để kiểm tra thắng đọc đúng board).
-        // Kết quả thắng chỉ được chốt sau khi transaction được Firebase xác nhận.
+        // Gá»­i lĂªn Firebase SAU KHI Ä‘Ă£ setCell (Ä‘á»ƒ kiá»ƒm tra tháº¯ng Ä‘á»c Ä‘Ăºng board).
+        // Káº¿t quáº£ tháº¯ng chá»‰ Ä‘Æ°á»£c chá»‘t sau khi transaction Ä‘Æ°á»£c Firebase xĂ¡c nháº­n.
         const isWinningMove = checkWin(r, c);
         if (window.guiNuocDiLenFirebase) {
             window.onlineMovePending = true;
@@ -292,15 +300,15 @@ function makeMove(r, c) {
                     if (hopLe) {
                         if (isWinningMove) {
                             isGameActive = false;
-                            statusPanel.innerHTML = `🏆 <strong>${quanToi}</strong> chiến thắng!`;
+                            statusPanel.innerHTML = `đŸ† <strong>${quanToi}</strong> chiáº¿n tháº¯ng!`;
                             if (gameTotalTimer) clearInterval(gameTotalTimer);
                             if (playerTurnTimer) clearInterval(playerTurnTimer);
                         }
                         return;
                     }
 
-                    // Firebase từ chối nước đi (sai lượt/ô đã có quân/kết nối lỗi).
-                    // Hoàn tác nước optimistic để bàn cờ local luôn khớp server.
+                    // Firebase tá»« chá»‘i nÆ°á»›c Ä‘i (sai lÆ°á»£t/Ă´ Ä‘Ă£ cĂ³ quĂ¢n/káº¿t ná»‘i lá»—i).
+                    // HoĂ n tĂ¡c nÆ°á»›c optimistic Ä‘á»ƒ bĂ n cá» local luĂ´n khá»›p server.
                     setCell(r, c, '');
                     moveHistory.pop();
                     moveCount--;
@@ -319,22 +327,22 @@ function makeMove(r, c) {
                 .finally(() => { window.onlineMovePending = false; });
         }
 
-        // Nước thắng chờ Firebase xác nhận; tránh hiển thị thắng giả khi transaction bị từ chối.
+        // NÆ°á»›c tháº¯ng chá» Firebase xĂ¡c nháº­n; trĂ¡nh hiá»ƒn thá»‹ tháº¯ng giáº£ khi transaction bá»‹ tá»« chá»‘i.
         if (isWinningMove) return;
 
-        // Chuyển lượt local (Firebase sẽ sync lại đúng)
+        // Chuyá»ƒn lÆ°á»£t local (Firebase sáº½ sync láº¡i Ä‘Ăºng)
         currentPlayer = quanToi === 'X' ? 'O' : 'X';
         updateCursorByTurn();
         updateStatus();
         return;
     }
-    // --- GIỮ NGUYÊN LOGIC ĐẤU BOT TỰ ĐỘNG CŨ CỦA ANH Ở DƯỚI ĐÂY ---
+    // --- GIá»® NGUYĂN LOGIC Äáº¤U BOT Tá»° Äá»˜NG CÅ¨ Cá»¦A ANH á» DÆ¯á»I ÄĂ‚Y ---
     
     moveCount++;
     setCell(r, c, currentPlayer);
     moveHistory.push({ r, c, player: currentPlayer });
 
-    // Invalidate neural cache khi board state thay đổi
+    // Invalidate neural cache khi board state thay Ä‘á»•i
     if (typeof neuralEvaluator !== 'undefined' && neuralEvaluator.invalidateCache) {
         neuralEvaluator.invalidateCache();
     }
@@ -365,23 +373,23 @@ function makeMove(r, c) {
     if (checkWin(r, c)) {
         isGameActive = false;
         if (lastMoveCell) lastMoveCell.classList.remove('last-move');
-        const isBotWin   = gameMode.startsWith('ai') && currentPlayer === botPiece;
-        const boardLabel = '♾️ Vô Hạn';
+        const isBotWin   = isBotMode() && currentPlayer === botPiece;
+        const boardLabel = 'â™¾ï¸ VĂ´ Háº¡n';
 
-        // Lưu kết quả cho autoplay
+        // LÆ°u káº¿t quáº£ cho autoplay
         if (typeof autoplayLastWinner !== 'undefined') {
             autoplayLastWinner = currentPlayer;
         }
 
-        // Nếu đang autoplay thì bỏ qua phần UI popup
+        // Náº¿u Ä‘ang autoplay thĂ¬ bá» qua pháº§n UI popup
         if (isAutoplayRunning) {
-            // autoplayLastWinner đã được set ở trên
-            // KHÔNG gọi onBotLoss ở đây — autoplayMove sẽ xử lý learning sau ván
+            // autoplayLastWinner Ä‘Ă£ Ä‘Æ°á»£c set á»Ÿ trĂªn
+            // KHĂ”NG gá»i onBotLoss á»Ÿ Ä‘Ă¢y â€” autoplayMove sáº½ xá»­ lĂ½ learning sau vĂ¡n
             return;
         }
 
         if (gameMode === 'solo') {
-            statusPanel.innerHTML = `🏆 Người <strong>${currentPlayer}</strong> chiến thắng!`;
+            statusPanel.innerHTML = `đŸ† NgÆ°á»i <strong>${currentPlayer}</strong> chiáº¿n tháº¯ng!`;
             recordMatch('win', currentPlayer);
             setTimeout(() => {
                 showWinOverlay(currentPlayer, false, '', '');
@@ -389,36 +397,36 @@ function makeMove(r, c) {
                 if (playerTurnTimer) clearInterval(playerTurnTimer);
                 const timerPanel = document.getElementById('timer-panel');
                 if (timerPanel) timerPanel.style.display = 'none';
-                setTimeout(() => promptRankName(moveCount, gameMode, winCount, boardLabel, `Người ${currentPlayer}`, playerDangerScore, gameTotalSeconds), 600);
+                setTimeout(() => promptRankName(moveCount, gameMode, winCount, boardLabel, `NgÆ°á»i ${currentPlayer}`, playerDangerScore, gameTotalSeconds), 600);
             }, 500);
         } else {
             if (isBotWin) {
                 let tauntMessage = '', tauntEmoji = '';
                 if (lossStreak === 2) {
-                    const t = ['Thua 2 ván rồi! Cần luyện thêm nhé! 😅','2 ván liên tiếp! Bạn đang gặp khó khăn đấy! 🤔','Thua 2 lần! Đừng nản, cố lên! 😊'];
-                    tauntMessage = t[Math.floor(Math.random() * t.length)]; tauntEmoji = '😅';
+                    const t = ['Thua 2 vĂ¡n rá»“i! Cáº§n luyá»‡n thĂªm nhĂ©! đŸ˜…','2 vĂ¡n liĂªn tiáº¿p! Báº¡n Ä‘ang gáº·p khĂ³ khÄƒn Ä‘áº¥y! đŸ¤”','Thua 2 láº§n! Äá»«ng náº£n, cá»‘ lĂªn! đŸ˜'];
+                    tauntMessage = t[Math.floor(Math.random() * t.length)]; tauntEmoji = 'đŸ˜…';
                 } else if (lossStreak === 3) {
-                    const t = ['3 ván liên tiếp! Gừng càng già càng cay! 🔥','Thua 3 ván! BOT đang lên hương đấy! 😎','3 lần thua! Bạn có muốn thử chế độ Dễ không? 🤭'];
-                    tauntMessage = t[Math.floor(Math.random() * t.length)]; tauntEmoji = '😎';
+                    const t = ['3 vĂ¡n liĂªn tiáº¿p! Gá»«ng cĂ ng giĂ  cĂ ng cay! đŸ”¥','Thua 3 vĂ¡n! BOT Ä‘ang lĂªn hÆ°Æ¡ng Ä‘áº¥y! đŸ˜','3 láº§n thua! Báº¡n cĂ³ muá»‘n thá»­ cháº¿ Ä‘á»™ Dá»… khĂ´ng? đŸ¤­'];
+                    tauntMessage = t[Math.floor(Math.random() * t.length)]; tauntEmoji = 'đŸ˜';
                 } else if (lossStreak >= 4) {
                     const t = [
-                        `${lossStreak} ván liên tiếp! Bạn đang tạo kỷ lục đấy! 🏆`,
-                        `Thua ${lossStreak} ván! BOT TỐI THƯỢNG không thể bị đánh bại! 💀`,
-                        `${lossStreak} lần! Có lẽ nên nghỉ ngơi một chút? 😂`,
-                        `Kỷ lục ${lossStreak} ván! Bạn rất kiên trì! 🎖️`,
-                        `${lossStreak} ván thua! BOT cảm thấy bất lực... vì bạn quá yếu! 😜`
+                        `${lossStreak} vĂ¡n liĂªn tiáº¿p! Báº¡n Ä‘ang táº¡o ká»· lá»¥c Ä‘áº¥y! đŸ†`,
+                        `Thua ${lossStreak} vĂ¡n! BOT Tá»I THÆ¯á»¢NG khĂ´ng thá»ƒ bá»‹ Ä‘Ă¡nh báº¡i! đŸ’€`,
+                        `${lossStreak} láº§n! CĂ³ láº½ nĂªn nghá»‰ ngÆ¡i má»™t chĂºt? đŸ˜‚`,
+                        `Ká»· lá»¥c ${lossStreak} vĂ¡n! Báº¡n ráº¥t kiĂªn trĂ¬! đŸ–ï¸`,
+                        `${lossStreak} vĂ¡n thua! BOT cáº£m tháº¥y báº¥t lá»±c... vĂ¬ báº¡n quĂ¡ yáº¿u! đŸ˜œ`
                     ];
-                    tauntMessage = t[Math.floor(Math.random() * t.length)]; tauntEmoji = '💀';
+                    tauntMessage = t[Math.floor(Math.random() * t.length)]; tauntEmoji = 'đŸ’€';
                 } else {
-                    tauntMessage = 'Gừng càng già càng cay — bó tay thì gặp anh Chần!'; tauntEmoji = '💀';
+                    tauntMessage = 'Gá»«ng cĂ ng giĂ  cĂ ng cay â€” bĂ³ tay thĂ¬ gáº·p anh Cháº§n!'; tauntEmoji = 'đŸ’€';
                 }
-                statusPanel.innerHTML = `💀 BOT TỐI THƯỢNG ĐÃ THẮNG! ${tauntMessage}`;
+                statusPanel.innerHTML = `đŸ’€ BOT Tá»I THÆ¯á»¢NG ÄĂƒ THáº®NG! ${tauntMessage}`;
                 recordMatch('lose', botPiece);
-                // Bot thắng → nhớ pattern thắng để lặp lại
+                // Bot tháº¯ng â†’ nhá»› pattern tháº¯ng Ä‘á»ƒ láº·p láº¡i
                 if (typeof onBotWin === 'function') {
                     onBotWin([...moveHistory], botPiece);
                 }
-                // Bot cũng học pattern của người thắng để tránh bị đánh bại tương tự
+                // Bot cÅ©ng há»c pattern cá»§a ngÆ°á»i tháº¯ng Ä‘á»ƒ trĂ¡nh bá»‹ Ä‘Ă¡nh báº¡i tÆ°Æ¡ng tá»±
                 if (typeof onBotLoss === 'function') {
                     onBotLoss([...moveHistory], humanPiece);
                 }
@@ -430,19 +438,19 @@ function makeMove(r, c) {
                     if (timerPanel) timerPanel.style.display = 'none';
                 }, 500);
             } else {
-                statusPanel.innerHTML = `🏆 KINH ĐIỂM! Bạn đã chiến thắng BOT của PRO PRO, bạn rất là kinh, bái phục`;
+                statusPanel.innerHTML = `đŸ† KINH ÄIá»‚M! Báº¡n Ä‘Ă£ chiáº¿n tháº¯ng BOT cá»§a PRO PRO, báº¡n ráº¥t lĂ  kinh, bĂ¡i phá»¥c`;
                 recordMatch('win', humanPiece);
-                // Cập nhật thống kê winBot cho user nếu đã đăng nhập - chỉ tính khi winCount >= 5
+                // Cáº­p nháº­t thá»‘ng kĂª winBot cho user náº¿u Ä‘Ă£ Ä‘Äƒng nháº­p - chá»‰ tĂ­nh khi winCount >= 5
                 if (typeof window.updateUserStats === 'function' && winCount >= 5) {
                     window.updateUserStats('winBot', 1);
                 } else if (winCount < 5) {
-                    console.log("Trận thắng Bot ở chế độ dưới 5 quân không được tính vào điểm Rank!");
+                    console.log("Tráº­n tháº¯ng Bot á»Ÿ cháº¿ Ä‘á»™ dÆ°á»›i 5 quĂ¢n khĂ´ng Ä‘Æ°á»£c tĂ­nh vĂ o Ä‘iá»ƒm Rank!");
                 }
-                // Cộng Xu khi thắng bot (có giới hạn ngày)
+                // Cá»™ng Xu khi tháº¯ng bot (cĂ³ giá»›i háº¡n ngĂ y)
                 if (typeof window.onWinBotXu === 'function') {
                     window.onWinBotXu(gameMode);
                 }
-                // Người thắng → bot học pattern của người thắng để tránh bị đánh bại tương tự
+                // NgÆ°á»i tháº¯ng â†’ bot há»c pattern cá»§a ngÆ°á»i tháº¯ng Ä‘á»ƒ trĂ¡nh bá»‹ Ä‘Ă¡nh báº¡i tÆ°Æ¡ng tá»±
                 if (typeof onBotLoss === 'function') {
                     onBotLoss([...moveHistory], humanPiece);
                 }
@@ -451,7 +459,7 @@ function makeMove(r, c) {
                     if (playerTurnTimer) clearInterval(playerTurnTimer);
                     const timerPanel = document.getElementById('timer-panel');
                     if (timerPanel) timerPanel.style.display = 'none';
-                    promptRankName(moveCount, gameMode, winCount, boardLabel, `Người thắng Bot ${MODE_LABELS[gameMode]}`, playerDangerScore, gameTotalSeconds);
+                    promptRankName(moveCount, gameMode, winCount, boardLabel, `NgÆ°á»i tháº¯ng Bot ${MODE_LABELS[gameMode]}`, playerDangerScore, gameTotalSeconds);
                     setTimeout(() => showWinOverlay(humanPiece, false, '', ''), 100);
                 }, 500);
             }
@@ -462,13 +470,15 @@ function makeMove(r, c) {
     currentPlayer = currentPlayer === "X" ? "O" : "X";
     updateCursorByTurn();
 
-    if (gameMode.startsWith('ai') && !isBotMove) evaluatePlayerMove(r, c);
-    if (isGameActive && gameMode.startsWith('ai') && currentPlayer === humanPiece) startPlayerTurnTimer();
+    if (isBotMode() && !isBotMove) evaluatePlayerMove(r, c);
+    if (isGameActive && isBotMode() && currentPlayer === humanPiece) startPlayerTurnTimer();
 
     updateStatus();
-    if (isGameActive && gameMode.startsWith('ai') && currentPlayer === botPiece) {
-        const thinkTime = gameMode === 'ai-god' ? 500 : gameMode === 'ai-hard' ? 300 : 180;
-        statusPanel.innerHTML = `🤖 <span style="opacity:0.7">Đang tính toán</span> <span class="think-dots">...</span>`;
+    if (isGameActive && isBotMode() && currentPlayer === botPiece) {
+        const thinkTime = gameMode === 'ai-god' || gameMode === 'bot-toi-thuong' ? 500 :
+                        gameMode === 'bot-tia-chop' ? 200 :
+                        gameMode === 'ai-hard' ? 300 : 180;
+        statusPanel.innerHTML = `đŸ¤– <span style="opacity:0.7">Äang tĂ­nh toĂ¡n</span> <span class="think-dots">...</span>`;
         setTimeout(makeAIMove, thinkTime);
     }
 }
@@ -478,7 +488,7 @@ function checkWin(r, c) {
     const directions = [{ dr:0,dc:1 },{ dr:1,dc:0 },{ dr:1,dc:1 },{ dr:1,dc:-1 }];
     const player = getCell(r, c);
     const opp    = player === "X" ? "O" : "X";
-    // Online phải tuân theo luật đã lưu trong phòng, không dùng checkbox local.
+    // Online pháº£i tuĂ¢n theo luáº­t Ä‘Ă£ lÆ°u trong phĂ²ng, khĂ´ng dĂ¹ng checkbox local.
     const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
     const blockBothEndsEnabled = isOnline
         ? (typeof currentRule !== 'undefined' && currentRule === 'chan_2_dau')
@@ -514,7 +524,7 @@ function checkWin(r, c) {
     return false;
 }
 
-// checkWinSilent: dùng cho AI
+// checkWinSilent: dĂ¹ng cho AI
 function checkWinSilent(r, c) {
     const player = getCell(r, c);
     const opp    = player === "X" ? "O" : "X";
@@ -549,20 +559,20 @@ function checkWinSilent(r, c) {
     return false;
 }
 
-// ĐỊNH NGHĨA HÀM XÓA SẠCH BÀN CỜ CHO VÁN MỚI TINH
+// Äá»NH NGHÄ¨A HĂ€M XĂ“A Sáº CH BĂ€N Cá»œ CHO VĂN Má»I TINH
 window.xoaBanCoCu = function() {
-    // Online mode luôn dùng infinite canvas — đảm bảo flag đúng
+    // Online mode luĂ´n dĂ¹ng infinite canvas â€” Ä‘áº£m báº£o flag Ä‘Ăºng
     if (window.isOnlineModeActive && window.isOnlineModeActive()) {
         isInfinite = true;
     }
-    // Reset mảng dữ liệu logic cờ
+    // Reset máº£ng dá»¯ liá»‡u logic cá»
     if (typeof infiniteMap !== 'undefined') infiniteMap.clear();
     if (typeof moveHistory !== 'undefined') moveHistory.length = 0;
     if (typeof lastMoveR   !== 'undefined') { lastMoveR = null; lastMoveC = null; }
     if (typeof currentPlayer !== 'undefined') currentPlayer = 'X';
     if (typeof winningCellCoords !== 'undefined') winningCellCoords.length = 0;
     if (typeof isGameActive !== 'undefined') isGameActive = true;
-    // Reset hover để không còn chấm xanh
+    // Reset hover Ä‘á»ƒ khĂ´ng cĂ²n cháº¥m xanh
     if (typeof infHoverR !== 'undefined') { infHoverR = null; infHoverC = null; }
 
     // DISABLED Shared Board Engine clear - use old system only
@@ -577,22 +587,22 @@ window.xoaBanCoCu = function() {
     if (typeof renderFixedBoard    === 'function') renderFixedBoard();
 };
 
-// checkWinLogicOld: Hàm kiểm tra thắng thua hỗ trợ cả Online và Offline với tham số luật chơi tùy chỉnh
+// checkWinLogicOld: HĂ m kiá»ƒm tra tháº¯ng thua há»— trá»£ cáº£ Online vĂ  Offline vá»›i tham sá»‘ luáº­t chÆ¡i tĂ¹y chá»‰nh
 window.checkWinLogicOld = function(row, col, playerRole, customRule, customWinCount) {
     const directions = [{ dr:0,dc:1 },{ dr:1,dc:0 },{ dr:1,dc:1 },{ dr:1,dc:-1 }];
     const player = playerRole || getCell(row, col);
     const opp    = player === "X" ? "O" : "X";
     
-    // 1. Xác định luật chơi đang áp dụng
+    // 1. XĂ¡c Ä‘á»‹nh luáº­t chÆ¡i Ä‘ang Ă¡p dá»¥ng
     let blockBothEndsEnabled = false;
-    let currentWinCount = winCount; // Mặc định dùng biến global
+    let currentWinCount = winCount; // Máº·c Ä‘á»‹nh dĂ¹ng biáº¿n global
     
     if (window.isOnlineModeActive && window.isOnlineModeActive()) {
-        // Nếu đang chơi Online: Lấy luật từ Firebase truyền sang
+        // Náº¿u Ä‘ang chÆ¡i Online: Láº¥y luáº­t tá»« Firebase truyá»n sang
         blockBothEndsEnabled = (customRule === 'chan_2_dau');
         if (customWinCount) currentWinCount = customWinCount;
     } else {
-        // Nếu đang đấu Bot: Lấy luật từ ô Checkbox trên giao diện cũ của anh
+        // Náº¿u Ä‘ang Ä‘áº¥u Bot: Láº¥y luáº­t tá»« Ă´ Checkbox trĂªn giao diá»‡n cÅ© cá»§a anh
         const checkboxCu = document.getElementById('block-both-ends');
         blockBothEndsEnabled = checkboxCu ? checkboxCu.checked : false;
     }
@@ -689,9 +699,9 @@ function getActivityCenter() {
 
 // ===== OPENING BOOK =====
 const openingBook = {
-    // Nước đi đầu tiên - mở rộng với diagonal và indirect openings
+    // NÆ°á»›c Ä‘i Ä‘áº§u tiĂªn - má»Ÿ rá»™ng vá»›i diagonal vĂ  indirect openings
     start: [
-        { moves: [], move: [0, 0], weight: 10 },        // Center (tốt nhất)
+        { moves: [], move: [0, 0], weight: 10 },        // Center (tá»‘t nháº¥t)
         { moves: [], move: [-2, -2], weight: 3 },      // Diagonal opening
         { moves: [], move: [2, 2], weight: 3 },
         { moves: [], move: [-2, 2], weight: 3 },
@@ -701,7 +711,7 @@ const openingBook = {
         { moves: [], move: [0, -3], weight: 2 },
         { moves: [], move: [0, 3], weight: 2 },
     ],
-    // Response khi đối thủ đi trung tâm
+    // Response khi Ä‘á»‘i thá»§ Ä‘i trung tĂ¢m
     centerResponse: (() => {
         const mid = 0;
         return [
@@ -719,10 +729,10 @@ const openingBook = {
             { moves: [[mid,mid]], move: [mid+2, mid+2], weight: 4 },
         ];
     })(),
-    // Response khi đối thủ đi diagonal
+    // Response khi Ä‘á»‘i thá»§ Ä‘i diagonal
     diagonalResponse: (() => {
         return [
-            { pattern: 'diagonal', move: [0, 0], weight: 10 },       // Chặn trung tâm
+            { pattern: 'diagonal', move: [0, 0], weight: 10 },       // Cháº·n trung tĂ¢m
             { pattern: 'diagonal', move: [-1, 1], weight: 8 },       // Counter diagonal
             { pattern: 'diagonal', move: [1, -1], weight: 8 },
             { pattern: 'diagonal', move: [-2, 0], weight: 5 },        // Indirect
@@ -731,15 +741,15 @@ const openingBook = {
             { pattern: 'diagonal', move: [0, 2], weight: 5 },
         ];
     })(),
-    // Response khi đối thủ đi indirect
+    // Response khi Ä‘á»‘i thá»§ Ä‘i indirect
     indirectResponse: (() => {
         return [
-            { pattern: 'indirect', move: [0, 0], weight: 10 },       // Lấy trung tâm
-            { pattern: 'indirect', move: [-1, -1], weight: 8 },      // Tạo diagonal
+            { pattern: 'indirect', move: [0, 0], weight: 10 },       // Láº¥y trung tĂ¢m
+            { pattern: 'indirect', move: [-1, -1], weight: 8 },      // Táº¡o diagonal
             { pattern: 'indirect', move: [-1, 1], weight: 8 },
             { pattern: 'indirect', move: [1, -1], weight: 8 },
             { pattern: 'indirect', move: [1, 1], weight: 8 },
-            { pattern: 'indirect', move: [-2, -1], weight: 5 },      // Kết nối
+            { pattern: 'indirect', move: [-2, -1], weight: 5 },      // Káº¿t ná»‘i
             { pattern: 'indirect', move: [-2, 1], weight: 5 },
             { pattern: 'indirect', move: [2, -1], weight: 5 },
             { pattern: 'indirect', move: [2, 1], weight: 5 },
@@ -749,33 +759,33 @@ const openingBook = {
 
 function getOpeningMove() {
     const cnt = isInfinite ? infiniteMap.size : boardState.flat().filter(x => x !== "").length;
-    if (cnt > 6) return null; // Mở rộng từ 4 lên 6 nước
+    if (cnt > 6) return null; // Má»Ÿ rá»™ng tá»« 4 lĂªn 6 nÆ°á»›c
     
     let book = null;
     
     if (cnt === 0) {
-        // Nước đi đầu tiên
+        // NÆ°á»›c Ä‘i Ä‘áº§u tiĂªn
         book = openingBook.start;
     } else if (cnt === 1) {
-        // Phản hồi nước đi đầu tiên của đối thủ
+        // Pháº£n há»“i nÆ°á»›c Ä‘i Ä‘áº§u tiĂªn cá»§a Ä‘á»‘i thá»§
         const lastMove = moveHistory[moveHistory.length - 1];
         if (!lastMove) return null;
         
         const [lr, lc] = [lastMove.r, lastMove.c];
         
-        // Phân tích kiểu opening của đối thủ
+        // PhĂ¢n tĂ­ch kiá»ƒu opening cá»§a Ä‘á»‘i thá»§
         if (lr === 0 && lc === 0) {
-            // Đối thủ đi trung tâm
+            // Äá»‘i thá»§ Ä‘i trung tĂ¢m
             book = openingBook.centerResponse;
         } else if (Math.abs(lr) === Math.abs(lc)) {
-            // Đối thủ đi diagonal
+            // Äá»‘i thá»§ Ä‘i diagonal
             book = openingBook.diagonalResponse;
         } else {
-            // Đối thủ đi indirect
+            // Äá»‘i thá»§ Ä‘i indirect
             book = openingBook.indirectResponse;
         }
     } else {
-        // Các nước tiếp theo - dùng response tương ứng
+        // CĂ¡c nÆ°á»›c tiáº¿p theo - dĂ¹ng response tÆ°Æ¡ng á»©ng
         book = openingBook.centerResponse; // Fallback
     }
     

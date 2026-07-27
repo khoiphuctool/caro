@@ -9,20 +9,22 @@ const XU_CONFIG = {
     WELCOME_BONUS: 1000,
     DAILY_CHECKIN: 500,
     AVATAR_PRICE: 3000,
-    BOT_REWARD: { easy: 300, medium: 400, hard: 400, god: 500 },
-    BOT_DAILY_LIMIT: { easy: 5, medium: 8, hard: 10, god: 15 },
-    SOLO_WIN_REWARD: 200,      // Thưởng thắng PvP Solo Online
-    SOLO_WIN_DAILY_LIMIT: 20,  // Tối đa 20 trận/ngày
+    BOT_REWARD: { easy: 700, medium: 900, hard: 1300, god: 2300, tiachop: 2000 },
+    BOT_DAILY_LIMIT: { easy: 10, medium: 10, hard: 10, god: 10, tiachop: 30 },
+    SOLO_WIN_REWARD: 200,
+    SOLO_WIN_DAILY_LIMIT: 20,
     BET_MIN: 100,
     BET_MAX: 5000
 };
 
-// Map độ khó game-mode → key difficulty
+// Map game-mode → difficulty key
 const DIFF_KEY = {
-    'ai-easy': 'easy',
-    'ai-medium': 'medium',
-    'ai-hard': 'hard',
-    'ai-god': 'god'
+    'ai-easy':        'easy',
+    'ai-medium':      'medium',
+    'ai-hard':        'hard',
+    'ai-god':         'god',
+    'bot-toi-thuong': 'god',
+    'bot-tia-chop':   'tiachop'
 };
 
 // ──────────────────────────────────────────────
@@ -164,7 +166,7 @@ function resetBotLimitsIfNeeded(limitsRef) {
         if (!data || data.lastResetDate !== today) {
             return limitsRef.set({
                 lastResetDate: today,
-                easy: 0, medium: 0, hard: 0, god: 0
+                easy: 0, medium: 0, hard: 0, god: 0, tiachop: 0
             });
         }
     });
@@ -794,18 +796,48 @@ function renderNhiemVuTab() {
                 </div>
             </div>
         </div>
+        <div class="nv-item" style="background:linear-gradient(135deg,rgba(245,158,11,.1),rgba(239,68,68,.08));border-color:rgba(245,158,11,.35);">
+            <div class="nv-info">
+                <span class="nv-icon">⚡</span>
+                <div>
+                    <div class="nv-title" style="color:#f59e0b;">Nhiệm vụ Bot Tia Chớp</div>
+                    <div class="nv-desc">Thắng Bot Tia Chớp — tối đa <b>${XU_CONFIG.BOT_DAILY_LIMIT.tiachop} trận/ngày</b>, mỗi trận +${XU_CONFIG.BOT_REWARD.tiachop.toLocaleString('vi-VN')} Xu</div>
+                </div>
+            </div>
+        </div>
+        <div id="tiachop-daily-display" style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:10px;margin-top:4px;font-size:13px;"></div>
         <div id="bot-limit-display" style="background:#f0fdf4;border-radius:8px;padding:10px;margin-top:8px;font-size:13px;"></div>
     `;
     // Render giới hạn bot
     getBotLimitStatus(limits => {
+        // Tiến độ Bot Tia Chớp riêng
+        const tcEl = document.getElementById('tiachop-daily-display');
+        if (tcEl && limits) {
+            const used = limits.tiachop || 0;
+            const max  = XU_CONFIG.BOT_DAILY_LIMIT.tiachop;
+            const rem  = Math.max(0, max - used);
+            const pct  = Math.round((used / max) * 100);
+            tcEl.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="font-weight:700;color:#f59e0b;">⚡ Tiến độ hôm nay: <b style="color:${rem>0?'#f59e0b':'#dc2626'}">${used}/${max} trận</b></span>
+                    <span style="color:${rem>0?'#16a34a':'#dc2626'};font-weight:700;">${rem > 0 ? `Còn ${rem} lượt` : '🔒 Hết lượt'}</span>
+                </div>
+                <div style="height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden;">
+                    <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#f59e0b,#ef4444);border-radius:4px;transition:width .3s"></div>
+                </div>
+                <div style="margin-top:4px;font-size:11px;color:#94a3b8;">Reset lúc 00:00 mỗi ngày · Mỗi trận thắng +${XU_CONFIG.BOT_REWARD.tiachop.toLocaleString('vi-VN')} Xu</div>
+            `;
+        }
+
         const el = document.getElementById('bot-limit-display');
         if (!el) return;
         if (!limits) { el.innerHTML = '<span style="color:#aaa">Đăng nhập để xem lượt.</span>'; return; }
         const rows = [
-            { key:'easy',   label:'Bot Dễ',       max: XU_CONFIG.BOT_DAILY_LIMIT.easy,   reward: XU_CONFIG.BOT_REWARD.easy },
-            { key:'medium', label:'Bot Trung Bình',max: XU_CONFIG.BOT_DAILY_LIMIT.medium, reward: XU_CONFIG.BOT_REWARD.medium },
-            { key:'hard',   label:'Bot Khó',       max: XU_CONFIG.BOT_DAILY_LIMIT.hard,   reward: XU_CONFIG.BOT_REWARD.hard },
-            { key:'god',    label:'Bot Tối Thượng',max: XU_CONFIG.BOT_DAILY_LIMIT.god,    reward: XU_CONFIG.BOT_REWARD.god }
+            { key:'easy',     label:'Bot Dễ',         max: XU_CONFIG.BOT_DAILY_LIMIT.easy,     reward: XU_CONFIG.BOT_REWARD.easy },
+            { key:'medium',   label:'Bot Trung Bình',  max: XU_CONFIG.BOT_DAILY_LIMIT.medium,   reward: XU_CONFIG.BOT_REWARD.medium },
+            { key:'hard',     label:'Bot Khó',         max: XU_CONFIG.BOT_DAILY_LIMIT.hard,     reward: XU_CONFIG.BOT_REWARD.hard },
+            { key:'god',      label:'Bot Tối Thượng',  max: XU_CONFIG.BOT_DAILY_LIMIT.god,      reward: XU_CONFIG.BOT_REWARD.god },
+            { key:'tiachop',  label:'⚡ Bot Tia Chớp', max: XU_CONFIG.BOT_DAILY_LIMIT.tiachop,  reward: XU_CONFIG.BOT_REWARD.tiachop }
         ];
         el.innerHTML = rows.map(r => {
             const used = limits[r.key] || 0;
