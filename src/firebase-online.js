@@ -2113,9 +2113,9 @@ function langNgheThayDoiPhong(roomId) {
             // Hiển thị pot cược đang diễn ra (nếu có)
             const betInfoEl = document.getElementById('bet-info-o');
             if (betInfoEl) {
-                if (room.betPot && room.betPot > 0) {
+                if (room.betAmount && room.betAmount > 0) {
                     betInfoEl.style.display = 'block';
-                    betInfoEl.textContent = `🎲 Đang cược: ${Number(room.betPot).toLocaleString('vi-VN')} Xu — người thắng nhận tất!`;
+                    betInfoEl.textContent = `🎲 Đang cược: ${Number(room.betAmount).toLocaleString('vi-VN')} Xu/người — Pot: ${Number(room.betAmount * 2).toLocaleString('vi-VN')} Xu`;
                 } else {
                     betInfoEl.style.display = 'none';
                 }
