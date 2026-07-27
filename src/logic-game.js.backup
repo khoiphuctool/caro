@@ -32,7 +32,105 @@ function startPlayerTurnTimer() {
         playerTurnSeconds++;
         updateTimerDisplay();
 
-        // DISABLED: Bot annoying messages removed per user request
+        // DISABLED: Bot annoying messages at 10 seconds removed per user request
+        // if (playerTurnSeconds === 10 && isBotMode() && currentPlayer === humanPiece) {            /*
+                                    const messages = [
+                                        'LĂ¢u tháº¿, tĂ´i cĂ²n pháº£i Ä‘i Ä‘Ă¡i! đŸ½',
+                                        'Nhanh lĂªn! Báº¯p rang cá»§a tĂ´i nguá»™i máº¥t rá»“i đŸ¿',
+                                        'Æ  kĂ¬a, ngá»§ quĂªn Ă ? đŸ˜´',
+                                        'TĂ´i Ä‘ang chá» Ä‘áº¥y... thá»Ÿ dĂ i nghe khĂ´ng? đŸ˜®â€đŸ’¨',
+                                        'Báº¥m Ä‘i! BĂ n cá» khĂ´ng tá»± di chuyá»ƒn Ä‘Ă¢u nhĂ© đŸ¯',
+                                        'CĂ²n Ä‘Ă¢y khĂ´ng? Hay Ä‘Ă£ bá» trá»‘n rá»“i? đŸ‘€',
+                                        'Suy nghÄ© hay Ä‘ang gá»i viá»‡n binh váº­y? đŸ“',
+                                    ];
+                                    // CHáº¶N Lá»œI THOáº I: Náº¿u chÆ¡i Online thĂ¬ khĂ´ng cho xuáº¥t chá»¯ ra khung chat ná»¯a
+                                    if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+                                        return; 
+                                        */
+                        
+                                    const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+                                    const botMessage = document.getElementById('bot-message');
+                                    const botBubble  = document.getElementById('bot-bubble');
+                                    if (botMessage && botBubble) {
+                                        botMessage.textContent = randomMsg;
+                                        botBubble.classList.add('annoying');
+                                        setTimeout(() => botBubble.classList.remove('annoying'), 3000);
+                                    }
+                                }
+        // DISABLED: Bot annoying messages at 15 seconds removed per user request
+        /*
+        if (playerTurnSeconds === 15 && isBotMode() && currentPlayer === humanPiece) {
+            const messages = [
+                'Trá»i Æ¡i 15 giĂ¢y rá»“i! TĂ´i chá» mĂ  sáº¯p tĂ¨ ra quáº§n rá»“i đŸ˜¤',
+                'Cháº­m nhÆ° rĂ¹a! RĂ¹a cĂ²n Ä‘ang cÆ°á»i báº¡n kĂ¬a đŸ¢đŸ˜‚',
+                'OK tĂ´i Ä‘i pha cĂ  phĂª Ä‘Ă¢y, xong vá» cĂ²n chÆ°a Ä‘i thĂ¬ thĂ´i â˜•',
+                '15 giĂ¢y... TĂ´i Ä‘Ă£ nghÄ© xong 5 nÆ°á»›c tiáº¿p theo rá»“i Ä‘áº¥y đŸ˜',
+                'Báº¡n Ä‘ang thiá»n Ă ? Thiá»n bĂ n cá» kiá»ƒu má»›i? đŸ§˜',
+                'NÆ°á»›c cá» khĂ´ng pháº£i rÆ°á»£u, ngĂ¢m lĂ¢u khĂ´ng ngon hÆ¡n Ä‘Ă¢u! đŸ·',
+            ];
+            // CHáº¶N Lá»œI THOáº I: Náº¿u chÆ¡i Online thĂ¬ khĂ´ng cho xuáº¥t chá»¯ ra khung chat ná»¯a
+            if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+                return; 
+            }
+
+            const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+            const botMessage = document.getElementById('bot-message');
+            const botBubble  = document.getElementById('bot-bubble');
+            if (botMessage && botBubble) {
+                botMessage.textContent = randomMsg;
+                botBubble.classList.add('annoying');
+                setTimeout(() => botBubble.classList.remove('annoying'), 4000);
+            }
+        }
+        */
+        // DISABLED: Bot annoying messages at 25 seconds removed per user request
+        /*
+        if (playerTurnSeconds === 25 && isBotMode() && currentPlayer === humanPiece) {
+            const messages = [
+                'Æ  báº¡n váº«n cĂ²n Ä‘Ă¢y khĂ´ng?? TĂ´i tÆ°á»Ÿng báº¡n Ä‘Ă£ ngá»§ rá»“i đŸ˜‚',
+                '25 giĂ¢y! Ká»· lá»¥c cháº§n chá»« má»›i! đŸ†',
+                'Báº¡n Ä‘ang nhá» ChatGPT tĂ­nh nÆ°á»›c Ă ? Gian láº­n Ä‘áº¥y nhĂ© đŸ˜’',
+                'ThĂ´i Ä‘Æ°á»£c rá»“i, tĂ´i sáº½ dĂ¹ng thá»i gian nĂ y há»c thĂªm 1 pattern má»›i đŸ§ ',
+                'Cá»© tá»« tá»« Ä‘i, tĂ´i khĂ´ng Ä‘i Ä‘Ă¢u cáº£... ngoáº¡i trá»« lĂªn bá»¥c chiáº¿n tháº¯ng đŸ˜ˆ',
+                'OK OK tĂ´i hiá»ƒu rá»“i, báº¡n Ä‘ang cá»‘ lĂ m tĂ´i máº¥t táº­p trung pháº£i khĂ´ng đŸ¤”',
+            ];
+            // CHáº¶N Lá»œI THOáº I: Náº¿u chÆ¡i Online thĂ¬ khĂ´ng cho xuáº¥t chá»¯ ra khung chat ná»¯a
+            if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+                return; 
+            }
+
+            const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+            const botMessage = document.getElementById('bot-message');
+            const botBubble  = document.getElementById('bot-bubble');
+            if (botMessage && botBubble) {
+                botMessage.textContent = randomMsg;
+                botBubble.classList.add('annoying');
+                setTimeout(() => botBubble.classList.remove('annoying'), 5000);
+            }
+        }
+        */
+        if (playerTurnSeconds === 40 && isBotMode() && currentPlayer === humanPiece) {
+            const messages = [
+                '40 GIĂ‚Y!! Báº¡n á»•n khĂ´ng? Cáº§n gá»i cáº¥p cá»©u khĂ´ng? đŸ‘',
+                'TĂ´i Ä‘Ă£ ngá»§ má»™t giáº¥c ngáº¯n rá»“i thá»©c dáº­y mĂ  báº¡n váº«n chÆ°a Ä‘i đŸ˜´',
+                'Ká»· lá»¥c tháº¿ giá»›i vá» Ä‘á»©ng im nhĂ¬n bĂ n cá» Ä‘Ă¢y rá»“i đŸŒ',
+                'Bao lĂ¢u ná»¯a? TĂ´i Ä‘áº·t háº¹n cáº¯t tĂ³c chiá»u nay rá»“i đŸ’ˆ',
+                'ThĂ´i Ä‘Æ°á»£c, tĂ´i sáº½ tweet vá» tráº­n nĂ y: "Äá»‘i thá»§ Ä‘ang thiá»n Ä‘á»‹nh" đŸ¦',
+            ];
+            // CHáº¶N Lá»œI THOáº I: Náº¿u chÆ¡i Online thĂ¬ khĂ´ng cho xuáº¥t chá»¯ ra khung chat ná»¯a
+            if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+                return; 
+            }
+
+            const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+            const botMessage = document.getElementById('bot-message');
+            const botBubble  = document.getElementById('bot-bubble');
+            if (botMessage && botBubble) {
+                botMessage.textContent = randomMsg;
+                botBubble.classList.add('annoying');
+                setTimeout(() => botBubble.classList.remove('annoying'), 5000);
+            }
+        }
     }, 1000);
 }
 
@@ -723,5 +821,4 @@ function getOpeningMove() {
     }
     return null;
 }
-
 

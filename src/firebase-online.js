@@ -346,6 +346,9 @@ function fetchUserData(userId) {
 
             // Khởi động Room Cleanup Manager sau khi đăng nhập
             startRoomCleanupManager();
+
+            // Lắng nghe thông báo từ admin
+            langNgheServerNotifications();
         }
 
         // Cập nhật hiển thị panel admin mỗi lần data thay đổi
@@ -359,6 +362,31 @@ function updateUserStats(statType, increment = 1) {
     db.ref(`users/${userId}/${statType}`).transaction(cur => (cur || 0) + increment);
 }
 window.updateUserStats = updateUserStats;
+
+// ── Lắng nghe thông báo từ admin ──
+function langNgheServerNotifications() {
+    db.ref('server_notifications').limitToLast(10).on('child_added', snapshot => {
+        const notif = snapshot.val();
+        if (!notif) return;
+
+        // Chỉ hiển thị thông báo trong vòng 5 phút kể từ khi gửi (tránh hiển thị thông báo cũ)
+        const now = Date.now();
+        if (now - notif.timestamp > 300000) return; // 5 phút = 300000ms
+
+        // Hiển thị thông báo qua ticker
+        if (typeof addNotification === 'function') {
+            addNotification(notif.type || 'info', notif.message);
+        }
+
+        // Hiển thị alert cho thông báo quan trọng
+        if (notif.type === 'warning') {
+            setTimeout(() => {
+                alert(`⚠️ THÔNG BÁO TỪ ADMIN:\n\n${notif.message}`);
+            }, 1000);
+        }
+    });
+}
+window.langNgheServerNotifications = langNgheServerNotifications;
 
 // Danh sách tài khoản có quyền admin (username hoặc displayName)
 const ADMIN_USERS = ['chan', 'chần', 'admin', 'Chần', 'Chan', 'Admin'];
@@ -1413,6 +1441,330 @@ function chuPhongBatDauGame() {
 }
 window.chuPhongBatDauGame = chuPhongBatDauGame;
 
+// ===== UNDO MOVE IN ONLINE MODE =====
+// Request-approve mechanism: người vừa đánh request undo, đối thủ approve/reject
+// Chỉ rút 1 nước (nước của người vừa đánh)
+// Nếu approve: trừ xu từ requester, cộng cho approver, rút nước
+// Nếu reject: không làm gì, người kia đánh tiếp
+// Trong khi chờ approve: không thể đánh tiếp
+function undoOnlineMove() {
+    if (!currentRoomId || !myRole) {
+        alert('Bạn không trong phòng!');
+        return;
+    }
+    
+    db.ref(`rooms/${currentRoomId}`).once('value').then(snap => {
+        const room = snap.val();
+        if (!room) return;
+        
+        // Chỉ cho phép undo khi đang chơi
+        if (room.status !== 'playing') {
+            alert('Chỉ có thể rút nước khi đang chơi!');
+            return;
+        }
+        
+        // Chỉ người vừa đánh mới có thể request undo (kiểm tra lastMove)
+        const lastMove = room.lastMove;
+        if (!lastMove || lastMove.by !== myRole) {
+            alert('Chỉ người vừa đánh mới có thể yêu cầu rút nước!');
+            return;
+        }
+        
+        // Cần ít nhất 1 nước để undo
+        if (!room.moves || room.moves.length < 1) {
+            alert('Chưa có nước nào để rút!');
+            return;
+        }
+        
+        // Kiểm tra đã có undo request pending chưa
+        if (room.undoRequest) {
+            alert('Đang có yêu cầu rút nước đang chờ xử lý!');
+            return;
+        }
+        
+        const myId = localStorage.getItem('current_user_id');
+        const hasBet = room.betAmount && room.betAmount >= 100;
+        
+        if (hasBet) {
+            // Kiểm tra đủ xu để trả phí undo
+            const betAmount = room.betAmount;
+            db.ref(`users/${myId}/coins`).once('value').then(snap => {
+                const myCoins = snap.val() || 0;
+                if (myCoins < betAmount) {
+                    alert(`Bạn cần ${betAmount.toLocaleString('vi-VN')} Xu để rút nước! Hiện có: ${myCoins.toLocaleString('vi-VN')} Xu`);
+                    return;
+                }
+                
+                // Xác nhận undo
+                const confirmUndo = confirm(`Yêu cầu rút lại 1 nước sẽ tốn ${betAmount.toLocaleString('vi-VN')} Xu nếu đối thủ đồng ý.\n\nSố tiền này sẽ được chuyển cho đối thủ.\n\nBạn có chắc chắn muốn yêu cầu rút?`);
+                if (!confirmUndo) return;
+                
+                // Gửi request undo lên Firebase
+                const moveIndex = Array.isArray(room.moves) ? room.moves.length - 1 : 0;
+                db.ref(`rooms/${currentRoomId}`).update({
+                    undoRequest: {
+                        requester: myRole,
+                        requesterId: myId,
+                        moveIndex: moveIndex,
+                        betAmount: betAmount,
+                        timestamp: Date.now()
+                    },
+                    updatedAt: Date.now()
+                }).then(() => {
+                    thongBaoHeThong(`↩️ Đã gửi yêu cầu rút nước - chờ đối thủ xác nhận...`);
+                });
+            });
+        } else {
+            // Không có cược - request undo miễn phí
+            const confirmUndo = confirm('Yêu cầu rút lại 1 nước?');
+            if (!confirmUndo) return;
+            
+            const moveIndex = Array.isArray(room.moves) ? room.moves.length - 1 : 0;
+            db.ref(`rooms/${currentRoomId}`).update({
+                undoRequest: {
+                    requester: myRole,
+                    requesterId: myId,
+                    moveIndex: moveIndex,
+                    betAmount: 0,
+                    timestamp: Date.now()
+                },
+                updatedAt: Date.now()
+            }).then(() => {
+                thongBaoHeThong(`↩️ Đã gửi yêu cầu rút nước - chờ đối thủ xác nhận...`);
+            });
+        }
+    });
+}
+
+// Xử lý approve/reject undo request
+function handleUndoResponse(approved) {
+    console.log('[DEBUG-UNDO] handleUndoResponse called:', { approved, currentRoomId, myRole });
+    
+    if (!currentRoomId || !myRole) {
+        console.log('[DEBUG-UNDO] Missing currentRoomId or myRole');
+        return;
+    }
+    
+    db.ref(`rooms/${currentRoomId}`).once('value').then(snap => {
+        const room = snap.val();
+        console.log('[DEBUG-UNDO] Room data fetched:', { hasRoom: !!room, hasUndoRequest: !!room?.undoRequest });
+        
+        if (!room || !room.undoRequest) {
+            console.log('[DEBUG-UNDO] No room or no undoRequest');
+            return;
+        }
+        
+        const request = room.undoRequest;
+        console.log('[DEBUG-UNDO] Undo request:', request);
+        
+        // Chỉ người được request mới có thể approve/reject
+        if (request.requester === myRole) {
+            console.log('[DEBUG-UNDO] Cannot approve own request');
+            alert('Bạn không thể tự duyệt yêu cầu của mình!');
+            return;
+        }
+        
+        if (approved) {
+            console.log('[DEBUG-UNDO] Approving undo request');
+            // Approve: trừ xu từ requester, cộng cho approver, rút nước
+            const requesterId = request.requesterId;
+            const approverId = localStorage.getItem('current_user_id');
+            const betAmount = request.betAmount || 0;
+            console.log('[DEBUG-UNDO] Bet amount:', betAmount);
+            
+            if (betAmount > 0) {
+                // Trừ xu từ requester
+                db.ref(`users/${requesterId}/coins`).transaction(c => (c || 0) - betAmount).then(result => {
+                    if (!result.committed) {
+                        alert('Lỗi khi trừ xu!');
+                        return;
+                    }
+                    
+                    // Cộng xu cho approver
+                    db.ref(`users/${approverId}/coins`).transaction(c => (c || 0) + betAmount).then(oppResult => {
+                        if (!oppResult.committed) {
+                            // Hoàn lại xu cho requester nếu fail
+                            db.ref(`users/${requesterId}/coins`).transaction(c => (c || 0) + betAmount);
+                            alert('Lỗi khi chuyển xu!');
+                            return;
+                        }
+                        
+                        // Thực hiện undo trước (cần room.undoRequest để xác định lượt)
+                        _performUndo(room, 1, request.requester);
+                        
+                        // Xóa undo request sau khi undo xong
+                        db.ref(`rooms/${currentRoomId}/undoRequest`).remove().then(() => {
+                            // Ẩn modal và clear flag sau khi xóa request thành công
+                            const undoModal = document.getElementById('undo-request-modal');
+                            if (undoModal) undoModal.style.display = 'none';
+                            window.undoRequestPending = false;
+                        });
+                        
+                        // Thông báo
+                        thongBaoHeThong(`↩️ Đã đồng ý rút nước - nhận ${betAmount.toLocaleString('vi-VN')} Xu!`);
+                        
+                        if (typeof addNotification === 'function') {
+                            addNotification('win', `↩️ Đã duyệt rút +${betAmount.toLocaleString('vi-VN')} Xu`);
+                        }
+                    });
+                });
+            } else {
+                // Không có cược - undo miễn phí
+                console.log('[DEBUG-UNDO] No bet, performing free undo');
+                _performUndo(room, 1, request.requester);
+                db.ref(`rooms/${currentRoomId}/undoRequest`).remove().then(() => {
+                    // Ẩn modal và clear flag sau khi xóa request thành công
+                    const undoModal = document.getElementById('undo-request-modal');
+                    if (undoModal) undoModal.style.display = 'none';
+                    window.undoRequestPending = false;
+                });
+                thongBaoHeThong('↩️ Đã đồng ý rút nước!');
+            }
+        } else {
+            // Reject: chỉ xóa request, không làm gì khác
+            console.log('[DEBUG-UNDO] Rejecting undo request');
+            db.ref(`rooms/${currentRoomId}/undoRequest`).remove().then(() => {
+                // Ẩn modal và clear flag sau khi xóa request thành công
+                const undoModal = document.getElementById('undo-request-modal');
+                if (undoModal) undoModal.style.display = 'none';
+                window.undoRequestPending = false;
+            });
+            thongBaoHeThong('❌ Đã từ chối rút nước - trận đấu tiếp tục!');
+        }
+    });
+}
+
+function _performUndo(room, movesToRemove, requesterRole) {
+    // Convert room.moves to array if it's an object (Firebase stores arrays as objects)
+    const movesArray = Array.isArray(room.moves) ? room.moves : Object.values(room.moves || {});
+    
+    if (!movesArray || movesArray.length < movesToRemove) return;
+    
+    // Xóa movesToRemove nước cuối
+    const newMoves = movesArray.slice(0, -movesToRemove);
+    
+    // Lượt quay về người vừa request undo (người bị rút nước)
+    const newTurn = requesterRole || 'X';
+    
+    // Xác định lastMove mới - handle different property name formats
+    const lastMove = newMoves.length > 0 ? newMoves[newMoves.length - 1] : null;
+    const newLastMove = lastMove ? { 
+        row: lastMove.row !== undefined ? lastMove.row : (lastMove.r !== undefined ? lastMove.r : -1), 
+        col: lastMove.col !== undefined ? lastMove.col : (lastMove.c !== undefined ? lastMove.c : -1), 
+        by: lastMove.by !== undefined ? lastMove.by : (lastMove.player !== undefined ? lastMove.player : '') 
+    } : { row: -1, col: -1, by: '' };
+    
+    console.log('[DEBUG-UNDO] Performing undo:', {
+        movesToRemove,
+        requesterRole,
+        newTurn,
+        newMovesCount: newMoves.length,
+        newLastMove,
+        lastMoveRaw: lastMove,
+        originalMovesType: typeof room.moves,
+        originalMovesIsArray: Array.isArray(room.moves),
+        originalMovesLength: movesArray.length,
+        newMovesArray: newMoves
+    });
+    
+    // Cập nhật Firebase
+    const updateData = {
+        moves: newMoves,
+        turn: newTurn,
+        lastMove: newLastMove,
+        updatedAt: Date.now()
+    };
+    
+    console.log('[DEBUG-UNDO] Firebase update data:', updateData);
+    
+    db.ref(`rooms/${currentRoomId}`).update(updateData).then(() => {
+        console.log('[DEBUG-UNDO] Firebase updated successfully');
+        
+        // Cập nhật local state
+        if (typeof moveHistory !== 'undefined') {
+            moveHistory.length = 0;
+            newMoves.forEach(m => {
+                moveHistory.push({ 
+                    r: m.row !== undefined ? m.row : (m.r !== undefined ? m.r : 0), 
+                    c: m.col !== undefined ? m.col : (m.c !== undefined ? m.c : 0), 
+                    player: m.by !== undefined ? m.by : (m.player !== undefined ? m.player : '') 
+                });
+            });
+        }
+        
+        // CẬP NHẬT infiniteMap - QUAN TRỌNG: renderInfiniteBoard vẽ từ infiniteMap
+        if (typeof infiniteMap !== 'undefined') {
+            infiniteMap.clear();
+            newMoves.forEach(m => {
+                const r = m.row !== undefined ? m.row : (m.r !== undefined ? m.r : 0);
+                const c = m.col !== undefined ? m.col : (m.c !== undefined ? m.c : 0);
+                const player = m.by !== undefined ? m.by : (m.player !== undefined ? m.player : '');
+                infiniteMap.set(`${r},${c}`, player);
+            });
+            console.log('[DEBUG-UNDO] infiniteMap updated:', {
+                size: infiniteMap.size,
+                entries: Array.from(infiniteMap.entries())
+            });
+        }
+        
+        if (typeof lastMoveR !== 'undefined') {
+            lastMoveR = newLastMove.row === -1 ? null : newLastMove.row;
+            lastMoveC = newLastMove.col === -1 ? null : newLastMove.col;
+        }
+        if (typeof currentPlayer !== 'undefined') {
+            currentPlayer = newTurn;
+        }
+        if (typeof currentTurn !== 'undefined') {
+            currentTurn = newTurn;
+        }
+        
+        console.log('[DEBUG-UNDO] Local state updated:', {
+            currentPlayer,
+            currentTurn,
+            moveHistoryLength: moveHistory ? moveHistory.length : 0,
+            moveHistoryContent: moveHistory ? JSON.stringify(moveHistory) : 'undefined',
+            lastMoveR,
+            lastMoveC
+        });
+        
+        // Re-render bàn cờ để xóa quân vừa rút
+        if (typeof renderInfiniteBoard === 'function') {
+            console.log('[DEBUG-UNDO] Calling renderInfiniteBoard...');
+            renderInfiniteBoard();
+            console.log('[DEBUG-UNDO] Board re-rendered');
+        } else {
+            console.error('[DEBUG-UNDO] renderInfiniteBoard is not available!');
+        }
+    });
+}
+window.undoOnlineMove = undoOnlineMove;
+window.handleUndoResponse = handleUndoResponse;
+
+// Helper function to show undo modal
+function _showUndoModal(request, betAmount) {
+    const undoModal = document.getElementById('undo-request-modal');
+    if (!undoModal) {
+        // Tạo modal nếu chưa có
+        const modal = document.createElement('div');
+        modal.id = 'undo-request-modal';
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
+        modal.innerHTML = `
+            <div style="background:white;padding:20px;border-radius:10px;max-width:400px;text-align:center;">
+                <h3 style="margin-bottom:15px;">↩️ Yêu cầu rút nước</h3>
+                <p style="margin-bottom:15px;">Bên ${request.requester} muốn rút lại nước vừa đánh.</p>
+                <p style="margin-bottom:15px;">${betAmount > 0 ? `Nếu đồng ý, bạn sẽ nhận ${betAmount.toLocaleString('vi-VN')} Xu.` : 'Không có cược.'}</p>
+                <div style="display:flex;gap:10px;justify-content:center;">
+                    <button onclick="handleUndoResponse(true)" style="padding:10px 20px;background:#10b981;color:white;border:none;border-radius:5px;cursor:pointer;">Đồng ý</button>
+                    <button onclick="handleUndoResponse(false)" style="padding:10px 20px;background:#ef4444;color:white;border:none;border-radius:5px;cursor:pointer;">Từ chối</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    } else {
+        undoModal.style.display = 'flex';
+    }
+}
+
 // Hàm nội bộ: chỉ X gọi — đẩy status = playing lên Firebase
 // Guard chống gọi 2 lần trong cùng 1 phiên
 let _dangBatDauGame = false;
@@ -1531,7 +1883,8 @@ function langNgheThayDoiPhong(roomId) {
             winCount: room.winCount,
             chan2Dau: room.chan2Dau,
             moves: room.moves ? Object.keys(room.moves).length : 0,
-            lastMove: room.lastMove
+            lastMove: room.lastMove,
+            undoRequest: room.undoRequest
         });
 
         const myId = localStorage.getItem('current_user_id');
@@ -1540,6 +1893,48 @@ function langNgheThayDoiPhong(roomId) {
         if (myId === room.playerX_id)      myRole = 'X';
         else if (myId === room.playerO_id) myRole = 'O';
         else if (myRole !== 'viewer')      myRole = 'viewer';
+
+        // Xử lý undo request - hiển thị UI approve/reject cho đối thủ
+        if (room.undoRequest) {
+            const request = room.undoRequest;
+            const isRequester = request.requester === myRole;
+            
+            // Set global flag để block moves
+            window.undoRequestPending = true;
+            
+            if (!isRequester && myRole !== 'viewer') {
+                // Đối thủ nhận được request - check xu của người request trước khi hiển thị modal
+                const requesterId = request.requesterId;
+                const betAmount = request.betAmount || 0;
+                
+                if (betAmount > 0) {
+                    // Check xu của người request trước
+                    db.ref(`users/${requesterId}/coins`).once('value').then(snap => {
+                        const requesterCoins = snap.val() || 0;
+                        if (requesterCoins < betAmount) {
+                            // Người request không đủ xu - tự động reject
+                            db.ref(`rooms/${currentRoomId}/undoRequest`).remove();
+                            thongBaoHeThong('❌ Người yêu cầu rút không đủ Xu - yêu cầu bị hủy!');
+                            return;
+                        }
+                        
+                        // Đủ xu - hiển thị modal approve/reject
+                        _showUndoModal(request, betAmount);
+                    });
+                } else {
+                    // Không có cược - hiển thị modal ngay
+                    _showUndoModal(request, 0);
+                }
+            } else if (isRequester) {
+                // Người request - hiển thị thông báo đang chờ
+                thongBaoHeThong('↩️ Đang chờ đối thủ xác nhận rút nước...');
+            }
+        } else {
+            // Không có request - ẩn modal nếu có và clear flag
+            const undoModal = document.getElementById('undo-request-modal');
+            if (undoModal) undoModal.style.display = 'none';
+            window.undoRequestPending = false;
+        }
 
         // Kiểm tra bị kick (ghế của mình bị reset)
         if (myRole !== 'viewer' && isOnlineMode) {
@@ -1684,6 +2079,22 @@ function langNgheThayDoiPhong(roomId) {
                 if (biMe2)  { biMe2.textContent  = 'Đang chờ...';          biMe2.className  = 'battle-indicator inactive'; }
                 if (biOpp2) { biOpp2.textContent = '🟢 Lượt đối thủ...'; biOpp2.className = 'battle-indicator'; }
                 if (!daThongBaoSnapshot) thongBaoHeThong(`⏳ Đang chờ ${oppName} đánh...`);
+            }
+
+            // SYNC infiniteMap từ Firebase moves - QUAN TRỌNG cho undo
+            if (typeof infiniteMap !== 'undefined' && room.moves) {
+                const movesArray = Array.isArray(room.moves) ? room.moves : Object.values(room.moves);
+                infiniteMap.clear();
+                movesArray.forEach(m => {
+                    const r = m.row !== undefined ? m.row : (m.r !== undefined ? m.r : 0);
+                    const c = m.col !== undefined ? m.col : (m.c !== undefined ? m.c : 0);
+                    const player = m.by !== undefined ? m.by : (m.player !== undefined ? m.player : '');
+                    infiniteMap.set(`${r},${c}`, player);
+                });
+                console.log('[DEBUG-BOARD] Synced infiniteMap from Firebase:', {
+                    size: infiniteMap.size,
+                    movesCount: movesArray.length
+                });
             }
 
             // Vẽ nước đi mới nhất từ đối thủ

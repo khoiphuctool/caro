@@ -1023,13 +1023,27 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
     <!-- Layout phòng đấu giả lập -->
     <div class="practice-layout">
 
-        <!-- Cột trái: Người chơi X (Chủ phòng) -->
-        <div class="practice-player-card">
-            <div class="practice-avatar practice-avatar-x">X</div>
-            <div class="practice-pname" id="practice-name-x">Bạn</div>
-            <div style="font-size:10px;color:#94a3b8;text-align:center;">Chủ phòng</div>
-            <div class="practice-pstats" id="practice-stats-x">🎯 Người chơi</div>
-            <div class="practice-indicator practice-indicator-inactive" id="practice-indicator-x">Đang chờ</div>
+        <!-- Cột trái: Người chơi X (Chủ phòng) + History Panel -->
+        <div class="practice-left">
+            <div class="practice-player-card">
+                <div class="practice-avatar practice-avatar-x">X</div>
+                <div class="practice-pname" id="practice-name-x">Bạn</div>
+                <div style="font-size:10px;color:#94a3b8;text-align:center;">Chủ phòng</div>
+                <div class="practice-pstats" id="practice-stats-x">🎯 Người chơi</div>
+                <div class="practice-indicator practice-indicator-inactive" id="practice-indicator-x">Đang chờ</div>
+            </div>
+
+            <!-- History Panel (Desktop only) -->
+            <div id="history-panel" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:6px 8px;font-size:0.72rem;color:#94a3b8;max-height:300px;overflow-y:auto;flex-shrink:0;">
+                <div class="history-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;cursor:pointer;" onclick="toggleHistoryPanel()">
+                    <span style="font-weight:600;color:#e2e8f0;font-size:0.75rem;">📜 Lịch sử</span>
+                    <button style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:0.65rem;padding:0;" id="history-toggle-icon">▼</button>
+                </div>
+                <div id="history-body" style="display:block;">
+                    <div id="history-list" style="max-height:250px;overflow-y:auto;"></div>
+                    <button id="btn-clear-history" onclick="clearHistory()" style="margin-top:6px;padding:3px 6px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:4px;color:#ef4444;cursor:pointer;font-size:0.65rem;display:none;">Xóa</button>
+                </div>
+            </div>
         </div>
 
         <!-- Cột giữa: Bàn cờ -->
@@ -1041,9 +1055,16 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 
             <!-- Board slot - Shared Board Engine (DO4.TXT) -->
             <div class="practice-board-slot" id="practice-board-slot">
-                <div class="shared-board-container" id="shared-board-practice">
+                <!-- Practice mode uses old system (inf-resizable) -->
+                <div id="inf-resizable" style="display:inline-block;position:relative;user-select:none;">
                     <canvas id="inf-canvas" class="shared-board-canvas"></canvas>
-                    <div class="board-coords-display" id="board-coords-practice">X: 0, Y: 0</div>
+                    <div id="bot-avatar" class="bot-avatar">
+                        <div class="bot-face">🤖</div>
+                        <div class="bot-bubble" id="bot-bubble">
+                            <div class="bot-message" id="bot-message">Xin chào! Tôi sẵn sàng đấu!</div>
+                        </div>
+                    </div>
+                    <!-- Practice mode control buttons overlay -->
                     <div class="board-controls-overlay">
                         <button class="board-control-btn" onclick="if(typeof PracticeMode!=='undefined')PracticeMode.undoPracticeMove();" title="Hoàn tác nước cờ">⬅️</button>
                         <button class="board-control-btn" onclick="if(typeof zoomBoard==='function')zoomBoard(1);" title="Phóng to">+</button>
@@ -1052,12 +1073,13 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                 </div>
                 <!-- Legacy board fallback -->
                 <div class="board" id="board" style="display:none;"></div>
-                <div id="inf-resizable" style="display:none;position:relative;user-select:none;">
-                    <div id="bot-avatar" class="bot-avatar">
-                        <div class="bot-face">🤖</div>
-                        <div class="bot-bubble" id="bot-bubble">
-                            <div class="bot-message" id="bot-message">Xin chào! Tôi sẵn sàng đấu!</div>
-                        </div>
+                <!-- Shared board container (hidden in practice mode) -->
+                <div class="shared-board-container" id="shared-board-practice" style="display:none;">
+                    <div class="board-coords-display" id="board-coords-practice">X: 0, Y: 0</div>
+                    <div class="board-controls-overlay">
+                        <button class="board-control-btn" onclick="if(typeof PracticeMode!=='undefined')PracticeMode.undoPracticeMove();" title="Hoàn tác nước cờ">⬅️</button>
+                        <button class="board-control-btn" onclick="if(typeof zoomBoard==='function')zoomBoard(1);" title="Phóng to">+</button>
+                        <button class="board-control-btn" onclick="if(typeof zoomBoard==='function')zoomBoard(-1);" title="Thu nhỏ">−</button>
                     </div>
                 </div>
             </div>
@@ -1153,6 +1175,19 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                     <input type="file" id="import-memory-input" accept=".json" style="display:none;" onchange="importBotMemory(this)">
                     <button onclick="resetMemory()" style="padding:2px 5px;border-radius:3px;border:1px solid #ef4444;background:#fee2e2;color:#991b1b;cursor:pointer;font-size:0.65rem;">Reset</button>
                     <button onclick="openScoreTableConfig()" style="padding:2px 5px;border-radius:3px;border:1px solid #f59e0b;background:#fef3c7;color:#92400e;cursor:pointer;font-size:0.65rem;">⚙️ AI</button>
+                </div>
+            </div>
+
+            <!-- Rank Panel (Desktop only) -->
+            <div id="rank-panel" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:6px 8px;font-size:0.72rem;color:#94a3b8;max-height:300px;overflow-y:auto;flex-shrink:0;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;cursor:pointer;" onclick="toggleRankPanel()">
+                    <span style="font-weight:600;color:#e2e8f0;font-size:0.75rem;">🏆 BXH</span>
+                    <button style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:0.65rem;padding:0;" id="rank-toggle-icon">▼</button>
+                </div>
+                <div id="rank-body" style="display:block;">
+                    <div id="rank-tabs" style="margin-bottom:4px;"></div>
+                    <div id="rank-list" style="max-height:250px;overflow-y:auto;"></div>
+                    <button id="btn-clear-rank" onclick="clearRank()" style="margin-top:6px;padding:3px 6px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:4px;color:#ef4444;cursor:pointer;font-size:0.65rem;display:none;">Xóa</button>
                 </div>
             </div>
         </div>
@@ -1375,9 +1410,9 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                     <canvas id="inf-canvas-online" class="shared-board-canvas"></canvas>
                     <div class="board-coords-display" id="board-coords-online">X: 0, Y: 0</div>
                     <div class="board-controls-overlay">
-                        <button class="board-control-btn" onclick="SharedBoardEngine.Camera.reset(); SharedBoardEngine.update();" title="Reset Camera">🏠</button>
-                        <button class="board-control-btn" onclick="SharedBoardEngine.Camera.setZoom(SharedBoardEngine.Camera.zoom + 0.2); SharedBoardEngine.update();" title="Zoom In">+</button>
-                        <button class="board-control-btn" onclick="SharedBoardEngine.Camera.setZoom(SharedBoardEngine.Camera.zoom - 0.2); SharedBoardEngine.update();" title="Zoom Out">−</button>
+                        <button class="board-control-btn" onclick="if(typeof undoOnlineMove === 'function') undoOnlineMove();" title="Undo Last Move (Costs bet amount)">↩️</button>
+                        <button class="board-control-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(1);" title="Zoom In">+</button>
+                        <button class="board-control-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(-1);" title="Zoom Out">−</button>
                     </div>
                 </div>
                 <!-- Legacy board fallback -->
