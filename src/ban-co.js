@@ -696,8 +696,10 @@ function renderInfiniteBoard() {
                 c.lineWidth   = 0.5;
                 c.strokeStyle = col.grid;
             }
-            // Dùng màu từ skin (nếu emoji thì không cần đổi fillStyle vì emoji tự có màu)
-            if (!_useEmoji) {
+            // Dùng màu từ skin - luôn set fillStyle cho text (không phải emoji)
+            // Emoji tự có màu nên không cần fillStyle, nhưng text cần màu
+            const isEmoji = (val === 'X' && _iconX !== 'X') || (val === 'O' && _iconO !== 'O');
+            if (!isEmoji) {
                 c.fillStyle = val === 'X' ? _colorX : _colorO;
             }
             const iconToDraw = val === 'X' ? _iconX : _iconO;
@@ -708,7 +710,9 @@ function renderInfiniteBoard() {
                 _iconX: _iconX,
                 _iconO: _iconO,
                 _colorX: _colorX,
-                _colorO: _colorO
+                _colorO: _colorO,
+                _useEmoji: _useEmoji,
+                fillStyle: c.fillStyle
             });
             c.fillText(iconToDraw, px, py);
         }

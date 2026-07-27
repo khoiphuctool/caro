@@ -179,7 +179,18 @@ function runHealthCheck() {
         const rooms = snap.val();
         if (!rooms) return;
 
+        // Check normal rooms 1-20
         for (let i = 1; i <= 20; i++) {
+            const roomId = `phong_${i}`;
+            const room   = rooms[roomId];
+            if (!room) continue;
+            if (roomId === myRoomId) continue; // không dọn phòng mình đang ở
+
+            _healthCheckRoom(roomId, room);
+        }
+        
+        // Check VIP rooms 21-40
+        for (let i = 21; i <= 40; i++) {
             const roomId = `phong_${i}`;
             const room   = rooms[roomId];
             if (!room) continue;
@@ -441,16 +452,27 @@ function _patchRoomListRender() {
 function _patchNgoimVaoPhong() {
     const _origNgoi = window.ngoimVaoPhong;
     window.ngoimVaoPhong = function(roomId) {
-        if (!_db) { _origNgoi.apply(this, arguments); return; }
+        console.log('[RoomHealth-Patch] ngoimVaoPhong called with roomId:', roomId);
+        if (!_db) { 
+            console.log('[RoomHealth-Patch] _db not available, calling original');
+            _origNgoi.apply(this, arguments); 
+            return; 
+        }
 
         // Đọc room trước để kiểm tra ghost
         _db.ref(`rooms/${roomId}`).once('value').then(snap => {
             const room = snap.val();
-            if (!room) { _origNgoi.apply(this, [roomId]); return; }
+            console.log('[RoomHealth-Patch] Room data:', room);
+            if (!room) { 
+                console.log('[RoomHealth-Patch] Room not found, calling original');
+                _origNgoi.apply(this, [roomId]); 
+                return; 
+            }
 
             const xAlive = !!room.playerX_id && isPlayerAlive(room, 'X');
             const oAlive = !!room.playerO_id && isPlayerAlive(room, 'O');
             const now    = Date.now();
+            console.log('[RoomHealth-Patch] Player status:', { xAlive, oAlive, playerX_id: room.playerX_id, playerO_id: room.playerO_id });
 
             // Nếu có ghost → dọn trước rồi mới vào
             if ((room.playerX_id && !xAlive) || (room.playerO_id && !oAlive)) {
@@ -472,15 +494,23 @@ function _patchNgoimVaoPhong() {
                     cleanUpdates.moves = { init: true };
                     cleanUpdates.lastMove = { row: -1, col: -1, by: '' };
                 }
-                console.log(`[RoomHealth] Dọn ghost trong phòng ${roomId} trước khi vào`);
+                console.log(`[RoomHealth-Patch] Dọn ghost trong phòng ${roomId} trước khi vào`, cleanUpdates);
                 _db.ref(`rooms/${roomId}`).update(cleanUpdates).then(() => {
+                    console.log('[RoomHealth-Patch] Ghost cleaned, calling original ngoimVaoPhong');
                     _origNgoi.apply(window, [roomId]);
-                }).catch(() => { _origNgoi.apply(window, [roomId]); });
+                }).catch(err => {
+                    console.error('[RoomHealth-Patch] Error cleaning ghost:', err);
+                    _origNgoi.apply(window, [roomId]); 
+                });
             } else {
                 // Không có ghost → vào thẳng
+                console.log('[RoomHealth-Patch] No ghost, calling original ngoimVaoPhong');
                 _origNgoi.apply(window, [roomId]);
             }
-        }).catch(() => { _origNgoi.apply(window, [roomId]); });
+        }).catch(err => {
+            console.error('[RoomHealth-Patch] Error reading room:', err);
+            _origNgoi.apply(window, [roomId]); 
+        });
     };
     console.log('[RoomHealth] ngoimVaoPhong patched — tự dọn ghost trước khi vào');
 }

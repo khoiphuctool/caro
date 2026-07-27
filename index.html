@@ -914,6 +914,10 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                 <div class="card-header">🎮 Thách Đấu Online</div>
                 <div class="card-body">
                     <p class="text-muted" style="margin-bottom:12px;">Chọn phòng để tham gia. Người vào trước là chủ phòng (X), người sau là khách (O).</p>
+                    <div style="display:flex;gap:10px;margin-bottom:12px;">
+                        <button id="tab-normal" onclick="switchRoomTab('normal')" style="flex:1;padding:8px;background:#6366f1;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">🎮 Kênh Thường</button>
+                        <button id="tab-vip" onclick="switchRoomTab('vip')" style="flex:1;padding:8px;background:#e5e7eb;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💎 Kênh VIP</button>
+                    </div>
                     <div class="room-list" id="room-list">
                         <div class="text-muted" style="text-align:center; padding:24px;">Đang tải danh sách phòng...</div>
                     </div>
@@ -1321,14 +1325,23 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
         <div id="bet-panel-room" class="bet-card" style="display:none;">
             <div style="font-weight:700; margin-bottom:10px; color:#92400e;">🎲 Đặt Cược (Chủ phòng)</div>
 
-            <!-- Chọn mức cược nhanh -->
-            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+            <!-- Chọn mức cược nhanh - Normal -->
+            <div id="bet-quick-normal" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
                 <button onclick="chonMucCuoc(0)"    class="btn-bet-quick btn-no-bet">Không cược</button>
                 <button onclick="chonMucCuoc(100)"  class="btn-bet-quick">100 Xu</button>
                 <button onclick="chonMucCuoc(500)"  class="btn-bet-quick">500 Xu</button>
                 <button onclick="chonMucCuoc(1000)" class="btn-bet-quick">1.000 Xu</button>
                 <button onclick="chonMucCuoc(3000)" class="btn-bet-quick">3.000 Xu</button>
                 <button onclick="chonMucCuoc(5000)" class="btn-bet-quick">5.000 Xu</button>
+            </div>
+            <!-- Chọn mức cược nhanh - VIP -->
+            <div id="bet-quick-vip" style="display:none; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+                <button onclick="chonMucCuoc(0)"    class="btn-bet-quick btn-no-bet">Không cược</button>
+                <button onclick="chonMucCuoc(10000)"  class="btn-bet-quick">10.000 Xu</button>
+                <button onclick="chonMucCuoc(20000)"  class="btn-bet-quick">20.000 Xu</button>
+                <button onclick="chonMucCuoc(30000)" class="btn-bet-quick">30.000 Xu</button>
+                <button onclick="chonMucCuoc(40000)" class="btn-bet-quick">40.000 Xu</button>
+                <button onclick="chonMucCuoc(50000)" class="btn-bet-quick">50.000 Xu</button>
             </div>
             <div class="bet-row">
                 <input type="number" id="bet-amount-input" class="bet-input"
@@ -1338,7 +1351,7 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
             </div>
             <!-- Trạng thái cược + guest ready -->
             <div id="bet-status-host" style="margin-top:8px; font-size:13px; min-height:36px;"></div>
-            <div class="text-muted mt-2">Người thắng nhận 2× Xu · Bỏ cuộc = thua · Min 100 · Max 5.000 Xu</div>
+            <div id="bet-help-text" class="text-muted mt-2">Người thắng nhận 2× Xu · Bỏ cuộc = thua · Min 100 · Max 5.000 Xu</div>
         </div>
 
         <!-- KHÁCH (O): Xem cược -->
@@ -2065,6 +2078,41 @@ function capNhatHienThiBetPanel() {
     const panel = document.getElementById('bet-panel-room');
     if (!panel) return;
     panel.style.display = (typeof myRole !== 'undefined' && myRole === 'X') ? 'block' : 'none';
+    
+    // Check if room is VIP and update UI accordingly
+    if (typeof currentRoomId !== 'undefined' && typeof db !== 'undefined') {
+        db.ref(`rooms/${currentRoomId}/isVip`).once('value').then(snap => {
+            const isVip = snap.val() === true;
+            const normalBtns = document.getElementById('bet-quick-normal');
+            const vipBtns = document.getElementById('bet-quick-vip');
+            const input = document.getElementById('bet-amount-input');
+            const helpText = document.getElementById('bet-help-text');
+            
+            if (isVip) {
+                if (normalBtns) normalBtns.style.display = 'none';
+                if (vipBtns) vipBtns.style.display = 'flex';
+                if (input) {
+                    input.max = 50000;
+                    input.step = 1000;
+                }
+                if (helpText) helpText.textContent = '💎 VIP Room · Người thắng nhận 2× Xu · Bỏ cuộc = thua · Min 10.000 · Max 50.000 Xu';
+            } else {
+                if (normalBtns) normalBtns.style.display = 'flex';
+                if (vipBtns) vipBtns.style.display = 'none';
+                if (input) {
+                    input.max = 5000;
+                    input.step = 100;
+                }
+                if (helpText) helpText.textContent = 'Người thắng nhận 2× Xu · Bỏ cuộc = thua · Min 100 · Max 5.000 Xu';
+            }
+        }).catch(() => {
+            // Default to normal if check fails
+            const normalBtns = document.getElementById('bet-quick-normal');
+            const vipBtns = document.getElementById('bet-quick-vip');
+            if (normalBtns) normalBtns.style.display = 'flex';
+            if (vipBtns) vipBtns.style.display = 'none';
+        });
+    }
 }
 window.capNhatHienThiBetPanel = capNhatHienThiBetPanel;
 window.xuLyDatCuoc = xuLyDatCuoc;
@@ -2075,12 +2123,35 @@ function chonMucCuoc(amount) {
     if (inp) inp.value = amount;
     // Highlight nút được chọn
     document.querySelectorAll('.btn-bet-quick').forEach(btn => btn.classList.remove('active'));
-    const btnMap = { 0: 0, 100: 1, 500: 2, 1000: 3, 3000: 4, 5000: 5 };
-    const btns = document.querySelectorAll('.btn-bet-quick');
-    const idx = Object.keys(btnMap).indexOf(String(amount));
-    if (idx >= 0 && btns[idx]) btns[idx].classList.add('active');
-    // Đặt cược ngay
-    xuLyDatCuoc();
+    
+    // Check if room is VIP to determine button mapping
+    if (typeof currentRoomId !== 'undefined' && typeof db !== 'undefined') {
+        db.ref(`rooms/${currentRoomId}/isVip`).once('value').then(snap => {
+            const isVip = snap.val() === true;
+            const btnMap = isVip 
+                ? { 0: 0, 10000: 1, 20000: 2, 30000: 3, 40000: 4, 50000: 5 }
+                : { 0: 0, 100: 1, 500: 2, 1000: 3, 3000: 4, 5000: 5 };
+            const btns = document.querySelectorAll('.btn-bet-quick');
+            const idx = Object.keys(btnMap).indexOf(String(amount));
+            if (idx >= 0 && btns[idx]) btns[idx].classList.add('active');
+            // Đặt cược ngay
+            xuLyDatCuoc();
+        }).catch(() => {
+            // Default to normal mapping if check fails
+            const btnMap = { 0: 0, 100: 1, 500: 2, 1000: 3, 3000: 4, 5000: 5 };
+            const btns = document.querySelectorAll('.btn-bet-quick');
+            const idx = Object.keys(btnMap).indexOf(String(amount));
+            if (idx >= 0 && btns[idx]) btns[idx].classList.add('active');
+            xuLyDatCuoc();
+        });
+    } else {
+        // Default to normal mapping
+        const btnMap = { 0: 0, 100: 1, 500: 2, 1000: 3, 3000: 4, 5000: 5 };
+        const btns = document.querySelectorAll('.btn-bet-quick');
+        const idx = Object.keys(btnMap).indexOf(String(amount));
+        if (idx >= 0 && btns[idx]) btns[idx].classList.add('active');
+        xuLyDatCuoc();
+    }
 }
 window.chonMucCuoc = chonMucCuoc;
 </script>

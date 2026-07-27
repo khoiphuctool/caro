@@ -14,7 +14,9 @@ const XU_CONFIG = {
     SOLO_WIN_REWARD: 200,
     SOLO_WIN_DAILY_LIMIT: 20,
     BET_MIN: 100,
-    BET_MAX: 5000
+    BET_MAX: 5000,
+    VIP_BET_MIN: 10000,
+    VIP_BET_MAX: 50000
 };
 
 // Map game-mode → difficulty key
@@ -338,20 +340,27 @@ function datCuocMoi(amount) {
         });
     }
 
-    if (amount < XU_CONFIG.BET_MIN || amount > XU_CONFIG.BET_MAX) {
-        alert(`Mức cược phải từ ${XU_CONFIG.BET_MIN} đến ${XU_CONFIG.BET_MAX.toLocaleString('vi-VN')} Xu!`);
-        return Promise.resolve(false);
-    }
+    // Check if room is VIP to determine bet limits
+    return database.ref(`rooms/${roomId}/isVip`).once('value').then(snap => {
+        const isVip = snap.val() === true;
+        const minBet = isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
+        const maxBet = isVip ? XU_CONFIG.VIP_BET_MAX : XU_CONFIG.BET_MAX;
 
-    return database.ref(`rooms/${roomId}`).update({
-        betAmount:  amount,
-        guestReady: false,
-        playerXConfirmed: null,
-        playerOConfirmed: null
-    }).then(() => {
-        currentBetAmount = amount;
-        thongBaoHeThong(`💰 Đã đặt cược ${amount.toLocaleString('vi-VN')} Xu — khách cần xác nhận lại!`);
-        return true;
+        if (amount < minBet || amount > maxBet) {
+            alert(`Mức cược phải từ ${minBet.toLocaleString('vi-VN')} đến ${maxBet.toLocaleString('vi-VN')} Xu!`);
+            return Promise.resolve(false);
+        }
+
+        return database.ref(`rooms/${roomId}`).update({
+            betAmount:  amount,
+            guestReady: false,
+            playerXConfirmed: null,
+            playerOConfirmed: null
+        }).then(() => {
+            currentBetAmount = amount;
+            thongBaoHeThong(`💰 Đã đặt cược ${amount.toLocaleString('vi-VN')} Xu — khách cần xác nhận lại!`);
+            return true;
+        });
     });
 }
 window.datCuocMoi = datCuocMoi;
@@ -428,13 +437,22 @@ function thietLapCuoc(roomId, betAmount) {
     const database = _getDb();
     if (!database) return Promise.resolve(false);
     betAmount = parseInt(betAmount);
-    if (isNaN(betAmount) || betAmount < XU_CONFIG.BET_MIN || betAmount > XU_CONFIG.BET_MAX) {
-        alert(`Mức cược phải từ ${XU_CONFIG.BET_MIN} đến ${XU_CONFIG.BET_MAX.toLocaleString('vi-VN')} Xu!`);
-        return Promise.resolve(false);
-    }
-    return database.ref(`rooms/${roomId}/betAmount`).set(betAmount).then(() => {
-        currentBetAmount = betAmount;
-        return true;
+    
+    // Check if room is VIP to determine bet limits
+    return database.ref(`rooms/${roomId}/isVip`).once('value').then(snap => {
+        const isVip = snap.val() === true;
+        const minBet = isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
+        const maxBet = isVip ? XU_CONFIG.VIP_BET_MAX : XU_CONFIG.BET_MAX;
+
+        if (isNaN(betAmount) || betAmount < minBet || betAmount > maxBet) {
+            alert(`Mức cược phải từ ${minBet.toLocaleString('vi-VN')} đến ${maxBet.toLocaleString('vi-VN')} Xu!`);
+            return Promise.resolve(false);
+        }
+        
+        return database.ref(`rooms/${roomId}/betAmount`).set(betAmount).then(() => {
+            currentBetAmount = betAmount;
+            return true;
+        });
     });
 }
 window.thietLapCuoc = thietLapCuoc;
