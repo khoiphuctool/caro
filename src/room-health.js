@@ -23,8 +23,9 @@ let _afkWarned       = false;
 let _db              = null;  // set sau khi firebase ready
 
 // ── Khởi động sau khi Firebase sẵn sàng ───────────────────────
+// Gộp tất cả load listeners vào 1 chỗ
 window.addEventListener('load', () => {
-    // Chờ db được khởi tạo (initFirebase xong)
+    // 1. Chờ db được khởi tạo (initFirebase xong)
     const waitDb = setInterval(() => {
         if (typeof db !== 'undefined' && db) {
             _db = db;
@@ -32,6 +33,50 @@ window.addEventListener('load', () => {
             console.log('[RoomHealth] Firebase ready, khởi động health system');
         }
     }, 500);
+
+    // 2. PATCH hienDanhSachPhong — Tính status TỪ DỮ LIỆU THỰC TẾ
+    setTimeout(() => {
+        const waitFn = setInterval(() => {
+            if (typeof hienDanhSachPhong === 'function' && _db) {
+                clearInterval(waitFn);
+                _patchRoomListRender();
+            }
+        }, 300);
+    }, 500);
+
+    // 3. PATCH ngoimVaoPhong — Dọn ghost TRƯỚC KHI cho vào phòng
+    setTimeout(() => {
+        const waitFn2 = setInterval(() => {
+            if (typeof ngoimVaoPhong === 'function' && _db) {
+                clearInterval(waitFn2);
+                _patchNgoimVaoPhong();
+            }
+        }, 300);
+    }, 600);
+
+    // 4. HOOKS: Tự động start/stop heartbeat + AFK khi vào/thoát phòng
+    setTimeout(() => {
+        const waitHooks = setInterval(() => {
+            if (typeof batDauGiaoDienOnline === 'function' && typeof thoatGiaoDienOnline === 'function') {
+                clearInterval(waitHooks);
+                _hookOnlineEvents();
+            }
+        }, 400);
+    }, 800);
+
+    // 5. Ghi dấu activity khi đánh cờ (makeMove)
+    setTimeout(() => {
+        const waitMakeMove = setInterval(() => {
+            if (typeof makeMove === 'function') {
+                clearInterval(waitMakeMove);
+                const _origMakeMove = window.makeMove;
+                window.makeMove = function() {
+                    _touchActivity();
+                    return _origMakeMove.apply(this, arguments);
+                };
+            }
+        }, 500);
+    }, 1000);
 });
 
 // ── Cập nhật lastActivity khi có tương tác ────────────────────
@@ -290,17 +335,7 @@ window._hideAfkWarning = _hideAfkWarning;
 // PATCH hienDanhSachPhong — Tính status TỪ DỮ LIỆU THỰC TẾ
 // Override render để dùng deriveRoomStatus thay vì room.status
 // ══════════════════════════════════════════════════════════════════
-window.addEventListener('load', () => {
-    // Delay để đảm bảo tất cả override khác đã chạy xong
-    setTimeout(() => {
-        const waitFn = setInterval(() => {
-            if (typeof hienDanhSachPhong === 'function' && _db) {
-                clearInterval(waitFn);
-                _patchRoomListRender();
-            }
-        }, 300);
-    }, 500);
-});
+// Đã gộp vào window.addEventListener('load' chính (dòng 27)
 
 function _patchRoomListRender() {
     const _origHien = window.hienDanhSachPhong;
@@ -401,16 +436,7 @@ function _patchRoomListRender() {
 // ══════════════════════════════════════════════════════════════════
 // PATCH ngoimVaoPhong — Dọn ghost TRƯỚC KHI cho vào phòng
 // ══════════════════════════════════════════════════════════════════
-window.addEventListener('load', () => {
-    setTimeout(() => {
-        const waitFn2 = setInterval(() => {
-            if (typeof ngoimVaoPhong === 'function' && _db) {
-                clearInterval(waitFn2);
-                _patchNgoimVaoPhong();
-            }
-        }, 300);
-    }, 600);
-});
+// Đã gộp vào window.addEventListener('load' chính (dòng 27)
 
 function _patchNgoimVaoPhong() {
     const _origNgoi = window.ngoimVaoPhong;
@@ -462,17 +488,7 @@ function _patchNgoimVaoPhong() {
 // ══════════════════════════════════════════════════════════════════
 // HOOKS: Tự động start/stop heartbeat + AFK khi vào/thoát phòng
 // ══════════════════════════════════════════════════════════════════
-window.addEventListener('load', () => {
-    // Delay để mọi override trong index.html bridge đã chạy xong
-    setTimeout(() => {
-        const waitHooks = setInterval(() => {
-            if (typeof batDauGiaoDienOnline === 'function' && typeof thoatGiaoDienOnline === 'function') {
-                clearInterval(waitHooks);
-                _hookOnlineEvents();
-            }
-        }, 400);
-    }, 800);
-});
+// Đã gộp vào window.addEventListener('load' chính (dòng 27)
 
 function _hookOnlineEvents() {
     // Patch batDauGiaoDienOnline → bắt đầu heartbeat + AFK
@@ -509,20 +525,7 @@ function _hookOnlineEvents() {
 }
 
 // Ghi dấu activity khi đánh cờ (makeMove)
-window.addEventListener('load', () => {
-    setTimeout(() => {
-        const waitMakeMove = setInterval(() => {
-            if (typeof makeMove === 'function') {
-                clearInterval(waitMakeMove);
-                const _origMakeMove = window.makeMove;
-                window.makeMove = function() {
-                    _touchActivity();
-                    return _origMakeMove.apply(this, arguments);
-                };
-            }
-        }, 500);
-    }, 1000);
-});
+// Đã gộp vào window.addEventListener('load' chính (dòng 27)
 
 console.log('[RoomHealth] room-health.js loaded');
 

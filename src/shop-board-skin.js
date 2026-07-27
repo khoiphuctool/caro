@@ -350,10 +350,15 @@ function applyBoardSkinToEngine() {
     const skin = getEquippedBoardSkin();
     console.log('[DEBUG-BOARD-SKIN] applyBoardSkinToEngine - skin:', skin);
     
-    // Áp dụng cho SharedBoardEngine (nếu có)
+    // Áp dụng cho SharedBoardEngine (nếu có và đã khởi tạo)
     if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.Renderer) {
-        SharedBoardEngine.Renderer.setBoardSkin(skin);
-        SharedBoardEngine.Renderer.render();
+        // Chỉ render nếu renderer đã được khởi tạo với canvas
+        if (SharedBoardEngine.Renderer.canvas && SharedBoardEngine.Renderer.ctx) {
+            SharedBoardEngine.Renderer.setBoardSkin(skin);
+            SharedBoardEngine.Renderer.render();
+        } else {
+            console.log('[DEBUG-BOARD-SKIN] SharedBoardEngine.Renderer not initialized, skipping');
+        }
     }
     
     // Áp dụng cho hệ thống cũ renderInfiniteBoard (online mode dùng cái này)

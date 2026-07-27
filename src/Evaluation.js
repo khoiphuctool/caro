@@ -165,7 +165,7 @@ const Evaluation = {
         }
 
         // Limit candidates and sort by quick score
-        const MAX_CANDIDATES = 50;
+        const MAX_CANDIDATES = 25; // Giảm từ 50 xuống 25 để tăng tốc độ
         if (cells.length > MAX_CANDIDATES) {
             cells.sort((a, b) => this.quickScore(b.r, b.c) - this.quickScore(a.r, a.c));
             return cells.slice(0, MAX_CANDIDATES);

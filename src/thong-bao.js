@@ -66,6 +66,11 @@ function _renderTicker() {
     const duration = Math.max(15, Math.min(50, charCount * 0.25));
     content.style.animationDuration = `${duration}s`;
 
+    // Reset animation để bắt đầu từ bên phải mỗi khi có thông báo mới
+    content.style.animation = 'none';
+    content.offsetHeight; // Trigger reflow
+    content.style.animation = `ticker-scroll ${duration}s linear infinite`;
+
     ticker.classList.add('has-content');
     document.body.classList.add('ticker-on');
 }
@@ -98,7 +103,7 @@ function setupWinNotificationListener() {
             addNotification('win', res.msg);
         });
 
-    // Cũng lắng nghe history cho thắng bot / PvP cũ
+    // Lắng nghe history chỉ cho thắng bot (tránh trùng với match_results cho trận online)
     db.ref('history').limitToLast(5).on('child_added', snap => {
         const match = snap.val();
         if (!match || !match.timestamp) return;
@@ -109,12 +114,10 @@ function setupWinNotificationListener() {
         const loserName  = xWon ? match.playerO : match.playerX;
         if (!winnerName || !loserName) return;
 
-        // Phân biệt thắng bot hay PvP
+        // Chỉ thông báo khi thắng bot (bỏ qua PvP vì match_results đã xử lý)
         const isBot = loserName.startsWith('🤖') || loserName.toLowerCase().includes('bot');
         if (isBot) {
             addNotification('win', `🏆 ${winnerName} vừa xuất sắc vượt qua ${loserName}!`);
-        } else {
-            addNotification('win', `⚔️ ${winnerName} đã đánh bại ${loserName}!`);
         }
     });
 }

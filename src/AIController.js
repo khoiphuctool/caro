@@ -5,7 +5,7 @@
 const AIController = {
     // ===== CONFIGURATION =====
     config: {
-        useNewArchitecture: true,  // Bật/tắt kiến trúc mới
+        useNewArchitecture: false,  // Bật/tắt kiến trúc mới - ĐÃ TẮT, DÙNG LOGIC CŨ
         debugMode: false,
         defaultDepth: 5,
         defaultTimeLimit: 2000
@@ -104,6 +104,29 @@ const AIController = {
                                    'Blocking winning threat', { r, c });
                 }
                 return { r, c };
+            }
+        }
+
+        // ══════════════════════════════════════════════════════
+        // 1.2. ĐỊCH CÓ FOUR_OPEN — chặn ngay, 1 nước nữa là thua
+        // ══════════════════════════════════════════════════════
+        for (const { r, c } of validCands) {
+            const threat = ThreatDetector.evaluateDefenseThreat(r, c, opponent, winCount, blockBothEnds);
+            if (threat.maxThreat === ThreatDetector.THREAT.CRITICAL) {
+                // Check nếu có FOUR_OPEN
+                const hasFourOpen = threat.patternScores.some(p =>
+                    p.pattern === PatternDetector.PATTERN.FOUR_OPEN
+                );
+                if (hasFourOpen) {
+                    if (typeof updateBotThinking === 'function') {
+                        updateBotThinking('Chặn FOUR nguy hiểm! 🚨');
+                    }
+                    if (typeof DebugLogger !== 'undefined') {
+                        DebugLogger.log(DebugLogger.CATEGORY.AI_DECISION, DebugLogger.LEVEL.INFO,
+                                       'Blocking FOUR_OPEN threat', { r, c });
+                    }
+                    return { r, c };
+                }
             }
         }
 
@@ -268,8 +291,8 @@ const AIController = {
         // Use search with limited depth
         const searchResult = Search.findBestMove(player, {
             algorithm: Search.ALGORITHM.PVS,
-            depth: 3,
-            timeLimit: 1000,
+            depth: 2,
+            timeLimit: 500,
             winCount,
             blockBothEnds
         });
@@ -326,11 +349,11 @@ const AIController = {
             }
         }
 
-        // Use search with depth 6 để AI đoán trước 6 nước
+        // Use search with depth 4 để AI đoán trước 4 nước
         const searchResult = Search.findBestMove(player, {
             algorithm: Search.ALGORITHM.PVS,
-            depth: 6,
-            timeLimit: 3000,
+            depth: 4,
+            timeLimit: 1500,
             winCount,
             blockBothEnds
         });
@@ -349,19 +372,50 @@ const AIController = {
 
     // ===== GOD MODE =====
     getGodModeMove(candidates, player, opponent, winCount, blockBothEnds) {
-        // God mode dùng thẳng getBotMove() cũ (ai-nao.js) — pipeline đầy đủ nhất:
-        // earlyGameDefense, lookahead, trap, WIN_ pattern, MCTS, PVS depth 6-8
-        // AIController chỉ lo win/block-win (bước 0 & 1) rồi nhường lại.
-        if (typeof getBotMove === 'function') {
-            const move = getBotMove();
-            if (move) return move;
+        // ══════════════════════════════════════════════════════
+        // GOD MODE - DÙNG PIPELINE MỚI, KHÔNG DÙNG LOGIC CŨ
+        // Tránh xung đột giữa 2 hệ thống scoring khác nhau
+        // ══════════════════════════════════════════════════════
+        
+        // Neural-sort candidates
+        const sortedCands = this.neuralSortCandidates(candidates, player);
+
+        // Check for FOUR threats — dùng phân tích nâng cao
+        const blockPositions = ThreatDetector.analyzeBlockPositions(sortedCands, opponent, winCount, blockBothEnds);
+        if (blockPositions.length > 0) {
+            const bestBlock = blockPositions[0];
+            if (typeof updateBotThinking === 'function') {
+                updateBotThinking('Chặn nguy hiểm! 🛡️');
+            }
+            return { r: bestBlock.r, c: bestBlock.c };
         }
 
-        // Fallback nếu getBotMove không khả dụng: dùng Search PVS depth 7
+        // Check for advanced patterns
+        for (const { r, c } of sortedCands) {
+            const threat = ThreatDetector.evaluateThreat(r, c, player, opponent, winCount, blockBothEnds);
+            
+            // Check for fork
+            if (threat.attack.specialPatterns.fork.isFork) {
+                if (typeof updateBotThinking === 'function') {
+                    updateBotThinking('Phát hiện fork! ⚡');
+                }
+                return { r, c };
+            }
+            
+            // Check for double three
+            if (threat.attack.specialPatterns.doubleThree) {
+                if (typeof updateBotThinking === 'function') {
+                    updateBotThinking('Tạo double three! ⚡');
+                }
+                return { r, c };
+            }
+        }
+
+        // Use search with depth 5
         const searchResult = Search.findBestMove(player, {
             algorithm: Search.ALGORITHM.PVS,
-            depth: 7,
-            timeLimit: 3000,
+            depth: 5,
+            timeLimit: 2000,
             winCount,
             blockBothEnds
         });

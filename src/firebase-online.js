@@ -338,11 +338,7 @@ function fetchUserData(userId) {
             if (!welcomeNotificationShown) {
                 welcomeNotificationShown = true;
                 const displayName = data.displayName || data.username || 'Bạn';
-                if (typeof reinitTickerAfterLogin === 'function') {
-                    reinitTickerAfterLogin(displayName);
-                } else if (typeof addNotification === 'function') {
-                    addNotification('welcome', `🎉 Chào mừng ${displayName} đã quay lại!`);
-                }
+                reinitTickerAfterLogin(displayName);
             }
 
             // Khởi tạo hệ thống Xu
@@ -430,15 +426,6 @@ function langNgheDanhSachOnline() {
         const roomListEl = document.getElementById('room-online-users-list');
         if (roomListEl) renderDanhSachMoiTrongPhong(users, userId, roomListEl);
     });
-
-    // Lắng nghe kết quả trận đấu broadcast — chỉ nhận msg mới sau khi client join
-    const _tsJoin = Date.now();
-    db.ref('match_results').orderByChild('ts').limitToLast(1)
-        .on('child_added', snap => {
-            const res = snap.val();
-            if (!res || !res.msg || res.ts < _tsJoin) return;
-            if (typeof addNotification === 'function') addNotification('win', res.msg);
-        });
 }
 
 function renderDanhSachOnlineSanh(users, myId, container) {
