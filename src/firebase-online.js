@@ -1967,8 +1967,16 @@ function capNhatUIPhong(room) {
 }
 
 function loadPlayerInfo(userId, role) {
-    db.ref('users/' + userId).once('value').then(snap => {
-        const u = snap.val();
+    // Load user data và room data song song để tối ưu tốc độ
+    const userPromise = db.ref('users/' + userId).once('value');
+    let roomPromise = Promise.resolve(null);
+    
+    if (currentRoomId) {
+        roomPromise = db.ref(`rooms/${currentRoomId}`).once('value');
+    }
+    
+    Promise.all([userPromise, roomPromise]).then(([userSnap, roomSnap]) => {
+        const u = userSnap.val();
         if (!u) return;
         const rank        = getRankName(u.winBot, u.winSolo);
         const displayName = tenHienThi(u, 'Người chơi ' + role);
@@ -1985,11 +1993,39 @@ function loadPlayerInfo(userId, role) {
         const isEmoji = avatar.length <= 2 && /\p{Emoji}/u.test(avatar);
 
         // Lưu skinId của người chơi này để bàn cờ dùng khi render
-        const skinId = u.equippedSkin || 'skin_default';
-        if (role === 'X') window._onlineSkinX = skinId;
-        if (role === 'O') window._onlineSkinO = skinId;
+        // Ưu tiên skin từ room data (được set khi join), fallback về user profile
+        let skinId = 'skin_default';
+        const room = roomSnap ? roomSnap.val() : null;
+        if (room) {
+            const roomSkinField = role === 'X' ? 'playerX_skin' : 'playerO_skin';
+            if (room[roomSkinField]) {
+                skinId = room[roomSkinField];
+                console.log('[loadPlayerInfo] Using skin from room data:', roomSkinField, '=', skinId);
+            } else {
+                skinId = u.equippedSkin || 'skin_default';
+                console.log('[loadPlayerInfo] Room skin not found, using user profile skin:', skinId);
+            }
+        } else {
+            skinId = u.equippedSkin || 'skin_default';
+            console.log('[loadPlayerInfo] Room not found, using user profile skin:', skinId);
+        }
+        
+        if (role === 'X') {
+            window._onlineSkinX = skinId;
+            console.log('[loadPlayerInfo] Set _onlineSkinX:', skinId, 'for user:', userId);
+        }
+        if (role === 'O') {
+            window._onlineSkinO = skinId;
+            console.log('[loadPlayerInfo] Set _onlineSkinO:', skinId, 'for user:', userId);
+        }
         // Cập nhật cursor ngay sau khi skin load xong
         if (typeof updateCursorByTurn === 'function') updateCursorByTurn();
+        
+        // Re-render bàn cờ sau khi skin load xong để áp dụng skin mới
+        if (typeof renderInfiniteBoard === 'function') {
+            console.log('[loadPlayerInfo] Re-rendering board after skin load');
+            renderInfiniteBoard();
+        }
 
         // Avatar đối thủ lên thanh thông báo hệ thống
         if ((myRole === 'X' || myRole === 'O') && role !== myRole) {
