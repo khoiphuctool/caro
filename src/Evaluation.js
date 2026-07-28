@@ -75,10 +75,10 @@ const Evaluation = {
 
     // ===== CALCULATE CENTER BIAS =====
     calculateCenterBias(r, c) {
-        const isInfinite = typeof GameState !== 'undefined' ? GameState.board.isInfinite : window.isInfinite;
-        const infiniteMap = typeof GameState !== 'undefined' ? GameState.board.infiniteMap : window.infiniteMap;
-        
-        if (!isInfinite || infiniteMap.size === 0) return 0;
+        const isInfinite = typeof GameState !== 'undefined' && GameState.board ? GameState.board.isInfinite : false;
+        const infiniteMap = typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : null;
+
+        if (!isInfinite || !infiniteMap || infiniteMap.size === 0) return 0;
 
         // Calculate actual battle center
         let sr = 0, sc = 0, n = 0;
@@ -110,15 +110,15 @@ const Evaluation = {
 
     // ===== GET CANDIDATE MOVES =====
     getCandidateMoves(range = 2) {
-        const isInfinite = typeof GameState !== 'undefined' ? GameState.board.isInfinite : window.isInfinite;
-        const boardState = typeof GameState !== 'undefined' ? GameState.board.state : window.boardState;
-        const boardSize = typeof GameState !== 'undefined' ? GameState.board.size : window.boardSize;
-        const infiniteMap = typeof GameState !== 'undefined' ? GameState.board.infiniteMap : window.infiniteMap;
+        const isInfinite = typeof GameState !== 'undefined' && GameState.board ? GameState.board.isInfinite : false;
+        const boardState = typeof GameState !== 'undefined' && GameState.board ? GameState.board.state : [];
+        const boardSize = typeof GameState !== 'undefined' && GameState.board ? GameState.board.size : 30;
+        const infiniteMap = typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : null;
 
         let cells = [];
 
         if (isInfinite) {
-            if (infiniteMap.size === 0) return [{ r: 0, c: 0 }];
+            if (!infiniteMap || infiniteMap.size === 0) return [{ r: 0, c: 0 }];
 
             let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
             infiniteMap.forEach((v, k) => {
@@ -182,7 +182,7 @@ const Evaluation = {
 
         if (!getCellFn) return false;
 
-        const map = infiniteMap || (typeof GameState !== 'undefined' ? GameState.board.infiniteMap : window.infiniteMap);
+        const map = infiniteMap || (typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : null);
 
         for (let dr = -range; dr <= range; dr++) {
             for (let dc = -range; dc <= range; dc++) {

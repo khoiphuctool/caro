@@ -275,8 +275,8 @@ const ThreatDetector = {
         }
 
         // Kiểm tra vị trí chiến lược (gần trung tâm)
-        const isInfinite = typeof GameState !== 'undefined' ? GameState.board.isInfinite : window.isInfinite;
-        const infiniteMap = typeof GameState !== 'undefined' ? GameState.board.infiniteMap : window.infiniteMap;
+        const isInfinite = typeof GameState !== 'undefined' && GameState.board ? GameState.board.isInfinite : false;
+        const infiniteMap = typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : null;
         if (isInfinite && infiniteMap && infiniteMap.size > 0) {
             let sr = 0, sc = 0, n = 0;
             for (const key of infiniteMap.keys()) {

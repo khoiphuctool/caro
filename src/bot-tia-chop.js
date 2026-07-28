@@ -20,6 +20,16 @@ const BotTiaChop = {
     // player / opponent là 'X' hoặc 'O' (string từ game engine)
     // ================================================================
     getBotMove(options = {}) {
+        console.log('[BotTiaChop][getBotMove] START - timestamp:', performance.now());
+        console.log('[BotTiaChop][getBotMove] State check:', {
+            boardSize: typeof GameState !== 'undefined' && GameState.board && GameState.board.infiniteMap ? GameState.board.infiniteMap.size : 'undefined',
+            currentPlayer: typeof currentPlayer !== 'undefined' ? currentPlayer : 'undefined',
+            isGameActive: typeof isGameActive !== 'undefined' ? isGameActive : 'undefined',
+            isSolo: typeof isSolo !== 'undefined' ? isSolo : 'undefined',
+            gameMode: typeof gameMode !== 'undefined' ? gameMode : 'undefined',
+            timestamp: performance.now()
+        });
+
         const playerStr   = options.player   ?? (typeof botPiece   !== 'undefined' ? botPiece   : 'O');
         const opponentStr = options.opponent ?? (typeof humanPiece !== 'undefined' ? humanPiece : 'X');
         const winCount    = options.winCount ?? (typeof window.winCount !== 'undefined' ? window.winCount : 5);
@@ -49,9 +59,36 @@ const BotTiaChop = {
         const maxS = this.evaluatePos(s, machSq, board, rows, cols, winCount);
         const maxQ = this.evaluatePos(q, userSq, board, rows, cols, winCount);
 
+        // Log top 15 ô điểm cao nhất
+        console.log('[BotTiaChop][evaluatePos] - timestamp:', performance.now());
+        const scoredCells = [];
+        for (let i = 0; i < rows; i++) {
+            for (let j = 0; j < cols; j++) {
+                if (s[i][j] > -1 || q[i][j] > -1) {
+                    const attack = s[i][j] > -1 ? s[i][j] : 0;
+                    const defend = q[i][j] > -1 ? q[i][j] : 0;
+                    const score = Math.max(attack, defend);
+                    scoredCells.push({
+                        row: minR + i,
+                        col: minC + j,
+                        attack: attack,
+                        defend: defend,
+                        score: score
+                    });
+                }
+            }
+        }
+        scoredCells.sort((a, b) => b.score - a.score);
+        const top15 = scoredCells.slice(0, 15);
+        console.table(top15);
+
         const move = this.getBestMachMove(s, maxS, q, maxQ, rows, cols);
 
         if (move) {
+            console.log('[BotTiaChop][getBotMove]');
+            console.log('local move=(' + move[0] + ',' + move[1] + ')');
+            console.log('origin=(' + minR + ',' + minC + ')');
+            console.log('absolute=(' + (minR + move[0]) + ',' + (minC + move[1]) + ')');
             return { r: minR + move[0], c: minC + move[1] };
         }
 
@@ -63,14 +100,21 @@ const BotTiaChop = {
     // READ BOARD — đọc infiniteMap → mảng 2D cố định có padding
     // ================================================================
     readBoard() {
+        console.log('[BotTiaChop][readBoard] START - timestamp:', performance.now());
+
         const MARGIN = 4;   // vùng mở rộng quanh quân đã đánh
 
         // Lấy tọa độ min/max từ infiniteMap
         let minR = Infinity, maxR = -Infinity;
         let minC = Infinity, maxC = -Infinity;
 
-        const map = (typeof window !== 'undefined' && window.infiniteMap)
-            ? window.infiniteMap : new Map();
+        // Read from GameState.board.infiniteMap - single source of truth
+        const map = (typeof GameState !== 'undefined' && GameState.board && GameState.board.infiniteMap)
+            ? GameState.board.infiniteMap : new Map();
+
+        console.log('[BotTiaChop][readBoard] map reference:', map);
+        console.log('[BotTiaChop][readBoard] GameState.board.infiniteMap reference:', typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : 'GameState undefined');
+        console.log('[BotTiaChop][readBoard] same map?', map === (typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : null));
 
         map.forEach((_, key) => {
             const [r, c] = key.split(',').map(Number);
@@ -83,12 +127,28 @@ const BotTiaChop = {
             minR = 0; maxR = 19; minC = 0; maxC = 19;
         }
 
+        console.log('[BotTiaChop][readBoard] - timestamp:', performance.now());
+        console.log('mapSize=' + map.size);
+        console.log('before:');
+        console.log('minR=' + minR);
+        console.log('maxR=' + maxR);
+        console.log('minC=' + minC);
+        console.log('maxC=' + maxC);
+
         // Thêm margin
         minR -= MARGIN; maxR += MARGIN;
         minC -= MARGIN; maxC += MARGIN;
 
         const rows = maxR - minR + 1;
         const cols = maxC - minC + 1;
+
+        console.log('after:');
+        console.log('minR=' + minR);
+        console.log('maxR=' + maxR);
+        console.log('minC=' + minC);
+        console.log('maxC=' + maxC);
+        console.log('rows=' + rows);
+        console.log('cols=' + cols);
 
         // Xây mảng 2D: 0=trống, 1=X, -1=O
         const board = this.make2D(rows, cols, 0);
@@ -291,8 +351,16 @@ const BotTiaChop = {
     // Dùng iMax/jMax array + random để không đánh cùng 1 chỗ
     // ================================================================
     getBestMachMove(s, maxS, q, maxQ, rows, cols) {
+        console.log('[BotTiaChop][getBestMachMove] START - timestamp:', performance.now());
+
         const iMax = [], jMax = [];
         let nMax = 0;
+
+        const mode = maxQ >= maxS ? 'defense' : 'attack';
+        console.log('[BotTiaChop][getBestMachMove]');
+        console.log('maxS=' + maxS);
+        console.log('maxQ=' + maxQ);
+        console.log('mode=' + mode);
 
         if (maxQ >= maxS) {
             // Phòng thủ quan trọng hơn: chọn ô có q === maxQ, tiebreak bằng s
@@ -318,10 +386,22 @@ const BotTiaChop = {
             }
         }
 
+        console.log('nMax=' + nMax);
+
         if (nMax === 0) return null;
 
+        if (nMax > 1) {
+            console.log('candidates:');
+            for (let k = 0; k < nMax; k++) {
+                console.log('[' + iMax[k] + ',' + jMax[k] + '] s=' + s[iMax[k]][jMax[k]] + ' q=' + q[iMax[k]][jMax[k]]);
+            }
+        }
+
         const randomK = Math.floor(Math.random() * nMax);
-        return [iMax[randomK], jMax[randomK]];
+        const selected = [iMax[randomK], jMax[randomK]];
+        console.log('randomK=' + randomK);
+        console.log('selected=(' + selected[0] + ',' + selected[1] + ')');
+        return selected;
     }
 };
 

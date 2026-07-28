@@ -8,7 +8,7 @@ const GameState = {
         size: 30,
         winCount: 5,
         state: [],           // For fixed board
-        infiniteMap: null,  // For infinite board (Map)
+        infiniteMap: new Map(),  // For infinite board (Map)
         isInfinite: false,
     },
 

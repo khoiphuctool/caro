@@ -107,7 +107,8 @@ const DIRECTIONS = [{ dr: 0, dc: 1 }, { dr: 1, dc: 0 }, { dr: 1, dc: 1 }, { dr: 
 let boardSize = 30;
 let winCount  = 5;
 let boardState   = [];
-let infiniteMap  = new Map();
+// Reference to GameState.board.infiniteMap - single source of truth
+let infiniteMap  = new Map();  // Placeholder, will be synced with GameState.board.infiniteMap
 let isInfinite   = false;
 let isBotMove    = false;
 
@@ -194,16 +195,22 @@ function getCell(r, c) {
 function setCell(r, c, val) {
     const oldVal = getCell(r, c);
     if (isInfinite) {
+        console.log('[setCell] infiniteMap reference:', infiniteMap);
+        console.log('[setCell] GameState.board.infiniteMap reference:', typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : 'GameState undefined');
+        console.log('[setCell] same map?', infiniteMap === (typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : null));
+
         if (val === "") {
             infiniteMap.delete(`${r},${c}`);
-            if (typeof GameState !== 'undefined' && GameState.board.infiniteMap) {
-                GameState.board.infiniteMap.delete(`${r},${c}`);
-            }
+            console.log('[setCell] REMOVE');
+            console.log('(' + r + ',' + c + ')');
+            console.log('player=' + oldVal);
+            console.log('size=' + infiniteMap.size);
         } else {
             infiniteMap.set(`${r},${c}`, val);
-            if (typeof GameState !== 'undefined' && GameState.board.infiniteMap) {
-                GameState.board.infiniteMap.set(`${r},${c}`, val);
-            }
+            console.log('[setCell] ADD');
+            console.log('(' + r + ',' + c + ')');
+            console.log('player=' + val);
+            console.log('size=' + infiniteMap.size);
         }
     } else {
         // Guard: boardState chưa tồn tại hoặc hàng chưa khởi tạo → fallback về infiniteMap
@@ -221,4 +228,29 @@ function setCell(r, c, val) {
 function isValid(r, c) {
     if (isInfinite) return true;
     return r >= 0 && r < boardSize && c >= 0 && c < boardSize;
+}
+
+// ===== INITIALIZATION - Sync with GameState =====
+function initializeBoardState() {
+    if (typeof GameState !== 'undefined' && GameState.board) {
+        infiniteMap = GameState.board.infiniteMap;
+        isInfinite = GameState.board.isInfinite;
+        boardSize = GameState.board.size;
+        winCount = GameState.board.winCount;
+        console.log('[trang-thai] Synced with GameState:', {
+            infiniteMap: infiniteMap ? 'synced' : 'null',
+            isInfinite,
+            boardSize,
+            winCount
+        });
+    } else {
+        // Fallback if GameState not available
+        infiniteMap = new Map();
+        console.warn('[trang-thai] GameState not available, created fallback infiniteMap');
+    }
+}
+
+// Initialize immediately if GameState exists
+if (typeof GameState !== 'undefined' && GameState.board && GameState.board.infiniteMap) {
+    initializeBoardState();
 }

@@ -208,8 +208,19 @@ const BotRoomManager = {
         // YC.TXT FIX: Log infCanvas.id after initBotRoomCanvas
         console.log('[BOT ROOM] enterBotRoom - infCanvas.id:', typeof infCanvas !== 'undefined' && infCanvas ? infCanvas.id : 'null');
 
+        // Initialize GameState before initGame - ensures single source of truth is ready
+        if (typeof GameState !== 'undefined' && typeof GameState.initialize === 'function') {
+            GameState.initialize();
+            console.log('[BOT ROOM] GameState initialized');
+        }
+
         // Khởi tạo game
         if (typeof initGame === 'function') initGame();
+
+        // YC.TXT FIX: Call renderInfiniteBoard() AFTER initGame() to ensure GameState.board.infiniteMap is initialized
+        if (typeof renderInfiniteBoard === 'function') {
+            renderInfiniteBoard();
+        }
 
         // Update overlay UI
         setTimeout(() => this.updateBotRoomOverlays(), 120);
@@ -315,11 +326,8 @@ const BotRoomManager = {
         // Add resize listener for bot room
         this.addBotRoomResizeListener();
 
-        // YC.TXT FIX: Call renderInfiniteBoard() AFTER initInfCanvas completes
-        // This must be AFTER initGame() to avoid race condition
-        if (typeof renderInfiniteBoard === 'function') {
-            renderInfiniteBoard();
-        }
+        // YC.TXT FIX: renderInfiniteBoard() will be called AFTER initGame() in startBotBattle()
+        // to ensure GameState.board.infiniteMap is properly initialized
     },
 
     // ══ Add resize listener for BOT ROOM ═════════════════════

@@ -156,6 +156,9 @@ function startPlayerTurnTimer() {
 
 // ===== INIT GAME =====
 function initGame() {
+    console.log('[initGame] START - timestamp:', performance.now());
+    console.trace();
+
     // Chặn restart khi đang chơi online (ngoại trừ bot room mode)
     if (window.isOnlineModeActive && window.isOnlineModeActive() && !window.isBotRoomMode) {
         alert("Bạn đang trong trận đấu Online, không thể tự làm mới ván cờ!");
@@ -236,12 +239,25 @@ function initGame() {
     gameTotalTimer = setInterval(() => { gameTotalSeconds++; updateTimerDisplay(); }, 1000);
     startPlayerTurnTimer();
 
-    infiniteMap = new Map();
-    // Đồng bộ với GameState
+    // Reset only GameState - single source of truth
     if (typeof GameState !== 'undefined' && GameState.board) {
-        GameState.board.infiniteMap = infiniteMap;
+        GameState.board.infiniteMap = new Map();
         GameState.board.isInfinite = true;
+        // Sync trang-thai.js reference
+        if (typeof initializeBoardState === 'function') {
+            initializeBoardState();
+        }
+    } else {
+        // Fallback if GameState not available
+        infiniteMap = new Map();
     }
+
+    console.log('[initGame] infiniteMap identity check:', {
+        GameState: typeof GameState !== 'undefined' ? 'exists' : 'undefined',
+        GameStateMap: typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : 'N/A',
+        trangThaiMap: infiniteMap,
+        same: typeof GameState !== 'undefined' && GameState.board ? Object.is(GameState.board.infiniteMap, infiniteMap) : 'N/A'
+    });
     // YC.TXT FIX: KHÔNG reset infCanvas về null trong bất kỳ mode nào
     // Board First architecture: canvas được inject và giữ nguyên
     // Chỉ reset khi thực sự cần thay đổi canvas (không phải trong initGame)
@@ -259,6 +275,21 @@ function initGame() {
 
     zobristHash = 0;
 
+    // Log state before AI scheduling
+    console.log('[initGame] State before AI scheduling - timestamp:', performance.now(), {
+        currentPlayer,
+        botPiece,
+        isGameActive,
+        isSolo,
+        isBotMode: isBotMode(),
+        gameMode,
+        GameState: typeof GameState !== 'undefined' ? 'exists' : 'undefined',
+        GameStateMap: typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : 'N/A',
+        trangThaiMap: infiniteMap,
+        same: typeof GameState !== 'undefined' && GameState.board ? Object.is(GameState.board.infiniteMap, infiniteMap) : 'N/A',
+        infiniteMapSize: infiniteMap ? infiniteMap.size : 'undefined'
+    });
+
     // Sử dụng requestAnimationFrame để render mượt hơn
     requestAnimationFrame(() => {
         renderInfiniteBoard();
@@ -269,9 +300,13 @@ function initGame() {
                             gameMode === 'bot-tia-chop' ? 200 :
                             gameMode === 'ai-hard' ? 300 : 180;
             statusPanel.innerHTML = `🤖 <span style="opacity:0.7">Đang tính toán</span> <span class="think-dots">...</span>`;
+            console.log('[initGame] Scheduling AI move in', thinkTime, 'ms - timestamp:', performance.now());
             setTimeout(makeAIMove, thinkTime);
         }
     });
+
+    console.log('[initGame] END - timestamp:', performance.now());
+    console.trace();
 }
 
 // ===== STATUS =====
@@ -394,10 +429,17 @@ function makeMove(r, c) {
         return;
     }
     // --- GIỮ NGUYÊN LOGIC ĐẤU BOT TỰ ĐỘNG CŨ CỦA ANH Ở DƯỚI ĐÂY ---
-    
+
+    console.log('[makeMove] makeMove(' + r + ',' + c + ')');
+    const sizeBefore = typeof infiniteMap !== 'undefined' ? infiniteMap.size : 'undefined';
+    console.log('[makeMove] infiniteMap.size before=' + sizeBefore);
+
     moveCount++;
     setCell(r, c, currentPlayer);
     moveHistory.push({ r, c, player: currentPlayer });
+
+    const sizeAfter = typeof infiniteMap !== 'undefined' ? infiniteMap.size : 'undefined';
+    console.log('[makeMove] infiniteMap.size after=' + sizeAfter);
 
     // Invalidate neural cache khi board state thay đổi
     if (typeof neuralEvaluator !== 'undefined' && neuralEvaluator.invalidateCache) {
