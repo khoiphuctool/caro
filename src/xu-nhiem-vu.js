@@ -913,20 +913,34 @@ window.onWinBotXu = onWinBotXu;
 // THƯỞNG XU KHI THẮNG SOLO ONLINE (PvP)
 // Giới hạn SOLO_WIN_DAILY_LIMIT trận/ngày
 // ──────────────────────────────────────────────
+// Guard để tránh gọi nhiều lần cho cùng ván
+let _lastProcessedSoloWinRoom = '';
+let _lastProcessedSoloWinTime = 0;
 function onWinSoloXu() {
     const uid = _getUid();
     const database = _getDb();
     if (!uid || !database) return;
 
-    // Không thưởng Solo xu nếu ván này đang có cược (tránh double reward)
+    // Guard để tránh gọi nhiều lần
+    const now = Date.now();
     const roomId = (typeof currentRoomId !== 'undefined') ? currentRoomId : null;
+    if (roomId && _lastProcessedSoloWinRoom === roomId && (now - _lastProcessedSoloWinTime) < 5000) {
+        console.log('[SoloXu] Skipping duplicate solo win reward for room:', roomId);
+        return;
+    }
+
+    // Không thưởng Solo xu nếu ván này đang có cược (tránh double reward)
     if (roomId) {
         database.ref(`rooms/${roomId}/betPot`).once('value').then(snap => {
             if (snap.val() > 0) return; // có cược → skip solo reward
+            _lastProcessedSoloWinRoom = roomId || '';
+            _lastProcessedSoloWinTime = now;
             _runOnWinSoloXu(uid, database);
         });
         return;
     }
+    _lastProcessedSoloWinRoom = '';
+    _lastProcessedSoloWinTime = now;
     _runOnWinSoloXu(uid, database);
 }
 

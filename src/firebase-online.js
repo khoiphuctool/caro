@@ -429,13 +429,8 @@ function setupAuthListeners() {
         fetchUserData(savedId);
         updateAuthUI(true);
         
-        // Tự động vào lại phòng nếu có lưu
-        const savedRoomId = localStorage.getItem('current_room_id');
-        if (savedRoomId) {
-            setTimeout(() => {
-                vaoLaiPhong(savedRoomId);
-            }, 500);
-        }
+        // Không tự động vào lại phòng ở đây - window load event sẽ xử lý
+        // để tránh conflict và hiển thị UI không đúng
     } else {
         updateAuthUI(false);
     }
@@ -477,13 +472,8 @@ function dangNhap() {
         fetchUserData(userId);
         updateAuthUI(true);
         
-        // Tự động vào lại phòng nếu có lưu
-        const savedRoomId = localStorage.getItem('current_room_id');
-        if (savedRoomId) {
-            setTimeout(() => {
-                vaoLaiPhong(savedRoomId);
-            }, 500);
-        }
+        // Không tự động vào lại phòng ở đây - window load event sẽ xử lý
+        // để tránh conflict và hiển thị UI không đúng
     });
 }
 function dangXuat() {
@@ -648,6 +638,7 @@ function setMyOnlineStatus(state) {
         });
         ref.onDisconnect().remove();
     }
+    console.log('[OnlineStatus] Set status to:', state, 'for user:', userId);
 }
 // ══════════════════════════════════════════════════════════════════
 // 👥 DANH SÁCH ONLINE & LỜI MỜI
@@ -865,6 +856,8 @@ function setupEventListeners() {
             db.ref(`rooms/${savedRoom}/${sf}`).set('online');
             setupOnDisconnect(savedRoom, myRole);
             batDauGiaoDienOnline();
+            // Cập nhật UI ngay lập tức với thông tin phòng hiện tại
+            capNhatUIPhongOnline(room);
             if (room.status === 'playing') {
                 phucHoiBanCo(savedRoom, () => {
                     langNgheThayDoiPhong(savedRoom);
@@ -2945,12 +2938,16 @@ function xuLyKetThucVan(room) {
     const thangThucSu = !endReason.includes('bỏ cuộc');
     // Chỉ người thắng ghi rank — ưu tiên người thắng ghi để tránh trùng
     if (myId === winnerId) {
+        // Kiểm tra có cược không
+        const minBetCheck = room.isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
+        const hasBet = room.betAmount && room.betAmount >= minBetCheck;
+        
         // Chỉ +winSolo khi thắng bằng nước cờ thực sự
         if (thangThucSu) {
             db.ref(`users/${winnerId}/winSolo`).transaction(c => (c || 0) + 1);
             capNhatBXH(winName, winnerId);
-            // Thưởng xu thắng Solo Online (có giới hạn ngày)
-            if (typeof onWinSoloXu === 'function') onWinSoloXu();
+            // Thưởng xu thắng Solo Online (có giới hạn ngày) - chỉ khi KHÔNG có cược
+            if (!hasBet && typeof onWinSoloXu === 'function') onWinSoloXu();
             // Broadcast kết quả lên ticker toàn server
             const _roomNum = room.roomNumber || (currentRoomId ? currentRoomId.replace('phong_', '') : '?');
             db.ref('match_results').push({
@@ -2960,8 +2957,6 @@ function xuLyKetThucVan(room) {
         } else {
             // Thắng do đối thủ bỏ cuộc — chỉ thưởng nếu không có cược
             // Nếu có cược, ketThucCuoc sẽ xử lý đầy đủ
-            const minBetCheck = room.isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
-            const hasBet = room.betAmount && room.betAmount >= minBetCheck;
             if (!hasBet && typeof showXuPopup === 'function') {
                 showXuPopup(Math.floor((XU_CONFIG ? XU_CONFIG.SOLO_WIN_REWARD : 200) / 2), 'Đối thủ bỏ cuộc 🏳️');
             }
@@ -2976,9 +2971,11 @@ function xuLyKetThucVan(room) {
             // Fallback: winner không online
         }
     }
-    // Xử lý cược: chỉ gọi từ winner để tránh lặp
+    // Xử lý cược: chỉ gọi từ winner và chỉ khi có cược
     // Loser sẽ nhận xu popup qua transaction của winner
-    if (myId === winnerId && typeof ketThucCuoc === 'function') {
+    const minBetCheck = room.isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
+    const hasBet = room.betAmount && room.betAmount >= minBetCheck;
+    if (myId === winnerId && hasBet && typeof ketThucCuoc === 'function') {
         ketThucCuoc(currentRoomId, room.winner, false);
     }
 }
