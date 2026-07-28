@@ -834,6 +834,13 @@ function setupEventListeners() {
     });
     // Reconnect khi load lại trang
     window.addEventListener('load', () => {
+        // YC.TXT FIX: Use centralized GameModeManager to check current mode
+        if (typeof GameModeManager !== 'undefined' && GameModeManager.isActive()) {
+            const currentMode = GameModeManager.getCurrentMode();
+            console.log('[Firebase Online] Skipping Online reconnect - another mode is active:', currentMode);
+            return;
+        }
+        
         const savedRoom = localStorage.getItem('current_room_id');
         const savedUser = localStorage.getItem('current_user_id');
         if (!savedRoom || !savedUser) return;
@@ -856,6 +863,10 @@ function setupEventListeners() {
             db.ref(`rooms/${savedRoom}/${sf}`).set('online');
             setupOnDisconnect(savedRoom, myRole);
             batDauGiaoDienOnline();
+            // YC.TXT FIX: Set mode to ONLINE when reconnecting
+            if (typeof GameModeManager !== 'undefined') {
+                GameModeManager.setMode(GameModes.ONLINE, { roomId: savedRoom, role: myRole });
+            }
             // Cập nhật UI ngay lập tức với thông tin phòng hiện tại
             capNhatUIPhongOnline(room);
             if (room.status === 'playing') {
@@ -1035,6 +1046,38 @@ function ngoimVaoPhong(roomId) {
     if (!currentUsername) { alert('Vui lòng đăng nhập trước!'); return; }
     const myId   = localStorage.getItem('current_user_id');
     const myName = tenCuaToi();
+    
+    // YC.TXT FIX: Cleanup previous mode before joining Online
+    const currentMode = typeof GameModeManager !== 'undefined' ? GameModeManager.getCurrentMode() : null;
+    
+    // Cleanup BOT mode
+    if (currentMode === 'bot_room' || (typeof GameModes !== 'undefined' && currentMode === GameModes.BOT_ROOM)) {
+        if (typeof BotRoomManager !== 'undefined' && typeof BotRoomManager.exitBotRoom === 'function') {
+            BotRoomManager.exitBotRoom();
+        }
+    }
+    
+    // Cleanup REPLAY mode
+    if (currentMode === 'replay' || (typeof GameModes !== 'undefined' && currentMode === GameModes.REPLAY)) {
+        if (typeof closeHistoryView === 'function') {
+            closeHistoryView();
+        }
+    }
+    
+    // Cleanup TRAINING mode
+    if (currentMode === 'training' || (typeof GameModes !== 'undefined' && currentMode === GameModes.TRAINING)) {
+        if (typeof PracticeMode !== 'undefined' && typeof PracticeMode.exit === 'function') {
+            PracticeMode.exit();
+        }
+    }
+    
+    // Cleanup SOLO mode
+    if (currentMode === 'solo' || (typeof GameModes !== 'undefined' && currentMode === GameModes.SOLO)) {
+        if (typeof isGameActive !== 'undefined') {
+            isGameActive = false;
+        }
+    }
+    
     const roomRef = db.ref(`rooms/${roomId}`);
     console.log('[DEBUG-ENTER] User info:', { myId, myName, currentUsername });
     roomRef.transaction(room => {
@@ -1109,6 +1152,11 @@ function ngoimVaoPhong(roomId) {
         localStorage.setItem('current_room_id', roomId);
         // Cập nhật currentRoomId lên Firebase để người khác biết đang bận
         db.ref(`users/${myId}/currentRoomId`).set(roomId);
+
+        // YC.TXT FIX: Set mode to ONLINE when entering room
+        if (typeof GameModeManager !== 'undefined') {
+            GameModeManager.setMode(GameModes.ONLINE, { roomId: roomId, role: myRole });
+        }
 
         setupOnDisconnect(roomId, myRole);
         // Đóng lobby và hủy listener danh sách phòng
@@ -1515,6 +1563,16 @@ function batDauGiaoDienOnline() {
         isGameActive: typeof isGameActive !== 'undefined' ? isGameActive : 'undefined',
         onlineBoardExists: !!document.getElementById('inf-canvas-online')
     });
+    
+    // YC.TXT FIX: Only render Online UI if in ONLINE mode
+    const currentMode = typeof GameModeManager !== 'undefined' ? GameModeManager.getCurrentMode() : null;
+    const isOnlineModeCheck = currentMode === 'online' || (typeof GameModes !== 'undefined' && currentMode === GameModes.ONLINE);
+    
+    if (!isOnlineModeCheck) {
+        console.warn('[batDauGiaoDienOnline] Skipping Online UI render - not in ONLINE mode:', currentMode);
+        return;
+    }
+    
     document.body.classList.add('in-game-active');
     isOnlineMode = true;
     // Force reset canvas init flag để khởi tạo lại cho inf-canvas-online
@@ -1597,6 +1655,15 @@ function thoatGiaoDienOnline() {
     document.body.classList.remove('in-game-active');
     isOnlineMode      = false;
     window.onpopstate = null;
+    
+    // YC.TXT FIX: Clear mode from GameModeManager
+    if (typeof GameModeManager !== 'undefined') {
+        GameModeManager.clearMode();
+    }
+    
+    // YC.TXT FIX: Cleanup Online mode completely
+    cleanupOnlineMode();
+    
     // Đóng overlay ván mới nếu còn hiện
     const vmOv = document.getElementById('van-moi-overlay');
     if (vmOv) vmOv.remove();
@@ -1635,6 +1702,23 @@ function thoatGiaoDienOnline() {
     setMyOnlineStatus('free');
     // REMOVED initGame() call - causes conflicts when exiting online mode
     // The board state should be cleared by _resetSauThoat instead
+}
+
+// ══ YC.TXT FIX: Cleanup Online mode completely ═════════════════════
+function cleanupOnlineMode() {
+    // Clear Firebase listeners
+    if (typeof currentRoomId !== 'undefined' && currentRoomId) {
+        if (typeof db !== 'undefined') {
+            db.ref(`rooms/${currentRoomId}`).off();
+        }
+    }
+    
+    // Clear Online state
+    currentRoomId = null;
+    myRole = null;
+    
+    // Clear localStorage
+    localStorage.removeItem('current_room_id');
 }
 // ══════════════════════════════════════════════════════════════════
 // 🚪 THOÁT PHÒNG

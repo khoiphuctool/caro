@@ -184,6 +184,13 @@ function initGame() {
     currentPlayer     = firstMove;
     isGameActive      = true;
     
+    // YC.TXT FIX: Use centralized GameModeManager for solo mode
+    if (isSolo && isGameActive) {
+        if (typeof GameModeManager !== 'undefined') {
+            GameModeManager.setMode(GameModes.SOLO, { gameMode, winCount });
+        }
+    }
+    
     // BUG 5 FIX: Save complete game state to localStorage for F5 reload (solo mode)
     if (isSolo && isGameActive) {
         localStorage.setItem('solo_game_mode', 'true');
@@ -635,6 +642,75 @@ window.xoaBanCoCu = function() {
     if (typeof renderFixedBoard    === 'function') renderFixedBoard();
 };
 
+// ===== UNDO MOVE FOR SOLO BOT MODE =====
+window.undoSoloBotMove = function() {
+    console.log({
+        gameMode:typeof gameMode !== 'undefined' ? gameMode : 'undefined',
+        moveHistory:typeof moveHistory !== 'undefined' ? moveHistory.length : 'undefined'
+    });
+    if (typeof gameMode === 'undefined' || (!gameMode.startsWith('ai') && gameMode !== 'solo')) {
+        alert('Chỉ có thể undo trong chế độ đấu Bot!');
+        return;
+    }
+
+    if (typeof moveHistory === 'undefined' || !moveHistory || moveHistory.length < 2) {
+        alert('Cần ít nhất 2 nước (người + bot) để undo!');
+        return;
+    }
+
+    if (typeof infiniteMap === 'undefined') {
+        alert('Bàn cờ chưa khởi tạo!');
+        return;
+    }
+
+    // Undo 2 nước: bot move + player move
+    const botMove = moveHistory.pop();
+    const playerMove = moveHistory.pop();
+
+    if (!botMove || !playerMove) {
+        alert('Lỗi lịch sử nước đi!');
+        return;
+    }
+
+    // Xóa quân khỏi bàn cờ
+    infiniteMap.delete(`${botMove.r},${botMove.c}`);
+    infiniteMap.delete(`${playerMove.r},${playerMove.c}`);
+
+    // Giảm moveCount
+    if (typeof moveCount !== 'undefined') {
+        moveCount -= 2;
+    }
+
+    // Reset về lượt người
+    if (typeof currentPlayer !== 'undefined') {
+        currentPlayer = playerPiece || 'X';
+    }
+
+    // Reset last move
+    if (typeof lastMoveR !== 'undefined' && typeof lastMoveC !== 'undefined') {
+        if (moveHistory.length > 0) {
+            const prevMove = moveHistory[moveHistory.length - 1];
+            lastMoveR = prevMove.r;
+            lastMoveC = prevMove.c;
+        } else {
+            lastMoveR = null;
+            lastMoveC = null;
+        }
+    }
+
+    // Render lại bàn cờ
+    if (typeof renderInfiniteBoard === 'function') {
+        renderInfiniteBoard();
+    }
+
+    // Cập nhật UI
+    if (typeof updateStatus === 'function') {
+        updateStatus();
+    }
+
+    // Bot sẽ không tự đánh vì currentPlayer đã được set về lượt người
+};
+
 // checkWinLogicOld: Hàm kiểm tra thắng thua hỗ trợ cả Online và Offline với tham số luật chơi tùy chỉnh
 window.checkWinLogicOld = function(row, col, playerRole, customRule, customWinCount) {
     const directions = [{ dr:0,dc:1 },{ dr:1,dc:0 },{ dr:1,dc:1 },{ dr:1,dc:-1 }];
@@ -648,7 +724,7 @@ window.checkWinLogicOld = function(row, col, playerRole, customRule, customWinCo
     if (window.isOnlineModeActive && window.isOnlineModeActive()) {
         // Nếu đang chơi Online: Lấy luật từ Firebase truyền sang
         blockBothEndsEnabled = (customRule === 'chan_2_dau');
-        if (customWinCount) currentWinCount = customWinCount;
+        if (customWinCount) currentWinCount = customWinCount
     } else {
         // Nếu đang đấu Bot: Lấy luật từ ô Checkbox trên giao diện cũ của anh
         const checkboxCu = document.getElementById('block-both-ends');
@@ -858,53 +934,108 @@ function getOpeningMove() {
 
 // BUG 5 FIX: Restore solo game state on page load
 window.addEventListener('load', () => {
-    const savedSoloMode = localStorage.getItem('solo_game_mode');
-    const savedSoloConfig = localStorage.getItem('solo_game_config');
-    
-    if (savedSoloMode === 'true' && savedSoloConfig) {
-        try {
-            const config = JSON.parse(savedSoloConfig);
-            // Restore game mode and settings
-            const modeSelect = document.getElementById('game-mode');
-            if (modeSelect) modeSelect.value = config.gameMode;
+    // YC.TXT FIX: Use centralized GameModeManager for restore
+    if (typeof GameModeManager !== 'undefined') {
+        const restoredMode = GameModeManager.restoreMode();
+        
+        if (restoredMode === GameModes.SOLO) {
+            const context = GameModeManager.getContext();
+            const savedSoloConfig = localStorage.getItem('solo_game_config');
             
-            const winSelect = document.getElementById('win-count');
-            if (winSelect) winSelect.value = config.winCount;
-            
-            // Restore game state
-            if (config.boardState && typeof infiniteMap !== 'undefined') {
-                infiniteMap.clear();
-                config.boardState.forEach(([key, value]) => {
-                    infiniteMap.set(key, value);
-                });
+            if (savedSoloConfig) {
+                try {
+                    const config = JSON.parse(savedSoloConfig);
+                    
+                    localStorage.removeItem('current_room_id');
+                    
+                    const modeSelect = document.getElementById('game-mode');
+                    if (modeSelect) modeSelect.value = config.gameMode;
+                    
+                    const winSelect = document.getElementById('win-count');
+                    if (winSelect) winSelect.value = config.winCount;
+                    
+                    if (config.boardState && typeof infiniteMap !== 'undefined') {
+                        infiniteMap.clear();
+                        config.boardState.forEach(([key, value]) => {
+                            infiniteMap.set(key, value);
+                        });
+                    }
+                    if (config.moveHistory && typeof moveHistory !== 'undefined') {
+                        moveHistory.length = 0;
+                        moveHistory.push(...config.moveHistory);
+                    }
+                    if (typeof currentPlayer !== 'undefined') currentPlayer = config.currentPlayer || 'X';
+                    if (typeof isGameActive !== 'undefined') isGameActive = config.isGameActive !== false;
+                    if (typeof lastMoveR !== 'undefined') lastMoveR = config.lastMoveR;
+                    if (typeof lastMoveC !== 'undefined') lastMoveC = config.lastMoveC;
+                    
+                    setTimeout(() => {
+                        if (typeof switchView === 'function') {
+                            switchView('battle');
+                        }
+                        if (typeof hideTopNavigation === 'function') {
+                            hideTopNavigation();
+                        }
+                        if (typeof renderInfiniteBoard === 'function') {
+                            renderInfiniteBoard();
+                        }
+                    }, 100);
+                } catch(e) {
+                    console.error('[LogicGame] Failed to restore solo game state:', e);
+                    localStorage.removeItem('solo_game_mode');
+                    localStorage.removeItem('solo_game_config');
+                    GameModeManager.clearMode();
+                }
             }
-            if (config.moveHistory && typeof moveHistory !== 'undefined') {
-                moveHistory.length = 0;
-                moveHistory.push(...config.moveHistory);
+        }
+    } else {
+        // Fallback to old logic
+        const savedSoloMode = localStorage.getItem('solo_game_mode');
+        const savedSoloConfig = localStorage.getItem('solo_game_config');
+        
+        if (savedSoloMode === 'true' && savedSoloConfig) {
+            try {
+                const config = JSON.parse(savedSoloConfig);
+                
+                localStorage.removeItem('current_room_id');
+                
+                const modeSelect = document.getElementById('game-mode');
+                if (modeSelect) modeSelect.value = config.gameMode;
+                
+                const winSelect = document.getElementById('win-count');
+                if (winSelect) winSelect.value = config.winCount;
+                
+                if (config.boardState && typeof infiniteMap !== 'undefined') {
+                    infiniteMap.clear();
+                    config.boardState.forEach(([key, value]) => {
+                        infiniteMap.set(key, value);
+                    });
+                }
+                if (config.moveHistory && typeof moveHistory !== 'undefined') {
+                    moveHistory.length = 0;
+                    moveHistory.push(...config.moveHistory);
+                }
+                if (typeof currentPlayer !== 'undefined') currentPlayer = config.currentPlayer || 'X';
+                if (typeof isGameActive !== 'undefined') isGameActive = config.isGameActive !== false;
+                if (typeof lastMoveR !== 'undefined') lastMoveR = config.lastMoveR;
+                if (typeof lastMoveC !== 'undefined') lastMoveC = config.lastMoveC;
+                
+                setTimeout(() => {
+                    if (typeof switchView === 'function') {
+                        switchView('battle');
+                    }
+                    if (typeof hideTopNavigation === 'function') {
+                        hideTopNavigation();
+                    }
+                    if (typeof renderInfiniteBoard === 'function') {
+                        renderInfiniteBoard();
+                    }
+                }, 100);
+            } catch(e) {
+                console.error('[LogicGame] Failed to restore solo game state:', e);
+                localStorage.removeItem('solo_game_mode');
+                localStorage.removeItem('solo_game_config');
             }
-            if (typeof currentPlayer !== 'undefined') currentPlayer = config.currentPlayer || 'X';
-            if (typeof isGameActive !== 'undefined') isGameActive = config.isGameActive !== false;
-            if (typeof lastMoveR !== 'undefined') lastMoveR = config.lastMoveR;
-            if (typeof lastMoveC !== 'undefined') lastMoveC = config.lastMoveC;
-            
-            // Switch to battle view
-            setTimeout(() => {
-                if (typeof switchView === 'function') {
-                    switchView('battle');
-                }
-                // Hide navigation during battle
-                if (typeof hideTopNavigation === 'function') {
-                    hideTopNavigation();
-                }
-                // Re-render board with restored state
-                if (typeof renderInfiniteBoard === 'function') {
-                    renderInfiniteBoard();
-                }
-            }, 100);
-        } catch(e) {
-            console.error('[LogicGame] Failed to restore solo game state:', e);
-            localStorage.removeItem('solo_game_mode');
-            localStorage.removeItem('solo_game_config');
         }
     }
 });

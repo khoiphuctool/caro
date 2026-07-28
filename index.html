@@ -18,6 +18,9 @@
     <!-- Shared Board Engine (NEW - DO4.TXT implementation) -->
     <script src="src/shared-board-engine.js"></script>
 
+    <!-- Game Mode Manager (YC.TXT FIX - Centralized Mode Management) -->
+    <script src="src/game-mode-manager.js"></script>
+
     <style>
 /* ================================================================
    DESIGN SYSTEM — 8px Grid
@@ -767,6 +770,164 @@ body.game-playing #app-header {
 }
 
 /* ================================================================
+   MOBILE BOT ROOM FULL-SCREEN MODE (YC.TXT)
+   ================================================================ */
+@media (max-width: 768px) {
+  body.bot-room-mobile-mode .battle-layout-desktop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100dvh;
+    padding: 0;
+    gap: 0;
+    overflow: hidden;
+    z-index: 1000;
+  }
+
+  body.bot-room-mobile-mode .battle-center {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100dvh;
+    order: unset;
+    flex: unset;
+    min-height: unset;
+  }
+
+  body.bot-room-mobile-mode #unified-board-slot {
+    width: 100vw;
+    height: 100dvh;
+    min-height: unset;
+    flex: unset;
+  }
+
+  body.bot-room-mobile-mode .battle-player-card {
+    display: none;
+  }
+
+  body.bot-room-mobile-mode .battle-right {
+    display: none;
+  }
+
+  body.bot-room-mobile-mode .battle-status-bar {
+    display: none;
+  }
+
+  /* Mobile Bot Room Overlays */
+  .mobile-bot-overlay {
+    position: fixed;
+    z-index: 1001;
+    pointer-events: none;
+  }
+
+  .mobile-bot-overlay * {
+    pointer-events: auto;
+  }
+
+  /* Exit button - top left */
+  .mobile-bot-exit {
+    top: 12px;
+    left: 12px;
+    background: rgba(239, 68, 68, 0.9);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Bot info - top center */
+  .mobile-bot-info {
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
+    backdrop-filter: blur(4px);
+  }
+
+  /* Player info - bottom left */
+  .mobile-bot-player-info {
+    bottom: 12px;
+    left: 12px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 12px;
+    font-size: 13px;
+    backdrop-filter: blur(4px);
+  }
+
+  /* Action buttons - bottom center */
+  .mobile-bot-actions {
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+  }
+
+  .mobile-bot-action-btn {
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+  }
+
+  .mobile-bot-action-btn.undo {
+    background: rgba(59, 130, 246, 0.8);
+  }
+
+  .mobile-bot-action-btn.surrender {
+    background: rgba(239, 68, 68, 0.8);
+  }
+
+  /* Zoom controls - bottom right */
+  .mobile-bot-zoom {
+    bottom: 12px;
+    right: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mobile-bot-zoom-btn {
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+}
+
+/* ================================================================
    XI. FIX QUÂN O KHÔNG HIỂN THỊ
    CSS cell DOM fallback (bàn cờ DOM — không phải canvas)
    ================================================================ */
@@ -1195,6 +1356,15 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 
         <!-- Cột giữa: Bàn cờ -->
         <div class="practice-center">
+            <!-- Nút thoát mobile-only -->
+            <button id="practice-exit-btn-mobile"
+                onclick="confirmExitPractice()"
+                style="display:none; width:100%; padding:8px 12px; background:rgba(239,68,68,.15);
+                       color:#fca5a5; border:1px solid rgba(239,68,68,.3);
+                       border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;
+                       margin-bottom:8px; align-items:center; gap:6px;">
+                ← Thoát trận
+            </button>
             <div class="practice-status-bar" id="practice-status-bar">Chọn Bot để bắt đầu</div>
 
             <!-- ticker đã chuyển lên trước app-header -->
@@ -1213,7 +1383,7 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                     </div>
                     <!-- Practice mode control buttons overlay -->
                     <div class="board-controls-overlay">
-                        <button class="board-control-btn" onclick="if(typeof PracticeMode!=='undefined')PracticeMode.undoPracticeMove();" title="Hoàn tác nước cờ">⬅️</button>
+                        <button class="board-control-btn" onclick="if(typeof PracticeMode!=='undefined' && PracticeMode.undoPracticeMove) PracticeMode.undoPracticeMove(); else if(typeof undoSoloBotMove === 'function') undoSoloBotMove();" title="Hoàn tác nước cờ">⬅️</button>
                         <button class="board-control-btn" onclick="if(typeof zoomBoard==='function')zoomBoard(1);" title="Phóng to">+</button>
                         <button class="board-control-btn" onclick="if(typeof zoomBoard==='function')zoomBoard(-1);" title="Thu nhỏ">−</button>
                     </div>
@@ -1566,7 +1736,7 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                     <canvas id="inf-canvas-online" class="shared-board-canvas"></canvas>
                     <div class="board-coords-display" id="board-coords-online">X: 0, Y: 0</div>
                     <div class="board-controls-overlay">
-                        <button class="board-control-btn" onclick="if(typeof undoOnlineMove === 'function') undoOnlineMove();" title="Undo Last Move (Costs bet amount)">↩️</button>
+                        <button class="board-control-btn" onclick="if(window.isBotRoomMode && typeof BotRoomManager!=='undefined' && BotRoomManager.undoBotRoomMove) BotRoomManager.undoBotRoomMove(); else if(typeof undoOnlineMove === 'function') undoOnlineMove();" title="Undo Last Move">↩️</button>
                         <button class="board-control-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(1);" title="Zoom In">+</button>
                         <button class="board-control-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(-1);" title="Zoom Out">−</button>
                     </div>
@@ -1588,7 +1758,7 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 
             <!-- Nút thoát trong battle -->
             <button id="btn-leave-battle"
-                onclick="if(confirm('Thoát khỏi trận đấu?')) xuLyThoatPhong()"
+                onclick="confirmExitBattle()"
                 style="width:100%; padding:8px; background:rgba(239,68,68,.15);
                        color:#fca5a5; border:1px solid rgba(239,68,68,.3);
                        border-radius:var(--radius-sm); font-size:12px;
@@ -2681,10 +2851,17 @@ window.switchView = function(name) {
     _origSwitchView(name);
 
     if (name === 'battle') {
+        // YC.TXT FIX: Check GameModeManager before rendering Online UI
+        const currentMode = typeof GameModeManager !== 'undefined' ? GameModeManager.getCurrentMode() : null;
+        
         // _origSwitchView đã set view-battle.active → đo slot sau 1 frame
         moveBoardToBattle();
-        _syncBattleCards();
-        setTimeout(_syncBattleRoomInfo, 300);
+        
+        // Only sync battle cards/room info if in ONLINE mode
+        if (currentMode === 'online' || (typeof GameModes !== 'undefined' && currentMode === GameModes.ONLINE)) {
+            _syncBattleCards();
+            setTimeout(_syncBattleRoomInfo, 300);
+        }
         
         // For Online mode: trigger SharedBoardEngine render when view becomes active
         if (typeof window.isOnlineModeActive === 'function' && window.isOnlineModeActive()) {
@@ -2770,8 +2947,13 @@ function _hookCapNhatUIPhong() {
     if (!_orig || _orig._hooked) return;
     window.capNhatUIPhong = function(room) {
         if (typeof _orig === 'function') _orig.call(this, room);
+        
+        // YC.TXT FIX: Only switch to battle if in ONLINE mode
+        const currentMode = typeof GameModeManager !== 'undefined' ? GameModeManager.getCurrentMode() : null;
+        const isOnlineMode = currentMode === 'online' || (typeof GameModes !== 'undefined' && currentMode === GameModes.ONLINE);
+        
         // Nếu status chuyển sang playing → switch BattleView (cho cả X và O)
-        if (room && room.status === 'playing' && !_battleViewActivated) {
+        if (room && room.status === 'playing' && !_battleViewActivated && isOnlineMode) {
             _battleViewActivated = true;
             const viewBattle = document.getElementById('view-battle');
             if (!viewBattle || !viewBattle.classList.contains('active')) {
@@ -2805,8 +2987,15 @@ window.addEventListener('load', () => {
     const _origChuPhong = window.chuPhongBatDauGame;
     window.chuPhongBatDauGame = function() {
         if (typeof _origChuPhong === 'function') _origChuPhong.apply(this, arguments);
-        _battleViewActivated = true; // Mark ngay để capNhatUIPhong không switch lại
-        setTimeout(() => switchView('battle'), 200);
+        
+        // YC.TXT FIX: Only switch to battle if in ONLINE mode
+       const currentMode = typeof GameModeManager !== 'undefined' ? GameModeManager.getCurrentMode() : null;
+        const isOnlineMode = currentMode === 'online' || (typeof GameModes !== 'undefined' && currentMode === GameModes.ONLINE);
+        
+        if (isOnlineMode) {
+            _battleViewActivated = true; // Mark ngay để capNhatUIPhong không switch lại
+            setTimeout(() => switchView('battle'), 200);
+        }
     };
 
     // Override thoatGiaoDienOnline: trả board về training + về HomeView
@@ -3090,6 +3279,41 @@ function toggleTheme() {
         if (btn) btn.innerHTML = '☀️ <span>Giao diện</span>';
     }
 })();
+
+// ── CONFIRM EXIT DIALOGS ─────────────────────────────────────
+function confirmExitPractice() {
+    if (confirm('Bạn có muốn thoát trận đấu?')) {
+        // Xóa state restore trước khi exit
+        localStorage.removeItem('training_mode');
+        localStorage.removeItem('training_config');
+        
+        // Cleanup Practice Mode
+        if (typeof PracticeMode !== 'undefined' && PracticeMode.exit) {
+            PracticeMode.exit();
+        } else {
+            // Fallback
+            if (typeof switchView === 'function') switchView('home');
+        }
+    }
+}
+
+function confirmExitBattle() {
+    if (confirm('Bạn có muốn thoát trận đấu?')) {
+        // Check if Bot Room mode
+        if (window.isBotRoomMode && typeof BotRoomManager !== 'undefined' && BotRoomManager.exitBotRoom) {
+            // Xóa state restore trước khi exit (đảm bảo dù wrapper có vấn đề vẫn xóa được)
+            localStorage.removeItem('bot_room_mode');
+            localStorage.removeItem('bot_room_config');
+            BotRoomManager.exitBotRoom();
+        } else if (typeof xuLyThoatPhong === 'function') {
+            // Online mode
+            xuLyThoatPhong();
+        } else {
+            // Fallback
+            if (typeof switchView === 'function') switchView('home');
+        }
+    }
+}
 </script>
 
 </div><!-- #app -->

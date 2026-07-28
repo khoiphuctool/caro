@@ -290,6 +290,11 @@ function loadRankHistory(index) {
 }
 
 function renderBoardFromHistory() {
+    // YC.TXT FIX: Use centralized GameModeManager for replay mode
+    if (typeof GameModeManager !== 'undefined') {
+        GameModeManager.setMode(GameModes.REPLAY, { moves: moveHistory, mode: gameMode });
+    }
+    
     // BUG 5 FIX: Save replay state to localStorage for F5 reload
     localStorage.setItem('replay_mode', 'true');
     localStorage.setItem('replay_config', JSON.stringify({
@@ -339,6 +344,10 @@ function renderBoardFromHistory() {
 }
 
 function closeHistoryView() { 
+    // YC.TXT FIX: Clear mode from GameModeManager
+    if (typeof GameModeManager !== 'undefined') {
+        GameModeManager.clearMode();
+    }
     // BUG 5 FIX: Clear replay state when closing
     localStorage.removeItem('replay_mode');
     localStorage.removeItem('replay_config');
@@ -347,35 +356,76 @@ function closeHistoryView() {
 
 // BUG 5 FIX: Restore replay state on page load
 window.addEventListener('load', () => {
-    const savedReplayMode = localStorage.getItem('replay_mode');
-    const savedReplayConfig = localStorage.getItem('replay_config');
-    
-    if (savedReplayMode === 'true' && savedReplayConfig) {
-        try {
-            const config = JSON.parse(savedReplayConfig);
-            // Restore game state
-            moveHistory = config.moves || [];
-            gameMode = config.mode || 'ai-god';
-            winCount = config.winCount || 5;
-            isInfinite = config.isInfinite !== false;
+    // YC.TXT FIX: Use centralized GameModeManager for restore
+    if (typeof GameModeManager !== 'undefined') {
+        const restoredMode = GameModeManager.restoreMode();
+        
+        if (restoredMode === GameModes.REPLAY) {
+            const context = GameModeManager.getContext();
+            const savedReplayConfig = localStorage.getItem('replay_config');
             
-            // Switch to battle view and render
-            setTimeout(() => {
-                if (typeof switchView === 'function') {
-                    switchView('battle');
+            if (savedReplayConfig) {
+                try {
+                    const config = JSON.parse(savedReplayConfig);
+                    
+                    localStorage.removeItem('current_room_id');
+                    
+                    moveHistory = config.moves || [];
+                    gameMode = config.mode || 'ai-god';
+                    winCount = config.winCount || 5;
+                    isInfinite = config.isInfinite !== false;
+                    
+                    setTimeout(() => {
+                        if (typeof switchView === 'function') {
+                            switchView('battle');
+                        }
+                        if (typeof hideTopNavigation === 'function') {
+                            hideTopNavigation();
+                        }
+                        if (typeof renderBoardFromHistory === 'function') {
+                            renderBoardFromHistory();
+                        }
+                    }, 100);
+                } catch(e) {
+                    console.error('[History] Failed to restore replay state:', e);
+                    localStorage.removeItem('replay_mode');
+                    localStorage.removeItem('replay_config');
+                    GameModeManager.clearMode();
                 }
-                // Hide navigation during battle
-                if (typeof hideTopNavigation === 'function') {
-                    hideTopNavigation();
-                }
-                if (typeof renderBoardFromHistory === 'function') {
-                    renderBoardFromHistory();
-                }
-            }, 100);
-        } catch(e) {
-            console.error('[History] Failed to restore replay state:', e);
-            localStorage.removeItem('replay_mode');
-            localStorage.removeItem('replay_config');
+            }
+        }
+    } else {
+        // Fallback to old logic
+        const savedReplayMode = localStorage.getItem('replay_mode');
+        const savedReplayConfig = localStorage.getItem('replay_config');
+        
+        if (savedReplayMode === 'true' && savedReplayConfig) {
+            try {
+                const config = JSON.parse(savedReplayConfig);
+                
+                localStorage.removeItem('current_room_id');
+                
+                moveHistory = config.moves || [];
+                gameMode = config.mode || 'ai-god';
+                winCount = config.winCount || 5;
+                isInfinite = config.isInfinite !== false;
+                
+                setTimeout(() => {
+                    if (typeof switchView === 'function') {
+                        switchView('battle');
+                    }
+                    if (typeof hideTopNavigation === 'function') {
+                        hideTopNavigation();
+                    }
+                    if (typeof renderBoardFromHistory === 'function') {
+                        renderBoardFromHistory();
+                    }
+                }, 100);
+            } catch(e) {
+                console.error('[History] Failed to restore replay state:', e);
+                localStorage.removeItem('replay_mode');
+                localStorage.removeItem('replay_config');
+            }
         }
     }
 });

@@ -2843,18 +2843,115 @@ body.in-game-active #inf-canvas {
     padding: 8px; gap: 8px;
     overflow-y: auto;
   }
+  
+  /* Nút thoát mobile-only */
+  #practice-exit-btn-mobile {
+    display: flex !important;
+  }
+  
+  /* Bot card lên đầu */
+  .practice-right {
+    order: -1;
+    max-height: none;
+    overflow-y: visible;
+  }
+  
+  /* Player card xuống dưới bàn cờ */
+  .practice-left {
+    order: 2;
+  }
+  
+  /* Bàn cờ ở giữa */
+  .practice-center {
+    order: 1;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+  }
+  
   .practice-player-card {
     flex-direction: row; padding: 8px 12px;
     align-items: center; justify-content: flex-start; gap: 12px;
   }
   .practice-avatar { width: 40px; height: 40px; font-size: 18px; }
   .practice-pstats { display: none; }
-  .practice-center { width: 100%; }
+  
   .practice-board-slot {
     width: 100%;
     height: min(85vw, 55vh);
     min-height: 220px;
-    flex: 0 0 auto;
+    flex: 1 1 auto;
   }
-  .practice-right { max-height: 220px; overflow-y: auto; }
+  
+  /* Ẩn các panel không cần thiết trên mobile */
+  #history-panel,
+  #rank-panel,
+  #admin-training-panel,
+  #admin-ai-config-panel,
+  #timer-panel {
+    display: none !important;
+  }
+  
+  /* Controls gọn gàng hơn */
+  #practice-controls {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .practice-ctrl-btn {
+    flex: 1;
+    min-width: 80px;
+  }
+}
+
+/* Mobile battle layout (Bot Room) */
+@media (max-width: 768px) {
+  .battle-layout-desktop {
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    gap: 8px;
+    height: auto;
+    min-height: calc(100vh - 80px);
+  }
+  
+  /* Bot card lên đầu */
+  .battle-right {
+    order: -1;
+    max-height: none;
+    overflow-y: visible;
+  }
+  
+  /* Player card xuống dưới bàn cờ */
+  .battle-player-card:first-child {
+    order: 2;
+  }
+  
+  /* Bàn cờ ở giữa */
+  .battle-center {
+    order: 1;
+    flex: 1;
+    min-height: 0;
+  }
+  
+  .battle-center #unified-board-slot {
+    height: min(85vw, 55vh);
+    min-height: 220px;
+  }
+  
+  /* Ẩn chat trên mobile */
+  .battle-chat {
+    display: none !important;
+  }
+  
+  /* Nút thoát battle hiển thị rõ hơn */
+  #btn-leave-battle {
+    padding: 12px;
+    font-size: 14px;
+  }
+  
+  /* Battle room info gọn hơn */
+  .battle-room-info-card {
+    font-size: 11px;
+    padding: 8px;
+  }
 }

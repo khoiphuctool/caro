@@ -55,8 +55,17 @@ const BotRoomManager = {
 
     // ══ Vào màn hình chờ phòng ═══════════════════════════════════
     enterBotRoom: function(botConfig) {
+        // YC.TXT FIX: Cleanup previous mode before entering BOT
+        this.cleanupPreviousMode();
+
         this.currentBotRoom = botConfig;
         this.isBotRoomMode  = true;
+
+        // YC.TXT FIX: DISABLED - Do NOT save BOT mode to GameModeManager
+        // BOT mode restore is disabled to prevent "Phòng Ma" and mode conflicts
+        // if (typeof GameModeManager !== 'undefined') {
+        //     GameModeManager.setMode(GameModes.BOT_ROOM, { botConfig: botConfig });
+        // }
 
         // Chuyển view-room, dùng classList trực tiếp (không qua switchView
         // để tránh các hook online như moveBoardToBattle chạy sớm)
@@ -162,19 +171,19 @@ const BotRoomManager = {
         window.isBotRoomMode    = true;
         window.currentBotConfig = this.currentBotConfig;
         
-        // BUG 5 FIX: Save bot room state to localStorage for F5 reload
-        localStorage.setItem('bot_room_mode', 'true');
-        localStorage.setItem('bot_room_config', JSON.stringify({
-            botConfig: this.currentBotRoom,
-            // Save game state for proper restoration
-            boardState: typeof infiniteMap !== 'undefined' ? Array.from(infiniteMap.entries()) : null,
-            moveHistory: typeof moveHistory !== 'undefined' ? moveHistory : [],
-            currentPlayer: typeof currentPlayer !== 'undefined' ? currentPlayer : 'X',
-            isGameActive: typeof isGameActive !== 'undefined' ? isGameActive : true,
-            winCount: typeof winCount !== 'undefined' ? winCount : 5,
-            lastMoveR: typeof lastMoveR !== 'undefined' ? lastMoveR : null,
-            lastMoveC: typeof lastMoveC !== 'undefined' ? lastMoveC : null
-        }));
+        // YC.TXT FIX: DISABLED - Do NOT save bot room state to localStorage
+        // BOT mode restore is disabled to prevent "Phòng Ma" and mode conflicts
+        // localStorage.setItem('bot_room_mode', 'true');
+        // localStorage.setItem('bot_room_config', JSON.stringify({
+        //     botConfig: this.currentBotRoom,
+        //     boardState: typeof infiniteMap !== 'undefined' ? Array.from(infiniteMap.entries()) : null,
+        //     moveHistory: typeof moveHistory !== 'undefined' ? moveHistory : [],
+        //     currentPlayer: typeof currentPlayer !== 'undefined' ? currentPlayer : 'X',
+        //     isGameActive: typeof isGameActive !== 'undefined' ? isGameActive : true,
+        //     winCount: typeof winCount !== 'undefined' ? winCount : 5,
+        //     lastMoveR: typeof lastMoveR !== 'undefined' ? lastMoveR : null,
+        //     lastMoveC: typeof lastMoveC !== 'undefined' ? lastMoveC : null
+        // }));
 
         // Áp cài đặt vào engine
         const modeEl = document.getElementById('game-mode');
@@ -191,6 +200,9 @@ const BotRoomManager = {
 
         const blockBothEnds = document.getElementById('block-both-ends');
         if (blockBothEnds) blockBothEnds.checked = bb;
+
+        // BUG.TXT FIX: Create Exit button overlay
+        this.createBotExitButton();
 
         // Cập nhật currentRoomId lên Firebase để người khác biết đang bận (bot room)
         const myId = localStorage.getItem('current_user_id');
@@ -224,6 +236,8 @@ const BotRoomManager = {
                 hideTopNavigation();
             }
             setTimeout(() => this.renderBotBattlePanel(), 120);
+            // Enable mobile full-screen mode if on mobile
+            this.enableMobileFullScreenMode();
         }, 60);
     },
 
@@ -317,6 +331,11 @@ const BotRoomManager = {
     // ══ Chơi lại (không qua màn hình phòng) ═════════════════════
     replayBotBattle: function() {
         if (!this.currentBotRoom) return;
+        
+        // Xóa state restore khi chơi lại để tránh dùng state cũ
+        localStorage.removeItem('bot_room_mode');
+        localStorage.removeItem('bot_room_config');
+        
         if (typeof initGame === 'function') initGame();
         // Cập nhật lại thông tin trên panel
         setTimeout(() => this.renderBotBattlePanel(), 80);
@@ -349,6 +368,75 @@ const BotRoomManager = {
         }
     },
 
+    // ══ Undo move trong phòng bot ═════════════════════════════════
+    undoBotRoomMove: function() {
+        console.log({
+            isBotRoomMode:this.isBotRoomMode,
+            currentBotRoom:this.currentBotRoom,
+            moveHistory:typeof moveHistory !== 'undefined' ? moveHistory.length : 'undefined'
+        });
+        if (!this.isBotRoomMode || !this.currentBotRoom) {
+            alert('Chỉ có thể undo khi đang trong phòng bot!');
+            return;
+        }
+
+        if (typeof moveHistory === 'undefined' || !moveHistory || moveHistory.length < 2) {
+            alert('Cần ít nhất 2 nước (người + bot) để undo!');
+            return;
+        }
+
+        if (typeof infiniteMap === 'undefined') {
+            alert('Bàn cờ chưa khởi tạo!');
+            return;
+        }
+
+        // Undo 2 nước: bot move + player move
+        const botMove = moveHistory.pop();
+        const playerMove = moveHistory.pop();
+
+        if (!botMove || !playerMove) {
+            alert('Lỗi lịch sử nước đi!');
+            return;
+        }
+
+        // Xóa quân khỏi bàn cờ
+        infiniteMap.delete(`${botMove.r},${botMove.c}`);
+        infiniteMap.delete(`${playerMove.r},${playerMove.c}`);
+
+        // Giảm moveCount
+        if (typeof moveCount !== 'undefined') {
+            moveCount -= 2;
+        }
+
+        // Reset về lượt người
+        if (typeof currentPlayer !== 'undefined') {
+            currentPlayer = 'X';
+        }
+
+        // Reset last move
+        if (typeof lastMoveR !== 'undefined' && typeof lastMoveC !== 'undefined') {
+            if (moveHistory.length > 0) {
+                const prevMove = moveHistory[moveHistory.length - 1];
+                lastMoveR = prevMove.r;
+                lastMoveC = prevMove.c;
+            } else {
+                lastMoveR = null;
+                lastMoveC = null;
+            }
+        }
+
+        // Render lại bàn cờ
+        if (typeof renderInfiniteBoard === 'function') {
+            renderInfiniteBoard();
+        }
+
+        // Cập nhật UI
+        const statusEl = document.getElementById('battle-status');
+        if (statusEl) statusEl.textContent = '🟢 Lượt của bạn (X)';
+
+        // Bot sẽ không tự đánh vì currentPlayer đã được set về 'X' (lượt người)
+    },
+
     // ══ Thoát phòng bot ══════════════════════════════════════════
     exitBotRoom: function() {
         this.isBotRoomMode  = false;
@@ -356,9 +444,24 @@ const BotRoomManager = {
         window.isBotRoomMode    = false;
         window.currentBotConfig = null;
         
-        // BUG 5 FIX: Clear bot room state from localStorage
+        // YC.TXT FIX: Clear mode from GameModeManager
+        if (typeof GameModeManager !== 'undefined') {
+            GameModeManager.clearMode();
+        }
+        
+        // YC.TXT FIX: Clear ALL BOT Restore State from localStorage
         localStorage.removeItem('bot_room_mode');
         localStorage.removeItem('bot_room_config');
+        localStorage.removeItem('game_mode_current');
+        localStorage.removeItem('game_mode_context');
+        localStorage.removeItem('current_room_id');
+        sessionStorage.removeItem('bot_session');
+
+        // BUG.TXT FIX: Remove Exit button overlay
+        this.removeBotExitButton();
+
+        // Disable mobile full-screen mode
+        this.disableMobileFullScreenMode();
 
         // Xóa currentRoomId khỏi Firebase khi thoát bot room
         const myId = localStorage.getItem('current_user_id');
@@ -391,67 +494,290 @@ const BotRoomManager = {
 
         // Quay về tab bot trong lobby
         if (typeof switchRoomTab === 'function') switchRoomTab('bot');
+    },
+
+    // ══ BUG.TXT FIX: Create Exit button overlay for BOT mode ═════════════════════
+    createBotExitButton: function() {
+        // Remove existing button if any
+        this.removeBotExitButton();
+
+        const exitBtn = document.createElement('button');
+        exitBtn.id = 'bot-exit-overlay';
+        exitBtn.innerHTML = '← Thoát';
+        exitBtn.style.cssText = `
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            z-index: 99999;
+            padding: 10px 16px;
+            background: rgba(239, 68, 68, 0.95);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s;
+        `;
+        exitBtn.onmouseover = function() {
+            this.style.background = 'rgba(220, 38, 38, 1)';
+            this.style.transform = 'scale(1.05)';
+        };
+        exitBtn.onmouseout = function() {
+            this.style.background = 'rgba(239, 68, 68, 0.95)';
+            this.style.transform = 'scale(1)';
+        };
+        exitBtn.onclick = () => this.handleBotExitClick();
+
+        document.body.appendChild(exitBtn);
+    },
+
+    // ══ BUG.TXT FIX: Remove Exit button overlay ═════════════════════
+    removeBotExitButton: function() {
+        const exitBtn = document.getElementById('bot-exit-overlay');
+        if (exitBtn) {
+            exitBtn.remove();
+        }
+    },
+
+    // ══ BUG.TXT FIX: Handle Exit button click with confirm dialog ═════════════════════
+    handleBotExitClick: function() {
+        if (confirm('Bạn có chắc muốn thoát trận BOT?')) {
+            // Stop AI
+            if (typeof stopAI === 'function') {
+                stopAI();
+            }
+
+            // Stop Timer
+            if (typeof stopTimer === 'function') {
+                stopTimer();
+            }
+
+            // Cancel Animation
+            if (typeof cancelAnimationFrame === 'function') {
+                // Cancel any ongoing animation frames
+            }
+
+            // Cleanup Event
+            // Events are already handled by exitBotRoom
+
+            // Cleanup BOT Session
+            // Already handled by exitBotRoom
+
+            // Xóa BOT Restore Context
+            localStorage.removeItem('bot_room_mode');
+            localStorage.removeItem('bot_room_config');
+
+            // Xóa BOT localStorage/sessionStorage liên quan
+            sessionStorage.removeItem('bot_session');
+
+            // YC.TXT FIX: Cleanup BOT mode completely
+            this.cleanupBotMode();
+
+            // Quay về Menu BOT
+            this.exitBotRoom();
+        }
+    },
+
+    // ══ YC.TXT FIX: Cleanup previous mode before entering BOT ═════════════════════
+    cleanupPreviousMode: function() {
+        const currentMode = typeof GameModeManager !== 'undefined' ? GameModeManager.getCurrentMode() : null;
+        
+        // Cleanup ONLINE mode if active
+        if (currentMode === 'online' || (typeof GameModes !== 'undefined' && currentMode === GameModes.ONLINE)) {
+            if (typeof thoatGiaoDienOnline === 'function') {
+                thoatGiaoDienOnline();
+            }
+            // Clear Online Firebase listeners
+            if (typeof currentRoomId !== 'undefined' && currentRoomId) {
+                if (typeof db !== 'undefined') {
+                    db.ref(`rooms/${currentRoomId}`).off();
+                }
+            }
+        }
+        
+        // Cleanup REPLAY mode if active
+        if (currentMode === 'replay' || (typeof GameModes !== 'undefined' && currentMode === GameModes.REPLAY)) {
+            if (typeof closeHistoryView === 'function') {
+                closeHistoryView();
+            }
+        }
+        
+        // Cleanup TRAINING mode if active
+        if (currentMode === 'training' || (typeof GameModes !== 'undefined' && currentMode === GameModes.TRAINING)) {
+            if (typeof PracticeMode !== 'undefined' && typeof PracticeMode.exit === 'function') {
+                PracticeMode.exit();
+            }
+        }
+        
+        // Cleanup SOLO mode if active
+        if (currentMode === 'solo' || (typeof GameModes !== 'undefined' && currentMode === GameModes.SOLO)) {
+            // Solo mode cleanup
+            if (typeof isGameActive !== 'undefined') {
+                isGameActive = false;
+            }
+        }
+    },
+
+    // ══ YC.TXT FIX: Cleanup BOT mode completely ═════════════════════
+    cleanupBotMode: function() {
+        // Stop AI
+        if (typeof stopAI === 'function') {
+            stopAI();
+        }
+
+        // Stop Timer
+        if (typeof stopTimer === 'function') {
+            stopTimer();
+        }
+
+        // Clear game state
+        if (typeof infiniteMap !== 'undefined') {
+            infiniteMap.clear();
+        }
+        if (typeof moveHistory !== 'undefined') {
+            moveHistory.length = 0;
+        }
+        if (typeof isGameActive !== 'undefined') {
+            isGameActive = false;
+        }
+
+        // Clear Firebase currentRoomId
+        const myId = localStorage.getItem('current_user_id');
+        if (myId && typeof db !== 'undefined') {
+            db.ref(`users/${myId}/currentRoomId`).remove();
+        }
+    },
+
+    // ══ Enable mobile full-screen mode (YC.TXT) ═══════════════════
+    enableMobileFullScreenMode: function() {
+        // Only enable on mobile devices
+        if (window.innerWidth > 768) return;
+
+        // Add body class for CSS targeting
+        document.body.classList.add('bot-room-mobile-mode');
+
+        // Render mobile overlays
+        this.renderMobileOverlays();
+    },
+
+    // ══ Disable mobile full-screen mode ═══════════════════════════
+    disableMobileFullScreenMode: function() {
+        // Remove body class
+        document.body.classList.remove('bot-room-mobile-mode');
+
+        // Remove mobile overlays
+        const overlays = document.querySelectorAll('.mobile-bot-overlay');
+        overlays.forEach(el => el.remove());
+    },
+
+    // ══ Render mobile overlay UI (YC.TXT) ═════════════════════════
+    renderMobileOverlays: function() {
+        // Remove existing overlays first
+        const existingOverlays = document.querySelectorAll('.mobile-bot-overlay');
+        existingOverlays.forEach(el => el.remove());
+
+        const username = localStorage.getItem('current_username') || 'Bạn';
+
+        // Exit button - top left
+        const exitBtn = document.createElement('button');
+        exitBtn.className = 'mobile-bot-overlay mobile-bot-exit';
+        exitBtn.innerHTML = '✕';
+        exitBtn.onclick = () => this.exitBotRoom();
+        document.body.appendChild(exitBtn);
+
+        // Bot info - top center
+        const botInfo = document.createElement('div');
+        botInfo.className = 'mobile-bot-overlay mobile-bot-info';
+        botInfo.innerHTML = `🤖 ${this.currentBotRoom.name}`;
+        document.body.appendChild(botInfo);
+
+        // Player info - bottom left
+        const playerInfo = document.createElement('div');
+        playerInfo.className = 'mobile-bot-overlay mobile-bot-player-info';
+        playerInfo.innerHTML = `👤 ${username}`;
+        document.body.appendChild(playerInfo);
+
+        // Action buttons - bottom center
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'mobile-bot-overlay mobile-bot-actions';
+
+        const undoBtn = document.createElement('button');
+        undoBtn.className = 'mobile-bot-action-btn undo';
+        undoBtn.innerHTML = '↩ Undo';
+        undoBtn.onclick = () => this.undoBotRoomMove();
+        actionsDiv.appendChild(undoBtn);
+
+        const surrenderBtn = document.createElement('button');
+        surrenderBtn.className = 'mobile-bot-action-btn surrender';
+        surrenderBtn.innerHTML = '🏳️ Đầu hàng';
+        surrenderBtn.onclick = () => {
+            if (confirm('Bạn có chắc muốn đầu hàng?')) {
+                if (typeof handleGameEnd === 'function') {
+                    handleGameEnd('O');
+                }
+            }
+        };
+        actionsDiv.appendChild(surrenderBtn);
+
+        document.body.appendChild(actionsDiv);
+
+        // Zoom controls - bottom right
+        const zoomDiv = document.createElement('div');
+        zoomDiv.className = 'mobile-bot-overlay mobile-bot-zoom';
+
+        const zoomInBtn = document.createElement('button');
+        zoomInBtn.className = 'mobile-bot-zoom-btn';
+        zoomInBtn.innerHTML = '+';
+        zoomInBtn.onclick = () => {
+            if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.Camera) {
+                SharedBoardEngine.Camera.zoomAt(
+                    window.innerWidth / 2,
+                    window.innerHeight / 2,
+                    0.2,
+                    window.innerWidth,
+                    window.innerHeight
+                );
+                SharedBoardEngine.Renderer.render();
+            }
+        };
+        zoomDiv.appendChild(zoomInBtn);
+
+        const zoomOutBtn = document.createElement('button');
+        zoomOutBtn.className = 'mobile-bot-zoom-btn';
+        zoomOutBtn.innerHTML = '−';
+        zoomOutBtn.onclick = () => {
+            if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.Camera) {
+                SharedBoardEngine.Camera.zoomAt(
+                    window.innerWidth / 2,
+                    window.innerHeight / 2,
+                    -0.2,
+                    window.innerWidth,
+                    window.innerHeight
+                );
+                SharedBoardEngine.Renderer.render();
+            }
+        };
+        zoomDiv.appendChild(zoomOutBtn);
+
+        document.body.appendChild(zoomDiv);
     }
 };
 
 window.BotRoomManager = BotRoomManager;
 
 // ══ Xử lý reload trang khi đang ở bot room ══════════════════════
-// Bot room là offline, không lưu state → khi reload chỉ cần về home.
-// Ngăn firebase-online.js đọc current_room_id nhầm.
+// YC.TXT FIX: DISABLED - Do NOT restore BOT mode on page load
+// BOT mode restore is disabled to prevent "Phòng Ma" and mode conflicts
+// When F5 in BOT mode, always return to Menu BOT instead of restoring the battle
 (function() {
-    // BUG 5 FIX: Restore bot room state on page load if it was saved
-    const savedBotMode = localStorage.getItem('bot_room_mode');
-    const savedBotConfig = localStorage.getItem('bot_room_config');
+    // Always clear any leftover BOT state on page load
+    localStorage.removeItem('bot_room_mode');
+    localStorage.removeItem('bot_room_config');
+    localStorage.removeItem('current_room_id'); // Prevent Online reconnect from leftover state
     
-    if (savedBotMode === 'true' && savedBotConfig) {
-        try {
-            const config = JSON.parse(savedBotConfig);
-            window.isBotRoomMode = true;
-            window.currentBotConfig = config.botConfig;
-            BotRoomManager.isBotRoomMode = true;
-            BotRoomManager.currentBotRoom = config.botConfig;
-            
-            // Restore game state
-            if (config.boardState && typeof infiniteMap !== 'undefined') {
-                infiniteMap.clear();
-                config.boardState.forEach(([key, value]) => {
-                    infiniteMap.set(key, value);
-                });
-            }
-            if (config.moveHistory && typeof moveHistory !== 'undefined') {
-                moveHistory.length = 0;
-                moveHistory.push(...config.moveHistory);
-            }
-            if (typeof currentPlayer !== 'undefined') currentPlayer = config.currentPlayer || 'X';
-            if (typeof isGameActive !== 'undefined') isGameActive = config.isGameActive !== false;
-            if (typeof winCount !== 'undefined') winCount = config.winCount || 5;
-            if (typeof lastMoveR !== 'undefined') lastMoveR = config.lastMoveR;
-            if (typeof lastMoveC !== 'undefined') lastMoveC = config.lastMoveC;
-            
-            // Restore bot room view after a short delay to ensure DOM is ready
-            setTimeout(() => {
-                if (typeof switchView === 'function') {
-                    switchView('battle');
-                }
-                // Hide navigation during battle
-                if (typeof hideTopNavigation === 'function') {
-                    hideTopNavigation();
-                }
-                // Re-render board with restored state
-                if (typeof renderInfiniteBoard === 'function') {
-                    renderInfiniteBoard();
-                }
-            }, 100);
-        } catch(e) {
-            console.error('[BotRoom] Failed to restore bot room state:', e);
-            localStorage.removeItem('bot_room_mode');
-            localStorage.removeItem('bot_room_config');
-        }
-    } else {
-        // Xóa flag bot room khi trang load (reload đã mất state JS)
-        window.isBotRoomMode    = false;
-        window.currentBotConfig = null;
-    }
-    // KHÔNG lưu bot room id vào localStorage để tránh nhầm với online room
+    // Reset BOT flags
+    window.isBotRoomMode    = false;
+    window.currentBotConfig = null;
 })();

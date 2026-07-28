@@ -15,6 +15,21 @@ function fitCanvasToContainer() {
     if (!isInfinite || !infCanvas) return;
 
     const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
+    
+    // YC.TXT: Mobile bot room mode - use viewport dimensions instead of container
+    const isMobileBotRoom = window.innerWidth <= 768 && 
+                           window.isBotRoomMode && 
+                           document.body.classList.contains('bot-room-mobile-mode');
+
+    // Mobile bot room: use full viewport
+    if (isMobileBotRoom) {
+        const availW = window.innerWidth;
+        const availH = window.innerHeight;
+        if (Math.abs(infCanvasW - availW) > INF_CS || Math.abs(infCanvasH - availH) > INF_CS) {
+            applyCanvasSize(availW, availH, false);
+        }
+        return;
+    }
 
     // Online: canvas nằm trong #shared-board-online → đo container đó
     if (isOnline) {
@@ -364,8 +379,19 @@ function applyCanvasSize(w, h, forceRatio = false) {
     if (!infCanvas) return;
 
     const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
+    
+    // YC.TXT: Mobile bot room mode - use viewport dimensions instead of container
+    const isMobileBotRoom = window.innerWidth <= 768 && 
+                           window.isBotRoomMode && 
+                           document.body.classList.contains('bot-room-mobile-mode');
 
-    if (isOnline) {
+    if (isMobileBotRoom) {
+        // Use full viewport dimensions for mobile bot room
+        w = window.innerWidth;
+        h = window.innerHeight;
+        // Don't apply ratio constraints in full-screen mode
+        forceRatio = false;
+    } else if (isOnline) {
         // Online: dùng kích thước thực từ container, KHÔNG áp tỉ lệ 70%
         // Chiều cao do container quyết định (shared-board-container có height tường minh)
         h = Math.min(h, Math.floor(window.innerHeight * 0.85));
@@ -380,8 +406,8 @@ function applyCanvasSize(w, h, forceRatio = false) {
     infCanvasW = Math.max(8 * INF_CS, Math.floor(w / INF_CS) * INF_CS);
     infCanvasH = Math.max(8 * INF_CS, Math.floor(h / INF_CS) * INF_CS);
 
-    // Offline: đảm bảo chiều cao không vượt 70% chiều rộng
-    if (!isOnline) {
+    // Offline: đảm bảo chiều cao không vượt 70% chiều rộng (except mobile bot room)
+    if (!isOnline && !isMobileBotRoom) {
         const maxH = Math.floor(infCanvasW * 0.7);
         if (infCanvasH > maxH) infCanvasH = maxH;
     }

@@ -164,6 +164,11 @@ const PracticeMode = (function() {
 
         _showPlayingPhase();
         
+        // YC.TXT FIX: Use centralized GameModeManager
+        if (typeof GameModeManager !== 'undefined') {
+            GameModeManager.setMode(GameModes.TRAINING, { botLevel: level });
+        }
+        
         // BUG 5 FIX: Save complete training mode state to localStorage for F5 reload
         localStorage.setItem('training_mode', 'true');
         localStorage.setItem('training_config', JSON.stringify({
@@ -218,6 +223,10 @@ const PracticeMode = (function() {
             moveHistory.length = 0;
         }
 
+        // Xóa state restore khi chơi lại để tránh dùng state cũ
+        localStorage.removeItem('training_mode');
+        localStorage.removeItem('training_config');
+
         if (typeof initGame === 'function') initGame();
 
         _setStatus('🟢 LƯỢT CỦA BẠN (X)');
@@ -231,6 +240,11 @@ const PracticeMode = (function() {
     function changeBot() {
         _state.phase  = 'select';
         _state.active = false;
+        
+        // Xóa state restore khi đổi bot
+        localStorage.removeItem('training_mode');
+        localStorage.removeItem('training_config');
+        
         _showSelectPhase();
 
         const ctrl = document.getElementById('practice-controls');
@@ -341,6 +355,75 @@ const PracticeMode = (function() {
         _setIndicator(null);
     }
 
+    // ── UNDO MOVE ───────────────────────────────────────────────────
+    function undoPracticeMove() {
+        console.log({
+            active:_state.active,
+            phase:_state.phase,
+            moveHistory:typeof moveHistory !== 'undefined' ? moveHistory.length : 'undefined'
+        });
+        if (!_state.active || _state.phase !== 'playing') {
+            alert('Chỉ có thể undo khi đang chơi!');
+            return;
+        }
+
+        if (typeof moveHistory === 'undefined' || !moveHistory || moveHistory.length < 2) {
+            alert('Cần ít nhất 2 nước (người + bot) để undo!');
+            return;
+        }
+
+        if (typeof infiniteMap === 'undefined') {
+            alert('Bàn cờ chưa khởi tạo!');
+            return;
+        }
+
+        // Undo 2 nước: bot move + player move
+        const botMove = moveHistory.pop();
+        const playerMove = moveHistory.pop();
+
+        if (!botMove || !playerMove) {
+            alert('Lỗi lịch sử nước đi!');
+            return;
+        }
+
+        // Xóa quân khỏi bàn cờ
+        infiniteMap.delete(`${botMove.r},${botMove.c}`);
+        infiniteMap.delete(`${playerMove.r},${playerMove.c}`);
+
+        // Giảm moveCount
+        if (typeof moveCount !== 'undefined') {
+            moveCount -= 2;
+        }
+
+        // Reset về lượt người
+        if (typeof currentPlayer !== 'undefined') {
+            currentPlayer = 'X';
+        }
+
+        // Reset last move
+        if (typeof lastMoveR !== 'undefined' && typeof lastMoveC !== 'undefined') {
+            if (moveHistory.length > 0) {
+                const prevMove = moveHistory[moveHistory.length - 1];
+                lastMoveR = prevMove.r;
+                lastMoveC = prevMove.c;
+            } else {
+                lastMoveR = null;
+                lastMoveC = null;
+            }
+        }
+
+        // Render lại bàn cờ
+        if (typeof renderInfiniteBoard === 'function') {
+            renderInfiniteBoard();
+        }
+
+        // Cập nhật UI
+        _setStatus('🟢 LƯỢT CỦA BẠN (X)');
+        _setIndicator('X');
+
+        // Bot sẽ không tự đánh vì currentPlayer đã được set về 'X' (lượt người)
+    }
+
     // ── PUBLIC API ─────────────────────────────────────────────────
     return {
         initView,
@@ -349,6 +432,7 @@ const PracticeMode = (function() {
         changeBot,
         exit,
         onGameEvent,
+        undoPracticeMove,
         getState: () => ({ ..._state }),
         BOT_LEVELS,
         BOT_DISPLAY
@@ -383,49 +467,100 @@ window.PracticeMode = PracticeMode;
 
 // BUG 5 FIX: Restore training mode state on page load
 window.addEventListener('load', () => {
-    const savedTrainingMode = localStorage.getItem('training_mode');
-    const savedTrainingConfig = localStorage.getItem('training_config');
-    
-    if (savedTrainingMode === 'true' && savedTrainingConfig) {
-        try {
-            const config = JSON.parse(savedTrainingConfig);
+    // YC.TXT FIX: Use centralized GameModeManager for restore
+    if (typeof GameModeManager !== 'undefined') {
+        const restoredMode = GameModeManager.restoreMode();
+        
+        if (restoredMode === GameModes.TRAINING) {
+            const context = GameModeManager.getContext();
+            const savedTrainingConfig = localStorage.getItem('training_config');
             
-            // Restore game state
-            if (config.boardState && typeof infiniteMap !== 'undefined') {
-                infiniteMap.clear();
-                config.boardState.forEach(([key, value]) => {
-                    infiniteMap.set(key, value);
-                });
+            if (savedTrainingConfig) {
+                try {
+                    const config = JSON.parse(savedTrainingConfig);
+                    
+                    localStorage.removeItem('current_room_id');
+                    
+                    if (config.boardState && typeof infiniteMap !== 'undefined') {
+                        infiniteMap.clear();
+                        config.boardState.forEach(([key, value]) => {
+                            infiniteMap.set(key, value);
+                        });
+                    }
+                    if (config.moveHistory && typeof moveHistory !== 'undefined') {
+                        moveHistory.length = 0;
+                        moveHistory.push(...config.moveHistory);
+                    }
+                    if (typeof currentPlayer !== 'undefined') currentPlayer = config.currentPlayer || 'X';
+                    if (typeof isGameActive !== 'undefined') isGameActive = config.isGameActive !== false;
+                    if (typeof winCount !== 'undefined') winCount = config.winCount || 5;
+                    if (typeof lastMoveR !== 'undefined') lastMoveR = config.lastMoveR;
+                    if (typeof lastMoveC !== 'undefined') lastMoveC = config.lastMoveC;
+                    
+                    setTimeout(() => {
+                        if (typeof switchView === 'function') {
+                            switchView('training');
+                        }
+                        if (typeof hideTopNavigation === 'function') {
+                            hideTopNavigation();
+                        }
+                        PracticeMode.startWithBot(config.botLevel);
+                        if (typeof renderInfiniteBoard === 'function') {
+                            renderInfiniteBoard();
+                        }
+                    }, 100);
+                } catch(e) {
+                    console.error('[PracticeMode] Failed to restore training state:', e);
+                    localStorage.removeItem('training_mode');
+                    localStorage.removeItem('training_config');
+                    GameModeManager.clearMode();
+                }
             }
-            if (config.moveHistory && typeof moveHistory !== 'undefined') {
-                moveHistory.length = 0;
-                moveHistory.push(...config.moveHistory);
+        }
+    } else {
+        // Fallback to old logic
+        const savedTrainingMode = localStorage.getItem('training_mode');
+        const savedTrainingConfig = localStorage.getItem('training_config');
+        
+        if (savedTrainingMode === 'true' && savedTrainingConfig) {
+            try {
+                const config = JSON.parse(savedTrainingConfig);
+                
+                localStorage.removeItem('current_room_id');
+                
+                if (config.boardState && typeof infiniteMap !== 'undefined') {
+                    infiniteMap.clear();
+                    config.boardState.forEach(([key, value]) => {
+                        infiniteMap.set(key, value);
+                    });
+                }
+                if (config.moveHistory && typeof moveHistory !== 'undefined') {
+                    moveHistory.length = 0;
+                    moveHistory.push(...config.moveHistory);
+                }
+                if (typeof currentPlayer !== 'undefined') currentPlayer = config.currentPlayer || 'X';
+                if (typeof isGameActive !== 'undefined') isGameActive = config.isGameActive !== false;
+                if (typeof winCount !== 'undefined') winCount = config.winCount || 5;
+                if (typeof lastMoveR !== 'undefined') lastMoveR = config.lastMoveR;
+                if (typeof lastMoveC !== 'undefined') lastMoveC = config.lastMoveC;
+                
+                setTimeout(() => {
+                    if (typeof switchView === 'function') {
+                        switchView('training');
+                    }
+                    if (typeof hideTopNavigation === 'function') {
+                        hideTopNavigation();
+                    }
+                    PracticeMode.startWithBot(config.botLevel);
+                    if (typeof renderInfiniteBoard === 'function') {
+                        renderInfiniteBoard();
+                    }
+                }, 100);
+            } catch(e) {
+                console.error('[PracticeMode] Failed to restore training state:', e);
+                localStorage.removeItem('training_mode');
+                localStorage.removeItem('training_config');
             }
-            if (typeof currentPlayer !== 'undefined') currentPlayer = config.currentPlayer || 'X';
-            if (typeof isGameActive !== 'undefined') isGameActive = config.isGameActive !== false;
-            if (typeof winCount !== 'undefined') winCount = config.winCount || 5;
-            if (typeof lastMoveR !== 'undefined') lastMoveR = config.lastMoveR;
-            if (typeof lastMoveC !== 'undefined') lastMoveC = config.lastMoveC;
-            
-            // Restore training mode
-            setTimeout(() => {
-                if (typeof switchView === 'function') {
-                    switchView('training');
-                }
-                // Hide navigation during battle
-                if (typeof hideTopNavigation === 'function') {
-                    hideTopNavigation();
-                }
-                PracticeMode.startWithBot(config.botLevel);
-                // Re-render board with restored state
-                if (typeof renderInfiniteBoard === 'function') {
-                    renderInfiniteBoard();
-                }
-            }, 100);
-        } catch(e) {
-            console.error('[PracticeMode] Failed to restore training state:', e);
-            localStorage.removeItem('training_mode');
-            localStorage.removeItem('training_config');
         }
     }
 });
@@ -433,6 +568,10 @@ window.addEventListener('load', () => {
 // BUG 5 FIX: Clear training state when exiting
 const _origExitPractice = PracticeMode.exit || function(){};
 PracticeMode.exit = function() {
+    // YC.TXT FIX: Clear mode from GameModeManager
+    if (typeof GameModeManager !== 'undefined') {
+        GameModeManager.clearMode();
+    }
     localStorage.removeItem('training_mode');
     localStorage.removeItem('training_config');
     _origExitPractice.apply(this, arguments);
