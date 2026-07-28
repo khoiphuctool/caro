@@ -110,7 +110,10 @@ function changeTheme() {
     const selectedTheme = document.getElementById('theme-select').value;
     document.getElementById('theme-styles').innerHTML = themes[selectedTheme];
     applyHistoryTheme(selectedTheme);
-    renderInfiniteBoard();
+    // YC.TXT FIX: Only render if canvas is ready
+    if (typeof infCanvas !== 'undefined' && infCanvas && typeof infCtx !== 'undefined' && infCtx) {
+        renderInfiniteBoard();
+    }
 }
 
 // ===== NHÃN CHẾ ĐỘ CHƠI =====

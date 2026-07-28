@@ -242,12 +242,19 @@ function initGame() {
         GameState.board.infiniteMap = infiniteMap;
         GameState.board.isInfinite = true;
     }
-    // KHÔNG reset infCanvas về null khi đang ở online mode (sẽ phá hủy canvas đang dùng)
-    if (!window.isOnlineModeActive || !window.isOnlineModeActive()) {
-        infCanvas   = null;
-        infCanvasInitialized = false;
+    // YC.TXT FIX: KHÔNG reset infCanvas về null trong bất kỳ mode nào
+    // Board First architecture: canvas được inject và giữ nguyên
+    // Chỉ reset khi thực sự cần thay đổi canvas (không phải trong initGame)
+    // if (!window.isOnlineModeActive || !window.isOnlineModeActive()) {
+    //     infCanvas   = null;
+    //     infCanvasInitialized = false;
+    // }
+
+    // BUG.TXT FIX: Don't reset vRowF/vColF in Bot Room mode (viewport already set by initBotRoomCanvas)
+    if (!window.isBotRoomMode) {
+        vRowF = 0; vColF = 0;
     }
-    vRowF = 0; vColF = 0;
+
     infHoverR = null; infHoverC = null;
 
     zobristHash = 0;
@@ -976,7 +983,8 @@ window.addEventListener('load', () => {
                         if (typeof hideTopNavigation === 'function') {
                             hideTopNavigation();
                         }
-                        if (typeof renderInfiniteBoard === 'function') {
+                        // YC.TXT FIX: Only render if canvas is ready
+                        if (typeof renderInfiniteBoard === 'function' && typeof infCanvas !== 'undefined' && infCanvas && typeof infCtx !== 'undefined' && infCtx) {
                             renderInfiniteBoard();
                         }
                     }, 100);

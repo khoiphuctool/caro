@@ -770,164 +770,6 @@ body.game-playing #app-header {
 }
 
 /* ================================================================
-   MOBILE BOT ROOM FULL-SCREEN MODE (YC.TXT)
-   ================================================================ */
-@media (max-width: 768px) {
-  body.bot-room-mobile-mode .battle-layout-desktop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100dvh;
-    padding: 0;
-    gap: 0;
-    overflow: hidden;
-    z-index: 1000;
-  }
-
-  body.bot-room-mobile-mode .battle-center {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100dvh;
-    order: unset;
-    flex: unset;
-    min-height: unset;
-  }
-
-  body.bot-room-mobile-mode #unified-board-slot {
-    width: 100vw;
-    height: 100dvh;
-    min-height: unset;
-    flex: unset;
-  }
-
-  body.bot-room-mobile-mode .battle-player-card {
-    display: none;
-  }
-
-  body.bot-room-mobile-mode .battle-right {
-    display: none;
-  }
-
-  body.bot-room-mobile-mode .battle-status-bar {
-    display: none;
-  }
-
-  /* Mobile Bot Room Overlays */
-  .mobile-bot-overlay {
-    position: fixed;
-    z-index: 1001;
-    pointer-events: none;
-  }
-
-  .mobile-bot-overlay * {
-    pointer-events: auto;
-  }
-
-  /* Exit button - top left */
-  .mobile-bot-exit {
-    top: 12px;
-    left: 12px;
-    background: rgba(239, 68, 68, 0.9);
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 44px;
-    height: 44px;
-    font-size: 20px;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  /* Bot info - top center */
-  .mobile-bot-info {
-    top: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 14px;
-    font-weight: bold;
-    text-align: center;
-    backdrop-filter: blur(4px);
-  }
-
-  /* Player info - bottom left */
-  .mobile-bot-player-info {
-    bottom: 12px;
-    left: 12px;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    padding: 8px 16px;
-    border-radius: 12px;
-    font-size: 13px;
-    backdrop-filter: blur(4px);
-  }
-
-  /* Action buttons - bottom center */
-  .mobile-bot-actions {
-    bottom: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 8px;
-  }
-
-  .mobile-bot-action-btn {
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 8px;
-    padding: 8px 16px;
-    font-size: 13px;
-    font-weight: bold;
-    cursor: pointer;
-    backdrop-filter: blur(4px);
-  }
-
-  .mobile-bot-action-btn.undo {
-    background: rgba(59, 130, 246, 0.8);
-  }
-
-  .mobile-bot-action-btn.surrender {
-    background: rgba(239, 68, 68, 0.8);
-  }
-
-  /* Zoom controls - bottom right */
-  .mobile-bot-zoom {
-    bottom: 12px;
-    right: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .mobile-bot-zoom-btn {
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    width: 44px;
-    height: 44px;
-    font-size: 20px;
-    font-weight: bold;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(4px);
-  }
-}
-
-/* ================================================================
    XI. FIX QUÂN O KHÔNG HIỂN THỊ
    CSS cell DOM fallback (bàn cờ DOM — không phải canvas)
    ================================================================ */
@@ -1087,6 +929,479 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
   pointer-events: none;
 }
 
+/* ================================================================
+   BOT ROOM - BOARD FIRST ARCHITECTURE (YC.TXT)
+   ================================================================ */
+
+/* BOT ROOM VIEW - Fullscreen Board + Overlays */
+#view-bot-room {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--battle-bg);
+  overflow: hidden;
+}
+
+#view-bot-room.active {
+  display: block;
+}
+
+/* Fullscreen Board Container */
+.bot-room-board-container {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  z-index: 1;
+}
+
+#shared-board-bot {
+  width: 100%;
+  height: 100%;
+  background: var(--battle-bg);
+}
+
+#inf-canvas-bot {
+  display: block;
+  cursor: default;
+  touch-action: none;
+}
+
+/* Overlay System */
+.bot-overlay {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.bot-overlay * {
+  pointer-events: auto;
+}
+
+/* Player Info Overlay (Top Left) */
+.bot-player-overlay {
+  top: env(safe-area-inset-top, 12px);
+  left: 12px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 280px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.bot-avatar-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 900;
+  border: 3px solid;
+  flex-shrink: 0;
+}
+
+.bot-avatar-x {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.bot-avatar-o {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.bot-player-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.bot-player-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bot-player-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+  color: #cbd5e1;
+}
+
+.bot-stat-item {
+  white-space: nowrap;
+}
+
+.bot-turn-indicator {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(16, 185, 129, 0.25);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  white-space: nowrap;
+}
+
+.bot-turn-indicator.inactive {
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Bot Info Overlay (Top Right) */
+.bot-bot-overlay {
+  top: env(safe-area-inset-top, 12px);
+  right: 12px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 260px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Zoom Controls Overlay (Right Side) */
+.bot-zoom-overlay {
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bot-zoom-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.bot-zoom-btn:hover {
+  background: rgba(30, 41, 59, 0.95);
+  transform: scale(1.05);
+}
+
+.bot-zoom-btn:active {
+  transform: scale(0.95);
+}
+
+/* Chat Bot Bubble Overlay (Floating) */
+.bot-chat-overlay {
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 300px;
+}
+
+.bot-chat-content {
+  background: rgba(59, 130, 246, 0.9);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 16px;
+  padding: 12px 16px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+.bot-chat-content::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 8px 8px 0;
+  border-style: solid;
+  border-color: rgba(59, 130, 246, 0.9) transparent transparent transparent;
+}
+
+/* Game Result Popup Overlay (Center) */
+.bot-result-overlay {
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.bot-result-box {
+  background: #fff;
+  border-radius: 20px;
+  padding: 32px;
+  text-align: center;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  animation: botResultPopup 0.3s ease-out;
+}
+
+@keyframes botResultPopup {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.bot-result-emoji {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.bot-result-title {
+  font-size: 24px;
+  font-weight: 900;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.bot-result-subtitle {
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 24px;
+}
+
+.bot-result-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.bot-result-btn {
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all var(--transition);
+}
+
+.bot-result-replay {
+  background: #10b981;
+  color: #fff;
+}
+
+.bot-result-replay:hover {
+  background: #059669;
+}
+
+.bot-result-exit {
+  background: #ef4444;
+  color: #fff;
+}
+
+.bot-result-exit:hover {
+  background: #dc2626;
+}
+
+/* Bottom Control Bar */
+.bot-bottom-bar {
+  position: fixed;
+  bottom: env(safe-area-inset-bottom, 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 8px 12px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.bot-control-btn {
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.bot-undo-btn {
+  background: rgba(59, 130, 246, 0.8);
+  color: #fff;
+}
+
+.bot-undo-btn:hover {
+  background: rgba(59, 130, 246, 1);
+}
+
+.bot-surrender-btn {
+  background: rgba(239, 68, 68, 0.8);
+  color: #fff;
+}
+
+.bot-surrender-btn:hover {
+  background: rgba(239, 68, 68, 1);
+}
+
+.bot-replay-btn {
+  background: rgba(16, 185, 129, 0.8);
+  color: #fff;
+}
+
+.bot-replay-btn:hover {
+  background: rgba(16, 185, 129, 1);
+}
+
+.bot-exit-btn {
+  background: rgba(100, 116, 139, 0.8);
+  color: #fff;
+}
+
+.bot-exit-btn:hover {
+  background: rgba(100, 116, 139, 1);
+}
+
+/* Responsive - Mobile */
+@media (max-width: 768px) {
+  .bot-player-overlay,
+  .bot-bot-overlay {
+    max-width: 200px;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .bot-avatar-circle {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
+  .bot-player-name {
+    font-size: 12px;
+  }
+
+  .bot-player-stats {
+    font-size: 10px;
+    gap: 6px;
+  }
+
+  .bot-turn-indicator {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+
+  .bot-zoom-overlay {
+    right: 8px;
+  }
+
+  .bot-zoom-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+
+  .bot-chat-overlay {
+    bottom: 80px;
+    max-width: 250px;
+  }
+
+  .bot-chat-content {
+    font-size: 12px;
+    padding: 10px 14px;
+  }
+
+  .bot-bottom-bar {
+    bottom: env(safe-area-inset-bottom, 8px);
+    padding: 6px 10px;
+    gap: 6px;
+    width: calc(100% - 24px);
+    max-width: 400px;
+  }
+
+  .bot-control-btn {
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+
+  .bot-result-box {
+    padding: 24px;
+  }
+
+  .bot-result-emoji {
+    font-size: 48px;
+  }
+
+  .bot-result-title {
+    font-size: 20px;
+  }
+
+  .bot-result-btn {
+    padding: 10px 20px;
+    font-size: 13px;
+  }
+}
+
+/* Chat Bubble Animations */
+@keyframes botChatBubble {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes botChatBubbleFade {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+}
+
 /* Mobile-specific board controls */
 @media (max-width: 768px) {
   .board-controls-overlay {
@@ -1116,16 +1431,6 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 /* Bot room card trong lobby */
 .bot-room-item { border: 2px solid #10b981; background: linear-gradient(135deg, #f0fdf4, #dcfce7); }
 .bot-room-badge { background: #10b981; color: white; font-size: 10px; padding: 2px 6px; border-radius: 999px; }
-
-/* Panel bot trong battle */
-.battle-bot-panel { background: rgba(16,185,129,.08); border: 1px solid rgba(16,185,129,.25); border-radius: 10px; padding: 16px; }
-.bot-speech-bubble-panel { background: rgba(255,255,255,.08); border-radius: 8px; padding: 10px 12px; font-size: 13px; color: #86efac; font-style: italic; min-height: 60px; }
-.bot-avatar-large { font-size: 48px; text-align: center; margin-bottom: 8px; }
-
-/* Animation cho bot speech bubble */
-.bot-speech-bubble-panel.annoying {
-  animation: bounce 0.5s ease-in-out;
-}
 
 @keyframes bounce {
   0%, 100% { transform: translateY(0); }
@@ -1714,7 +2019,7 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 </main>
 
 <!-- ================================================================
-     VIEW: BATTLE (Đang đấu)
+     VIEW: BATTLE (Đang đấu) - ONLINE MODE
      ================================================================ -->
 <main class="view" id="view-battle">
     <div class="battle-layout-desktop">
@@ -1736,7 +2041,7 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                     <canvas id="inf-canvas-online" class="shared-board-canvas"></canvas>
                     <div class="board-coords-display" id="board-coords-online">X: 0, Y: 0</div>
                     <div class="board-controls-overlay">
-                        <button class="board-control-btn" onclick="if(window.isBotRoomMode && typeof BotRoomManager!=='undefined' && BotRoomManager.undoBotRoomMove) BotRoomManager.undoBotRoomMove(); else if(typeof undoOnlineMove === 'function') undoOnlineMove();" title="Undo Last Move">↩️</button>
+                        <button class="board-control-btn" onclick="if(typeof undoOnlineMove === 'function') undoOnlineMove();" title="Undo Last Move">↩️</button>
                         <button class="board-control-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(1);" title="Zoom In">+</button>
                         <button class="board-control-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(-1);" title="Zoom Out">−</button>
                     </div>
@@ -1796,6 +2101,92 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                 <div id="battle-room-info">Đang tải thông tin phòng...</div>
             </div>
         </div>
+    </div>
+</main>
+
+<!-- ================================================================
+     VIEW: BOT ROOM (Board First Architecture - YC.TXT)
+     ================================================================ -->
+<main class="view" id="view-bot-room">
+    <!-- Fullscreen Board -->
+    <div id="bot-room-board-container" class="bot-room-board-container">
+        <div class="shared-board-container" id="shared-board-bot">
+            <canvas id="inf-canvas-bot" class="shared-board-canvas"></canvas>
+            <div class="board-coords-display" id="board-coords-bot">X: 0, Y: 0</div>
+        </div>
+        <!-- Legacy fallback -->
+        <div id="inf-resizable-bot" style="display:none;position:relative;user-select:none;"></div>
+        <div class="board" id="board-bot" style="display:none;"></div>
+    </div>
+
+    <!-- Overlay: Player Info (Top Left) -->
+    <div class="bot-overlay bot-player-overlay" id="bot-player-overlay">
+        <div class="bot-avatar-circle bot-avatar-x">X</div>
+        <div class="bot-player-details">
+            <div class="bot-player-name" id="bot-player-name">Bạn</div>
+            <div class="bot-player-stats">
+                <span class="bot-stat-item">Lv <span id="bot-player-level">25</span></span>
+                <span class="bot-stat-item">🏆 <span id="bot-player-elo">1500</span></span>
+                <span class="bot-stat-item">Win <span id="bot-player-wins">0</span></span>
+                <span class="bot-stat-item">💰 <span id="bot-player-xu">25000</span></span>
+            </div>
+        </div>
+        <div class="bot-turn-indicator" id="bot-player-indicator">Lượt của bạn</div>
+    </div>
+
+    <!-- Overlay: Bot Info (Top Right) -->
+    <div class="bot-overlay bot-bot-overlay" id="bot-bot-overlay">
+        <div class="bot-avatar-circle bot-avatar-o">🤖</div>
+        <div class="bot-player-details">
+            <div class="bot-player-name" id="bot-bot-name">Bot Khó</div>
+            <div class="bot-player-stats">
+                <span class="bot-stat-item">Độ khó: <span id="bot-difficulty">Khó</span></span>
+                <span class="bot-stat-item">ELO: <span id="bot-elo">1800</span></span>
+                <span class="bot-stat-item">Win Rate: <span id="bot-winrate">65%</span></span>
+            </div>
+        </div>
+        <div class="bot-turn-indicator inactive" id="bot-bot-indicator">Đang chờ</div>
+    </div>
+
+    <!-- Overlay: Zoom Controls (Right Side) -->
+    <div class="bot-overlay bot-zoom-overlay">
+        <button class="bot-zoom-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(1);" title="Phóng to">+</button>
+        <button class="bot-zoom-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(-1);" title="Thu nhỏ">−</button>
+        <button class="bot-zoom-btn" onclick="if(typeof vRowF !== 'undefined' && typeof vColF !== 'undefined') { vRowF = 0; vColF = 0; if(typeof renderInfiniteBoard === 'function') renderInfiniteBoard(); }" title="Canh giữa bàn cờ">⌖ Fit</button>
+    </div>
+
+    <!-- Overlay: Chat Bot Bubble (Floating) -->
+    <div class="bot-overlay bot-chat-overlay" id="bot-chat-bubble">
+        <div class="bot-chat-content" id="bot-chat-message">💬 "Chào bạn! Sẵn sàng thua chưa?"</div>
+    </div>
+
+    <!-- Overlay: Game Result Popup (Center) -->
+    <div class="bot-overlay bot-result-overlay" id="bot-result-popup" style="display:none;">
+        <div class="bot-result-box">
+            <div class="bot-result-emoji" id="bot-result-emoji">🏆</div>
+            <div class="bot-result-title" id="bot-result-title">Bạn thắng!</div>
+            <div class="bot-result-subtitle" id="bot-result-subtitle"></div>
+            <div class="bot-result-actions">
+                <button class="bot-result-btn bot-result-replay" onclick="if(typeof BotRoomManager !== 'undefined') BotRoomManager.replayBotBattle();">🔄 Chơi lại</button>
+                <button class="bot-result-btn bot-result-exit" onclick="if(typeof BotRoomManager !== 'undefined') BotRoomManager.exitBotRoom();">🚪 Thoát</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Control Bar -->
+    <div class="bot-bottom-bar">
+        <button class="bot-control-btn" onclick="if(typeof BotRoomManager !== 'undefined') BotRoomManager.undoBotRoomMove();" title="Hoàn tác">
+            ↶ Undo
+        </button>
+        <button class="bot-control-btn bot-surrender-btn" onclick="if(typeof BotRoomManager !== 'undefined') BotRoomManager.surrenderBotGame();" title="Đầu hàng">
+            🏳️ Đầu hàng
+        </button>
+        <button class="bot-control-btn bot-replay-btn" onclick="if(typeof BotRoomManager !== 'undefined') BotRoomManager.replayBotBattle();" title="Chơi lại">
+            🔄 Chơi lại
+        </button>
+        <button class="bot-control-btn bot-exit-btn" onclick="if(typeof BotRoomManager !== 'undefined') BotRoomManager.exitBotRoom();" title="Thoát">
+            🚪 Thoát
+        </button>
     </div>
 </main>
 
@@ -2155,7 +2546,7 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
      ================================================================ -->
 <script>
 /* ── VIEW ROUTER ── */
-const VIEWS = ['home', 'training', 'room', 'battle'];
+const VIEWS = ['home', 'training', 'room', 'battle', 'bot-room'];
 
 // GAME PLAYING STATE TRACKING
 let isGamePlaying = false;

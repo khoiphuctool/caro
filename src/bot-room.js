@@ -55,9 +55,6 @@ const BotRoomManager = {
 
     // ══ Vào màn hình chờ phòng ═══════════════════════════════════
     enterBotRoom: function(botConfig) {
-        // YC.TXT FIX: Cleanup previous mode before entering BOT
-        this.cleanupPreviousMode();
-
         this.currentBotRoom = botConfig;
         this.isBotRoomMode  = true;
 
@@ -156,7 +153,7 @@ const BotRoomManager = {
         `;
     },
 
-    // ══ Chuyển sang battle view và khởi game ═════════════════════
+    // ══ Chuyển sang bot room view và khởi game (YC.TXT Board First) ═════════════════════
     startBotBattle: function() {
         if (!this.currentBotRoom) return;
 
@@ -169,21 +166,7 @@ const BotRoomManager = {
         const fm   = fmEl ? fmEl.value   : 'X';
 
         window.isBotRoomMode    = true;
-        window.currentBotConfig = this.currentBotConfig;
-        
-        // YC.TXT FIX: DISABLED - Do NOT save bot room state to localStorage
-        // BOT mode restore is disabled to prevent "Phòng Ma" and mode conflicts
-        // localStorage.setItem('bot_room_mode', 'true');
-        // localStorage.setItem('bot_room_config', JSON.stringify({
-        //     botConfig: this.currentBotRoom,
-        //     boardState: typeof infiniteMap !== 'undefined' ? Array.from(infiniteMap.entries()) : null,
-        //     moveHistory: typeof moveHistory !== 'undefined' ? moveHistory : [],
-        //     currentPlayer: typeof currentPlayer !== 'undefined' ? currentPlayer : 'X',
-        //     isGameActive: typeof isGameActive !== 'undefined' ? isGameActive : true,
-        //     winCount: typeof winCount !== 'undefined' ? winCount : 5,
-        //     lastMoveR: typeof lastMoveR !== 'undefined' ? lastMoveR : null,
-        //     lastMoveC: typeof lastMoveC !== 'undefined' ? lastMoveC : null
-        // }));
+        window.currentBotConfig = this.currentBotRoom;
 
         // Áp cài đặt vào engine
         const modeEl = document.getElementById('game-mode');
@@ -201,156 +184,286 @@ const BotRoomManager = {
         const blockBothEnds = document.getElementById('block-both-ends');
         if (blockBothEnds) blockBothEnds.checked = bb;
 
-        // BUG.TXT FIX: Create Exit button overlay
-        this.createBotExitButton();
-
         // Cập nhật currentRoomId lên Firebase để người khác biết đang bận (bot room)
         const myId = localStorage.getItem('current_user_id');
         if (myId && typeof db !== 'undefined') {
             db.ref(`users/${myId}/currentRoomId`).set('bot-room');
         }
 
-        // Cần view-training active trước để #inf-resizable có parent hợp lệ
-        // khi initGame() tạo canvas — ẩn UI training để không nhấp nháy
-        const viewTraining = document.getElementById('view-training');
+        // YC.TXT: Switch to new view-bot-room instead of battle view
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        if (viewTraining) {
-            viewTraining.classList.add('active');
-            const pl = document.querySelector('.practice-layout');
-            if (pl) pl.style.visibility = 'hidden';
-            const ov = document.getElementById('practice-select-overlay');
-            if (ov) ov.style.display = 'none';
+        const viewBotRoom = document.getElementById('view-bot-room');
+        if (viewBotRoom) {
+            viewBotRoom.classList.add('active');
         }
 
-        // Khởi tạo game → canvas được tạo trong #inf-resizable
+        // Hide navigation during battle
+        if (typeof hideTopNavigation === 'function') {
+            hideTopNavigation();
+        }
+
+        // Initialize canvas in the new bot room container
+        this.initBotRoomCanvas();
+
+        // YC.TXT FIX: Log infCanvas.id after initBotRoomCanvas
+        console.log('[BOT ROOM] enterBotRoom - infCanvas.id:', typeof infCanvas !== 'undefined' && infCanvas ? infCanvas.id : 'null');
+
+        // Khởi tạo game
         if (typeof initGame === 'function') initGame();
 
-        // switchView('battle') sẽ gọi moveBoardToBattle() qua hook
-        setTimeout(() => {
-            // Restore visibility trước khi chuyển view
-            const pl = document.querySelector('.practice-layout');
-            if (pl) pl.style.visibility = '';
-            if (typeof switchView === 'function') switchView('battle');
-            // Hide navigation during battle
-            if (typeof hideTopNavigation === 'function') {
-                hideTopNavigation();
-            }
-            setTimeout(() => this.renderBotBattlePanel(), 120);
-            // Enable mobile full-screen mode if on mobile
-            this.enableMobileFullScreenMode();
-        }, 60);
+        // Update overlay UI
+        setTimeout(() => this.updateBotRoomOverlays(), 120);
     },
 
-    // ══ Panel bên phải trong battle view ════════════════════════
-    renderBotBattlePanel: function() {
-        const battleRight = document.querySelector('.battle-right');
-        if (!battleRight || !this.currentBotRoom) return;
+    // ══ Initialize canvas for BOT ROOM (YC.TXT) ═════════════════════
+    initBotRoomCanvas: function() {
+        // YC.TXT FIX: Use the existing inf-canvas-bot canvas in HTML instead of moving canvas
+        const canvas = document.getElementById('inf-canvas-bot');
+        const botContainer = document.getElementById('shared-board-bot');
 
-        const username = localStorage.getItem('current_username') || 'Bạn';
+        console.log('[BOT ROOM] initBotRoomCanvas - canvas element:', {
+            canvasId: canvas ? canvas.id : 'null',
+            canvasWidth: canvas ? canvas.width : 'null',
+            canvasHeight: canvas ? canvas.height : 'null',
+            botContainerId: botContainer ? botContainer.id : 'null'
+        });
 
-        // ── Cập nhật cột trái (Player X) với thông tin người chơi thật ──
-        const nameX = document.getElementById('battle-name-x');
-        if (nameX) nameX.textContent = username;
-        const statsX = document.getElementById('battle-stats-x');
-        if (statsX) statsX.textContent = '🎮 Người chơi';
-        const indicatorX = document.getElementById('battle-indicator-x');
-        if (indicatorX) indicatorX.textContent = 'Lượt của bạn';
+        if (canvas && botContainer) {
+            // YC.TXT FIX: Use container dimensions instead of window dimensions
+            // Container dimensions reflect the actual available space
+            const containerRect = botContainer.getBoundingClientRect();
+            const containerWidth = containerRect.width || window.innerWidth;
+            const containerHeight = containerRect.height || window.innerHeight;
 
-        // ── Ẩn các element chỉ dành cho online mode ──
-        // shared-board-online đã bị ẩn bởi moveBoardToBattle()
-        // Ẩn thêm bet-info và battle-room-info
-        const betInfo     = document.getElementById('battle-bet-info');
-        if (betInfo)      betInfo.style.display = 'none';
-        const roomInfo    = document.querySelector('.battle-room-info-card');
-        if (roomInfo)     roomInfo.style.display = 'none';
+            // Log comparison before and after
+            console.log('[BOT ROOM] Dimension comparison:', {
+                windowInnerWidth: window.innerWidth,
+                windowInnerHeight: window.innerHeight,
+                containerWidth,
+                containerHeight,
+                canvasWidthBefore: canvas.width,
+                canvasHeightBefore: canvas.height
+            });
 
-        // ── Render panel bot thay thế chat + player O card ──
-        battleRight.innerHTML = `
-            <!-- Player O = Bot -->
-            <div class="battle-player-card" style="background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.3);">
-                <div class="battle-avatar bo" style="background:rgba(16,185,129,.2);border-color:#10b981;color:#10b981;font-size:22px;">🤖</div>
-                <div class="battle-pname">${this.currentBotRoom.name}</div>
-                <div class="battle-pstats">🤖 Đối thủ AI</div>
-                <div class="battle-indicator inactive" id="battle-indicator-o">Đang chờ</div>
-            </div>
+            // Set canvas internal dimensions to match container
+            canvas.width = containerWidth;
+            canvas.height = containerHeight;
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
 
-            <div class="battle-bot-panel">
-                <div class="bot-speech-bubble-panel" id="bot-speech-panel" style="background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:#3b82f6;">
-                    💬 "Chào bạn! Sẵn sàng thua chưa?"
-                </div>
-
-                <div style="border-top:1px solid rgba(16,185,129,.25);margin:10px 0;"></div>
-
-                <div style="font-size:12px;color:#94a3b8;line-height:1.8;">
-                    <strong style="color:#E65100;">Thông tin ván đấu:</strong><br>
-                    ${document.getElementById('win-count')?.value || 5} quân ·
-                    ${document.getElementById('block-both-ends')?.checked ? 'Chặn 2 đầu' : 'Tự do'}<br>
-                    Đi trước: ${document.getElementById('first-move')?.value === 'X' ? 'Bạn (X)' : 'Bot (O)'}
-                </div>
-
-                <div style="border-top:1px solid rgba(16,185,129,.25);margin:10px 0;"></div>
-
-                <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#94a3b8;">
-                    <input type="checkbox" id="bot-room-debug-scores" onchange="BotRoomManager.toggleDebugScores()" style="cursor:pointer;">
-                    <label for="bot-room-debug-scores" style="cursor:pointer;">Hiện điểm ô (debug)</label>
-                </div>
-
-                <div style="border-top:1px solid rgba(16,185,129,.25);margin:10px 0;"></div>
-
-                <div style="display:flex;flex-direction:column;gap:8px;">
-                    <button onclick="BotRoomManager.replayBotBattle()"
-                            style="padding:9px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;">
-                        🔄 Chơi lại
-                    </button>
-                    <button onclick="BotRoomManager.exitBotRoom()"
-                            style="padding:9px;background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3);border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;">
-                        🚪 Thoát phòng
-                    </button>
-                </div>
-            </div>
-        `;
-    },
-
-    // ══ Toggle debug scores ══════════════════════════════════════════
-    toggleDebugScores: function() {
-        const checkbox = document.getElementById('bot-room-debug-scores');
-        if (!checkbox) return;
-
-        // Sync với checkbox chính của hệ thống
-        const mainCheckbox = document.getElementById('show-cell-scores');
-        if (mainCheckbox) {
-            mainCheckbox.checked = checkbox.checked;
+            console.log('[BOT ROOM] initBotRoomCanvas dimensions:', {
+                windowInnerWidth: window.innerWidth,
+                windowInnerHeight: window.innerHeight,
+                containerWidth: containerRect.width,
+                containerHeight: containerRect.height,
+                canvasWidth: canvas.width,
+                canvasHeight: canvas.height,
+                cssWidth: canvas.style.width,
+                cssHeight: canvas.style.height
+            });
         }
 
-        // Re-render bàn cờ ngay lập tức để áp dụng thay đổi
+        // Update infCanvasW/infCanvasH BEFORE calling initInfCanvas
+        if (typeof infCanvasW !== 'undefined' && typeof infCanvasH !== 'undefined') {
+            infCanvasW = canvas.width;
+            infCanvasH = canvas.height;
+            console.log('[BOT ROOM] Updated infCanvasW/infCanvasH:', { infCanvasW, infCanvasH });
+        }
+
+        // YC.TXT: Ensure constant CELL_SIZE (32px) - don't resize cells
+        // The board should show fewer cells on smaller screens, not smaller cells
+        if (typeof INF_CS !== 'undefined') {
+            console.log('[BOT ROOM] CELL_SIZE locked at:', INF_CS, 'px');
+        }
+
+        // BUG.TXT FIX: Reset viewport offset to center (0,0) at middle of screen
+        if (typeof vRowF !== 'undefined' && typeof vColF !== 'undefined' &&
+            typeof infCanvasW !== 'undefined' && typeof infCanvasH !== 'undefined') {
+            vRowF = -Math.floor(infCanvasH / INF_CS / 2);
+            vColF = -Math.floor(infCanvasW / INF_CS / 2);
+            console.log('[BOT ROOM] Viewport offset reset to center:', { vRowF, vColF });
+        }
+
+        // Initialize canvas with fullscreen size - pass canvas element to avoid hardcode
+        if (typeof initInfCanvas === 'function') {
+            initInfCanvas(canvas);
+        }
+
+        // YC.TXT FIX: Log after initInfCanvas to verify canvas and ctx
+        console.log('[BOT ROOM] After initInfCanvas - infCanvas:', {
+            infCanvas: typeof infCanvas !== 'undefined' ? infCanvas : 'undefined',
+            infCanvasId: typeof infCanvas !== 'undefined' && infCanvas ? infCanvas.id : 'null',
+            infCtx: typeof infCtx !== 'undefined' ? infCtx : 'undefined'
+        });
+
+        // Re-verify canvas dimensions after initInfCanvas
+        if (canvas) {
+            console.log('[BOT ROOM] Canvas dimensions after initInfCanvas:', {
+                width: canvas.width,
+                height: canvas.height,
+                infCanvasW: typeof infCanvasW !== 'undefined' ? infCanvasW : 'undefined',
+                infCanvasH: typeof infCanvasH !== 'undefined' ? infCanvasH : 'undefined'
+            });
+        }
+
+        // Initialize camera to center of viewport
+        if (typeof camera !== 'undefined') {
+            camera.x = canvas.width / 2;
+            camera.y = canvas.height / 2;
+        }
+
+        // Add resize listener for bot room
+        this.addBotRoomResizeListener();
+
+        // YC.TXT FIX: Call renderInfiniteBoard() AFTER initInfCanvas completes
+        // This must be AFTER initGame() to avoid race condition
         if (typeof renderInfiniteBoard === 'function') {
             renderInfiniteBoard();
         }
     },
 
-    // ══ Chơi lại (không qua màn hình phòng) ═════════════════════
+    // ══ Add resize listener for BOT ROOM ═════════════════════
+    addBotRoomResizeListener: function() {
+        // Remove existing listener if any
+        if (this.botRoomResizeHandler) {
+            window.removeEventListener('resize', this.botRoomResizeHandler);
+        }
+
+        let resizeTimeout = null;
+        this.botRoomResizeHandler = () => {
+            if (!this.isBotRoomMode) return;
+
+            // Debounce resize to avoid jitter
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                // YC.TXT FIX: Use inf-canvas-bot instead of inf-canvas for Bot Room mode
+                const canvas = document.getElementById('inf-canvas-bot');
+                const botContainer = document.getElementById('shared-board-bot');
+                
+                if (canvas && botContainer) {
+                    // Use container dimensions instead of window dimensions
+                    const containerRect = botContainer.getBoundingClientRect();
+                    const containerWidth = containerRect.width || window.innerWidth;
+                    const containerHeight = containerRect.height || window.innerHeight;
+
+                    canvas.width = containerWidth;
+                    canvas.height = containerHeight;
+                    canvas.style.width = containerWidth + 'px';
+                    canvas.style.height = containerHeight + 'px';
+
+                    // Update infCanvasW/infCanvasH for renderer
+                    if (typeof infCanvasW !== 'undefined' && typeof infCanvasH !== 'undefined') {
+                        infCanvasW = canvas.width;
+                        infCanvasH = canvas.height;
+                    }
+
+                    // Re-render board
+                    if (typeof renderInfiniteBoard === 'function') {
+                        renderInfiniteBoard();
+                    }
+                }
+            }, 100);
+        };
+
+        window.addEventListener('resize', this.botRoomResizeHandler);
+    },
+
+    // ══ Remove resize listener when exiting BOT ROOM ═════════════════════
+    removeBotRoomResizeListener: function() {
+        if (this.botRoomResizeHandler) {
+            window.removeEventListener('resize', this.botRoomResizeHandler);
+            this.botRoomResizeHandler = null;
+        }
+    },
+
+    // ══ Update BOT ROOM overlay UI (YC.TXT) ═════════════════════
+    updateBotRoomOverlays: function() {
+        const username = localStorage.getItem('current_username') || 'Bạn';
+
+        // Update player info
+        const playerName = document.getElementById('bot-player-name');
+        if (playerName) playerName.textContent = username;
+
+        // Update bot info
+        const botName = document.getElementById('bot-bot-name');
+        if (botName) botName.textContent = this.currentBotRoom.name;
+
+        const botDifficulty = document.getElementById('bot-difficulty');
+        if (botDifficulty) botDifficulty.textContent = this.currentBotRoom.description;
+
+        // Update player stats (mock data for now)
+        const playerLevel = document.getElementById('bot-player-level');
+        if (playerLevel) playerLevel.textContent = '25';
+
+        const playerElo = document.getElementById('bot-player-elo');
+        if (playerElo) playerElo.textContent = '1500';
+
+        const playerWins = document.getElementById('bot-player-wins');
+        if (playerWins) playerWins.textContent = '0';
+
+        const playerXu = document.getElementById('bot-player-xu');
+        if (playerXu) playerXu.textContent = '25000';
+
+        // Update bot stats
+        const botElo = document.getElementById('bot-elo');
+        if (botElo) botElo.textContent = '1800';
+
+        const botWinrate = document.getElementById('bot-winrate');
+        if (botWinrate) botWinrate.textContent = '65%';
+
+        // Update turn indicators
+        const playerIndicator = document.getElementById('bot-player-indicator');
+        const botIndicator = document.getElementById('bot-bot-indicator');
+        
+        if (playerIndicator) playerIndicator.textContent = 'Lượt của bạn';
+        if (botIndicator) botIndicator.textContent = 'Đang chờ';
+    },
+
+
+    // ══ Chơi lại (YC.TXT - Updated for new view) ═════════════════════
     replayBotBattle: function() {
         if (!this.currentBotRoom) return;
-        
+
+        // Hide result popup if visible
+        this.hideBotResultPopup();
+
         // Xóa state restore khi chơi lại để tránh dùng state cũ
         localStorage.removeItem('bot_room_mode');
         localStorage.removeItem('bot_room_config');
-        
+
+        // Re-initialize game
         if (typeof initGame === 'function') initGame();
-        // Cập nhật lại thông tin trên panel
-        setTimeout(() => this.renderBotBattlePanel(), 80);
+
+        // Update overlay UI
+        setTimeout(() => this.updateBotRoomOverlays(), 80);
+
+        // Show bot speech
+        this.showBotSpeech('Ván mới bắt đầu! Đấu tiếp nhé!');
     },
 
-    // ══ Hiện bubble thoại bot ════════════════════════════════════
+    // ══ Hiện bubble thoại bot (YC.TXT - Updated for new overlay) ═════════════════════
     showBotSpeech: function(msg) {
-        const panel = document.getElementById('bot-speech-panel');
-        if (!panel) return;
-        panel.innerHTML = `💬 "${msg}"`;
-        panel.classList.add('annoying');
-        setTimeout(() => panel.classList.remove('annoying'), 3000);
+        const chatBubble = document.getElementById('bot-chat-message');
+        if (!chatBubble) return;
+        chatBubble.textContent = `💬 "${msg}"`;
+        
+        // Add animation
+        const overlay = document.getElementById('bot-chat-bubble');
+        if (overlay) {
+            overlay.style.animation = 'none';
+            overlay.offsetHeight; // Trigger reflow
+            overlay.style.animation = 'botChatBubble 0.3s ease-out';
+        }
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            if (overlay) {
+                overlay.style.animation = 'botChatBubbleFade 0.3s ease-out forwards';
+            }
+        }, 5000);
     },
 
-    // ══ Xử lý kết thúc ván ══════════════════════════════════════
+    // ══ Xử lý kết thúc ván (YC.TXT - Updated for new popup) ═════════════════════
     handleGameEnd: function(winner) {
         if (winner === 'X' && typeof window.updateUserStats === 'function') {
             window.updateUserStats('winBot', 1);
@@ -360,21 +473,22 @@ const BotRoomManager = {
             const gameMode = this.currentBotRoom.gameMode;
             window.onWinBotXu(gameMode);
         }
-        const panel = document.getElementById('bot-speech-panel');
-        if (panel) {
-            panel.innerHTML = winner === 'X'
-                ? '💬 "Bạn thắng rồi! Đáng nể đấy! Thử ván nữa không?"'
-                : '💬 "Tôi đã bảo rồi! Còn lâu mới thắng được tôi! 😈"';
+
+        // Show new result popup
+        if (winner === 'X') {
+            this.showBotResultPopup('win');
+            this.showBotSpeech('Bạn thắng rồi! Đáng nể đấy! Thử ván nữa không?');
+        } else if (winner === 'O') {
+            this.showBotResultPopup('lose');
+            this.showBotSpeech('Tôi đã bảo rồi! Còn lâu mới thắng được tôi! 😈');
+        } else {
+            this.showBotResultPopup('draw');
+            this.showBotSpeech('Hòa! Lần sau sẽ thắng được đâu!');
         }
     },
 
     // ══ Undo move trong phòng bot ═════════════════════════════════
     undoBotRoomMove: function() {
-        console.log({
-            isBotRoomMode:this.isBotRoomMode,
-            currentBotRoom:this.currentBotRoom,
-            moveHistory:typeof moveHistory !== 'undefined' ? moveHistory.length : 'undefined'
-        });
         if (!this.isBotRoomMode || !this.currentBotRoom) {
             alert('Chỉ có thể undo khi đang trong phòng bot!');
             return;
@@ -430,25 +544,82 @@ const BotRoomManager = {
             renderInfiniteBoard();
         }
 
-        // Cập nhật UI
-        const statusEl = document.getElementById('battle-status');
-        if (statusEl) statusEl.textContent = '🟢 Lượt của bạn (X)';
-
         // Bot sẽ không tự đánh vì currentPlayer đã được set về 'X' (lượt người)
     },
 
-    // ══ Thoát phòng bot ══════════════════════════════════════════
+    // ══ Đầu hàng trong BOT ROOM (YC.TXT) ═════════════════════════════════
+    surrenderBotGame: function() {
+        if (!this.isBotRoomMode || !this.currentBotRoom) {
+            alert('Chỉ có thể đầu hàng khi đang trong phòng bot!');
+            return;
+        }
+
+        if (confirm('Bạn có chắc muốn đầu hàng? Bot sẽ thắng.')) {
+            // Stop AI
+            if (typeof stopAI === 'function') {
+                stopAI();
+            }
+
+            // End game state
+            if (typeof isGameActive !== 'undefined') {
+                isGameActive = false;
+            }
+
+            // Show result popup
+            this.showBotResultPopup('lose');
+
+            // Update bot chat
+            this.showBotSpeech('Bạn đã đầu hàng! Tôi thắng rồi! 😈');
+        }
+    },
+
+    // ══ Show BOT result popup (YC.TXT) ═════════════════════════════════
+    showBotResultPopup: function(result) {
+        const popup = document.getElementById('bot-result-popup');
+        if (!popup) return;
+
+        const emoji = document.getElementById('bot-result-emoji');
+        const title = document.getElementById('bot-result-title');
+        const subtitle = document.getElementById('bot-result-subtitle');
+
+        if (result === 'win') {
+            if (emoji) emoji.textContent = '🏆';
+            if (title) title.textContent = 'Bạn thắng!';
+            if (subtitle) subtitle.textContent = 'Chúc mừng! Bạn đã đánh bại bot.';
+        } else if (result === 'lose') {
+            if (emoji) emoji.textContent = '😢';
+            if (title) title.textContent = 'Bạn thua!';
+            if (subtitle) subtitle.textContent = 'Bot đã chiến thắng. Thử lại nhé!';
+        } else if (result === 'draw') {
+            if (emoji) emoji.textContent = '🤝';
+            if (title) title.textContent = 'Hòa!';
+            if (subtitle) subtitle.textContent = 'Trận đấu kết thúc hòa.';
+        }
+
+        popup.style.display = 'flex';
+    },
+
+    // ══ Hide BOT result popup ══════════════════════════════════════════
+    hideBotResultPopup: function() {
+        const popup = document.getElementById('bot-result-popup');
+        if (popup) popup.style.display = 'none';
+    },
+
+    // ══ Thoát phòng bot (YC.TXT - Updated for new view) ═════════════════════
     exitBotRoom: function() {
         this.isBotRoomMode  = false;
         this.currentBotRoom = null;
         window.isBotRoomMode    = false;
         window.currentBotConfig = null;
-        
+
+        // Remove resize listener
+        this.removeBotRoomResizeListener();
+
         // YC.TXT FIX: Clear mode from GameModeManager
         if (typeof GameModeManager !== 'undefined') {
             GameModeManager.clearMode();
         }
-        
+
         // YC.TXT FIX: Clear ALL BOT Restore State from localStorage
         localStorage.removeItem('bot_room_mode');
         localStorage.removeItem('bot_room_config');
@@ -457,17 +628,17 @@ const BotRoomManager = {
         localStorage.removeItem('current_room_id');
         sessionStorage.removeItem('bot_session');
 
-        // BUG.TXT FIX: Remove Exit button overlay
-        this.removeBotExitButton();
-
-        // Disable mobile full-screen mode
-        this.disableMobileFullScreenMode();
+        // Hide result popup if visible
+        this.hideBotResultPopup();
 
         // Xóa currentRoomId khỏi Firebase khi thoát bot room
         const myId = localStorage.getItem('current_user_id');
         if (myId && typeof db !== 'undefined') {
             db.ref(`users/${myId}/currentRoomId`).remove();
         }
+
+        // Restore canvas to original location
+        this.restoreCanvas();
 
         // Restore các element đã ẩn khi vào bot room
         const betInfo  = document.getElementById('battle-bet-info');
@@ -496,272 +667,21 @@ const BotRoomManager = {
         if (typeof switchRoomTab === 'function') switchRoomTab('bot');
     },
 
-    // ══ BUG.TXT FIX: Create Exit button overlay for BOT mode ═════════════════════
-    createBotExitButton: function() {
-        // Remove existing button if any
-        this.removeBotExitButton();
+    // ══ Restore canvas to original location (YC.TXT) ═════════════════════
+    restoreCanvas: function() {
+        // Move canvas back to original container WITHOUT changing id
+        const botCanvas = document.getElementById('inf-canvas');
+        const originalContainer = document.getElementById('inf-resizable');
 
-        const exitBtn = document.createElement('button');
-        exitBtn.id = 'bot-exit-overlay';
-        exitBtn.innerHTML = '← Thoát';
-        exitBtn.style.cssText = `
-            position: fixed;
-            top: 16px;
-            left: 16px;
-            z-index: 99999;
-            padding: 10px 16px;
-            background: rgba(239, 68, 68, 0.95);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            transition: all 0.2s;
-        `;
-        exitBtn.onmouseover = function() {
-            this.style.background = 'rgba(220, 38, 38, 1)';
-            this.style.transform = 'scale(1.05)';
-        };
-        exitBtn.onmouseout = function() {
-            this.style.background = 'rgba(239, 68, 68, 0.95)';
-            this.style.transform = 'scale(1)';
-        };
-        exitBtn.onclick = () => this.handleBotExitClick();
+        if (botCanvas && originalContainer) {
+            // YC.TXT FIX: Don't change canvas id - just move it back
+            // botCanvas.id = 'inf-canvas'; // REMOVED - don't change id
+            originalContainer.appendChild(botCanvas);
 
-        document.body.appendChild(exitBtn);
-    },
-
-    // ══ BUG.TXT FIX: Remove Exit button overlay ═════════════════════
-    removeBotExitButton: function() {
-        const exitBtn = document.getElementById('bot-exit-overlay');
-        if (exitBtn) {
-            exitBtn.remove();
+            // Reset canvas size
+            botCanvas.style.width = '';
+            botCanvas.style.height = '';
         }
-    },
-
-    // ══ BUG.TXT FIX: Handle Exit button click with confirm dialog ═════════════════════
-    handleBotExitClick: function() {
-        if (confirm('Bạn có chắc muốn thoát trận BOT?')) {
-            // Stop AI
-            if (typeof stopAI === 'function') {
-                stopAI();
-            }
-
-            // Stop Timer
-            if (typeof stopTimer === 'function') {
-                stopTimer();
-            }
-
-            // Cancel Animation
-            if (typeof cancelAnimationFrame === 'function') {
-                // Cancel any ongoing animation frames
-            }
-
-            // Cleanup Event
-            // Events are already handled by exitBotRoom
-
-            // Cleanup BOT Session
-            // Already handled by exitBotRoom
-
-            // Xóa BOT Restore Context
-            localStorage.removeItem('bot_room_mode');
-            localStorage.removeItem('bot_room_config');
-
-            // Xóa BOT localStorage/sessionStorage liên quan
-            sessionStorage.removeItem('bot_session');
-
-            // YC.TXT FIX: Cleanup BOT mode completely
-            this.cleanupBotMode();
-
-            // Quay về Menu BOT
-            this.exitBotRoom();
-        }
-    },
-
-    // ══ YC.TXT FIX: Cleanup previous mode before entering BOT ═════════════════════
-    cleanupPreviousMode: function() {
-        const currentMode = typeof GameModeManager !== 'undefined' ? GameModeManager.getCurrentMode() : null;
-        
-        // Cleanup ONLINE mode if active
-        if (currentMode === 'online' || (typeof GameModes !== 'undefined' && currentMode === GameModes.ONLINE)) {
-            if (typeof thoatGiaoDienOnline === 'function') {
-                thoatGiaoDienOnline();
-            }
-            // Clear Online Firebase listeners
-            if (typeof currentRoomId !== 'undefined' && currentRoomId) {
-                if (typeof db !== 'undefined') {
-                    db.ref(`rooms/${currentRoomId}`).off();
-                }
-            }
-        }
-        
-        // Cleanup REPLAY mode if active
-        if (currentMode === 'replay' || (typeof GameModes !== 'undefined' && currentMode === GameModes.REPLAY)) {
-            if (typeof closeHistoryView === 'function') {
-                closeHistoryView();
-            }
-        }
-        
-        // Cleanup TRAINING mode if active
-        if (currentMode === 'training' || (typeof GameModes !== 'undefined' && currentMode === GameModes.TRAINING)) {
-            if (typeof PracticeMode !== 'undefined' && typeof PracticeMode.exit === 'function') {
-                PracticeMode.exit();
-            }
-        }
-        
-        // Cleanup SOLO mode if active
-        if (currentMode === 'solo' || (typeof GameModes !== 'undefined' && currentMode === GameModes.SOLO)) {
-            // Solo mode cleanup
-            if (typeof isGameActive !== 'undefined') {
-                isGameActive = false;
-            }
-        }
-    },
-
-    // ══ YC.TXT FIX: Cleanup BOT mode completely ═════════════════════
-    cleanupBotMode: function() {
-        // Stop AI
-        if (typeof stopAI === 'function') {
-            stopAI();
-        }
-
-        // Stop Timer
-        if (typeof stopTimer === 'function') {
-            stopTimer();
-        }
-
-        // Clear game state
-        if (typeof infiniteMap !== 'undefined') {
-            infiniteMap.clear();
-        }
-        if (typeof moveHistory !== 'undefined') {
-            moveHistory.length = 0;
-        }
-        if (typeof isGameActive !== 'undefined') {
-            isGameActive = false;
-        }
-
-        // Clear Firebase currentRoomId
-        const myId = localStorage.getItem('current_user_id');
-        if (myId && typeof db !== 'undefined') {
-            db.ref(`users/${myId}/currentRoomId`).remove();
-        }
-    },
-
-    // ══ Enable mobile full-screen mode (YC.TXT) ═══════════════════
-    enableMobileFullScreenMode: function() {
-        // Only enable on mobile devices
-        if (window.innerWidth > 768) return;
-
-        // Add body class for CSS targeting
-        document.body.classList.add('bot-room-mobile-mode');
-
-        // Render mobile overlays
-        this.renderMobileOverlays();
-    },
-
-    // ══ Disable mobile full-screen mode ═══════════════════════════
-    disableMobileFullScreenMode: function() {
-        // Remove body class
-        document.body.classList.remove('bot-room-mobile-mode');
-
-        // Remove mobile overlays
-        const overlays = document.querySelectorAll('.mobile-bot-overlay');
-        overlays.forEach(el => el.remove());
-    },
-
-    // ══ Render mobile overlay UI (YC.TXT) ═════════════════════════
-    renderMobileOverlays: function() {
-        // Remove existing overlays first
-        const existingOverlays = document.querySelectorAll('.mobile-bot-overlay');
-        existingOverlays.forEach(el => el.remove());
-
-        const username = localStorage.getItem('current_username') || 'Bạn';
-
-        // Exit button - top left
-        const exitBtn = document.createElement('button');
-        exitBtn.className = 'mobile-bot-overlay mobile-bot-exit';
-        exitBtn.innerHTML = '✕';
-        exitBtn.onclick = () => this.exitBotRoom();
-        document.body.appendChild(exitBtn);
-
-        // Bot info - top center
-        const botInfo = document.createElement('div');
-        botInfo.className = 'mobile-bot-overlay mobile-bot-info';
-        botInfo.innerHTML = `🤖 ${this.currentBotRoom.name}`;
-        document.body.appendChild(botInfo);
-
-        // Player info - bottom left
-        const playerInfo = document.createElement('div');
-        playerInfo.className = 'mobile-bot-overlay mobile-bot-player-info';
-        playerInfo.innerHTML = `👤 ${username}`;
-        document.body.appendChild(playerInfo);
-
-        // Action buttons - bottom center
-        const actionsDiv = document.createElement('div');
-        actionsDiv.className = 'mobile-bot-overlay mobile-bot-actions';
-
-        const undoBtn = document.createElement('button');
-        undoBtn.className = 'mobile-bot-action-btn undo';
-        undoBtn.innerHTML = '↩ Undo';
-        undoBtn.onclick = () => this.undoBotRoomMove();
-        actionsDiv.appendChild(undoBtn);
-
-        const surrenderBtn = document.createElement('button');
-        surrenderBtn.className = 'mobile-bot-action-btn surrender';
-        surrenderBtn.innerHTML = '🏳️ Đầu hàng';
-        surrenderBtn.onclick = () => {
-            if (confirm('Bạn có chắc muốn đầu hàng?')) {
-                if (typeof handleGameEnd === 'function') {
-                    handleGameEnd('O');
-                }
-            }
-        };
-        actionsDiv.appendChild(surrenderBtn);
-
-        document.body.appendChild(actionsDiv);
-
-        // Zoom controls - bottom right
-        const zoomDiv = document.createElement('div');
-        zoomDiv.className = 'mobile-bot-overlay mobile-bot-zoom';
-
-        const zoomInBtn = document.createElement('button');
-        zoomInBtn.className = 'mobile-bot-zoom-btn';
-        zoomInBtn.innerHTML = '+';
-        zoomInBtn.onclick = () => {
-            if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.Camera) {
-                SharedBoardEngine.Camera.zoomAt(
-                    window.innerWidth / 2,
-                    window.innerHeight / 2,
-                    0.2,
-                    window.innerWidth,
-                    window.innerHeight
-                );
-                SharedBoardEngine.Renderer.render();
-            }
-        };
-        zoomDiv.appendChild(zoomInBtn);
-
-        const zoomOutBtn = document.createElement('button');
-        zoomOutBtn.className = 'mobile-bot-zoom-btn';
-        zoomOutBtn.innerHTML = '−';
-        zoomOutBtn.onclick = () => {
-            if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.Camera) {
-                SharedBoardEngine.Camera.zoomAt(
-                    window.innerWidth / 2,
-                    window.innerHeight / 2,
-                    -0.2,
-                    window.innerWidth,
-                    window.innerHeight
-                );
-                SharedBoardEngine.Renderer.render();
-            }
-        };
-        zoomDiv.appendChild(zoomOutBtn);
-
-        document.body.appendChild(zoomDiv);
     }
 };
 

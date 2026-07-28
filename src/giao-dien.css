@@ -23,19 +23,12 @@ body {
     background: none !important;
 }
 
-#inf-canvas {
-    animation: none !important;
-    transition: none !important;
-    touch-action: none; /* Allow custom touch handling for canvas */
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-}
-
+#inf-canvas,
+#inf-canvas-bot,
 #inf-canvas-online {
     animation: none !important;
     transition: none !important;
-    touch-action: none;
+    touch-action: none; /* Allow custom touch handling for canvas */
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
@@ -50,7 +43,9 @@ body.fullscreen-mode * {
 }
 
 /* Cố định canvas khi fullscreen để tránh reflow */
-body.fullscreen-mode #inf-canvas {
+body.fullscreen-mode #inf-canvas,
+body.fullscreen-mode #inf-canvas-bot,
+body.fullscreen-mode #inf-canvas-online {
     position: fixed !important;
     top: 50% !important;
     left: 50% !important;
@@ -628,7 +623,9 @@ input[type="checkbox"] {
 .zoom-btn.zoom-undo { border-color: #f59e0b; color: #f59e0b; }
 .zoom-btn.zoom-undo:hover { background: #f59e0b; color: white; }
 
-#inf-canvas {
+#inf-canvas,
+#inf-canvas-bot,
+#inf-canvas-online {
     display: block;
     touch-action: none;
     cursor: default;
@@ -950,28 +947,46 @@ input[type="checkbox"] {
         padding: 4px !important;
     }
     
-    /* ── Canvas: Thu nhỏ tự động theo màn hình ── */
-    #inf-canvas {
+    /* ── Canvas: Thu nhỏ tự động theo màn hình (không áp dụng cho Bot Room) ── */
+    #inf-canvas,
+    #inf-canvas-online {
         max-width: 100% !important;
         max-height: 60vh !important;
         width: auto !important;
         height: auto !important;
     }
-    
+
+    /* ── Bot Room Canvas: Full container, không bị CSS resize ── */
+    #inf-canvas-bot {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: none !important;
+        max-height: none !important;
+        position: absolute !important;
+        inset: 0 !important;
+    }
+
     #inf-resizable {
         max-width: 100% !important;
         overflow: hidden !important;
     }
-    
+
     /* ── Đảm bảo canvas nằm trong container khi zoom preset được chọn ── */
     .game-container.inf-mode #inf-resizable {
         max-width: 100% !important;
         overflow: hidden !important;
     }
     
-    .game-container.inf-mode #inf-canvas {
+    .game-container.inf-mode #inf-canvas,
+    .game-container.inf-mode #inf-canvas-online {
         max-width: 100% !important;
         max-height: 100% !important;
+    }
+
+    /* Bot Room không bị giới hạn trong inf-mode */
+    .game-container.inf-mode #inf-canvas-bot {
+        max-width: none !important;
+        max-height: none !important;
     }
     
     /* ── Resize handles: Tăng kích thước trên mobile để dễ touch ── */
@@ -1569,8 +1584,14 @@ body.in-game-active {
 body.in-game-active #inf-resizable {
     max-width: 100% !important;
 }
-body.in-game-active #inf-canvas {
+body.in-game-active #inf-canvas,
+body.in-game-active #inf-canvas-online {
     max-width: 100% !important;
+}
+
+/* Bot Room không bị giới hạn max-width khi in-game-active */
+body.in-game-active #inf-canvas-bot {
+    max-width: none !important;
 }
 
 /* Resize handles màu tím cho game-container */
@@ -2146,10 +2167,14 @@ body.in-game-active #inf-canvas {
     .invite-panel, .chat-panel { min-width: unset; }
     .scroll-list { height: 80px; }
 
-    /* Giới hạn bàn cờ trên mobile — tối đa 55vh để còn scroll xuống */
+    /* Giới hạn bàn cờ trên mobile — tối đa 55vh để còn scroll xuống (không áp dụng Bot Room) */
     .match-board-section { padding: 4px; }
     #inf-resizable { max-height: 55vh; overflow: hidden; }
-    #inf-canvas    { max-height: 55vh; }
+    #inf-canvas,
+    #inf-canvas-online { max-height: 55vh; }
+
+    /* Bot Room không bị giới hạn max-height trên mobile */
+    #inf-canvas-bot { max-height: none !important; }
 
     #game-board-container {
         max-width: 100% !important;

@@ -476,7 +476,10 @@ function trangBiSkin(skinId) {
         }
         renderShopSkin();
         // Render lại bàn cờ để áp dụng skin mới ngay lập tức
-        if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
+        // YC.TXT FIX: Only render if canvas is ready
+        if (typeof renderInfiniteBoard === 'function' && typeof infCanvas !== 'undefined' && infCanvas && typeof infCtx !== 'undefined' && infCtx) {
+            renderInfiniteBoard();
+        }
     });
 }
 window.trangBiSkin = trangBiSkin;

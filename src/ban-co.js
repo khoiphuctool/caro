@@ -15,14 +15,12 @@ function fitCanvasToContainer() {
     if (!isInfinite || !infCanvas) return;
 
     const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
-    
-    // YC.TXT: Mobile bot room mode - use viewport dimensions instead of container
-    const isMobileBotRoom = window.innerWidth <= 768 && 
-                           window.isBotRoomMode && 
-                           document.body.classList.contains('bot-room-mobile-mode');
 
-    // Mobile bot room: use full viewport
-    if (isMobileBotRoom) {
+    // BUG.TXT: Bot Room Board First - use full viewport dimensions
+    const isBotRoom = window.isBotRoomMode && document.getElementById('view-bot-room')?.classList.contains('active');
+
+    // Bot Room: use full viewport with constant CELL_SIZE
+    if (isBotRoom) {
         const availW = window.innerWidth;
         const availH = window.innerHeight;
         if (Math.abs(infCanvasW - availW) > INF_CS || Math.abs(infCanvasH - availH) > INF_CS) {
@@ -174,7 +172,18 @@ function recalculateCellSizes() {
 }
 
 // ===== RENDER BÀN VÔ HẠN — CANVAS ENGINE =====
-let INF_CS = 36;
+// Responsive default cell size based on device type
+function getDefaultCellSize() {
+    const width = window.innerWidth;
+    if (width <= 768) {
+        return 36; // Mobile
+    } else if (width <= 1024) {
+        return 42; // Tablet
+    } else {
+        return 48; // PC
+    }
+}
+let INF_CS = getDefaultCellSize();
 const INF_CS_MIN = 18, INF_CS_MAX = 80;
 
 let infCanvas = null, infCtx = null;
@@ -225,26 +234,28 @@ function setupDpadControls() {
     });
 }
 
-function initInfCanvas() {
+function initInfCanvas(canvasElement) {
+    // YC.TXT FIX: Canvas element is REQUIRED - no fallback to hardcode DOM lookup
+    console.log('[DEBUG-BOARD] initInfCanvas START', canvasElement, canvasElement?.id);
+
+    if (!canvasElement) {
+        console.error('[DEBUG-BOARD] initInfCanvas: canvasElement is REQUIRED - no fallback to hardcode DOM lookup');
+        return;
+    }
+
+    infCanvas = canvasElement;
     const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
-    const expectedCanvasId = isOnline ? 'inf-canvas-online' : 'inf-canvas';
 
     // BUG 3 FIX: Only skip if already initialized AND pointing to the correct canvas element
-    if (infCanvasInitialized && infCanvas && infCanvas.id === expectedCanvasId) {
-        console.warn('[DEBUG-BOARD] initInfCanvas already called for', expectedCanvasId, '— skipping duplicate');
+    if (infCanvasInitialized && infCanvas && infCanvas.id === infCanvas.id) {
+        console.warn('[DEBUG-BOARD] initInfCanvas already called for', infCanvas.id, '— skipping duplicate');
         return;
     }
 
-    // Reset flag khi chuyển đổi giữa online/offline canvas
-    if (infCanvas && infCanvas.id !== expectedCanvasId) {
-        console.log('[DEBUG-BOARD] Canvas mode switched from', infCanvas.id, 'to', expectedCanvasId, '— re-initializing');
+    // Reset flag when switching to a different canvas
+    if (infCanvas && infCanvas.id !== infCanvas.id) {
+        console.log('[DEBUG-BOARD] Canvas mode switched from', infCanvas.id, 'to', infCanvas.id, '— re-initializing');
         infCanvasInitialized = false;
-    }
-
-    infCanvas = document.getElementById(expectedCanvasId);
-    if (!infCanvas) {
-        console.warn('[DEBUG-BOARD] Canvas element not found:', expectedCanvasId, '— skipping initialization');
-        return;
     }
 
     console.log('[DEBUG-BOARD] initInfCanvas called:', {
@@ -297,6 +308,19 @@ function initInfCanvas() {
         INF_CS = loadZoom();
     }
 
+    // BUG.TXT FIX: For Bot Room, don't override canvas dimensions
+    const isBotRoom = window.isBotRoomMode && document.getElementById('view-bot-room')?.classList.contains('active');
+
+    if (isBotRoom) {
+        // Bot Room: canvas dimensions already set by initBotRoomCanvas
+        infCanvasW = infCanvas.width;
+        infCanvasH = infCanvas.height;
+        console.log('[DEBUG-BOARD] Bot Room: using existing canvas dimensions:', { infCanvasW, infCanvasH });
+        updateCursorByTurn();
+        console.log('[DEBUG-BOARD] initInfCanvas DONE - ctx initialized');
+        return;
+    }
+
     // Online mode: đo kích thước từ shared-board-online container thực tế
     if (isOnline) {
         const sbOnline = document.getElementById('shared-board-online');
@@ -327,7 +351,9 @@ function initInfCanvas() {
             containerW, containerH
         });
         updateCursorByTurn();
-        renderInfiniteBoard();
+        console.log('[DEBUG-BOARD] initInfCanvas DONE - ctx initialized');
+        // YC.TXT FIX: Don't call renderInfiniteBoard() here - let caller handle lifecycle
+        // renderInfiniteBoard();
         // Fit lại sau khi layout CSS hoàn tất (2 frames để đảm bảo)
         requestAnimationFrame(() => requestAnimationFrame(() => {
             fitCanvasToContainer();
@@ -348,7 +374,9 @@ function initInfCanvas() {
         console.log('[DEBUG-BOARD] Canvas size set from saved:', { infCanvasW, infCanvasH });
         updateInfiniteResizeHandles();
         updateCursorByTurn();
-        renderInfiniteBoard();
+        console.log('[DEBUG-BOARD] initInfCanvas DONE - ctx initialized');
+        // YC.TXT FIX: Don't call renderInfiniteBoard() here - let caller handle lifecycle
+        // renderInfiniteBoard();
         requestAnimationFrame(() => requestAnimationFrame(() => fitCanvasToContainer()));
     } else {
         const defaultW = Math.max(500, window.innerWidth - 100);
@@ -360,7 +388,9 @@ function initInfCanvas() {
         console.log('[DEBUG-BOARD] Canvas size set to default:', { infCanvasW, infCanvasH });
         updateInfiniteResizeHandles();
         updateCursorByTurn();
-        renderInfiniteBoard();
+        console.log('[DEBUG-BOARD] initInfCanvas DONE - ctx initialized');
+        // YC.TXT FIX: Don't call renderInfiniteBoard() here - let caller handle lifecycle
+        // renderInfiniteBoard();
         requestAnimationFrame(() => requestAnimationFrame(() => resizeInfCanvas()));
     }
 }
@@ -591,9 +621,25 @@ function renderInfiniteBoardAsync() {
 }
 
 function renderInfiniteBoard() {
+    const canvasW = infCanvas?.width || 0;
+    const canvasH = infCanvas?.height || 0;
+    const logCols = Math.ceil(canvasW / INF_CS) + 1;
+    const logRows = Math.ceil(canvasH / INF_CS) + 1;
+    
+    console.log('[DEBUG-BOARD] renderInfiniteBoard START - DIAGNOSTIC LOG', {
+        canvasW,
+        canvasH,
+        INF_CS,
+        cols: logCols,
+        rows: logRows,
+        scale: window.devicePixelRatio,
+        infCanvasId: infCanvas?.id
+    });
+
     // REMOVED GUARD: Allow old system to render in Online mode
     // SharedBoardEngine is not initialized for Online mode, so old system must handle it
-    if (!infCanvas) initInfCanvas();
+    // YC.TXT FIX: Don't call initInfCanvas() here - canvas should be initialized before rendering
+    // if (!infCanvas) initInfCanvas();
     // Tắt render khi fullscreen để tránh flickering
     if (isFullscreen) return;
 
@@ -603,8 +649,15 @@ function renderInfiniteBoard() {
         return;
     }
 
-    // Đảm bảo canvas có kích thước hợp lệ — trường hợp bố cục CSS chưa kịp áp dụng
-    if (infCanvasW === 0 || infCanvasH === 0) {
+    // BUG.TXT FIX: For Bot Room, use actual canvas dimensions instead of infCanvasW/infCanvasH
+    const isBotRoom = window.isBotRoomMode && document.getElementById('view-bot-room')?.classList.contains('active');
+
+    if (isBotRoom) {
+        // Use actual canvas dimensions for Bot Room
+        infCanvasW = infCanvas.width;
+        infCanvasH = infCanvas.height;
+    } else if (infCanvasW === 0 || infCanvasH === 0) {
+        // Đảm bảo canvas có kích thước hợp lệ — trường hợp bố cục CSS chưa kịp áp dụng
         console.warn('[DEBUG-BOARD] renderInfiniteBoard: canvas size is 0, attempting resize');
         const container = infCanvas.parentElement;
         if (container) {
@@ -624,16 +677,20 @@ function renderInfiniteBoard() {
     const W  = infCanvasW, H = infCanvasH;
     const CS = INF_CS;
 
-    console.log('[DEBUG-BOARD] renderInfiniteBoard called:', {
-        canvasWidth: W,
-        canvasHeight: H,
-        cellSize: CS,
-        canvasElement: infCanvas.id,
-        canvasClientWidth: infCanvas.clientWidth,
-        canvasClientHeight: infCanvas.clientHeight,
-        infiniteMapSize: typeof infiniteMap !== 'undefined' ? infiniteMap.size : 'undefined',
-        isGameActive: typeof isGameActive !== 'undefined' ? isGameActive : 'undefined',
-        isOnlineMode: typeof isOnlineMode !== 'undefined' ? isOnlineMode : 'undefined'
+    const cols = Math.ceil(W / CS) + 1;
+    const rows = Math.ceil(H / CS) + 1;
+
+    console.log('[Viewport]', {
+        canvasWidth: infCanvas.width,
+        canvasHeight: infCanvas.height,
+        clientWidth: infCanvas.clientWidth,
+        clientHeight: infCanvas.clientHeight,
+        infCanvasW,
+        infCanvasH,
+        INF_CS,
+        cols,
+        rows,
+        DPR: window.devicePixelRatio
     });
 
     const theme = document.getElementById('theme-select').value;
@@ -664,8 +721,6 @@ function renderInfiniteBoard() {
     c.fillStyle = col.bg;
     c.fillRect(0, 0, W, H);
 
-    const cols = Math.ceil(W / CS) + 1;
-    const rows = Math.ceil(H / CS) + 1;
     const offX = -((vColF % 1 + 1) % 1) * CS;
     const offY = -((vRowF % 1 + 1) % 1) * CS;
     const c0   = Math.floor(vColF);
@@ -917,7 +972,7 @@ function infOnMouseDown(e) {
         infPanning = true; panMoved = false;
         panStartX = e.clientX; panStartY = e.clientY;
         panStartVRow = vRowF; panStartVCol = vColF;
-        infCanvas.style.cursor = 'grabbing';
+        if (infCanvas) infCanvas.style.cursor = 'grabbing';
     }
 }
 function infOnMouseUp(e) {
@@ -1179,16 +1234,16 @@ function jumpToOrigin() {
 
 // ===== CURSOR =====
 function updateCursorByTurn() {
-    const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
-    const canvas = document.getElementById(isOnline ? 'inf-canvas-online' : 'inf-canvas');
-    if (!canvas) return;
+    // YC.TXT FIX: Use existing infCanvas instead of hardcoding DOM lookup
+    if (!infCanvas) return;
     if (typeof currentPlayer === 'undefined') return;
 
     // Online: khi không phải lượt mình → cursor default (không gây nhầm)
+    const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
     if (isOnline) {
         const myTurn = (typeof currentTurn !== 'undefined' && currentTurn === window.myOnlineRole);
         if (!myTurn || !isGameActive) {
-            canvas.style.cursor = 'default';
+            infCanvas.style.cursor = 'default';
             return;
         }
         // Đến lượt mình: hiện icon quân của mình
@@ -1198,7 +1253,7 @@ function updateCursorByTurn() {
         const icon  = skin ? (myRole === 'X' ? skin.icon_X : skin.icon_O) : myRole;
         const color = skin ? (myRole === 'X' ? (skin.color_X || '#2563eb') : (skin.color_O || '#dc2626'))
                            : (myRole === 'X' ? '#2563eb' : '#dc2626');
-        _setCursorIcon(canvas, icon, color);
+        _setCursorIcon(infCanvas, icon, color);
         return;
     }
 
@@ -1212,7 +1267,7 @@ function updateCursorByTurn() {
         icon  = currentPlayer;
         color = currentPlayer === 'X' ? '#2563eb' : '#dc2626';
     }
-    _setCursorIcon(canvas, icon, color);
+    _setCursorIcon(infCanvas, icon, color);
 }
 
 // Helper vẽ cursor icon

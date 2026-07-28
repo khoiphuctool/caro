@@ -362,7 +362,8 @@ function applyBoardSkinToEngine() {
     }
     
     // Áp dụng cho hệ thống cũ renderInfiniteBoard (online mode dùng cái này)
-    if (typeof renderInfiniteBoard === 'function') {
+    // YC.TXT FIX: Only render if canvas is ready
+    if (typeof renderInfiniteBoard === 'function' && typeof infCanvas !== 'undefined' && infCanvas && typeof infCtx !== 'undefined' && infCtx) {
         renderInfiniteBoard();
     }
 }

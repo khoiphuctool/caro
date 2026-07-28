@@ -505,7 +505,8 @@ window.addEventListener('load', () => {
                             hideTopNavigation();
                         }
                         PracticeMode.startWithBot(config.botLevel);
-                        if (typeof renderInfiniteBoard === 'function') {
+                        // YC.TXT FIX: Only render if canvas is ready
+                        if (typeof renderInfiniteBoard === 'function' && typeof infCanvas !== 'undefined' && infCanvas && typeof infCtx !== 'undefined' && infCtx) {
                             renderInfiniteBoard();
                         }
                     }, 100);

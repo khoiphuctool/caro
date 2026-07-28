@@ -1575,14 +1575,15 @@ function batDauGiaoDienOnline() {
     
     document.body.classList.add('in-game-active');
     isOnlineMode = true;
-    // Force reset canvas init flag để khởi tạo lại cho inf-canvas-online
-    if (typeof infCanvasInitialized !== 'undefined') {
-        const isAlreadyOnlineCanvas = (typeof infCanvas !== 'undefined' && infCanvas && infCanvas.id === 'inf-canvas-online');
-        if (!isAlreadyOnlineCanvas) {
-            infCanvasInitialized = false;
-            console.log('[DEBUG-BOARD] Reset infCanvasInitialized to force re-init for online canvas');
-        }
-    }
+    // YC.TXT FIX: KHÔNG reset infCanvasInitialized - Board First architecture
+    // Canvas được inject và giữ nguyên, chỉ reset khi thực sự cần thay đổi canvas
+    // if (typeof infCanvasInitialized !== 'undefined') {
+    //     const isAlreadyOnlineCanvas = (typeof infCanvas !== 'undefined' && infCanvas && infCanvas.id === 'inf-canvas-online');
+    //     if (!isAlreadyOnlineCanvas) {
+    //         infCanvasInitialized = false;
+    //         console.log('[DEBUG-BOARD] Reset infCanvasInitialized to force re-init for online canvas');
+    //     }
+    // }
     // Online luôn dùng infinite canvas
     if (typeof isInfinite !== 'undefined') {
         isInfinite = true;
@@ -2478,7 +2479,10 @@ function langNgheThayDoiPhong(roomId) {
                 } else {
                     console.warn('[DEBUG-BOARD] inf-canvas-online NOT found in DOM!');
                 }
-                if (typeof initInfCanvas      === 'function') initInfCanvas();
+                // YC.TXT FIX: Pass canvas element to initInfCanvas instead of hardcoding
+                if (typeof initInfCanvas === 'function' && cvOnline) {
+                    initInfCanvas(cvOnline);
+                }
                 if (typeof fitCanvasToContainer === 'function') fitCanvasToContainer();
                 if (typeof autoResizeInfCanvas  === 'function') autoResizeInfCanvas();
                 if (typeof renderInfiniteBoard  === 'function') renderInfiniteBoard();
