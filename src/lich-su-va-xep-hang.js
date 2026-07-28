@@ -290,6 +290,15 @@ function loadRankHistory(index) {
 }
 
 function renderBoardFromHistory() {
+    // BUG 5 FIX: Save replay state to localStorage for F5 reload
+    localStorage.setItem('replay_mode', 'true');
+    localStorage.setItem('replay_config', JSON.stringify({
+        moves: moveHistory,
+        mode: gameMode,
+        winCount: winCount,
+        isInfinite: isInfinite
+    }));
+    
     // DISABLED Shared Board Engine - use old system only
     // This prevents conflicts between old system and SharedBoardEngine
     
@@ -329,7 +338,47 @@ function renderBoardFromHistory() {
     }
 }
 
-function closeHistoryView() { initGame(); }
+function closeHistoryView() { 
+    // BUG 5 FIX: Clear replay state when closing
+    localStorage.removeItem('replay_mode');
+    localStorage.removeItem('replay_config');
+    initGame(); 
+}
+
+// BUG 5 FIX: Restore replay state on page load
+window.addEventListener('load', () => {
+    const savedReplayMode = localStorage.getItem('replay_mode');
+    const savedReplayConfig = localStorage.getItem('replay_config');
+    
+    if (savedReplayMode === 'true' && savedReplayConfig) {
+        try {
+            const config = JSON.parse(savedReplayConfig);
+            // Restore game state
+            moveHistory = config.moves || [];
+            gameMode = config.mode || 'ai-god';
+            winCount = config.winCount || 5;
+            isInfinite = config.isInfinite !== false;
+            
+            // Switch to battle view and render
+            setTimeout(() => {
+                if (typeof switchView === 'function') {
+                    switchView('battle');
+                }
+                // Hide navigation during battle
+                if (typeof hideTopNavigation === 'function') {
+                    hideTopNavigation();
+                }
+                if (typeof renderBoardFromHistory === 'function') {
+                    renderBoardFromHistory();
+                }
+            }, 100);
+        } catch(e) {
+            console.error('[History] Failed to restore replay state:', e);
+            localStorage.removeItem('replay_mode');
+            localStorage.removeItem('replay_config');
+        }
+    }
+});
 
 function initGameWithConfig(wc, boardLabel) {
     let size = 15;

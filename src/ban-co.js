@@ -545,6 +545,25 @@ window.addEventListener('resize', () => {
 });
 
 // ===== RENDER BÀN =====
+// BUG 3 & 4 FIX: Promise-based wrapper to wait for render completion
+let _renderPromise = null;
+function renderInfiniteBoardAsync() {
+    if (_renderPromise) return _renderPromise;
+    
+    return new Promise((resolve) => {
+        // Call original render
+        renderInfiniteBoard();
+        
+        // Wait for browser to paint the frame
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                _renderPromise = null;
+                resolve();
+            });
+        });
+    });
+}
+
 function renderInfiniteBoard() {
     // REMOVED GUARD: Allow old system to render in Online mode
     // SharedBoardEngine is not initialized for Online mode, so old system must handle it

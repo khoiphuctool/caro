@@ -163,6 +163,20 @@ const PracticeMode = (function() {
         if (firstEl) firstEl.value = 'X';
 
         _showPlayingPhase();
+        
+        // BUG 5 FIX: Save complete training mode state to localStorage for F5 reload
+        localStorage.setItem('training_mode', 'true');
+        localStorage.setItem('training_config', JSON.stringify({
+            botLevel: level,
+            // Save game state for proper restoration
+            boardState: typeof infiniteMap !== 'undefined' ? Array.from(infiniteMap.entries()) : null,
+            moveHistory: typeof moveHistory !== 'undefined' ? moveHistory : [],
+            currentPlayer: typeof currentPlayer !== 'undefined' ? currentPlayer : 'X',
+            isGameActive: typeof isGameActive !== 'undefined' ? isGameActive : true,
+            winCount: typeof winCount !== 'undefined' ? winCount : 5,
+            lastMoveR: typeof lastMoveR !== 'undefined' ? lastMoveR : null,
+            lastMoveC: typeof lastMoveC !== 'undefined' ? lastMoveC : null
+        }));
 
         // DISABLED Shared Board Engine - use old system to avoid conflicts
         // The old system (initGame + renderInfiniteBoard) handles Practice mode
@@ -228,6 +242,10 @@ const PracticeMode = (function() {
         _state.active = false;
         _state.phase  = 'select';
         _hideSelectPhase();
+        // Show navigation when exiting battle
+        if (typeof showTopNavigation === 'function') {
+            showTopNavigation();
+        }
         if (typeof switchView === 'function') switchView('home');
     }
 
@@ -362,3 +380,60 @@ window.PracticeMode = PracticeMode;
         }
     };
 })();
+
+// BUG 5 FIX: Restore training mode state on page load
+window.addEventListener('load', () => {
+    const savedTrainingMode = localStorage.getItem('training_mode');
+    const savedTrainingConfig = localStorage.getItem('training_config');
+    
+    if (savedTrainingMode === 'true' && savedTrainingConfig) {
+        try {
+            const config = JSON.parse(savedTrainingConfig);
+            
+            // Restore game state
+            if (config.boardState && typeof infiniteMap !== 'undefined') {
+                infiniteMap.clear();
+                config.boardState.forEach(([key, value]) => {
+                    infiniteMap.set(key, value);
+                });
+            }
+            if (config.moveHistory && typeof moveHistory !== 'undefined') {
+                moveHistory.length = 0;
+                moveHistory.push(...config.moveHistory);
+            }
+            if (typeof currentPlayer !== 'undefined') currentPlayer = config.currentPlayer || 'X';
+            if (typeof isGameActive !== 'undefined') isGameActive = config.isGameActive !== false;
+            if (typeof winCount !== 'undefined') winCount = config.winCount || 5;
+            if (typeof lastMoveR !== 'undefined') lastMoveR = config.lastMoveR;
+            if (typeof lastMoveC !== 'undefined') lastMoveC = config.lastMoveC;
+            
+            // Restore training mode
+            setTimeout(() => {
+                if (typeof switchView === 'function') {
+                    switchView('training');
+                }
+                // Hide navigation during battle
+                if (typeof hideTopNavigation === 'function') {
+                    hideTopNavigation();
+                }
+                PracticeMode.startWithBot(config.botLevel);
+                // Re-render board with restored state
+                if (typeof renderInfiniteBoard === 'function') {
+                    renderInfiniteBoard();
+                }
+            }, 100);
+        } catch(e) {
+            console.error('[PracticeMode] Failed to restore training state:', e);
+            localStorage.removeItem('training_mode');
+            localStorage.removeItem('training_config');
+        }
+    }
+});
+
+// BUG 5 FIX: Clear training state when exiting
+const _origExitPractice = PracticeMode.exit || function(){};
+PracticeMode.exit = function() {
+    localStorage.removeItem('training_mode');
+    localStorage.removeItem('training_config');
+    _origExitPractice.apply(this, arguments);
+};

@@ -160,7 +160,21 @@ const BotRoomManager = {
         const fm   = fmEl ? fmEl.value   : 'X';
 
         window.isBotRoomMode    = true;
-        window.currentBotConfig = this.currentBotRoom;
+        window.currentBotConfig = this.currentBotConfig;
+        
+        // BUG 5 FIX: Save bot room state to localStorage for F5 reload
+        localStorage.setItem('bot_room_mode', 'true');
+        localStorage.setItem('bot_room_config', JSON.stringify({
+            botConfig: this.currentBotRoom,
+            // Save game state for proper restoration
+            boardState: typeof infiniteMap !== 'undefined' ? Array.from(infiniteMap.entries()) : null,
+            moveHistory: typeof moveHistory !== 'undefined' ? moveHistory : [],
+            currentPlayer: typeof currentPlayer !== 'undefined' ? currentPlayer : 'X',
+            isGameActive: typeof isGameActive !== 'undefined' ? isGameActive : true,
+            winCount: typeof winCount !== 'undefined' ? winCount : 5,
+            lastMoveR: typeof lastMoveR !== 'undefined' ? lastMoveR : null,
+            lastMoveC: typeof lastMoveC !== 'undefined' ? lastMoveC : null
+        }));
 
         // Áp cài đặt vào engine
         const modeEl = document.getElementById('game-mode');
@@ -205,6 +219,10 @@ const BotRoomManager = {
             const pl = document.querySelector('.practice-layout');
             if (pl) pl.style.visibility = '';
             if (typeof switchView === 'function') switchView('battle');
+            // Hide navigation during battle
+            if (typeof hideTopNavigation === 'function') {
+                hideTopNavigation();
+            }
             setTimeout(() => this.renderBotBattlePanel(), 120);
         }, 60);
     },
@@ -243,14 +261,14 @@ const BotRoomManager = {
             </div>
 
             <div class="battle-bot-panel">
-                <div class="bot-speech-bubble-panel" id="bot-speech-panel">
+                <div class="bot-speech-bubble-panel" id="bot-speech-panel" style="background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:#3b82f6;">
                     💬 "Chào bạn! Sẵn sàng thua chưa?"
                 </div>
 
                 <div style="border-top:1px solid rgba(16,185,129,.25);margin:10px 0;"></div>
 
                 <div style="font-size:12px;color:#94a3b8;line-height:1.8;">
-                    <strong style="color:#e2e8f0;">Thông tin ván đấu:</strong><br>
+                    <strong style="color:#E65100;">Thông tin ván đấu:</strong><br>
                     ${document.getElementById('win-count')?.value || 5} quân ·
                     ${document.getElementById('block-both-ends')?.checked ? 'Chặn 2 đầu' : 'Tự do'}<br>
                     Đi trước: ${document.getElementById('first-move')?.value === 'X' ? 'Bạn (X)' : 'Bot (O)'}
@@ -337,6 +355,10 @@ const BotRoomManager = {
         this.currentBotRoom = null;
         window.isBotRoomMode    = false;
         window.currentBotConfig = null;
+        
+        // BUG 5 FIX: Clear bot room state from localStorage
+        localStorage.removeItem('bot_room_mode');
+        localStorage.removeItem('bot_room_config');
 
         // Xóa currentRoomId khỏi Firebase khi thoát bot room
         const myId = localStorage.getItem('current_user_id');
@@ -355,6 +377,10 @@ const BotRoomManager = {
         if (pl) { pl.style.visibility = ''; pl.style.display = ''; }
 
         // switchView('home') sẽ gọi returnBoardToTraining() và restore shared-board-online
+        // Show navigation when exiting battle
+        if (typeof showTopNavigation === 'function') {
+            showTopNavigation();
+        }
         if (typeof switchView === 'function') {
             switchView('home');
         } else {
@@ -374,8 +400,58 @@ window.BotRoomManager = BotRoomManager;
 // Bot room là offline, không lưu state → khi reload chỉ cần về home.
 // Ngăn firebase-online.js đọc current_room_id nhầm.
 (function() {
-    // Xóa flag bot room khi trang load (reload đã mất state JS)
-    window.isBotRoomMode    = false;
-    window.currentBotConfig = null;
+    // BUG 5 FIX: Restore bot room state on page load if it was saved
+    const savedBotMode = localStorage.getItem('bot_room_mode');
+    const savedBotConfig = localStorage.getItem('bot_room_config');
+    
+    if (savedBotMode === 'true' && savedBotConfig) {
+        try {
+            const config = JSON.parse(savedBotConfig);
+            window.isBotRoomMode = true;
+            window.currentBotConfig = config.botConfig;
+            BotRoomManager.isBotRoomMode = true;
+            BotRoomManager.currentBotRoom = config.botConfig;
+            
+            // Restore game state
+            if (config.boardState && typeof infiniteMap !== 'undefined') {
+                infiniteMap.clear();
+                config.boardState.forEach(([key, value]) => {
+                    infiniteMap.set(key, value);
+                });
+            }
+            if (config.moveHistory && typeof moveHistory !== 'undefined') {
+                moveHistory.length = 0;
+                moveHistory.push(...config.moveHistory);
+            }
+            if (typeof currentPlayer !== 'undefined') currentPlayer = config.currentPlayer || 'X';
+            if (typeof isGameActive !== 'undefined') isGameActive = config.isGameActive !== false;
+            if (typeof winCount !== 'undefined') winCount = config.winCount || 5;
+            if (typeof lastMoveR !== 'undefined') lastMoveR = config.lastMoveR;
+            if (typeof lastMoveC !== 'undefined') lastMoveC = config.lastMoveC;
+            
+            // Restore bot room view after a short delay to ensure DOM is ready
+            setTimeout(() => {
+                if (typeof switchView === 'function') {
+                    switchView('battle');
+                }
+                // Hide navigation during battle
+                if (typeof hideTopNavigation === 'function') {
+                    hideTopNavigation();
+                }
+                // Re-render board with restored state
+                if (typeof renderInfiniteBoard === 'function') {
+                    renderInfiniteBoard();
+                }
+            }, 100);
+        } catch(e) {
+            console.error('[BotRoom] Failed to restore bot room state:', e);
+            localStorage.removeItem('bot_room_mode');
+            localStorage.removeItem('bot_room_config');
+        }
+    } else {
+        // Xóa flag bot room khi trang load (reload đã mất state JS)
+        window.isBotRoomMode    = false;
+        window.currentBotConfig = null;
+    }
     // KHÔNG lưu bot room id vào localStorage để tránh nhầm với online room
 })();

@@ -183,6 +183,22 @@ function initGame() {
 
     currentPlayer     = firstMove;
     isGameActive      = true;
+    
+    // BUG 5 FIX: Save complete game state to localStorage for F5 reload (solo mode)
+    if (isSolo && isGameActive) {
+        localStorage.setItem('solo_game_mode', 'true');
+        localStorage.setItem('solo_game_config', JSON.stringify({
+            gameMode,
+            winCount,
+            currentPlayer,
+            // Save game state for proper restoration
+            boardState: typeof infiniteMap !== 'undefined' ? Array.from(infiniteMap.entries()) : null,
+            moveHistory: typeof moveHistory !== 'undefined' ? moveHistory : [],
+            isGameActive: true,
+            lastMoveR: typeof lastMoveR !== 'undefined' ? lastMoveR : null,
+            lastMoveC: typeof lastMoveC !== 'undefined' ? lastMoveC : null
+        }));
+    }
     lastMoveCell      = null;
     lastMoveR         = null;
     lastMoveC         = null;
@@ -413,6 +429,11 @@ function makeMove(r, c) {
             // autoplayLastWinner đã được set ở trên
             // KHÔNG gọi onBotLoss ở đây — autoplayMove sẽ xử lý learning sau ván
             return;
+        }
+
+        // Show navigation when game ends (before showing win overlay)
+        if (typeof showTopNavigation === 'function') {
+            showTopNavigation();
         }
 
         if (gameMode === 'solo') {
@@ -834,3 +855,67 @@ function getOpeningMove() {
     }
     return null;
 }
+
+// BUG 5 FIX: Restore solo game state on page load
+window.addEventListener('load', () => {
+    const savedSoloMode = localStorage.getItem('solo_game_mode');
+    const savedSoloConfig = localStorage.getItem('solo_game_config');
+    
+    if (savedSoloMode === 'true' && savedSoloConfig) {
+        try {
+            const config = JSON.parse(savedSoloConfig);
+            // Restore game mode and settings
+            const modeSelect = document.getElementById('game-mode');
+            if (modeSelect) modeSelect.value = config.gameMode;
+            
+            const winSelect = document.getElementById('win-count');
+            if (winSelect) winSelect.value = config.winCount;
+            
+            // Restore game state
+            if (config.boardState && typeof infiniteMap !== 'undefined') {
+                infiniteMap.clear();
+                config.boardState.forEach(([key, value]) => {
+                    infiniteMap.set(key, value);
+                });
+            }
+            if (config.moveHistory && typeof moveHistory !== 'undefined') {
+                moveHistory.length = 0;
+                moveHistory.push(...config.moveHistory);
+            }
+            if (typeof currentPlayer !== 'undefined') currentPlayer = config.currentPlayer || 'X';
+            if (typeof isGameActive !== 'undefined') isGameActive = config.isGameActive !== false;
+            if (typeof lastMoveR !== 'undefined') lastMoveR = config.lastMoveR;
+            if (typeof lastMoveC !== 'undefined') lastMoveC = config.lastMoveC;
+            
+            // Switch to battle view
+            setTimeout(() => {
+                if (typeof switchView === 'function') {
+                    switchView('battle');
+                }
+                // Hide navigation during battle
+                if (typeof hideTopNavigation === 'function') {
+                    hideTopNavigation();
+                }
+                // Re-render board with restored state
+                if (typeof renderInfiniteBoard === 'function') {
+                    renderInfiniteBoard();
+                }
+            }, 100);
+        } catch(e) {
+            console.error('[LogicGame] Failed to restore solo game state:', e);
+            localStorage.removeItem('solo_game_mode');
+            localStorage.removeItem('solo_game_config');
+        }
+    }
+});
+
+// BUG 5 FIX: Clear solo game state when game ends
+const _origCheckWin = window.checkWin;
+window.checkWin = function(r, c) {
+    const result = _origCheckWin ? _origCheckWin(r, c) : false;
+    if (result && isSolo) {
+        localStorage.removeItem('solo_game_mode');
+        localStorage.removeItem('solo_game_config');
+    }
+    return result;
+};

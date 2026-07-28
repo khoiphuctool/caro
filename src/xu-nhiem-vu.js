@@ -570,6 +570,8 @@ function ketThucCuoc(roomId, winnerRole, isDraw) {
             }).then(() => {
                 if (myId === loserId) {
                     setTimeout(() => {
+                        // BUG 2 FIX: Add coin loss animation for loser
+                        playCoinBurst(-bet, 'Thua cược -Xu 😔');
                         showXuPopup(-bet, 'Thua cược -Xu 😔');
                     }, 500); // Delay để bàn cờ kịp render nước cuối
                 }
@@ -690,6 +692,9 @@ window.showXuPopup = showXuPopup;
 // ──────────────────────────────────────────────
 // HIỆU ỨNG NỔ XU (Coin burst animation)
 // ──────────────────────────────────────────────
+let _coinBurstAnimationActive = false;
+let _coinBurstResolveCallback = null;
+
 function playCoinBurst(amount, label) {
     // Popup +xu vàng với label tùy chỉnh
     showXuPopup(amount, label || 'Nhận thưởng! 🎉');
@@ -705,6 +710,9 @@ function playCoinBurst(amount, label) {
     let animationId = null;
     let startTime = Date.now();
     const MAX_DURATION = 2000; // 2 giây
+    
+    // BUG 3 & 4 FIX: Mark animation as active
+    _coinBurstAnimationActive = true;
     
     // Tạo particles (giảm từ 30 xuống 20 để tối ưu)
     for (let i = 0; i < 20; i++) {
@@ -780,11 +788,54 @@ function playCoinBurst(amount, label) {
             animationId = null;
         }
         ctx2.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // BUG 3 & 4 FIX: Mark animation as complete and resolve promise
+        _coinBurstAnimationActive = false;
+        if (_coinBurstResolveCallback) {
+            _coinBurstResolveCallback();
+            _coinBurstResolveCallback = null;
+        }
     }
     
     animCoins();
 }
 window.playCoinBurst = playCoinBurst;
+
+// BUG 3 & 4 FIX: Promise-based wrapper to wait for animation completion
+let _coinBurstPromise = null;
+function playCoinBurstAsync(amount, label) {
+    if (_coinBurstPromise) return _coinBurstPromise;
+    
+    return new Promise((resolve) => {
+        // If animation is already active, wait for it to complete
+        if (_coinBurstAnimationActive) {
+            _coinBurstResolveCallback = resolve;
+            return;
+        }
+        
+        // BUG 1 FIX: If called with amount 0, don't start new animation
+        // This is used only to wait for existing animations
+        if (amount === 0) {
+            resolve();
+            return;
+        }
+        
+        // Call original animation
+        playCoinBurst(amount, label);
+        
+        // Set callback to resolve when animation actually completes
+        _coinBurstResolveCallback = resolve;
+        
+        // Fallback timeout in case animation never completes (safety net)
+        setTimeout(() => {
+            if (_coinBurstResolveCallback) {
+                _coinBurstResolveCallback();
+                _coinBurstResolveCallback = null;
+            }
+        }, 3000); // 3 second safety net
+    });
+}
+window.playCoinBurstAsync = playCoinBurstAsync;
 
 // ──────────────────────────────────────────────
 // TAB NHIỆM VỤ

@@ -159,6 +159,10 @@ function closeWinAndRestart() {
     // Sử dụng requestAnimationFrame để chuyển đổi mượt hơn
     requestAnimationFrame(() => {
         initGame();
+        // Keep navigation hidden during replay/restart
+        if (typeof hideTopNavigation === 'function') {
+            hideTopNavigation();
+        }
     });
 }
 

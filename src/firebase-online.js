@@ -863,11 +863,23 @@ function setupEventListeners() {
                     langNgheThayDoiPhong(savedRoom);
                     langNgheTinNhan(savedRoom);
                     setMyOnlineStatus('playing');
+                    // BUG 5 FIX: Switch to battle view when reconnecting to a playing game
+                    if (typeof switchView === 'function') {
+                        switchView('battle');
+                    }
+                    // Hide navigation during battle
+                    if (typeof hideTopNavigation === 'function') {
+                        hideTopNavigation();
+                    }
                 });
             } else {
                 langNgheThayDoiPhong(savedRoom);
                 langNgheTinNhan(savedRoom);
                 setMyOnlineStatus('free');
+                // BUG 5 FIX: Switch to room view when reconnecting to a waiting game
+                if (typeof switchView === 'function') {
+                    switchView('room');
+                }
             }
         }).catch(() => localStorage.removeItem('current_room_id'));
     });
@@ -1628,6 +1640,10 @@ function thoatGiaoDienOnline() {
 // 🚪 THOÁT PHÒNG
 // ══════════════════════════════════════════════════════════════════
 function xuLyThoatPhong() {
+    // Show navigation when exiting battle
+    if (typeof showTopNavigation === 'function') {
+        showTopNavigation();
+    }
     if (!currentRoomId) { thoatGiaoDienOnline(); return; }
     roiKhoiPhong();
 }
@@ -1695,6 +1711,8 @@ function _resetSauThoat(rid) {
         db.ref(`rooms/${rid}`).off('value', roomListener);
         roomListener = null;
     }
+    // BUG 1 FIX: Reset listening room ID
+    _currentListeningRoomId = null;
     // Dọn connected listener theo roomId
     if (rid && _connectedListeners[rid]) {
         db.ref('.info/connected').off('value', _connectedListeners[rid]);
@@ -2213,8 +2231,19 @@ window.setReady = setReady;
 const _offlineCleanupTimers = {};
 // Theo dõi đối thủ để thông báo vào phòng / rời phòng / mất kết nối
 let _prevOppId = '', _prevOppStatus = '';
+// BUG 3 FIX: Track previous status to detect when game just ended
+let _prevRoomStatus = '';
+// BUG 1 FIX: Track current listening room to prevent duplicate listeners
+let _currentListeningRoomId = null;
 function langNgheThayDoiPhong(roomId) {
+    // BUG 1 FIX: Prevent duplicate listeners for the same room
+    if (_currentListeningRoomId === roomId && roomListener) {
+        console.log('[Firebase] Already listening to room:', roomId, '- skipping duplicate listener');
+        return;
+    }
+    
     if (roomListener) { db.ref(`rooms/${currentRoomId || roomId}`).off('value', roomListener); roomListener = null; }
+    _currentListeningRoomId = roomId;
     roomListener = db.ref(`rooms/${roomId}`).on('value', snap => {
         const room = snap.val();
         if (!room) return; // Phòng cố định không bao giờ null
@@ -2446,7 +2475,30 @@ function langNgheThayDoiPhong(roomId) {
             }
         }
         if (room.status === 'ended' || room.winner) {
-            xuLyKetThucVan(room);
+            // BUG 3 FIX: Detect if this is a new status change from playing to ended
+            const justEnded = _prevRoomStatus === 'playing' && room.status === 'ended';
+            _prevRoomStatus = room.status;
+            
+            // BUG 1 FIX: Only process end game if we haven't processed this specific end state yet
+            // The guard inside xuLyKetThucVan uses endedAt to prevent duplicate processing
+            // We also check if the winner field has changed since last processing
+            const vanId = `${currentRoomId}_${room.endedAt || room.updatedAt || ''}`;
+            if (_lastProcessedWinner !== vanId) {
+                // BUG 3 FIX: If game just ended, wait for render to complete before showing popup
+                if (justEnded) {
+                    (async () => {
+                        // Wait for last move rendering to complete
+                        if (typeof renderInfiniteBoardAsync === 'function') {
+                            await renderInfiniteBoardAsync();
+                        }
+                        xuLyKetThucVan(room);
+                    })();
+                } else {
+                    xuLyKetThucVan(room);
+                }
+            }
+        } else {
+            _prevRoomStatus = room.status;
         }
         // ── Chờ O xác nhận cược ──
         if (room.status === 'bet_confirm') {
@@ -2841,6 +2893,10 @@ function thucHienVeNuocDi(row, col, role) {
     if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
     if (typeof checkWin === 'function' && checkWin(row, col)) {
         if (typeof isGameActive !== 'undefined') isGameActive = false;
+        // Show navigation when game ends
+        if (typeof showTopNavigation === 'function') {
+            showTopNavigation();
+        }
         setTimeout(() => {
             if (typeof showWinOverlay === 'function') showWinOverlay(role, false, '', '');
             if (typeof gameTotalTimer  !== 'undefined' && gameTotalTimer)  clearInterval(gameTotalTimer);
@@ -2925,7 +2981,21 @@ function xuLyKetThucVan(room) {
     const isPlayer = myRole === 'X' || myRole === 'O' ||
                      myIdKetThuc === room.playerX_id || myIdKetThuc === room.playerO_id;
     if (isPlayer) {
-        hienUIVanMoi(msg);
+        // BUG 1 FIX (REAL ROOT CAUSE): Don't call playCoinBurstAsync(0) here
+        // Animation is already called by:
+        // - ketThucCuoc() if there's a bet
+        // - onWinSoloXu() if there's no bet
+        // Calling it here causes duplicate animation
+        
+        // BUG 4 FIX: Wait for any running animation to complete before showing popup
+        (async () => {
+            if (typeof playCoinBurstAsync === 'function') {
+                // If animation is already running (from ketThucCuoc or onWinSoloXu), wait for it
+                // If not running, this will resolve immediately (no animation started)
+                await playCoinBurstAsync(0, '');
+            }
+            hienUIVanMoi(msg);
+        })();
     }
     // Guard chống ghi rank trùng — dùng endedAt (chỉ set 1 lần khi ván kết thúc)
     const vanId = `${currentRoomId}_${room.endedAt || room.updatedAt || ''}`;
