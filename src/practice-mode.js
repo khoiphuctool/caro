@@ -33,13 +33,13 @@ const PracticeMode = (function() {
         'bot-toi-thuong': 'Bot Tối Thượng 💀'
     };
 
-    // Cấu hình thưởng — chỉ dùng để hiển thị UI, logic thực tế do xu-nhiem-vu.js xử lý
+    // Cấu hình thưởng và giới hạn
     const BOT_REWARDS = {
-        'ai-easy':        { xu: 700  },
-        'ai-medium':      { xu: 900  },
-        'ai-hard':        { xu: 1300 },
-        'bot-tia-chop':   { xu: 2000 },
-        'bot-toi-thuong': { xu: 2300 }
+        'ai-easy':        { xu: 100,  dailyLimit: null },
+        'ai-medium':      { xu: 200,  dailyLimit: null },
+        'ai-hard':        { xu: 500,  dailyLimit: null },
+        'bot-tia-chop':   { xu: 2000, dailyLimit: 30 },  // 30 trận/ngày
+        'bot-toi-thuong': { xu: 1500, dailyLimit: null }
     };
 
     // ── HELPERS ────────────────────────────────────────────────────
@@ -232,28 +232,6 @@ const PracticeMode = (function() {
         if (ctrl) ctrl.style.display = 'none';
     }
 
-    // ── HOÀN TÁC ─────────────────────────────────────────────────────
-    // Undo 2 nước (người + bot) để trả lượt về cho người chơi
-    function undoPracticeMove() {
-        if (!_state.active || _state.phase !== 'playing') return;
-        if (typeof undoMove !== 'function' || typeof moveHistory === 'undefined') return;
-
-        const isVsBot = _state.botLevel && !_state.botLevel.startsWith('solo');
-        if (isVsBot) {
-            // Undo nước bot (nếu có), rồi undo nước người
-            if (moveHistory.length >= 2) {
-                undoMove(); // undo bot
-                undoMove(); // undo người
-            } else if (moveHistory.length === 1) {
-                undoMove();
-            }
-        } else {
-            undoMove();
-        }
-        _setStatus('🟢 LƯỢT CỦA BẠN (X)');
-        _setIndicator('X');
-    }
-
     // ── THOÁT ────────────────────────────────────────────────────────
     function exit() {
         _state.active = false;
@@ -318,10 +296,64 @@ const PracticeMode = (function() {
                     window.updateUserStats('winBot', 1);
                 }
             }
-            // Cộng Xu — toàn bộ giới hạn ngày do xu-nhiem-vu.js xử lý qua Firebase
+            // Cộng Xu khi thắng bot (có giới hạn ngày)
             if (typeof window.onWinBotXu === 'function') {
-                window.onWinBotXu(_state.botLevel);
+                const reward = BOT_REWARDS[_state.botLevel];
+                if (reward && reward.xu > 0) {
+                    // Kiểm tra giới hạn ngày
+                    if (reward.dailyLimit !== null) {
+                        if (!_checkDailyLimit(_state.botLevel, reward.dailyLimit)) {
+                            console.log(`[PracticeMode] Đã đạt giới hạn ngày cho ${_state.botLevel}`);
+                            return;
+                        }
+                    }
+                    window.onWinBotXu(_state.botLevel, reward.xu);
+                    // Tăng đếm ngày nếu có giới hạn
+                    if (reward.dailyLimit !== null) {
+                        _incrementDailyCount(_state.botLevel);
+                    }
+                }
             }
+        }
+    }
+
+    // ── KIỂM TRA GIỚI HẠN NGÀY ───────────────────────────────────────
+    function _checkDailyLimit(botLevel, limit) {
+        try {
+            const today = new Date().toDateString();
+            const key = `practice_daily_${botLevel}`;
+            const data = JSON.parse(localStorage.getItem(key) || '{}');
+
+            if (data.date !== today) {
+                // Reset cho ngày mới
+                localStorage.setItem(key, JSON.stringify({ date: today, count: 0 }));
+                return true;
+            }
+
+            return data.count < limit;
+        } catch (e) {
+            console.error('[PracticeMode] Error checking daily limit:', e);
+            return true; // Mặc định cho phép nếu có lỗi
+        }
+    }
+
+    // ── TĂNG ĐẾM NGÀY ───────────────────────────────────────────────
+    function _incrementDailyCount(botLevel) {
+        try {
+            const today = new Date().toDateString();
+            const key = `practice_daily_${botLevel}`;
+            const data = JSON.parse(localStorage.getItem(key) || '{}');
+
+            if (data.date !== today) {
+                data.date = today;
+                data.count = 1;
+            } else {
+                data.count++;
+            }
+
+            localStorage.setItem(key, JSON.stringify(data));
+        } catch (e) {
+            console.error('[PracticeMode] Error incrementing daily count:', e);
         }
     }
 
@@ -361,7 +393,6 @@ const PracticeMode = (function() {
         playAgain,
         changeBot,
         exit,
-        undoPracticeMove,
         onGameEvent,
         getState: () => ({ ..._state }),
         BOT_LEVELS,

@@ -15,13 +15,9 @@ const BotTiaChop = {
     // Main function to get bot move
     getBotMove(options = {}) {
         console.log('[BotTiaChop] getBotMove called with options:', options);
-        const playerStr   = options.player   ?? (typeof botPiece   !== 'undefined' ? botPiece   : 'O');
-        const opponentStr = options.opponent ?? (typeof humanPiece !== 'undefined' ? humanPiece : 'X');
-        const winCount    = options.winCount ?? 5;
-
-        // evaluatePos/winningPos dùng số 1/-1
-        const player   = playerStr   === 'X' ? 1 : -1;
-        const opponent = opponentStr === 'X' ? 1 : -1;
+        const player = options.player ?? (typeof botPiece !== 'undefined' ? botPiece : 'O');
+        const opponent = options.opponent ?? (typeof humanPiece !== 'undefined' ? humanPiece : 'X');
+        const winCount = options.winCount ?? 5;
 
         // Get board state
         const board = this.getBoardState();

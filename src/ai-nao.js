@@ -2249,9 +2249,9 @@ function getBotMove() {
         if (win) { updateBotThinking('Chặn kịp! 😤'); return { r, c }; }
     }
 
-    // ══ M. GOD ENGINE — Hard/God dùng kiến trúc Search → Verify → Decide ══
-    if (isHard || isGod) {
-        const { move: godMove, reason } = godEngineMove(bp, hp, validCands, isGod);
+    // ══ M. GOD ENGINE — Hard/God/ToiThuong dùng kiến trúc Search → Verify → Decide ══
+    if (isHard || isGod || isToiThuong) {
+        const { move: godMove, reason } = godEngineMove(bp, hp, validCands, isGod || isToiThuong);
         if (godMove) {
             updateBotThinking(`${reason} 🎯`);
             return godMove;

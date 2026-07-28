@@ -110,24 +110,6 @@ function toggleHistory() {
     if (icon) icon.textContent = isOpen ? '▼' : '▶';
 }
 
-function toggleHistoryPanel() {
-    const panel = document.getElementById('history-panel');
-    const icon = document.getElementById('history-toggle-icon');
-    if (panel) {
-        panel.classList.toggle('collapsed');
-        if (icon) icon.textContent = panel.classList.contains('collapsed') ? '▶' : '▼';
-    }
-}
-
-function toggleRankPanel() {
-    const panel = document.getElementById('rank-panel');
-    const icon = document.getElementById('rank-toggle-icon');
-    if (panel) {
-        panel.classList.toggle('collapsed');
-        if (icon) icon.textContent = panel.classList.contains('collapsed') ? '▶' : '▼';
-    }
-}
-
 function applyHistoryTheme(t) {
     const hp  = document.getElementById('history-panel');
     const ht  = document.getElementById('history-title');

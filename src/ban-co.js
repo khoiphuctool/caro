@@ -644,16 +644,8 @@ function renderInfiniteBoard() {
     let _iconX, _iconO, _colorX, _colorO, _useEmoji;
 
     if (_onlineActive && typeof getSkinById === 'function') {
-        console.log('[renderInfiniteBoard] Online mode - loading skins:', {
-            _onlineSkinX: window._onlineSkinX,
-            _onlineSkinO: window._onlineSkinO
-        });
         const skinX = getSkinById(window._onlineSkinX || 'skin_default');
         const skinO = getSkinById(window._onlineSkinO || 'skin_default');
-        console.log('[renderInfiniteBoard] Loaded skin objects:', {
-            skinX: { id: skinX.id, icon_X: skinX.icon_X, color_X: skinX.color_X },
-            skinO: { id: skinO.id, icon_O: skinO.icon_O, color_O: skinO.color_O }
-        });
         _iconX    = skinX.icon_X;
         _iconO    = skinO.icon_O;
         _colorX   = skinX.color_X || col.x;
@@ -696,25 +688,11 @@ function renderInfiniteBoard() {
                 c.lineWidth   = 0.5;
                 c.strokeStyle = col.grid;
             }
-            // Dùng màu từ skin - luôn set fillStyle cho text (không phải emoji)
-            // Emoji tự có màu nên không cần fillStyle, nhưng text cần màu
-            const isEmoji = (val === 'X' && _iconX !== 'X') || (val === 'O' && _iconO !== 'O');
-            if (!isEmoji) {
+            // Dùng màu từ skin (nếu emoji thì không cần đổi fillStyle vì emoji tự có màu)
+            if (!_useEmoji) {
                 c.fillStyle = val === 'X' ? _colorX : _colorO;
             }
-            const iconToDraw = val === 'X' ? _iconX : _iconO;
-            console.log('[renderInfiniteBoard] Drawing piece:', {
-                position: { r: gr, c: gc2 },
-                piece: val,
-                iconToDraw: iconToDraw,
-                _iconX: _iconX,
-                _iconO: _iconO,
-                _colorX: _colorX,
-                _colorO: _colorO,
-                _useEmoji: _useEmoji,
-                fillStyle: c.fillStyle
-            });
-            c.fillText(iconToDraw, px, py);
+            c.fillText(val === 'X' ? _iconX : _iconO, px, py);
         }
     }
 

@@ -1,6 +1,11 @@
 // ===== LOGIC GAME - initGame, makeMove, checkWin, timer =====
 // boardElement, statusPanel, modeSelect được khai báo trong index.html sau khi DOM sẵn sàng
 
+// Helper: kiểm tra có phải chế độ đấu bot không (bao gồm cả bot-toi-thuong, bot-tia-chop)
+function isBotMode(mode) {
+    return (mode || gameMode).startsWith('ai') || (mode || gameMode) === 'bot-toi-thuong' || (mode || gameMode) === 'bot-tia-chop';
+}
+
 // ===== TIMER =====
 function updateTimerDisplay() {
     const gameTimerEl = document.getElementById('game-timer');
@@ -26,7 +31,7 @@ function startPlayerTurnTimer() {
         playerTurnSeconds++;
         updateTimerDisplay();
 
-        if (playerTurnSeconds === 10 && gameMode.startsWith('ai') && currentPlayer === humanPiece) {
+        if (playerTurnSeconds === 10 && isBotMode() && currentPlayer === humanPiece) {
             const messages = [
                 'Lâu thế, tôi còn phải đi đái! 🚽',
                 'Nhanh lên! Bắp rang của tôi nguội mất rồi 🍿',
@@ -50,7 +55,7 @@ function startPlayerTurnTimer() {
                 setTimeout(() => botBubble.classList.remove('annoying'), 3000);
             }
         }
-        if (playerTurnSeconds === 15 && gameMode.startsWith('ai') && currentPlayer === humanPiece) {
+        if (playerTurnSeconds === 15 && isBotMode() && currentPlayer === humanPiece) {
             const messages = [
                 'Trời ơi 15 giây rồi! Tôi chờ mà sắp tè ra quần rồi 😤',
                 'Chậm như rùa! Rùa còn đang cười bạn kìa 🐢😂',
@@ -73,7 +78,7 @@ function startPlayerTurnTimer() {
                 setTimeout(() => botBubble.classList.remove('annoying'), 4000);
             }
         }
-        if (playerTurnSeconds === 25 && gameMode.startsWith('ai') && currentPlayer === humanPiece) {
+        if (playerTurnSeconds === 25 && isBotMode() && currentPlayer === humanPiece) {
             const messages = [
                 'Ơ bạn vẫn còn đây không?? Tôi tưởng bạn đã ngủ rồi 😂',
                 '25 giây! Kỷ lục chần chừ mới! 🏆',
@@ -96,7 +101,7 @@ function startPlayerTurnTimer() {
                 setTimeout(() => botBubble.classList.remove('annoying'), 5000);
             }
         }
-        if (playerTurnSeconds === 40 && gameMode.startsWith('ai') && currentPlayer === humanPiece) {
+        if (playerTurnSeconds === 40 && isBotMode() && currentPlayer === humanPiece) {
             const messages = [
                 '40 GIÂY!! Bạn ổn không? Cần gọi cấp cứu không? 🚑',
                 'Tôi đã ngủ một giấc ngắn rồi thức dậy mà bạn vẫn chưa đi 😴',
@@ -201,7 +206,7 @@ function initGame() {
         renderInfiniteBoard();
         updateStatus();
 
-        if (isGameActive && !isSolo && gameMode.startsWith('ai') && currentPlayer === botPiece) {
+        if (isGameActive && !isSolo && isBotMode() && currentPlayer === botPiece) {
             const thinkTime = gameMode === 'ai-god' || gameMode === 'bot-toi-thuong' ? 500 :
                             gameMode === 'bot-tia-chop' ? 200 :
                             gameMode === 'ai-hard' ? 300 : 180;
@@ -214,7 +219,7 @@ function initGame() {
 // ===== STATUS =====
 function updateStatus() {
     if (!isGameActive) return;
-    if (gameMode.startsWith('ai') && currentPlayer === botPiece) {
+    if (isBotMode() && currentPlayer === botPiece) {
         statusPanel.innerHTML = `🤖 Siêu Não AI đang phong tỏa các hướng đi...`;
     } else {
         statusPanel.innerHTML = `Lượt của bạn: <span class="turn-${currentPlayer}">${currentPlayer}</span>`;
@@ -367,7 +372,7 @@ function makeMove(r, c) {
     if (checkWin(r, c)) {
         isGameActive = false;
         if (lastMoveCell) lastMoveCell.classList.remove('last-move');
-        const isBotWin   = gameMode.startsWith('ai') && currentPlayer === botPiece;
+        const isBotWin   = isBotMode() && currentPlayer === botPiece;
         const boardLabel = '♾️ Vô Hạn';
 
         // Lưu kết quả cho autoplay
@@ -464,11 +469,11 @@ function makeMove(r, c) {
     currentPlayer = currentPlayer === "X" ? "O" : "X";
     updateCursorByTurn();
 
-    if (gameMode.startsWith('ai') && !isBotMove) evaluatePlayerMove(r, c);
-    if (isGameActive && gameMode.startsWith('ai') && currentPlayer === humanPiece) startPlayerTurnTimer();
+    if (isBotMode() && !isBotMove) evaluatePlayerMove(r, c);
+    if (isGameActive && isBotMode() && currentPlayer === humanPiece) startPlayerTurnTimer();
 
     updateStatus();
-    if (isGameActive && gameMode.startsWith('ai') && currentPlayer === botPiece) {
+    if (isGameActive && isBotMode() && currentPlayer === botPiece) {
         const thinkTime = gameMode === 'ai-god' || gameMode === 'bot-toi-thuong' ? 500 :
                         gameMode === 'bot-tia-chop' ? 200 :
                         gameMode === 'ai-hard' ? 300 : 180;

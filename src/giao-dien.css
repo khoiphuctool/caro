@@ -30,9 +30,6 @@ body {
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
-    position: relative;
-    z-index: 1;
-    pointer-events: auto;
 }
 
 #inf-canvas-online {
@@ -2716,87 +2713,12 @@ body.in-game-active #inf-canvas {
 
 .practice-layout {
   display: grid;
-  grid-template-columns: minmax(120px, 20%) 1fr minmax(140px, 22%);
-  gap: 10px;
-  padding: 10px;
+  grid-template-columns: minmax(140px, 18%) 1fr minmax(180px, 20%);
+  gap: 12px;
+  padding: 12px;
   height: calc(100vh - 88px);
-  max-width: 2400px; margin: 0 auto; width: 100%;
+  max-width: 1800px; margin: 0 auto; width: 100%;
   box-sizing: border-box;
-}
-
-.practice-board-slot {
-  flex: 1; width: 100%; min-height: 0;
-  display: flex; justify-content: center; align-items: center;
-  position: relative; overflow: hidden;
-  min-height: 250px;
-}
-
-/* Small desktop (1025-1199px) */
-@media (min-width: 1025px) and (max-width: 1199px) {
-  .practice-layout {
-    grid-template-columns: minmax(130px, 18%) 1fr minmax(150px, 20%);
-    gap: 12px;
-    padding: 12px;
-  }
-  .practice-board-slot {
-    min-height: 320px;
-  }
-}
-
-/* Medium desktop (1200-1439px) */
-@media (min-width: 1200px) and (max-width: 1439px) {
-  .practice-layout {
-    grid-template-columns: minmax(140px, 16%) 1fr minmax(160px, 18%);
-    gap: 14px;
-    padding: 14px;
-  }
-  .practice-board-slot {
-    min-height: 400px;
-  }
-}
-
-/* Large desktop (1440-1919px) */
-@media (min-width: 1440px) and (max-width: 1919px) {
-  .practice-layout {
-    grid-template-columns: minmax(150px, 14%) 1fr minmax(180px, 16%);
-    gap: 16px;
-    padding: 16px;
-  }
-  .practice-board-slot {
-    min-height: 500px;
-  }
-}
-
-/* Extra large desktop (≥1920px) */
-@media (min-width: 1920px) {
-  .practice-layout {
-    grid-template-columns: minmax(160px, 12%) 1fr minmax(200px, 14%);
-    gap: 20px;
-    padding: 20px;
-  }
-  .practice-board-slot {
-    min-height: 600px;
-  }
-}
-
-.practice-left {
-  display: flex; flex-direction: column; gap: 12px;
-  overflow-y: auto; min-width: 0;
-}
-
-/* Tablet responsive */
-@media (min-width: 769px) and (max-width: 1024px) {
-  .practice-layout {
-    grid-template-columns: minmax(120px, 15%) 1fr minmax(180px, 22%);
-    gap: 10px;
-    padding: 10px;
-  }
-  .practice-right {
-    gap: 6px;
-  }
-  #history-panel, #rank-panel {
-    display: none;
-  }
 }
 
 .practice-player-card {
@@ -2859,35 +2781,13 @@ body.in-game-active #inf-canvas {
   flex: 1; width: 100%; min-height: 0;
   display: flex; justify-content: center; align-items: center;
   position: relative; overflow: hidden;
-  min-height: 280px;
 }
 .practice-board-slot > #inf-resizable { flex-shrink: 0; position: relative; }
 .practice-board-slot > #board { width: 100% !important; height: 100% !important; }
 
-@media (min-width: 1440px) {
-  .practice-board-slot {
-    min-height: 500px;
-  }
-}
-
 .practice-right {
   display: flex; flex-direction: column; gap: 8px;
   overflow-y: auto; min-width: 0;
-}
-
-/* Compact panel styles */
-#history-panel, #rank-panel {
-  flex-shrink: 0;
-}
-
-#history-panel.collapsed #history-body,
-#rank-panel.collapsed #rank-body {
-  display: none;
-}
-
-#history-panel.collapsed #history-toggle-icon,
-#rank-panel.collapsed #rank-toggle-icon {
-  transform: rotate(-90deg);
 }
 
 /* Nút chọn Bot */
@@ -2949,66 +2849,12 @@ body.in-game-active #inf-canvas {
   }
   .practice-avatar { width: 40px; height: 40px; font-size: 18px; }
   .practice-pstats { display: none; }
-  .practice-center { width: 100%; order: 2; }
+  .practice-center { width: 100%; }
   .practice-board-slot {
     width: 100%;
-    height: min(90vw, 50vh);
-    min-height: 280px;
-    max-height: 400px;
+    height: min(85vw, 55vh);
+    min-height: 220px;
     flex: 0 0 auto;
   }
-  .practice-right { 
-    max-height: 300px; 
-    overflow-y: auto;
-    order: 3;
-  }
-  #history-panel, #rank-panel {
-    display: none;
-  }
-}
-
-/* Shared board container - ensures position: relative for overlay positioning */
-.shared-board-container {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  min-height: 250px;
-  overflow: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: #f1f5f9;
-  border-radius: 6px;
-  min-width: 0;
-  flex: 1;
-  align-self: stretch;
-  pointer-events: auto;
-}
-
-/* Small desktop (1025-1199px) */
-@media (min-width: 1025px) and (max-width: 1199px) {
-  .shared-board-container {
-    min-height: 320px;
-  }
-}
-
-/* Medium desktop (1200-1439px) */
-@media (min-width: 1200px) and (max-width: 1439px) {
-  .shared-board-container {
-    min-height: 400px;
-  }
-}
-
-/* Large desktop (1440-1919px) */
-@media (min-width: 1440px) and (max-width: 1919px) {
-  .shared-board-container {
-    min-height: 500px;
-  }
-}
-
-/* Extra large desktop (≥1920px) */
-@media (min-width: 1920px) {
-  .shared-board-container {
-    min-height: 600px;
-  }
+  .practice-right { max-height: 220px; overflow-y: auto; }
 }

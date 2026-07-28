@@ -321,8 +321,49 @@ function khoiTao20Phong() {
                 console.log('[DEBUG] Creating VIP room:', i, 'as phong_' + roomNum);
                 roomRef.set(taoDataPhongRong(roomNum, true));
             } else {
-                console.log('[DEBUG] VIP room already exists:', roomNum);
+                // Sync existing VIP rooms to new betting limits and ensure isVip flag is set
+                const room = snap.val();
+                const needsUpdate = room.betAmount < XU_CONFIG.VIP_BET_MIN || room.isVip !== true;
+                if (needsUpdate) {
+                    console.log('[DEBUG] Syncing VIP room:', roomNum, 'isVip:', room.isVip, 'betAmount:', room.betAmount);
+                    roomRef.update({
+                        isVip: true,
+                        betAmount: XU_CONFIG.VIP_BET_MIN,
+                        betPot: XU_CONFIG.VIP_BET_MIN * 2
+                    });
+                } else {
+                    console.log('[DEBUG] VIP room already synced:', roomNum);
+                }
             }
+        });
+    }
+    
+    // Force sync all VIP rooms immediately after init
+    setTimeout(dongBoTatCaPhongVIP, 1000);
+}
+
+// Đồng bộ tất cả phòng VIP để đảm bảo isVip=true
+// KHÔNG ghi đè betAmount khi phòng đang waiting/playing (tránh reset cược đang hoạt động)
+function dongBoTatCaPhongVIP() {
+    console.log('[DEBUG] Force syncing all VIP rooms...');
+    for (let i = 1; i <= TOTAL_VIP_ROOMS; i++) {
+        const roomNum = TOTAL_NORMAL_ROOMS + i;
+        const roomRef = db.ref(`rooms/phong_${roomNum}`);
+        roomRef.once('value').then(snap => {
+            const room = snap.val();
+            if (!room) return;
+            // Chỉ đồng bộ isVip flag — không đụng vào betAmount khi phòng đang dùng
+            const update = { isVip: true };
+            // Chỉ reset betAmount về VIP_BET_MIN khi phòng trống/kết thúc
+            if (room.status === 'empty' || room.status === 'ended' || !room.status) {
+                update.betAmount = XU_CONFIG.VIP_BET_MIN;
+                update.betPot    = XU_CONFIG.VIP_BET_MIN * 2;
+            }
+            roomRef.update(update).then(() => {
+                console.log('[DEBUG] Force synced VIP room:', roomNum, '| status:', room.status);
+            }).catch(err => {
+                console.error('[DEBUG] Error syncing VIP room:', roomNum, err);
+            });
         });
     }
 }
@@ -1690,7 +1731,9 @@ function chuPhongBatDauGame() {
         daXoaBanCoTranNay      = false;
         locallyAppliedLastMove = { row: -2, col: -2 };
         _lastProcessedWinner   = '';
-        const hasBet = room.betAmount && room.betAmount >= 100;
+        // Dùng ngưỡng cược đúng theo loại phòng (VIP vs thường)
+        const _betMin = room.isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
+        const hasBet = room.betAmount && room.betAmount >= _betMin;
         if (hasBet) {
             // Có cược → kiểm tra O đã sẵn sàng chưa
             const oReady = room.guestReady || room.playerOConfirmed;
@@ -2863,25 +2906,28 @@ function xuLyKetThucVan(room) {
                 ts: Date.now()
             });
         } else {
-            // Thắng do đối thủ bỏ cuộc — vẫn thưởng nhưng nhỏ hơn (50%)
-            if (typeof showXuPopup === 'function') {
+            // Thắng do đối thủ bỏ cuộc — chỉ thưởng nếu không có cược
+            // Nếu có cược, ketThucCuoc sẽ xử lý đầy đủ
+            const minBetCheck = room.isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
+            const hasBet = room.betAmount && room.betAmount >= minBetCheck;
+            if (!hasBet && typeof showXuPopup === 'function') {
                 showXuPopup(Math.floor((XU_CONFIG ? XU_CONFIG.SOLO_WIN_REWARD : 200) / 2), 'Đối thủ bỏ cuộc 🏳️');
             }
         }
         // Thua do bỏ cuộc vẫn tính loseSolo cho người thua
         if (loserId) db.ref(`users/${loserId}/loseSolo`).transaction(c => (c || 0) + 1);
         ghiLichSu(`Phòng ${room.roomNumber || (currentRoomId ? currentRoomId.replace('phong_', '') : '?')}`, xName, oName, room.winner, room.winCount || 5);
-        // Xử lý cược: trao thưởng cho người thắng
-        if (typeof ketThucCuoc === 'function') {
-            ketThucCuoc(currentRoomId, room.winner, false);
-        }
     } else if (myId === loserId) {
-        // Người thua — không trừ xu, nhưng hiện thông báo
-        if (typeof showXuPopup === 'undefined') {} // showXuPopup không cần gọi khi thua
+        // Người thua — tính loseSolo
         db.ref(`users/${loserId}/loseSolo`).transaction(c => (c || 0) + 1);
         if (!winnerId) {
             // Fallback: winner không online
         }
+    }
+    // Xử lý cược: gọi từ cả winner và loser để đảm bảo UI hiển thị đúng
+    // ketThucCuoc dùng Firebase transaction nên an toàn khi gọi từ nhiều client
+    if (typeof ketThucCuoc === 'function') {
+        ketThucCuoc(currentRoomId, room.winner, false);
     }
 }
 // ══════════════════════════════════════════════════════════════════
