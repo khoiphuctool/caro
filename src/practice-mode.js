@@ -33,15 +33,6 @@ const PracticeMode = (function() {
         'bot-toi-thuong': 'Bot Tối Thượng 💀'
     };
 
-    // Cấu hình thưởng và giới hạn
-    const BOT_REWARDS = {
-        'ai-easy':        { xu: 100,  dailyLimit: null },
-        'ai-medium':      { xu: 200,  dailyLimit: null },
-        'ai-hard':        { xu: 500,  dailyLimit: null },
-        'bot-tia-chop':   { xu: 2000, dailyLimit: 30 },  // 30 trận/ngày
-        'bot-toi-thuong': { xu: 1500, dailyLimit: null }
-    };
-
     // ── HELPERS ────────────────────────────────────────────────────
     function _genSessionId() {
         return 'ps_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
@@ -296,64 +287,10 @@ const PracticeMode = (function() {
                     window.updateUserStats('winBot', 1);
                 }
             }
-            // Cộng Xu khi thắng bot (có giới hạn ngày)
+            // Cộng Xu khi thắng bot (có giới hạn ngày) - dùng hệ thống thống nhất từ xu-nhiem-vu.js
             if (typeof window.onWinBotXu === 'function') {
-                const reward = BOT_REWARDS[_state.botLevel];
-                if (reward && reward.xu > 0) {
-                    // Kiểm tra giới hạn ngày
-                    if (reward.dailyLimit !== null) {
-                        if (!_checkDailyLimit(_state.botLevel, reward.dailyLimit)) {
-                            console.log(`[PracticeMode] Đã đạt giới hạn ngày cho ${_state.botLevel}`);
-                            return;
-                        }
-                    }
-                    window.onWinBotXu(_state.botLevel, reward.xu);
-                    // Tăng đếm ngày nếu có giới hạn
-                    if (reward.dailyLimit !== null) {
-                        _incrementDailyCount(_state.botLevel);
-                    }
-                }
+                window.onWinBotXu(_state.botLevel);
             }
-        }
-    }
-
-    // ── KIỂM TRA GIỚI HẠN NGÀY ───────────────────────────────────────
-    function _checkDailyLimit(botLevel, limit) {
-        try {
-            const today = new Date().toDateString();
-            const key = `practice_daily_${botLevel}`;
-            const data = JSON.parse(localStorage.getItem(key) || '{}');
-
-            if (data.date !== today) {
-                // Reset cho ngày mới
-                localStorage.setItem(key, JSON.stringify({ date: today, count: 0 }));
-                return true;
-            }
-
-            return data.count < limit;
-        } catch (e) {
-            console.error('[PracticeMode] Error checking daily limit:', e);
-            return true; // Mặc định cho phép nếu có lỗi
-        }
-    }
-
-    // ── TĂNG ĐẾM NGÀY ───────────────────────────────────────────────
-    function _incrementDailyCount(botLevel) {
-        try {
-            const today = new Date().toDateString();
-            const key = `practice_daily_${botLevel}`;
-            const data = JSON.parse(localStorage.getItem(key) || '{}');
-
-            if (data.date !== today) {
-                data.date = today;
-                data.count = 1;
-            } else {
-                data.count++;
-            }
-
-            localStorage.setItem(key, JSON.stringify(data));
-        } catch (e) {
-            console.error('[PracticeMode] Error incrementing daily count:', e);
         }
     }
 

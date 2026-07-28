@@ -6,11 +6,12 @@
 // CẤU HÌNH
 // ──────────────────────────────────────────────
 const XU_CONFIG = {
-    WELCOME_BONUS: 1000,
-    DAILY_CHECKIN: 500,
+    WELCOME_BONUS: 40000,
+    DAILY_CHECKIN: 5000,
     AVATAR_PRICE: 3000,
-    BOT_REWARD: { easy: 300, medium: 400, hard: 400, god: 500 },
-    BOT_DAILY_LIMIT: { easy: 5, medium: 8, hard: 10, god: 15 },
+    BOT_REWARD: { easy: 700, medium: 900, hard: 1200, god: 2000, lightning: 2000 },
+    BOT_DAILY_LIMIT: { easy: 10, medium: 12, hard: 10, god: 10, lightning: 10 },
+    BOT_BONUS_REWARD: { easy: 10000, medium: 15000, hard: 20000, god: 30000, lightning: 25000 }, // Thưởng khi đạt max limit
     SOLO_WIN_REWARD: 200,      // Thưởng thắng PvP Solo Online
     SOLO_WIN_DAILY_LIMIT: 20,  // Tối đa 20 trận/ngày
     BET_MIN: 100,
@@ -24,7 +25,8 @@ const DIFF_KEY = {
     'ai-easy': 'easy',
     'ai-medium': 'medium',
     'ai-hard': 'hard',
-    'ai-god': 'god'
+    'ai-god': 'god',
+    'bot-tia-chop': 'lightning'
 };
 
 // ──────────────────────────────────────────────
@@ -166,7 +168,7 @@ function resetBotLimitsIfNeeded(limitsRef) {
         if (!data || data.lastResetDate !== today) {
             return limitsRef.set({
                 lastResetDate: today,
-                easy: 0, medium: 0, hard: 0, god: 0
+                easy: 0, medium: 0, hard: 0, god: 0, lightning: 0
             });
         }
     });
@@ -178,9 +180,10 @@ function processWinBot(modeDiff) {
     const database = _getDb();
     if (!uid || !database) return Promise.resolve(0);
 
-    const limitKey = modeDiff; // 'easy'|'medium'|'hard'|'god'
+    const limitKey = modeDiff; // 'easy'|'medium'|'hard'|'god'|'lightning'
     const maxAllowed = XU_CONFIG.BOT_DAILY_LIMIT[limitKey] || 5;
     const reward = XU_CONFIG.BOT_REWARD[limitKey] || 300;
+    const bonusReward = XU_CONFIG.BOT_BONUS_REWARD[limitKey] || 0;
 
     const limitsRef = database.ref(`users/${uid}/botDailyLimits`);
     return resetBotLimitsIfNeeded(limitsRef).then(() => {
@@ -199,8 +202,22 @@ function processWinBot(modeDiff) {
                 const newUsed = res.snapshot.val() || 0;
                 // Nếu transaction thực sự tăng (newUsed = used+1) → cộng xu
                 if (newUsed !== used + 1) return 0;
-                return database.ref(`users/${uid}/coins`).transaction(cur => (cur || 0) + reward)
-                    .then(coinsRes => coinsRes.committed ? reward : 0);
+
+                // Nếu đạt max limit, cộng thêm bonus
+                const totalReward = (newUsed === maxAllowed) ? (reward + bonusReward) : reward;
+                return database.ref(`users/${uid}/coins`).transaction(cur => (cur || 0) + totalReward)
+                    .then(coinsRes => {
+                        if (coinsRes.committed) {
+                            if (newUsed === maxAllowed && bonusReward > 0) {
+                                showXuPopup(bonusReward, `🎉 Hoàn thành ${maxAllowed} trận!`);
+                                if (typeof addNotification === 'function') {
+                                    addNotification('win', `🎉 Chúc mừng! Hoàn thành ${maxAllowed} trận, thưởng thêm ${bonusReward} Xu!`);
+                                }
+                            }
+                            return totalReward;
+                        }
+                        return 0;
+                    });
             });
         });
     });
@@ -317,6 +334,9 @@ window.equipAvatar = equipAvatar;
 // HỆ THỐNG CƯỢC PVP ONLINE
 // ──────────────────────────────────────────────
 let currentBetAmount = 0;
+// Guard để tránh hiển thị popup cược nhiều lần trên cùng client
+let _lastProcessedBetRoom = '';
+let _lastProcessedBetTime = 0;
 
 // Đặt/hủy cược mới — ghi betAmount lên Firebase, reset guestReady
 function datCuocMoi(amount) {
@@ -462,10 +482,12 @@ function thietLapCuoc(roomId, betAmount) {
 }
 window.thietLapCuoc = thietLapCuoc;
 
-// Gọi khi game bắt đầu — tạm trừ xu 2 người vào pot
+// Gọi khi game bắt đầu — chỉ lưu thông tin cược, không trừ xu
+// Xu sẽ được trừ/cộng khi kết thúc trận
 function batDauCuoc(roomId, playerXId, playerOId) {
     const database = _getDb();
     if (!database) return Promise.resolve(false);
+    
     return Promise.all([
         database.ref(`rooms/${roomId}/betAmount`).once('value'),
         database.ref(`rooms/${roomId}/isVip`).once('value')
@@ -474,99 +496,88 @@ function batDauCuoc(roomId, playerXId, playerOId) {
         const isVip = isVipSnap.val() === true;
         const minBet = isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
         if (!bet || bet < minBet) return false; // không có cược
-        // Kiểm tra cả 2 người đủ xu trước
+        
+        // Chỉ lưu thông tin người chơi tham gia cược
         return Promise.all([
-            database.ref(`users/${playerXId}/coins`).once('value'),
-            database.ref(`users/${playerOId}/coins`).once('value')
-        ]).then(([xSnap, oSnap]) => {
-            const xCoins = xSnap.val() || 0;
-            const oCoins = oSnap.val() || 0;
-            if (xCoins < bet || oCoins < bet) {
-                database.ref(`rooms/${roomId}/betAmount`).remove();
-                if (typeof addNotification === 'function') {
-                    addNotification('win', '⚠️ Cược bị hủy vì một người không đủ Xu!');
-                }
-                return false;
+            database.ref(`rooms/${roomId}/betPlayerX`).set(playerXId),
+            database.ref(`rooms/${roomId}/betPlayerO`).set(playerOId)
+        ]).then(() => {
+            // Popup thông báo cược đã kích hoạt
+            showXuPopup(0, `Cược ${bet.toLocaleString('vi-VN')} Xu 🎲`);
+            if (typeof addNotification === 'function') {
+                addNotification('win', `🎲 Cược kích hoạt! Người thắng nhận ${bet.toLocaleString('vi-VN')} Xu từ người thua!`);
             }
-            // Trừ xu từng người bằng transaction, rollback nếu bất kỳ bên nào fail
-            return database.ref(`users/${playerXId}/coins`).transaction(c => {
-                const cur = c || 0;
-                if (cur < bet) return; // abort
-                return cur - bet;
-            }).then(xRes => {
-                if (!xRes.committed) {
-                    database.ref(`rooms/${roomId}/betAmount`).remove();
-                    if (typeof addNotification === 'function') addNotification('win', '⚠️ Cược bị hủy: người X không đủ Xu!');
-                    return false;
-                }
-                return database.ref(`users/${playerOId}/coins`).transaction(c => {
-                    const cur = c || 0;
-                    if (cur < bet) return; // abort
-                    return cur - bet;
-                }).then(oRes => {
-                    if (!oRes.committed) {
-                        // Hoàn lại xu cho X vì O fail
-                        database.ref(`users/${playerXId}/coins`).transaction(c => (c || 0) + bet);
-                        database.ref(`rooms/${roomId}/betAmount`).remove();
-                        if (typeof addNotification === 'function') addNotification('win', '⚠️ Cược bị hủy: người O không đủ Xu!');
-                        return false;
-                    }
-                    // Cả 2 đã trừ thành công → lưu pot
-                    return Promise.all([
-                        database.ref(`rooms/${roomId}/betPot`).set(bet * 2),
-                        database.ref(`rooms/${roomId}/betPlayerX`).set(playerXId),
-                        database.ref(`rooms/${roomId}/betPlayerO`).set(playerOId)
-                    ]).then(() => {
-                        // Popup trừ xu cho CẢ HAI người chơi (mỗi người thấy trên client của mình)
-                        // Hàm batDauCuoc chạy trên cả 2 client qua langNgheThayDoiPhong
-                        showXuPopup(-bet, 'Cược PVP 🎲');
-                        if (typeof addNotification === 'function') {
-                            addNotification('win', `🎲 Cược kích hoạt! Pot: ${(bet * 2).toLocaleString('vi-VN')} Xu — người thắng nhận tất!`);
-                        }
-                        return true;
-                    });
-                });
-            });
+            return true;
         });
     });
 }
 window.batDauCuoc = batDauCuoc;
 
-// Gọi khi kết thúc — trao thưởng
+// Gọi khi kết thúc — trao thưởng: winner +bet, loser -bet
+// Guard để tránh gọi nhiều lần từ cả 2 client
+let _lastProcessedBetEndRoom = '';
+let _lastProcessedBetEndTime = 0;
 function ketThucCuoc(roomId, winnerRole, isDraw) {
     const database = _getDb();
     if (!database) return;
+    
+    // Guard để tránh xử lý nhiều lần
+    const now = Date.now();
+    if (_lastProcessedBetEndRoom === roomId && (now - _lastProcessedBetEndTime) < 5000) {
+        console.log('[BetSystem] Skipping duplicate bet settlement for room:', roomId);
+        return;
+    }
+    
     database.ref(`rooms/${roomId}`).once('value').then(snap => {
         const room = snap.val();
-        if (!room || !room.betPot) return;
-        const pot = room.betPot;
+        if (!room || !room.betAmount) return;
         const bet = room.betAmount || 0;
         const xId = room.betPlayerX;
         const oId = room.betPlayerO;
         if (!xId || !oId) return;
+        const myId = localStorage.getItem('current_user_id');
+        
+        // Đánh dấu đã xử lý
+        _lastProcessedBetEndRoom = roomId;
+        _lastProcessedBetEndTime = now;
 
         if (isDraw) {
-            database.ref(`users/${xId}/coins`).transaction(c => (c || 0) + bet);
-            database.ref(`users/${oId}/coins`).transaction(c => (c || 0) + bet);
-            // Cả 2 bên đều thấy popup hoàn cược
-            showXuPopup(bet, 'Hoàn cược (hòa) 🤝');
-            if (typeof addNotification === 'function') addNotification('win', `🤝 Hòa! Xu cược hoàn lại.`);
+            // Hòa: hoàn lại xu cho cả 2 (không đổi gì)
+            setTimeout(() => {
+                showXuPopup(0, 'Hòa cược 🤝');
+            }, 500); // Delay để bàn cờ kịp render
+            if (typeof addNotification === 'function') addNotification('win', `🤝 Hòa! Không đổi xu.`);
         } else {
             const winnerId = winnerRole === 'X' ? xId : oId;
             const loserId  = winnerRole === 'X' ? oId  : xId;
-            const myId = localStorage.getItem('current_user_id');
-            database.ref(`users/${winnerId}/coins`).transaction(c => (c || 0) + pot)
+            
+            // Winner +bet
+            database.ref(`users/${winnerId}/coins`).transaction(c => (c || 0) + bet)
                 .then(() => {
                     if (myId === winnerId) {
-                        playCoinBurst(pot, 'Thắng cược! 🏆💰');
-                    } else if (myId === loserId) {
-                        // Người thua thấy popup thông báo mình đã thua xu cược
-                        showXuPopup(-bet, 'Thua cược 😔');
-                    }
-                    if (typeof addNotification === 'function') {
-                        addNotification('win', `🏆 Người thắng nhận ${pot.toLocaleString('vi-VN')} Xu từ cược!`);
+                        setTimeout(() => {
+                            playCoinBurst(bet, 'Thắng cược! 🏆💰');
+                            showXuPopup(bet, 'Thắng cược +Xu 🏆');
+                        }, 500); // Delay để bàn cờ kịp render nước cuối
                     }
                 });
+            
+            // Loser -bet
+            database.ref(`users/${loserId}/coins`).transaction(c => {
+                const cur = c || 0;
+                if (cur < bet) return 0; // Không âm
+                return cur - bet;
+            }).then(() => {
+                if (myId === loserId) {
+                    setTimeout(() => {
+                        showXuPopup(-bet, 'Thua cược -Xu 😔');
+                    }, 500); // Delay để bàn cờ kịp render nước cuối
+                }
+            });
+            
+            if (typeof addNotification === 'function') {
+                addNotification('win', `🏆 Người thắng nhận ${bet.toLocaleString('vi-VN')} Xu từ người thua!`);
+            }
         }
         // Xóa dữ liệu cược khỏi phòng
         database.ref(`rooms/${roomId}/betPot`).remove();
@@ -832,18 +843,20 @@ function renderNhiemVuTab() {
         if (!el) return;
         if (!limits) { el.innerHTML = '<span style="color:#aaa">Đăng nhập để xem lượt.</span>'; return; }
         const rows = [
-            { key:'easy',   label:'Bot Dễ',       max: XU_CONFIG.BOT_DAILY_LIMIT.easy,   reward: XU_CONFIG.BOT_REWARD.easy },
-            { key:'medium', label:'Bot Trung Bình',max: XU_CONFIG.BOT_DAILY_LIMIT.medium, reward: XU_CONFIG.BOT_REWARD.medium },
-            { key:'hard',   label:'Bot Khó',       max: XU_CONFIG.BOT_DAILY_LIMIT.hard,   reward: XU_CONFIG.BOT_REWARD.hard },
-            { key:'god',    label:'Bot Tối Thượng',max: XU_CONFIG.BOT_DAILY_LIMIT.god,    reward: XU_CONFIG.BOT_REWARD.god }
+            { key:'easy',   label:'Bot Dễ',       max: XU_CONFIG.BOT_DAILY_LIMIT.easy,   reward: XU_CONFIG.BOT_REWARD.easy,   bonus: XU_CONFIG.BOT_BONUS_REWARD.easy },
+            { key:'medium', label:'Bot Trung Bình',max: XU_CONFIG.BOT_DAILY_LIMIT.medium, reward: XU_CONFIG.BOT_REWARD.medium, bonus: XU_CONFIG.BOT_BONUS_REWARD.medium },
+            { key:'hard',   label:'Bot Khó',       max: XU_CONFIG.BOT_DAILY_LIMIT.hard,   reward: XU_CONFIG.BOT_REWARD.hard,   bonus: XU_CONFIG.BOT_BONUS_REWARD.hard },
+            { key:'god',    label:'Bot Tối Thượng',max: XU_CONFIG.BOT_DAILY_LIMIT.god,    reward: XU_CONFIG.BOT_REWARD.god,    bonus: XU_CONFIG.BOT_BONUS_REWARD.god },
+            { key:'lightning', label:'Bot Tia Chớp',max: XU_CONFIG.BOT_DAILY_LIMIT.lightning, reward: XU_CONFIG.BOT_REWARD.lightning, bonus: XU_CONFIG.BOT_BONUS_REWARD.lightning }
         ];
         el.innerHTML = rows.map(r => {
             const used = limits[r.key] || 0;
             const rem = Math.max(0, r.max - used);
             const pct = Math.round((used / r.max) * 100);
+            const bonusText = r.bonus > 0 ? ` (+${r.bonus} Xu khi hoàn thành ${r.max} trận)` : '';
             return `<div style="margin-bottom:6px">
                 <div style="display:flex;justify-content:space-between;font-size:12px">
-                    <span>${r.label}: <b style="color:${rem>0?'#16a34a':'#dc2626'}">${rem > 0 ? `Còn ${rem}/${r.max} lượt (+${r.reward} Xu)` : 'Hết lượt hôm nay'}</b></span>
+                    <span>${r.label}: <b style="color:${rem>0?'#16a34a':'#dc2626'}">${rem > 0 ? `Hoàn thành ${used}/${r.max} (+${r.reward} Xu${bonusText})` : 'Hết lượt hôm nay'}</b></span>
                 </div>
                 <div style="height:5px;background:#e5e7eb;border-radius:3px;overflow:hidden;">
                     <div style="height:100%;width:${pct}%;background:${rem>0?'#22c55e':'#dc2626'};border-radius:3px;transition:width .3s"></div>

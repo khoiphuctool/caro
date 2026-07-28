@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-    <title>Caro BOT CHẦN PRO - V4.0</title>
+    <title>Caro BOT CHẦN PRO - V5.0</title>
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -52,6 +52,30 @@
   --color-info: #3b82f6;
   --color-orange: #f97316;
 
+  --transition: 0.2s ease;
+}
+
+/* LIGHT THEME (mặc định) */
+:root {
+  --header-bg: #ffffff;
+  --header-h1-bg: #f8fafc;
+  --header-text: #1e293b;
+  --header-sub: #64748b;
+
+  --view-bg: #f8fafc;
+  --card-bg: #ffffff;
+  --card-border: #e2e8f0;
+  --card-shadow: 0 2px 8px rgba(0,0,0,.06);
+
+  --battle-bg: #f1f5f9;
+  --battle-card-bg: #ffffff;
+  --battle-card-border: #e2e8f0;
+  --battle-text: #1e293b;
+  --battle-text-muted: #64748b;
+}
+
+/* DARK THEME */
+:root.dark-theme {
   --header-bg: #1e1b4b;
   --header-h1-bg: #13102e;
   --header-text: #e0e7ff;
@@ -62,7 +86,11 @@
   --card-border: #e2e8f0;
   --card-shadow: 0 2px 8px rgba(0,0,0,.08);
 
-  --transition: 0.2s ease;
+  --battle-bg: #0f172a;
+  --battle-card-bg: rgba(255,255,255,.05);
+  --battle-card-border: rgba(255,255,255,.1);
+  --battle-text: #e2e8f0;
+  --battle-text-muted: #94a3b8;
 }
 
 /* ================================================================
@@ -84,7 +112,7 @@ a { text-decoration: none; }
 /* ================================================================
    HEADER — Hàng 1: Navigation
    ================================================================ */
-#app-header { background: var(--header-bg); color: var(--header-text); position: sticky; top: 0; z-index: 200; box-shadow: 0 2px 12px rgba(0,0,0,.3); }
+#app-header { background: var(--header-bg); color: var(--header-text); position: sticky; top: 0; z-index: 200; box-shadow: 0 2px 12px rgba(0,0,0,.3); transition: background var(--transition), color var(--transition); }
 
 .header-row1 {
   display: flex; align-items: center; justify-content: space-between;
@@ -402,7 +430,7 @@ a { text-decoration: none; }
 /* ================================================================
    BATTLE VIEW
    ================================================================ */
-#view-battle { background: #0f172a; overflow: hidden; }
+#view-battle { background: var(--battle-bg); overflow: hidden; transition: background var(--transition); }
 
 /* Desktop: 3 cột 20% / 60% / 20% */
 .battle-layout-desktop {
@@ -425,10 +453,11 @@ a { text-decoration: none; }
 }
 
 .battle-player-card {
-  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+  background: var(--battle-card-bg); border: 1px solid var(--battle-card-border);
   border-radius: var(--radius-md); padding: var(--space-4);
   display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
-  color: #e2e8f0; overflow: hidden;
+  color: var(--battle-text); overflow: hidden;
+  transition: background var(--transition), border var(--transition), color var(--transition);
 }
 .battle-avatar {
   width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center;
@@ -438,7 +467,7 @@ a { text-decoration: none; }
 .battle-avatar.bx { background: rgba(239,68,68,.2); border-color: #ef4444; color: #ef4444; }
 .battle-avatar.bo { background: rgba(59,130,246,.2); border-color: #3b82f6; color: #3b82f6; }
 .battle-pname { font-size: var(--font-base); font-weight: 700; text-align: center; word-break: break-word; }
-.battle-pstats { font-size: var(--font-xs); color: #94a3b8; text-align: center; }
+.battle-pstats { font-size: var(--font-xs); color: var(--battle-text-muted); text-align: center; }
 .battle-indicator {
   padding: 6px 14px; border-radius: var(--radius-full); font-size: var(--font-sm); font-weight: 700;
   background: rgba(16,185,129,.25); color: #6ee7b7; border: 1px solid rgba(16,185,129,.4);
@@ -476,9 +505,10 @@ a { text-decoration: none; }
 .battle-status-bar {
   width: 100%; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2);
   border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4);
-  color: #ffffff; font-size: var(--font-sm); font-weight: 700; text-align: center;
+  color: var(--battle-text); font-size: var(--font-sm); font-weight: 700; text-align: center;
   margin-bottom: var(--space-2); flex-shrink: 0;
   text-shadow: 0 1px 3px rgba(0,0,0,.5);
+  transition: color var(--transition);
 }
 
 .battle-right {
@@ -836,6 +866,32 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
   }
 }
 
+/* ================================================================
+   BOT ROOM STYLES
+   ================================================================ */
+/* Tab bot */
+#tab-bot { background: #10b981; color: white; }
+#tab-bot.inactive { background: #e5e7eb; color: #374151; }
+
+/* Bot room card trong lobby */
+.bot-room-item { border: 2px solid #10b981; background: linear-gradient(135deg, #f0fdf4, #dcfce7); }
+.bot-room-badge { background: #10b981; color: white; font-size: 10px; padding: 2px 6px; border-radius: 999px; }
+
+/* Panel bot trong battle */
+.battle-bot-panel { background: rgba(16,185,129,.08); border: 1px solid rgba(16,185,129,.25); border-radius: 10px; padding: 16px; }
+.bot-speech-bubble-panel { background: rgba(255,255,255,.08); border-radius: 8px; padding: 10px 12px; font-size: 13px; color: #86efac; font-style: italic; min-height: 60px; }
+.bot-avatar-large { font-size: 48px; text-align: center; margin-bottom: 8px; }
+
+/* Animation cho bot speech bubble */
+.bot-speech-bubble-panel.annoying {
+  animation: bounce 0.5s ease-in-out;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
     </style>
 </head>
 <body>
@@ -850,11 +906,12 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 <header id="app-header">
     <!-- Hàng 1: Navigation -->
     <div class="header-row1">
-        <div class="header-logo">⭕✖️ Caro ONLINE - Chần Pro</div>
+        <div class="header-logo">⭕✖️ Thách Đấu CARO với Chần Pro</div>
 
         <nav class="header-nav">
             <a href="https://khoiphuctool.github.io/caro/" target="_blank" class="nav-btn">🏠 <span>Trang Chủ</span></a>
             <button class="nav-btn" onclick="moGioiThieu()">📖 <span>Giới thiệu</span></button>
+            <button class="nav-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="Đổi giao diện">🌙 <span>Giao diện</span></button>
 
             <!-- Shop dropdown -->
             <div class="shop-dropdown">
@@ -2283,6 +2340,7 @@ function resetScoreTableToDefaults() {
 </script>
 
 <script src="src/practice-mode.js"></script>
+<script src="src/bot-room.js"></script>
 <script src="src/firebase-online.js"></script>
 <script src="src/thong-bao.js"></script>
 <script src="src/xu-nhiem-vu.js"></script>
@@ -2420,9 +2478,19 @@ function moveBoardToBattle() {
     // DO NOT move board in Online mode - SharedBoardEngine handles it
     // Online mode uses inf-canvas-online in shared-board-online container
     // This function is only for Practice mode (inf-canvas in shared-board-practice)
-    if (typeof window.isOnlineModeActive === 'function' && window.isOnlineModeActive()) {
+    if (typeof window.isOnlineModeActive === 'function' && window.isOnlineModeActive()
+        && !window.isBotRoomMode) {
         console.log('[moveBoardToBattle] Skipping - Online mode uses SharedBoardEngine');
         return;
+    }
+
+    // Bot room mode: ẩn shared-board-online (dành cho online) để không hiện 2 bàn cờ
+    if (window.isBotRoomMode) {
+        const onlineBoard = document.getElementById('shared-board-online');
+        if (onlineBoard) onlineBoard.style.display = 'none';
+        // Ẩn nút thoát online, hiện nút thoát bot room nếu có
+        const btnLeaveBattle = document.getElementById('btn-leave-battle');
+        if (btnLeaveBattle) btnLeaveBattle.style.display = 'none';
     }
 
     const el = infRes || domBoard;
@@ -2467,6 +2535,7 @@ function moveBoardToBattle() {
             if (typeof applyCanvasSize === 'function' && infRes) {
                 applyCanvasSize(size, size, false);
             }
+            // KHÔNG renderInfiniteBoard ở đây vì initGame() đã render rồi (tránh lặp thừa)
             // DO NOT call renderInfiniteBoard() or fitCanvasToContainer() - they conflict with SharedBoardEngine
             // DO NOT call updateInfiniteResizeHandles() - it conflicts with SharedBoardEngine
             // SharedBoardEngine handles rendering for Online mode
@@ -2486,6 +2555,12 @@ function returnBoardToTraining() {
     }
     _boardOrigParent = null;
     _boardOrigNextSib = null;
+
+    // Restore shared-board-online và nút thoát online khi rời bot room
+    const onlineBoard = document.getElementById('shared-board-online');
+    if (onlineBoard) onlineBoard.style.display = '';
+    const btnLeaveBattle = document.getElementById('btn-leave-battle');
+    if (btnLeaveBattle) btnLeaveBattle.style.display = '';
 }
 
 window.moveBoardToBattle   = moveBoardToBattle;
@@ -2526,7 +2601,8 @@ window.switchView = function(name) {
         }
     } else if (prevId === 'view-battle' && name !== 'battle') {
         // DO NOT return board in Online mode - SharedBoardEngine handles it
-        if (typeof window.isOnlineModeActive === 'function' && window.isOnlineModeActive()) {
+        if (typeof window.isOnlineModeActive === 'function' && window.isOnlineModeActive()
+            && !window.isBotRoomMode) {
             console.log('[switchView] Skipping returnBoardToTraining - Online mode uses SharedBoardEngine');
         } else {
             returnBoardToTraining();
@@ -2875,6 +2951,40 @@ if (_betConfirmBtns) {
         set: function(v) { this.display = v; }
     });
 }
+
+// ── THEME TOGGLE (SÁNG/TỐI) ─────────────────────────────────────
+function toggleTheme() {
+    const html = document.documentElement;
+    const isDark = html.classList.toggle('dark-theme');
+    const btn = document.getElementById('theme-toggle-btn');
+    
+    if (isDark) {
+        btn.innerHTML = '🌙 <span>Giao diện</span>';
+        localStorage.setItem('theme', 'dark');
+    } else {
+        btn.innerHTML = '☀️ <span>Giao diện</span>';
+        localStorage.setItem('theme', 'light');
+    }
+    
+    // Re-render bàn cờ để cập nhật màu sắc
+    if (typeof renderInfiniteBoard === 'function') {
+        renderInfiniteBoard();
+    }
+}
+
+// Load theme preference on startup (mặc định light)
+(function() {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark-theme');
+        const btn = document.getElementById('theme-toggle-btn');
+        if (btn) btn.innerHTML = '🌙 <span>Giao diện</span>';
+    } else {
+        // Mặc định light theme
+        const btn = document.getElementById('theme-toggle-btn');
+        if (btn) btn.innerHTML = '☀️ <span>Giao diện</span>';
+    }
+})();
 </script>
 
 </div><!-- #app -->

@@ -641,7 +641,7 @@ function renderInfiniteBoard() {
     // Lấy skin đang trang bị (nếu có hệ thống skin)
     // Khi online: mỗi bên dùng skin riêng. Khi offline: dùng skin của mình.
     const _onlineActive = window.isOnlineModeActive && window.isOnlineModeActive();
-    let _iconX, _iconO, _colorX, _colorO, _useEmoji;
+    let _iconX, _iconO, _colorX, _colorO, _useEmojiX, _useEmojiO;
 
     if (_onlineActive && typeof getSkinById === 'function') {
         const skinX = getSkinById(window._onlineSkinX || 'skin_default');
@@ -650,10 +650,12 @@ function renderInfiniteBoard() {
         _iconO    = skinO.icon_O;
         _colorX   = skinX.color_X || col.x;
         _colorO   = skinO.color_O || col.o;
-        _useEmoji = (_iconX !== 'X' || _iconO !== 'O');
+        _useEmojiX = (_iconX !== 'X');
+        _useEmojiO = (_iconO !== 'O');
     } else {
         const _skin = (typeof getEquippedSkin === 'function') ? getEquippedSkin() : null;
-        _useEmoji = _skin && (_skin.icon_X !== 'X' || _skin.icon_O !== 'O');
+        _useEmojiX = _skin && (_skin.icon_X !== 'X');
+        _useEmojiO = _skin && (_skin.icon_O !== 'O');
         _iconX    = _skin ? _skin.icon_X : 'X';
         _iconO    = _skin ? _skin.icon_O : 'O';
         _colorX   = (_skin && _skin.color_X) ? _skin.color_X : col.x;
@@ -663,9 +665,6 @@ function renderInfiniteBoard() {
     // Vẽ quân cờ
     c.textAlign    = 'center';
     c.textBaseline = 'middle';
-    // Emoji skin dùng font lớn hơn để hiển thị rõ
-    const _fontSize = _useEmoji ? Math.floor(CS * 0.72) : Math.floor(CS * 0.65);
-    c.font = `bold ${_fontSize}px Segoe UI, sans-serif`;
 
     for (let ri = 0; ri < rows; ri++) {
         for (let ci = 0; ci < cols; ci++) {
@@ -688,11 +687,22 @@ function renderInfiniteBoard() {
                 c.lineWidth   = 0.5;
                 c.strokeStyle = col.grid;
             }
+
+            // Xác định icon, màu và font size cho từng quân riêng biệt
+            const isX = (val === 'X');
+            const icon = isX ? _iconX : _iconO;
+            const useEmoji = isX ? _useEmojiX : _useEmojiO;
+            const color = isX ? _colorX : _colorO;
+
+            // Emoji dùng font lớn hơn, text dùng font nhỏ hơn
+            const fontSize = useEmoji ? Math.floor(CS * 0.72) : Math.floor(CS * 0.65);
+            c.font = `bold ${fontSize}px Segoe UI, sans-serif`;
+
             // Dùng màu từ skin (nếu emoji thì không cần đổi fillStyle vì emoji tự có màu)
-            if (!_useEmoji) {
-                c.fillStyle = val === 'X' ? _colorX : _colorO;
+            if (!useEmoji) {
+                c.fillStyle = color;
             }
-            c.fillText(val === 'X' ? _iconX : _iconO, px, py);
+            c.fillText(icon, px, py);
         }
     }
 

@@ -43,16 +43,23 @@ function startPlayerTurnTimer() {
             ];
             // CHẶN LỜI THOẠI: Nếu chơi Online thì không cho xuất chữ ra khung chat nữa
             if (window.isOnlineModeActive && window.isOnlineModeActive()) {
-                return; 
+                return;
             }
 
             const randomMsg = messages[Math.floor(Math.random() * messages.length)];
-            const botMessage = document.getElementById('bot-message');
-            const botBubble  = document.getElementById('bot-bubble');
-            if (botMessage && botBubble) {
-                botMessage.textContent = randomMsg;
-                botBubble.classList.add('annoying');
-                setTimeout(() => botBubble.classList.remove('annoying'), 3000);
+            
+            // Nếu ở chế độ bot room, hiển thị trong panel bot
+            if (window.isBotRoomMode && typeof BotRoomManager !== 'undefined' && BotRoomManager.showBotSpeech) {
+                BotRoomManager.showBotSpeech(randomMsg);
+            } else {
+                // Hiển thị trong bot-bubble cũ (training mode)
+                const botMessage = document.getElementById('bot-message');
+                const botBubble  = document.getElementById('bot-bubble');
+                if (botMessage && botBubble) {
+                    botMessage.textContent = randomMsg;
+                    botBubble.classList.add('annoying');
+                    setTimeout(() => botBubble.classList.remove('annoying'), 3000);
+                }
             }
         }
         if (playerTurnSeconds === 15 && isBotMode() && currentPlayer === humanPiece) {
@@ -66,16 +73,23 @@ function startPlayerTurnTimer() {
             ];
             // CHẶN LỜI THOẠI: Nếu chơi Online thì không cho xuất chữ ra khung chat nữa
             if (window.isOnlineModeActive && window.isOnlineModeActive()) {
-                return; 
+                return;
             }
 
             const randomMsg = messages[Math.floor(Math.random() * messages.length)];
-            const botMessage = document.getElementById('bot-message');
-            const botBubble  = document.getElementById('bot-bubble');
-            if (botMessage && botBubble) {
-                botMessage.textContent = randomMsg;
-                botBubble.classList.add('annoying');
-                setTimeout(() => botBubble.classList.remove('annoying'), 4000);
+            
+            // Nếu ở chế độ bot room, hiển thị trong panel bot
+            if (window.isBotRoomMode && typeof BotRoomManager !== 'undefined' && BotRoomManager.showBotSpeech) {
+                BotRoomManager.showBotSpeech(randomMsg);
+            } else {
+                // Hiển thị trong bot-bubble cũ (training mode)
+                const botMessage = document.getElementById('bot-message');
+                const botBubble  = document.getElementById('bot-bubble');
+                if (botMessage && botBubble) {
+                    botMessage.textContent = randomMsg;
+                    botBubble.classList.add('annoying');
+                    setTimeout(() => botBubble.classList.remove('annoying'), 4000);
+                }
             }
         }
         if (playerTurnSeconds === 25 && isBotMode() && currentPlayer === humanPiece) {
@@ -89,16 +103,23 @@ function startPlayerTurnTimer() {
             ];
             // CHẶN LỜI THOẠI: Nếu chơi Online thì không cho xuất chữ ra khung chat nữa
             if (window.isOnlineModeActive && window.isOnlineModeActive()) {
-                return; 
+                return;
             }
 
             const randomMsg = messages[Math.floor(Math.random() * messages.length)];
-            const botMessage = document.getElementById('bot-message');
-            const botBubble  = document.getElementById('bot-bubble');
-            if (botMessage && botBubble) {
-                botMessage.textContent = randomMsg;
-                botBubble.classList.add('annoying');
-                setTimeout(() => botBubble.classList.remove('annoying'), 5000);
+            
+            // Nếu ở chế độ bot room, hiển thị trong panel bot
+            if (window.isBotRoomMode && typeof BotRoomManager !== 'undefined' && BotRoomManager.showBotSpeech) {
+                BotRoomManager.showBotSpeech(randomMsg);
+            } else {
+                // Hiển thị trong bot-bubble cũ (training mode)
+                const botMessage = document.getElementById('bot-message');
+                const botBubble  = document.getElementById('bot-bubble');
+                if (botMessage && botBubble) {
+                    botMessage.textContent = randomMsg;
+                    botBubble.classList.add('annoying');
+                    setTimeout(() => botBubble.classList.remove('annoying'), 5000);
+                }
             }
         }
         if (playerTurnSeconds === 40 && isBotMode() && currentPlayer === humanPiece) {
@@ -111,16 +132,23 @@ function startPlayerTurnTimer() {
             ];
             // CHẶN LỜI THOẠI: Nếu chơi Online thì không cho xuất chữ ra khung chat nữa
             if (window.isOnlineModeActive && window.isOnlineModeActive()) {
-                return; 
+                return;
             }
 
             const randomMsg = messages[Math.floor(Math.random() * messages.length)];
-            const botMessage = document.getElementById('bot-message');
-            const botBubble  = document.getElementById('bot-bubble');
-            if (botMessage && botBubble) {
-                botMessage.textContent = randomMsg;
-                botBubble.classList.add('annoying');
-                setTimeout(() => botBubble.classList.remove('annoying'), 5000);
+            
+            // Nếu ở chế độ bot room, hiển thị trong panel bot
+            if (window.isBotRoomMode && typeof BotRoomManager !== 'undefined' && BotRoomManager.showBotSpeech) {
+                BotRoomManager.showBotSpeech(randomMsg);
+            } else {
+                // Hiển thị trong bot-bubble cũ (training mode)
+                const botMessage = document.getElementById('bot-message');
+                const botBubble  = document.getElementById('bot-bubble');
+                if (botMessage && botBubble) {
+                    botMessage.textContent = randomMsg;
+                    botBubble.classList.add('annoying');
+                    setTimeout(() => botBubble.classList.remove('annoying'), 5000);
+                }
             }
         }
     }, 1000);
@@ -128,8 +156,8 @@ function startPlayerTurnTimer() {
 
 // ===== INIT GAME =====
 function initGame() {
-    // Chặn restart khi đang chơi online
-    if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+    // Chặn restart khi đang chơi online (ngoại trừ bot room mode)
+    if (window.isOnlineModeActive && window.isOnlineModeActive() && !window.isBotRoomMode) {
         alert("Bạn đang trong trận đấu Online, không thể tự làm mới ván cờ!");
         return;
     }

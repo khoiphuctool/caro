@@ -118,24 +118,24 @@ function switchRoomTab(tab) {
     console.log('[DEBUG] switchRoomTab called with:', tab);
     currentRoomTab = tab;
     const tabNormal = document.getElementById('tab-normal');
-    const tabVip = document.getElementById('tab-vip');
-    
-    console.log('[DEBUG] tabNormal element:', tabNormal, 'tabVip element:', tabVip);
-    
+    const tabVip    = document.getElementById('tab-vip');
+    const tabBot    = document.getElementById('tab-bot');
+
+    // Reset tất cả tabs về inactive
+    if (tabNormal) { tabNormal.style.background = '#e5e7eb'; tabNormal.style.color = '#374151'; }
+    if (tabVip)    { tabVip.style.background    = '#e5e7eb'; tabVip.style.color    = '#374151'; }
+    if (tabBot)    { tabBot.style.background    = '#e5e7eb'; tabBot.style.color    = '#374151'; }
+
+    // Active tab được chọn
     if (tab === 'normal') {
-        tabNormal.style.background = '#6366f1';
-        tabNormal.style.color = 'white';
-        tabVip.style.background = '#e5e7eb';
-        tabVip.style.color = '#374151';
-    } else {
-        tabVip.style.background = '#f59e0b';
-        tabVip.style.color = 'white';
-        tabNormal.style.background = '#e5e7eb';
-        tabNormal.style.color = '#374151';
+        if (tabNormal) { tabNormal.style.background = '#6366f1'; tabNormal.style.color = 'white'; }
+    } else if (tab === 'vip') {
+        if (tabVip) { tabVip.style.background = '#f59e0b'; tabVip.style.color = 'white'; }
+    } else if (tab === 'bot') {
+        if (tabBot) { tabBot.style.background = '#10b981'; tabBot.style.color = 'white'; }
     }
-    
+
     console.log('[DEBUG] Tab switched to:', currentRoomTab, 'Calling renderRoomListImmediate');
-    // Render immediately without waiting for Firebase trigger
     renderRoomListImmediate();
 }
 window.switchRoomTab = switchRoomTab;
@@ -143,10 +143,17 @@ window.switchRoomTab = switchRoomTab;
 function renderRoomListImmediate() {
     const container = document.getElementById('room-list');
     if (!container) return;
-    
-    const lobbyScreen = document.getElementById('lobby-screen');
-    if (!lobbyScreen || lobbyScreen.style.display === 'none') return;
-    
+
+    // Tab Bot: không cần Firebase, giao cho BotRoomManager xử lý
+    if (currentRoomTab === 'bot') {
+        if (typeof BotRoomManager !== 'undefined' && typeof BotRoomManager.openBotLobby === 'function') {
+            BotRoomManager.openBotLobby();
+        } else {
+            container.innerHTML = '<div style="text-align:center;padding:24px;color:#64748b;">Đang tải Phòng Bot...</div>';
+        }
+        return;
+    }
+
     console.log('[DEBUG] renderRoomListImmediate - Current tab:', currentRoomTab);
     
     // Fetch current rooms data from Firebase
@@ -700,29 +707,40 @@ function guiLoiMoiThachDau(targetUid, targetName) {
     const myId   = localStorage.getItem('current_user_id');
     const myName = currentUserData ? currentUserData.displayName : currentUsername;
     
-    // Kiểm tra xem người nhận có online không
-    db.ref(`online_users/${targetUid}`).once('value').then(snap => {
-        const isOnline = snap.exists();
+    // Kiểm tra xem người nhận có bận không
+    db.ref(`users/${targetUid}/currentRoomId`).once('value').then(snap => {
+        const targetRoomId = snap.val();
         
-        // Gửi lời mời realtime (nếu người đang online sẽ nhận ngay)
-        db.ref(`invitations/${targetUid}`).set({
-            fromRoomId:     currentRoomId,
-            fromPlayerId:   myId,
-            fromPlayerName: myName,
-            timestamp:      Date.now()
-        }).then(() => {
-            alert(`Đã gửi lời mời tới [${targetName}]!${isOnline ? '' : ' (Người này hiện offline, sẽ nhận khi online)'}`);
+        // Nếu người chơi đang trong phòng nào đó → báo bận
+        if (targetRoomId) {
+            alert(`[${targetName}] đang bận trong phòng khác! Vui lòng thử lại sau.`);
+            return;
+        }
+        
+        // Kiểm tra xem người nhận có online không
+        db.ref(`online_users/${targetUid}`).once('value').then(snap => {
+            const isOnline = snap.exists();
             
-            // Luôn lưu lời mời vào danh sách chờ (để họ xem lại khi online)
-            db.ref(`pending_invites/${targetUid}`).push({
+            // Gửi lời mời realtime (nếu người đang online sẽ nhận ngay)
+            db.ref(`invitations/${targetUid}`).set({
                 fromRoomId:     currentRoomId,
                 fromPlayerId:   myId,
                 fromPlayerName: myName,
-                timestamp:      Date.now(),
-                status:         'pending'
+                timestamp:      Date.now()
+            }).then(() => {
+                alert(`Đã gửi lời mời tới [${targetName}]!${isOnline ? '' : ' (Người này hiện offline, sẽ nhận khi online)'}`);
+                
+                // Luôn lưu lời mời vào danh sách chờ (để họ xem lại khi online)
+                db.ref(`pending_invites/${targetUid}`).push({
+                    fromRoomId:     currentRoomId,
+                    fromPlayerId:   myId,
+                    fromPlayerName: myName,
+                    timestamp:      Date.now(),
+                    status:         'pending'
+                });
+            }).catch(err => {
+                alert('Lỗi gửi lời mời: ' + err.message);
             });
-        }).catch(err => {
-            alert('Lỗi gửi lời mời: ' + err.message);
         });
     });
 }
@@ -743,6 +761,9 @@ function langNgheLoiMoiDen() {
         const dongY = confirm(`🎮 [${invite.fromPlayerName}] mời bạn vào phòng solo! Chấp nhận?`);
         db.ref(`invitations/${userId}`).remove();
         if (!dongY) return;
+        // Đóng lobby screen nếu đang mở
+        const lobbyScreen = document.getElementById('lobby-screen');
+        if (lobbyScreen) lobbyScreen.style.display = 'none';
         vaoPhongLaO(invite.fromRoomId);
     });
 }
@@ -762,10 +783,22 @@ function kiemTraLoiMoiCho(userId) {
                 db.ref(`pending_invites/${userId}/${key}`).update({ status: 'seen' });
                 
                 setTimeout(() => {
-                    const dongY = confirm(`🎮 [${invite.fromPlayerName}] đã mời bạn vào phòng solo! Chấp nhận?`);
-                    if (dongY) {
-                        vaoPhongLaO(invite.fromRoomId);
-                    }
+                    // Kiểm tra xem người chơi có bận không trước khi hiện lời mời
+                    db.ref(`users/${userId}/currentRoomId`).once('value').then(snap => {
+                        const currentRoom = snap.val();
+                        if (currentRoom) {
+                            // Đang bận, bỏ qua lời mời này
+                            return;
+                        }
+                        
+                        const dongY = confirm(`🎮 [${invite.fromPlayerName}] đã mời bạn vào phòng solo! Chấp nhận?`);
+                        if (dongY) {
+                            // Đóng lobby screen nếu đang mở
+                            const lobbyScreen = document.getElementById('lobby-screen');
+                            if (lobbyScreen) lobbyScreen.style.display = 'none';
+                            vaoPhongLaO(invite.fromRoomId);
+                        }
+                    });
                 }, count * 500); // Delay giữa các lời mời
             }
         }
@@ -864,6 +897,8 @@ function hienDanhSachPhong() {
         // Không render nếu đã vào phòng (lobby đóng rồi)
         const lobbyScreen = document.getElementById('lobby-screen');
         if (!lobbyScreen || lobbyScreen.style.display === 'none') return;
+        // Tab Bot không cần Firebase — BotRoomManager đã xử lý
+        if (currentRoomTab === 'bot') return;
         const rooms = snap.val();
         console.log('[DEBUG] Current tab:', currentRoomTab, 'Rooms data:', rooms);
         container.innerHTML = '';
@@ -1067,6 +1102,8 @@ function ngoimVaoPhong(roomId) {
         myRole            = room.playerX_id === myId ? 'X' : 'O';
         daXoaBanCoTranNay = false;
         localStorage.setItem('current_room_id', roomId);
+        // Cập nhật currentRoomId lên Firebase để người khác biết đang bận
+        db.ref(`users/${myId}/currentRoomId`).set(roomId);
 
         setupOnDisconnect(roomId, myRole);
         // Đóng lobby và hủy listener danh sách phòng
@@ -1118,12 +1155,17 @@ function vaoLaiPhong(roomId) {
                 currentWinCount   = room.winCount || 5;
                 if (typeof winCount !== 'undefined') winCount = currentWinCount;
                 localStorage.setItem('current_room_id', roomId);
+                // Cập nhật currentRoomId lên Firebase
+                const myId = localStorage.getItem('current_user_id');
+                db.ref(`users/${myId}/currentRoomId`).set(roomId);
                 const sf = myRole === 'X' ? 'playerX_status' : 'playerO_status';
                 db.ref(`rooms/${roomId}/${sf}`).set('online');
                 setupOnDisconnect(roomId, myRole);
                 const lobbyScreen = document.getElementById('lobby-screen');
                 if (lobbyScreen) lobbyScreen.style.display = 'none';
                 batDauGiaoDienOnline();
+                // Cập nhật UI ngay lập tức với thông tin phòng hiện tại
+                capNhatUIPhongOnline(room);
                 if (room.status === 'playing') {
                     phucHoiBanCo(roomId, () => { langNgheThayDoiPhong(roomId); langNgheTinNhan(roomId); });
                 } else {
@@ -1255,6 +1297,8 @@ function vaoPhongLaO(roomId) {
         myRole            = 'O';
         daXoaBanCoTranNay = false;
         localStorage.setItem('current_room_id', roomId);
+        // Cập nhật currentRoomId lên Firebase để người khác biết đang bận
+        db.ref(`users/${myId}/currentRoomId`).set(roomId);
         setupOnDisconnect(roomId, 'O');
         batDauGiaoDienOnline();
         langNgheThayDoiPhong(roomId);
@@ -1600,7 +1644,12 @@ function roiKhoiPhong(onDone) {
     const rid  = currentRoomId;
     const role = myRole;
     const myId = localStorage.getItem('current_user_id');
-    const done = () => { _resetSauThoat(rid); if (onDone) onDone(); };
+    const done = () => {
+        // Xóa currentRoomId khỏi Firebase khi thoát
+        db.ref(`users/${myId}/currentRoomId`).remove();
+        _resetSauThoat(rid);
+        if (onDone) onDone();
+    };
     db.ref(`rooms/${rid}`).once('value').then(snap => {
         const room = snap.val();
         if (!room) { done(); return; }
@@ -2383,17 +2432,14 @@ function langNgheThayDoiPhong(roomId) {
                     movesCount: movesArray.length
                 });
             }
-            // Vẽ nước đi mới nhất từ đối thủ
-            if (room.lastMove && room.lastMove.by && room.lastMove.by !== myRole) {
+            // Vẽ nước đi mới nhất (cả của mình lẫn đối thủ)
+            if (room.lastMove && room.lastMove.by) {
                 if (room.lastMove.row !== locallyAppliedLastMove.row || room.lastMove.col !== locallyAppliedLastMove.col) {
-                    console.log('[DEBUG-BOARD] Drawing opponent move:', room.lastMove, 'myRole:', myRole);
+                    console.log('[DEBUG-BOARD] Drawing move:', room.lastMove, 'myRole:', myRole);
                     locallyAppliedLastMove.row = room.lastMove.row;
                     locallyAppliedLastMove.col = room.lastMove.col;
                     thucHienVeNuocDi(room.lastMove.row, room.lastMove.col, room.lastMove.by);
                 }
-            } else if (room.lastMove && room.lastMove.by) {
-                console.log('[DEBUG-BOARD] Skipping lastMove draw: by=', room.lastMove.by, 'myRole=', myRole,
-                    'locallyApplied=', locallyAppliedLastMove);
             }
             // Hiển thị pot cược đang diễn ra (nếu có)
             const betInfoEl = document.getElementById('bet-info-o');
@@ -2640,6 +2686,12 @@ function capNhatUIPhong(room) {
             if (btnGuestCancel) btnGuestCancel.style.display = 'none';
         }
     }
+}
+function capNhatUIPhongOnline(room) {
+    if (!room) return;
+    // Load thông tin cả 2 người chơi ngay lập tức
+    if (room.playerX_id) loadPlayerInfo(room.playerX_id, 'X');
+    if (room.playerO_id) loadPlayerInfo(room.playerO_id, 'O');
 }
 function loadPlayerInfo(userId, role) {
     // Load user data và room data song song để tối ưu tốc độ
@@ -2924,9 +2976,9 @@ function xuLyKetThucVan(room) {
             // Fallback: winner không online
         }
     }
-    // Xử lý cược: gọi từ cả winner và loser để đảm bảo UI hiển thị đúng
-    // ketThucCuoc dùng Firebase transaction nên an toàn khi gọi từ nhiều client
-    if (typeof ketThucCuoc === 'function') {
+    // Xử lý cược: chỉ gọi từ winner để tránh lặp
+    // Loser sẽ nhận xu popup qua transaction của winner
+    if (myId === winnerId && typeof ketThucCuoc === 'function') {
         ketThucCuoc(currentRoomId, room.winner, false);
     }
 }
