@@ -423,9 +423,9 @@ body.game-playing #app-header {
    ================================================================ */
 #view-training {
   background: var(--view-bg);
-  flex: 1; display: none; flex-direction: column; position: relative;
+  flex: 1; display: none !important; flex-direction: column; position: relative;
 }
-#view-training.active { display: flex; }
+#view-training.active { display: none !important; }
 
 .practice-layout {
   display: grid;
@@ -1538,7 +1538,7 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                 </div>
             </div>
 
-            <button class="nav-btn" onclick="switchView('training')">🎯 <span>Luyện tập</span></button>
+            <button class="nav-btn" onclick="switchView('training')" style="display:none;">🎯 <span>Luyện tập</span></button>
             <button class="nav-btn" id="nav-mission-btn" onclick="moNhiemVu()">📋 <span>Nhiệm vụ</span></button>
         </nav>
     </div>
@@ -2476,19 +2476,57 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
             
             <h3 style="color:#10b981; margin:16px 0 10px 0; font-size:15px;">🎯 Các Chế Độ Chơi</h3>
             <ul style="margin:0; padding-left:20px;">
-                <li><strong>🏋️ Luyện Tập</strong>: Đấu với AI từ Dễ đến Tối Thượng, luyện kỹ năng và thử nghiệm chiến thuật</li>
+                <li><strong>🏋️ Luyện Tập (Solo)</strong>: Đấu với AI từ Dễ đến Tối Thượng, luyện kỹ năng và thử nghiệm chiến thuật</li>
                 <li><strong>⚔️ Online PvP</strong>: Đấu với người chơi khác, cược xu, leo rank và trở thành huyền thoại</li>
                 <li><strong>🛒 Cửa Hàng</strong>: Mua skin quân cờ, bàn cờ đẹp mắt với xu để tùy chỉnh giao diện</li>
             </ul>
             
-            <h3 style="color:#8b5cf6; margin:16px 0 10px 0; font-size:15px;">✨ Tính Năng Nổi Bật</h3>
+            <h3 style="color:#ef4444; margin:16px 0 10px 0; font-size:15px;">🎮 Hướng Dẫn Chơi Theo Chế Độ Chặn 2 Đầu</h3>
+            <div style="background:#fee2e2; border-radius:8px; padding:12px; margin-bottom:10px; border:1px solid #ef4444;">
+                <p style="margin:0 0 8px 0; color:#991b1b;"><strong>📌 Quy tắc Chặn 2 Đầu:</strong></p>
+                <ul style="margin:0; padding-left:18px; color:#991b1b;">
+                    <li>Người chơi phải chặn cả 2 đầu của chuỗi 4 quân liên tiếp của đối thủ</li>
+                    <li>Nếu đối thủ có 4 quân liên tiếp mà bạn chỉ chặn 1 đầu, đối thủ sẽ thắng ở đầu còn lại</li>
+                    <li>Chiến thuật: Luôn quan sát cả 2 đầu của chuỗi đối thủ để chặn kịp thời</li>
+                    <li>Khi đối thủ sắp tạo thành 5 quân, ưu tiên chặn ngay lập tức</li>
+                </ul>
+            </div>
+            
+            <h3 style="color:#3b82f6; margin:16px 0 10px 0; font-size:15px;">📋 Hướng Dẫn Làm Nhiệm Vụ</h3>
+            <div style="background:#dbeafe; border-radius:8px; padding:12px; margin-bottom:10px; border:1px solid #3b82f6;">
+                <p style="margin:0 0 8px 0; color:#1e40af;"><strong>🎯 Nhiệm vụ hàng ngày:</strong></p>
+                <ul style="margin:0; padding-left:18px; color:#1e40af;">
+                    <li>Đăng nhập mỗi ngày để nhận xu thưởng</li>
+                    <li>Thắng số trận đấu theo yêu cầu để hoàn thành nhiệm vụ</li>
+                    <li>Chơi đủ số trận để nhận thưởng xu</li>
+                    <li>Kiểm tra mục "Nhiệm vụ" trong giao diện để xem tiến độ</li>
+                </ul>
+                <p style="margin:8px 0 0 0; color:#1e40af;"><strong>💰 Thưởng:</strong> Hoàn thành nhiệm vụ để nhận xu và mua skin</p>
+            </div>
+            
+            <h3 style="color:#8b5cf6; margin:16px 0 10px 0; font-size:15px;">🚀 Hướng Dẫn Chọn Phòng Solo</h3>
+            <div style="background:#ede9fe; border-radius:8px; padding:12px; margin-bottom:10px; border:1px solid #8b5cf6;">
+                <p style="margin:0 0 8px 0; color:#5b21b6;"><strong>📍 Cách chọn phòng Solo:</strong></p>
+                <ol style="margin:0; padding-left:18px; color:#5b21b6;">
+                    <li>Nhấn vào menu <strong>"Luyện Tập"</strong> trên thanh điều hướng</li>
+                    <li>Chọn cấp độ AI mong muốn: Dễ, Trung Bình, Khó, hoặc Tối Thượng</li>
+                    <li>Nhấn <strong>"Bắt đầu"</strong> để vào trận đấu với AI</li>
+                    <li>Trong trận, bạn có thể đổi độ khó AI hoặc chơi lại</li>
+                </ol>
+                <p style="margin:8px 0 0 0; color:#5b21b6;"><strong>💡 Mẹo:</strong> Bắt đầu từ cấp độ Dễ để làm quen, sau đó tăng dần khó khăn</p>
+            </div>
+            
+            <h3 style="color:#8b5cf6; margin:16px 0 10px 0; font-size:15px;">✨ Giới Thiệu Toàn Diện Các Chức Năng Game</h3>
             <ul style="margin:0; padding-left:20px;">
-                <li>🤖 AI Tối Thượng với nhiều cấp độ khó (Dễ, Trung Bình, Khó, Tối Thượng)</li>
-                <li>🏆 Bảng Xếp Hạng và hệ thống rank (Gà Con → Hoàng Đế)</li>
-                <li>💰 Hệ thống Xu và nhiệm vụ hàng ngày</li>
-                <li>🎨 Cửa Hàng Skin (Avatar, Quân Cờ, Bàn Cờ) với nhiều độ hiếm</li>
-                <li>📊 Thống kê trận đấu, cấp độ và thành tích cá nhân</li>
-                <li>💬 Chat Thế Giới để trò chuyện với cộng đồng</li>
+                <li><strong>🤖 AI Tối Thượng:</strong> Hệ thống AI thông minh với 4 cấp độ khó (Dễ, Trung Bình, Khó, Tối Thượng) để thử thách kỹ năng của bạn</li>
+                <li><strong>🏆 Bảng Xếp Hạng:</strong> Leo rank từ Gà Con → Gà → Gà Lớn → Bò → Bò Sữa → Hổ → Sư Tử → Vua → Hoàng Đế</li>
+                <li><strong>💰 Hệ thống Xu:</strong> Nhận xu qua nhiệm vụ hàng ngày, thắng trận đấu, và nạp thêm xu</li>
+                <li><strong>🎨 Cửa Hàng Skin:</strong> Tùy chỉnh Avatar, Quân Cờ, Bàn Cờ với nhiều độ hiếm (Thường, Hiếm, Cực Hiếm, Huyền Thoại)</li>
+                <li><strong>📊 Thống kê chi tiết:</strong> Xem số trận thắng/thua, cấp độ, thành tích cá nhân</li>
+                <li><strong>💬 Chat Thế Giới:</strong> Trò chuyện với cộng đồng người chơi, chia sẻ kinh nghiệm</li>
+                <li><strong>🎯 Chế độ cược:</strong> Cược xu với đối thủ trong trận Online PvP để tăng kịch tính</li>
+                <li><strong>🌙 Giao diện:</strong> Chế độ Sáng/Tối để phù hợp với mắt bạn</li>
+                <li><strong>📱 Responsive:</strong> Chơi mượt mà trên cả Desktop và Mobile</li>
             </ul>
             
             <h3 style="color:#f59e0b; margin:16px 0 10px 0; font-size:15px;">📞 Liên Hệ & Hỗ Trợ</h3>
@@ -3355,15 +3393,9 @@ window.switchView = function(name) {
     }
 
     if (name === 'training') {
-        // PracticeMode: hiển thị overlay chọn Bot, không auto-initGame
-        if (typeof PracticeMode !== 'undefined') {
-            PracticeMode.initView();
-        } else if (typeof initGame === 'function') {
-            // Fallback nếu PracticeMode chưa load
-            if (!(window.isOnlineModeActive && window.isOnlineModeActive())) {
-                initGame();
-            }
-        }
+        // BLOCKED: Training mode is disabled
+        console.log('[switchView] Training mode is disabled');
+        return;
     }
 };
 
@@ -3777,6 +3809,130 @@ function confirmExitBattle() {
         }
     }
 }
+
+// ===== DEBUG FUNCTION: KIỂM TRA ELEMENT THÔNG BÁO ĐANG HIỂN THỊ =====
+// Gọi từ console: debugNotificationElements()
+function debugNotificationElements() {
+    const elements = [
+        '#notification-ticker',
+        '#online-status-banner',
+        '#game-info',
+        '#bot-message',
+        '#turn-indicator',
+        '#battle-status-bar',
+        '#status-panel',
+        '#practice-status-bar'
+    ];
+    
+    console.log('=== DEBUG: ELEMENTS THÔNG BÁO ĐANG HIỂN THỊ ===');
+    console.log('Timestamp:', new Date().toISOString());
+    
+    elements.forEach(selector => {
+        const el = document.querySelector(selector);
+        if (!el) {
+            console.log(`❌ ${selector}: KHÔNG TÌM THẤY`);
+            return;
+        }
+        
+        const style = window.getComputedStyle(el);
+        const display = style.display;
+        const visibility = style.visibility;
+        const opacity = style.opacity;
+        const offsetHeight = el.offsetHeight;
+        const offsetWidth = el.offsetWidth;
+        const rect = el.getBoundingClientRect();
+        const zIndex = style.zIndex;
+        const innerText = el.innerText ? el.innerText.substring(0, 50) : '';
+        
+        const isVisible = display !== 'none' && visibility !== 'hidden' && opacity !== '0' && offsetHeight > 0;
+        const inViewport = rect.top >= 0 && rect.left >= 0 && rect.bottom <= window.innerHeight && rect.right <= window.innerWidth;
+        
+        console.log(`\n📍 ${selector}`);
+        console.log(`   Display: ${display}`);
+        console.log(`   Visibility: ${visibility}`);
+        console.log(`   Opacity: ${opacity}`);
+        console.log(`   OffsetHeight: ${offsetHeight}px`);
+        console.log(`   OffsetWidth: ${offsetWidth}px`);
+        console.log(`   Z-index: ${zIndex}`);
+        console.log(`   InnerText: "${innerText}"`);
+        console.log(`   Rect:`, rect);
+        console.log(`   Is Visible: ${isVisible ? '✅ YES' : '❌ NO'}`);
+        console.log(`   In Viewport: ${inViewport ? '✅ YES' : '❌ NO'}`);
+    });
+    
+    console.log('\n=== KẾT THÚC DEBUG ===');
+}
+window.debugNotificationElements = debugNotificationElements;
+
+// ===== DEBUG FUNCTION: KIỂM TRA TRẠNG THÁI SAU ANIMATION KẾT THÚC =====
+// Gọi từ console sau khi thông báo chạy xong (khoảng 30 giây): debugTickerAfterAnimation()
+function debugTickerAfterAnimation() {
+    console.log('=== DEBUG: TRẠNG THÁI SAU ANIMATION KẾT THÚC ===');
+    console.log('Timestamp:', new Date().toISOString());
+    
+    const ticker = document.getElementById('notification-ticker');
+    const content = document.getElementById('ticker-content');
+    const banner = document.getElementById('online-status-banner');
+    const gameInfo = document.getElementById('game-info');
+    
+    // Kiểm tra notificationQueue
+    if (typeof window.notificationQueue !== 'undefined') {
+        console.log('\n📦 notificationQueue:');
+        console.log(`   Length: ${window.notificationQueue.length}`);
+        console.log(`   Content:`, window.notificationQueue);
+    } else {
+        console.log('\n❌ notificationQueue: KHÔNG TÌM THẤY (biến cục bộ trong thong-bao.js)');
+    }
+    
+    // Kiểm tra ticker
+    if (ticker) {
+        console.log('\n📍 #notification-ticker:');
+        console.log(`   classList.has-content: ${ticker.classList.contains('has-content')}`);
+        console.log(`   display: ${window.getComputedStyle(ticker).display}`);
+        console.log(`   offsetHeight: ${ticker.offsetHeight}px`);
+    } else {
+        console.log('\n❌ #notification-ticker: KHÔNG TÌM THẤY');
+    }
+    
+    // Kiểm tra ticker-content
+    if (content) {
+        console.log('\n📍 #ticker-content:');
+        console.log(`   innerHTML: ${content.innerHTML}`);
+        console.log(`   textContent: ${content.textContent}`);
+        console.log(`   style.animation: ${content.style.animation}`);
+        console.log(`   style.animationDuration: ${content.style.animationDuration}`);
+        
+        const computedStyle = window.getComputedStyle(content);
+        console.log(`   computed.animation: ${computedStyle.animation}`);
+        console.log(`   computed.animationDuration: ${computedStyle.animationDuration}`);
+        console.log(`   computed.transform: ${computedStyle.transform}`);
+        console.log(`   computed.animationPlayState: ${computedStyle.animationPlayState}`);
+    } else {
+        console.log('\n❌ #ticker-content: KHÔNG TÌM THẤY');
+    }
+    
+    // Kiểm tra online-status-banner
+    if (banner) {
+        console.log('\n📍 #online-status-banner:');
+        console.log(`   display: ${window.getComputedStyle(banner).display}`);
+        console.log(`   innerText: "${banner.innerText}"`);
+        console.log(`   offsetHeight: ${banner.offsetHeight}px`);
+    } else {
+        console.log('\n❌ #online-status-banner: KHÔNG TÌM THẤY');
+    }
+    
+    // Kiểm tra game-info
+    if (gameInfo) {
+        console.log('\n📍 #game-info:');
+        console.log(`   innerText: "${gameInfo.innerText}"`);
+        console.log(`   innerHTML: ${gameInfo.innerHTML}`);
+    } else {
+        console.log('\n❌ #game-info: KHÔNG TÌM THẤY');
+    }
+    
+    console.log('\n=== KẾT THÚC DEBUG ===');
+}
+window.debugTickerAfterAnimation = debugTickerAfterAnimation;
 </script>
 
 </div><!-- #app -->

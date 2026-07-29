@@ -474,6 +474,10 @@ input[type="checkbox"] {
     text-align: center;
     min-width: 200px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
 }
 
 .main-layout {
@@ -2734,6 +2738,7 @@ body.in-game-active #inf-canvas-bot {
   background: #0f172a;
   position: relative;
   overflow: hidden;
+  display: none !important;
 }
 
 .practice-layout {

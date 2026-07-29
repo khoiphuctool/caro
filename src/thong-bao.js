@@ -11,13 +11,18 @@ const MAX_QUEUE = 8;
 
 // ── Thêm thông báo vào queue và cập nhật ticker ──
 function addNotification(type, message) {
+    console.log('[TICKER-DEBUG] addNotification() called:', { type, message, timestamp: Date.now() });
+    
     if (!message) return;
     const cacheKey = `${type}_${message}`;
     const now = Date.now();
 
     // Dedup
     const lastShown = notificationCache.get(cacheKey) || 0;
-    if (now - lastShown < DEDUPE_TIME) return;
+    if (now - lastShown < DEDUPE_TIME) {
+        console.log('[TICKER-DEBUG] addNotification() - DEDUP SKIPPED:', { cacheKey, timeSinceLast: now - lastShown });
+        return;
+    }
     notificationCache.set(cacheKey, now);
 
     // Dọn cache cũ
@@ -28,16 +33,27 @@ function addNotification(type, message) {
     notificationQueue.push({ type, message });
     if (notificationQueue.length > MAX_QUEUE) notificationQueue.shift();
 
+    console.log('[TICKER-DEBUG] addNotification() - Queue state:', { 
+        length: notificationQueue.length, 
+        queue: notificationQueue.map(n => ({ type: n.type, msg: n.message.substring(0, 30) + '...' }))
+    });
+    
     _renderTicker();
 }
 
 // ── Render ticker marquee ──
 function _renderTicker() {
+    console.log('[TICKER-DEBUG] _renderTicker() called:', { queueLength: notificationQueue.length });
+    
     const ticker  = document.getElementById('notification-ticker');
     const content = document.getElementById('ticker-content');
-    if (!ticker || !content) return;
+    if (!ticker || !content) {
+        console.log('[TICKER-DEBUG] _renderTicker() - Elements not found:', { ticker: !!ticker, content: !!content });
+        return;
+    }
 
     if (notificationQueue.length === 0) {
+        console.log('[TICKER-DEBUG] _renderTicker() - Queue empty, removing has-content');
         ticker.classList.remove('has-content');
         document.body.classList.remove('ticker-on');
         return;
@@ -64,10 +80,33 @@ function _renderTicker() {
     // Điều chỉnh tốc độ scroll theo độ dài nội dung
     const charCount = notificationQueue.reduce((s, n) => s + n.message.length, 0);
     const duration = Math.max(15, Math.min(50, charCount * 0.25));
-    content.style.animationDuration = `${duration}s`;
+
+    console.log('[TICKER-DEBUG] _renderTicker() - Resetting animation before setting new duration:', { 
+        charCount, 
+        newDuration: `${duration}s`,
+        oldAnimation: content.style.animation
+    });
+
+    // RESET ANIMATION TRƯỚC KHI CHẠY LƯỢT MỚI
+    content.style.animation = 'none';
+    void content.offsetWidth; // Mẹo ép trình duyệt nhận diện việc reset
+
+    // Nạp nội dung mới và kích hoạt chạy
+    content.style.animation = `ticker-scroll ${duration}s linear forwards`;
+
+    console.log('[TICKER-DEBUG] _renderTicker() - Animation set:', { 
+        animation: content.style.animation,
+        duration: content.style.animationDuration,
+        contentHTML: content.innerHTML.substring(0, 100) + '...'
+    });
 
     ticker.classList.add('has-content');
     document.body.classList.add('ticker-on');
+    
+    console.log('[TICKER-DEBUG] _renderTicker() - Classes added:', { 
+        hasContent: ticker.classList.contains('has-content'),
+        tickerOn: document.body.classList.contains('ticker-on')
+    });
 }
 
 // ── Listeners ──
@@ -119,6 +158,67 @@ function setupWinNotificationListener() {
 
 // ── Khởi tạo ──
 function initNotificationTicker() {
+    // Setup animation listeners for ticker-content
+    const content = document.getElementById('ticker-content');
+    if (content) {
+        content.addEventListener('animationstart', () => {
+            console.log('[TICKER-DEBUG] animationstart - Animation started:', {
+                animationDuration: content.style.animationDuration,
+                innerHTML: content.innerHTML.substring(0, 100) + '...'
+            });
+        });
+
+        content.addEventListener('animationend', (event) => {
+            // Chỉ xử lý animation ticker-scroll, bỏ qua các animation khác
+            if (event.animationName !== 'ticker-scroll') {
+                console.log('[TICKER-DEBUG] animationend - Ignored animation:', event.animationName);
+                return;
+            }
+
+            console.log('[TICKER-DEBUG] animationend - ticker-scroll ended, starting cleanup:', {
+                timestamp: Date.now(),
+                queueLength: notificationQueue.length,
+                queue: notificationQueue.map(n => ({ type: n.type, msg: n.message.substring(0, 30) + '...' })),
+                innerHTML: content.innerHTML,
+                textContent: content.textContent
+            });
+
+            // 1. Xóa thông báo cũ đã chạy xong
+            if (notificationQueue.length > 0) {
+                const removed = notificationQueue.shift();
+                console.log('[TICKER-DEBUG] animationend - Removed from queue:', { type: removed.type, msg: removed.message.substring(0, 30) + '...' });
+            }
+
+            // 2. Kiểm tra hàng đợi để chạy tiếp hoặc ẩn đi
+            if (notificationQueue.length > 0) {
+                console.log('[TICKER-DEBUG] animationend - Queue not empty, rendering next:', { 
+                    remaining: notificationQueue.length,
+                    nextItem: notificationQueue[0].message.substring(0, 30) + '...'
+                });
+                _renderTicker();
+            } else {
+                console.log('[TICKER-DEBUG] animationend - Queue empty, cleaning up ticker');
+                const ticker = document.getElementById('notification-ticker');
+                if (ticker) {
+                    ticker.classList.remove('has-content');
+                    document.body.classList.remove('ticker-on');
+                }
+                content.innerHTML = '';
+                content.style.animation = 'none';
+            }
+
+            const ticker = document.getElementById('notification-ticker');
+            if (ticker) {
+                console.log('[TICKER-DEBUG] animationend - Final ticker state:', {
+                    classList: Array.from(ticker.classList),
+                    hasContent: ticker.classList.contains('has-content'),
+                    display: window.getComputedStyle(ticker).display,
+                    offsetHeight: ticker.offsetHeight
+                });
+            }
+        });
+    }
+
     const myId = localStorage.getItem('current_user_id');
 
     if (!myId) {
