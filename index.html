@@ -60,10 +60,10 @@
 
 /* LIGHT THEME (Cải thiện tương phản & độ nét chữ ban ngày) */
 :root {
-  --header-bg: #1e293b;
-  --header-h1-bg: #0f172a;
-  --header-text: #ffffff;
-  --header-sub: #cbd5e1;
+  --header-bg: #f8fafc;
+  --header-h1-bg: #f1f5f9;
+  --header-text: #1e293b;
+  --header-sub: #64748b;
 
   --view-bg: #f1f5f9;
   --card-bg: #ffffff;
@@ -113,42 +113,123 @@ a { text-decoration: none; }
 .view.active { display: flex; flex-direction: column; }
 
 /* ================================================================
-   HEADER
+   GIAO DIỆN HEADER MỚI CHỈNH SỬA
    ================================================================ */
-#app-header { background: var(--header-bg); color: var(--header-text); position: sticky; top: 0; z-index: 200; box-shadow: 0 2px 12px rgba(0,0,0,.2); transition: background var(--transition), color var(--transition); }
+#app-header {
+  display: flex;
+  flex-direction: column;
+  background: var(--header-bg);
+  color: var(--header-text);
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  box-shadow: 0 4px 15px rgba(0,0,0,.3);
+}
 
-.header-row1 {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid rgba(255,255,255,.1);
-  min-height: 48px; gap: var(--space-2);
+/* Hiệu ứng chữ màu chuyển động */
+@keyframes textGradientMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Dòng 1: Tiêu đề căn giữa, hiệu ứng màu */
+.header-row-title {
+  width: 100%;
+  text-align: center;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid rgba(255,255,255,.05);
 }
 .header-logo {
-  font-size: var(--font-lg); font-weight: 800; color: #ffffff;
-  letter-spacing: -.3px; white-space: nowrap;
+  font-size: var(--font-2xl) !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.5px;
+  display: inline-block;
+  /* Hiệu ứng màu chuyển động */
+  background: linear-gradient(45deg, #ff4e50, #f9d423, #00f2fe, #4f46e5, #ff4e50);
+  background-size: 300% 300%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: textGradientMove 6s ease infinite;
 }
-.header-logo span { color: #fbbf24; }
 
-.header-nav { display: flex; align-items: center; gap: var(--space-1); flex-wrap: wrap; }
+/* Dòng 2: Thanh menu nút bấm to hơn, xuống dòng riêng */
+.header-row-nav {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-2) var(--space-4);
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(255,255,255,.1);
+}
+.header-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3) !important;
+  flex-wrap: wrap;
+}
+/* Phóng to các nút bấm */
 .nav-btn {
-  background: transparent; border: none; color: var(--header-sub);
-  padding: var(--space-1) var(--space-3); border-radius: var(--radius-full);
-  font-size: var(--font-sm); font-weight: 700; transition: background var(--transition), color var(--transition);
-  white-space: nowrap;
+  padding: var(--space-2) var(--space-5) !important;
+  font-size: var(--font-md) !important;
+  border-radius: var(--radius-md) !important; /* Đổi sang bo góc vuông hiện đại hơn */
+  font-weight: 800 !important;
+  background: rgba(255,255,255,.08);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-.nav-btn:hover, .nav-btn.active { background: rgba(255,255,255,.18); color: #ffffff; }
+.nav-btn:hover, .nav-btn.active {
+  background: var(--color-primary) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
 
-@media (min-width: 1440px) {
-  .header-row1 { padding: var(--space-3) var(--space-6); min-height: 56px; }
-  .header-row2 { padding: var(--space-2) var(--space-6); min-height: 44px; }
-  .header-logo { font-size: 20px; }
-  .nav-btn     { font-size: 13px; padding: var(--space-2) var(--space-4); }
-  .user-xu     { font-size: 14px; }
+/* Dòng 3: Thông tin nhân vật xuống dòng riêng */
+.header-row-user {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center; /* Căn giữa thông tin nhân vật */
+  padding: var(--space-2) var(--space-4);
+  min-height: 48px;
+  background: var(--header-h1-bg);
 }
-@media (min-width: 1920px) {
-  .header-row1 { padding: var(--space-3) 60px; min-height: 60px; }
-  .header-logo { font-size: 22px; }
-  .nav-btn     { font-size: 14px; }
+.user-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4) !important;
+  flex-wrap: wrap;
+}
+.user-avatar-mini {
+  width: 36px !important;
+  height: 36px !important;
+  font-size: 18px !important;
+}
+.user-info-mini {
+  align-items: center; /* Căn giữa chữ trong cụm thông tin */
+  text-align: center;
+}
+.user-info-mini .u-name {
+  font-size: var(--font-base) !important;
+}
+/* Hiển thị skin đang dùng */
+.u-skin-current {
+  font-size: var(--font-xs);
+  color: #f97316;
+  font-weight: 700;
+  background: rgba(249, 115, 22, 0.15);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  margin-top: 2px;
+  display: inline-block;
+}
+.user-xu {
+  font-size: var(--font-base) !important;
+  padding: var(--space-1) var(--space-2);
+  background: rgba(251, 191, 36, 0.1);
+  border-radius: var(--radius-sm);
 }
 
 /* Shop dropdown */
@@ -166,15 +247,6 @@ a { text-decoration: none; }
 }
 .shop-menu-item:hover { background: #f1f5f9; }
 
-/* ================================================================
-   HEADER — Hàng 2: User Bar
-   ================================================================ */
-.header-row2 {
-  display: flex; align-items: center; justify-content: flex-end;
-  padding: var(--space-1) var(--space-4); min-height: 40px; gap: var(--space-2);
-  background: var(--header-h1-bg);
-}
-
 /* Guest buttons */
 .auth-btns { display: flex; gap: var(--space-2); }
 .btn-login {
@@ -185,24 +257,20 @@ a { text-decoration: none; }
   padding: var(--space-1) var(--space-4); background: var(--color-success);
   color: #fff; border: none; border-radius: var(--radius-full); font-size: var(--font-sm); font-weight: 700;
 }
-
-/* Logged-in user bar */
-.user-bar { display: flex; align-items: center; gap: var(--space-3); }
-.user-avatar-mini {
-  width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,.2);
-  border: 2px solid rgba(255,255,255,.4); display: flex; align-items: center;
-  justify-content: center; font-size: 16px; cursor: pointer; color: #fff; font-weight: bold;
-}
-.user-info-mini { display: flex; flex-direction: column; line-height: 1.3; }
-.user-info-mini .u-name { font-size: var(--font-sm); font-weight: 800; color: #ffffff; }
-.user-info-mini .u-meta { font-size: var(--font-xs); color: #cbd5e1; font-weight: 600; }
-.user-xu { font-size: var(--font-sm); font-weight: 800; color: #fbbf24; cursor: pointer; white-space: nowrap; }
 .btn-settings, .btn-logout {
   padding: 4px 10px; border: none; border-radius: var(--radius-sm);
   font-size: var(--font-xs); font-weight: 700;
 }
-.btn-settings { background: rgba(255,255,255,.2); color: #ffffff; }
+.btn-settings { background: rgba(0,0,0,.4); color: #e2e8f0; border: 1px solid rgba(255,255,255,.2); }
 .btn-logout   { background: #dc2626; color: #fff; }
+
+/* Khắc phục hiển thị trên Mobile */
+@media (max-width: 768px) {
+  .header-logo { font-size: var(--font-xl) !important; }
+  .nav-btn { padding: var(--space-2) var(--space-3) !important; font-size: var(--font-sm) !important; }
+  .nav-btn span { display: inline !important; } /* Hiện chữ menu trên mobile cho rõ ràng */
+  .user-info-mini { display: flex !important; } /* Hiện lại thông tin trên mobile */
+}
 
 /* ================================================================
    GAME PLAYING MODE — Hide navigation during battle
@@ -671,7 +739,6 @@ body.game-playing #app-header {
   .nav-btn span { display: none; }  /* Chỉ icon trên mobile nhỏ */
   .user-info-mini { display: none; }
   .user-xu { font-size: 11px; }
-  .btn-settings { display: none; }
 
   /* ── HomeView mobile ── */
   .home-layout {
@@ -1449,10 +1516,13 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 <div id="notification-ticker"><div id="ticker-wrap"><div id="ticker-content"></div></div></div>
 
 <header id="app-header">
-    <!-- Hàng 1: Navigation -->
-    <div class="header-row1">
+    <!-- Dòng 1: Tiêu đề căn giữa, hiệu ứng màu -->
+    <div class="header-row-title">
         <div class="header-logo">⭕✖️ Thách Đấu CARO với Chần Pro</div>
+    </div>
 
+    <!-- Dòng 2: Thanh menu nút bấm to hơn, xuống dòng riêng -->
+    <div class="header-row-nav">
         <nav class="header-nav">
             <a href="https://khoiphuctool.github.io/caro/" target="_blank" class="nav-btn">🏠 <span>Trang Chủ</span></a>
             <button class="nav-btn" onclick="moGioiThieu()">📖 <span>Giới thiệu</span></button>
@@ -1473,8 +1543,8 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
         </nav>
     </div>
 
-    <!-- Hàng 2: User bar -->
-    <div class="header-row2">
+    <!-- Dòng 3: Thông tin nhân vật xuống dòng riêng -->
+    <div class="header-row-user">
         <!-- Khi chưa đăng nhập -->
         <div class="auth-btns" id="header-guest-btns">
             <button class="btn-login" id="btn-show-login">Đăng Nhập</button>
@@ -1489,6 +1559,8 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                 <span class="u-meta">
                     <span id="my-rank">🐣 Gà Con</span>
                 </span>
+                <span class="u-skin-current" id="user-skin-display">Skin: Mặc định</span>
+                <span class="u-skin-current" id="user-board-display" style="margin-left:4px;">Bàn: Mặc định</span>
             </div>
             <span class="user-xu" id="xu-balance" onclick="moNhiemVu()">💰 0 Xu</span>
             <button class="btn-settings" onclick="moCapNhatTaiKhoan()">⚙️ Cài đặt</button>

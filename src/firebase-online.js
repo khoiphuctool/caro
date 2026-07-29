@@ -541,6 +541,28 @@ function fetchUserData(userId) {
             }
             avEl.textContent = avatarContent;
         }
+        // Cập nhật skin đang dùng
+        const skinDisplayEl = document.getElementById('user-skin-display');
+        if (skinDisplayEl && typeof SHOP_SKIN_LIST !== 'undefined') {
+            const equippedSkinId = data.equippedSkin || 'skin_default';
+            const skin = SHOP_SKIN_LIST.find(s => s.id === equippedSkinId);
+            if (skin) {
+                skinDisplayEl.textContent = `Skin: ${skin.name}`;
+            } else {
+                skinDisplayEl.textContent = 'Skin: Mặc định';
+            }
+        }
+        // Cập nhật bàn cờ đang dùng
+        const boardDisplayEl = document.getElementById('user-board-display');
+        if (boardDisplayEl && typeof SHOP_BOARD_SKIN_LIST !== 'undefined') {
+            const equippedBoardId = data.equippedBoardSkin || 'board_default';
+            const board = SHOP_BOARD_SKIN_LIST.find(b => b.id === equippedBoardId);
+            if (board) {
+                boardDisplayEl.textContent = `Bàn: ${board.name}`;
+            } else {
+                boardDisplayEl.textContent = 'Bàn: Mặc định';
+            }
+        }
         // Cập nhật số dư Xu trên header
         if (typeof updateCoinDisplay === 'function') updateCoinDisplay(data.coins || 0);
         // Chỉ setup listeners lần đầu
