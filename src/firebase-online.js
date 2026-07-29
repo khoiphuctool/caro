@@ -139,6 +139,98 @@ function switchRoomTab(tab) {
     renderRoomListImmediate();
 }
 window.switchRoomTab = switchRoomTab;
+// ══════════════════════════════════════════════════════════════════
+// 🏠 RENDER ROOM CARD - Tách code render phòng để tránh trùng lặp
+// ══════════════════════════════════════════════════════════════════
+function renderRoomCard(room, roomId, roomType) {
+    const myId = localStorage.getItem('current_user_id');
+    const laTrongPhong = (myId === room.playerX_id || myId === room.playerO_id);
+    
+    let statusTxt = '', bgColor = '', borderColor = '', nutHtml = '';
+    let baseStyle = '';
+    
+    if (roomType === 'vip') {
+        baseStyle = 'padding:10px;margin:5px 0;border:2px solid #f59e0b;border-radius:8px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);';
+        bgColor = '#fffbeb';
+        borderColor = '#f59e0b';
+    } else {
+        baseStyle = 'padding:10px;margin:5px 0;border:1px solid #ccc;border-radius:6px;display:flex;justify-content:space-between;align-items:center;';
+        bgColor = '#f8f9fa';
+        borderColor = '#ddd';
+    }
+    
+    if (room.status === 'empty') {
+        statusTxt = '🟢 Trống';
+        const btnColor = roomType === 'vip' ? '#f59e0b' : '#28a745';
+        nutHtml = `<button onclick="ngoimVaoPhong('${roomId}')" style="padding:6px 14px;background:${btnColor};color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Vào Phòng</button>`;
+    } else if (room.status === 'waiting') {
+        bgColor = roomType === 'vip' ? '#fef3c7' : '#e8f5e9';
+        borderColor = roomType === 'vip' ? '#d97706' : '#4caf50';
+        statusTxt = '⏳ Chờ bắt đầu';
+        if (laTrongPhong) {
+            const btnColor = roomType === 'vip' ? '#d97706' : '#4caf50';
+            nutHtml = `<button onclick="vaoLaiPhong('${roomId}')" style="padding:6px 14px;background:${btnColor};color:white;border:none;border-radius:4px;cursor:pointer;">Vào lại</button>`;
+        } else if (!room.playerO_id) {
+            const btnColor = roomType === 'vip' ? '#f59e0b' : '#007bff';
+            nutHtml = `<button onclick="ngoimVaoPhong('${roomId}')" style="padding:6px 14px;background:${btnColor};color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Vào Solo</button>`;
+        } else {
+            nutHtml = `<span style="color:#aaa;font-size:12px;">Đầy</span>`;
+        }
+    } else if (room.status === 'playing') {
+        bgColor = roomType === 'vip' ? '#fed7aa' : '#fff3e0';
+        borderColor = roomType === 'vip' ? '#ea580c' : '#ff9800';
+        statusTxt = '⚔️ Đang chơi';
+        if (laTrongPhong) {
+            const btnColor = roomType === 'vip' ? '#ea580c' : '#ff9800';
+            nutHtml = `<button onclick="vaoLaiPhong('${roomId}')" style="padding:6px 14px;background:${btnColor};color:white;border:none;border-radius:4px;cursor:pointer;">🔄 Vào lại</button>`;
+        } else {
+            const btnColor = roomType === 'vip' ? '#0ea5e9' : '#17a2b8';
+            nutHtml = `<button onclick="xemPhong('${roomId}')" style="padding:6px 14px;background:${btnColor};color:white;border:none;border-radius:4px;cursor:pointer;">👁️ Xem</button>`;
+        }
+    } else {
+        statusTxt = '🟢 Trống';
+        const btnColor = roomType === 'vip' ? '#f59e0b' : '#28a745';
+        nutHtml = `<button onclick="ngoimVaoPhong('${roomId}')" style="padding:6px 14px;background:${btnColor};color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Vào Phòng</button>`;
+    }
+    
+    const el = document.createElement('div');
+    el.style.cssText = baseStyle;
+    el.style.backgroundColor = bgColor;
+    el.style.borderColor = borderColor;
+    
+    const xN = room.playerX_name || '---';
+    const oN = room.playerO_name || '---';
+    const wc = room.winCount || 5;
+    const c2d = room.chan2Dau ?? true;
+    const luatTxt = `${wc} quân${c2d ? ' · Chặn 2 đầu' : ''}`;
+    const betTxt = room.betAmount ? room.betAmount.toLocaleString('vi-VN') + ' Xu' : '---';
+    const roomNum = roomId.replace('phong_', '');
+    
+    // VIP room styling
+    const roomTitleStyle = roomType === 'vip' 
+        ? 'font-weight:bold;font-size:14px;color:#d97706;' 
+        : 'font-weight:bold;font-size:14px;';
+    const roomTitleText = roomType === 'vip' 
+        ? `💎 ${roomNum} VIP` 
+        : `Phòng ${roomNum}`;
+    const betColor = roomType === 'vip' ? '#d97706' : '#888';
+    
+    el.innerHTML = `
+        <div>
+            <div style="${roomTitleStyle}">${roomTitleText}</div>
+            <div style="font-size:12px;color:#555;margin-top:2px;">
+                🔴 ${xN} vs 🔵 ${oN}
+                &nbsp;·&nbsp;<span style="color:#888;">${luatTxt}</span>
+                &nbsp;·&nbsp;<span style="color:${betColor};">💰 ${betTxt}</span>
+                &nbsp;·&nbsp;<b>${statusTxt}</b>
+            </div>
+        </div>
+        <div>${nutHtml}</div>
+    `;
+    
+    return el;
+}
+
 // Render room list immediately from cached data (for tab switching)
 function renderRoomListImmediate() {
     const container = document.getElementById('room-list');
@@ -161,62 +253,13 @@ function renderRoomListImmediate() {
         const rooms = snap.val();
         console.log('[DEBUG] renderRoomListImmediate - Rooms data:', rooms);
         container.innerHTML = '';
-        const myId = localStorage.getItem('current_user_id');
         // Render rooms based on current tab
         if (currentRoomTab === 'normal') {
             console.log('[DEBUG] Rendering normal rooms 1-', TOTAL_NORMAL_ROOMS);
             for (let i = 1; i <= TOTAL_NORMAL_ROOMS; i++) {
                 const roomId = `phong_${i}`;
                 const room   = (rooms && rooms[roomId]) || taoDataPhongRong(i, false);
-                const el     = document.createElement('div');
-                el.style.cssText = 'padding:10px;margin:5px 0;border:1px solid #ccc;border-radius:6px;display:flex;justify-content:space-between;align-items:center;';
-                const laTrongPhong = (myId === room.playerX_id || myId === room.playerO_id);
-                let statusTxt = '', bgColor = '#f8f9fa', borderColor = '#ddd', nutHtml = '';
-                if (room.status === 'empty') {
-                    statusTxt = '🟢 Trống';
-                    nutHtml   = `<button onclick="ngoimVaoPhong('${roomId}')" style="padding:6px 14px;background:#28a745;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Vào Phòng</button>`;
-                } else if (room.status === 'waiting') {
-                    bgColor = '#e8f5e9'; borderColor = '#4caf50';
-                    statusTxt = '⏳ Chờ bắt đầu';
-                    if (laTrongPhong) {
-                        nutHtml = `<button onclick="vaoLaiPhong('${roomId}')" style="padding:6px 14px;background:#4caf50;color:white;border:none;border-radius:4px;cursor:pointer;">Vào lại</button>`;
-                    } else if (!room.playerO_id) {
-                        nutHtml = `<button onclick="ngoimVaoPhong('${roomId}')" style="padding:6px 14px;background:#007bff;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Vào Solo</button>`;
-                    } else {
-                        nutHtml = `<span style="color:#aaa;font-size:12px;">Đầy</span>`;
-                    }
-                } else if (room.status === 'playing') {
-                    bgColor = '#fff3e0'; borderColor = '#ff9800';
-                    statusTxt = '⚔️ Đang chơi';
-                    if (laTrongPhong) {
-                        nutHtml = `<button onclick="vaoLaiPhong('${roomId}')" style="padding:6px 14px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;">🔄 Vào lại</button>`;
-                    } else {
-                        nutHtml = `<button onclick="xemPhong('${roomId}')" style="padding:6px 14px;background:#17a2b8;color:white;border:none;border-radius:4px;cursor:pointer;">👁️ Xem</button>`;
-                    }
-                } else {
-                    statusTxt = '🟢 Trống';
-                    nutHtml   = `<button onclick="ngoimVaoPhong('${roomId}')" style="padding:6px 14px;background:#28a745;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Vào Phòng</button>`;
-                }
-                el.style.backgroundColor = bgColor;
-                el.style.borderColor     = borderColor;
-                const xN = room.playerX_name || '---';
-                const oN = room.playerO_name || '---';
-                const wc = room.winCount || 5;
-                const c2d = room.chan2Dau ?? true;
-                const luatTxt = `${wc} quân${c2d ? ' · Chặn 2 đầu' : ''}`;
-                const betTxt = room.betAmount ? room.betAmount.toLocaleString('vi-VN') + ' Xu' : '---';
-                el.innerHTML = `
-                    <div>
-                        <div style="font-weight:bold;font-size:14px;">Phòng ${i}</div>
-                        <div style="font-size:12px;color:#555;margin-top:2px;">
-                            🔴 ${xN} vs 🔵 ${oN}
-                            &nbsp;·&nbsp;<span style="color:#888;">${luatTxt}</span>
-                            &nbsp;·&nbsp;<span style="color:#888;">💰 ${betTxt}</span>
-                            &nbsp;·&nbsp;<b>${statusTxt}</b>
-                        </div>
-                    </div>
-                    <div>${nutHtml}</div>
-                `;
+                const el = renderRoomCard(room, roomId, 'normal');
                 container.appendChild(el);
             }
         } else {
@@ -227,55 +270,7 @@ function renderRoomListImmediate() {
                 const roomId = `phong_${roomNum}`;
                 console.log('[DEBUG] Checking VIP room:', roomId, 'Data:', rooms ? rooms[roomId] : 'null');
                 const room   = (rooms && rooms[roomId]) || taoDataPhongRong(roomNum, true);
-                const el     = document.createElement('div');
-                el.style.cssText = 'padding:10px;margin:5px 0;border:2px solid #f59e0b;border-radius:8px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);';
-                const laTrongPhong = (myId === room.playerX_id || myId === room.playerO_id);
-                let statusTxt = '', bgColor = '#fffbeb', borderColor = '#f59e0b', nutHtml = '';
-                if (room.status === 'empty') {
-                    statusTxt = '🟢 Trống';
-                    nutHtml   = `<button onclick="ngoimVaoPhong('${roomId}')" style="padding:6px 14px;background:#f59e0b;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Vào Phòng</button>`;
-                } else if (room.status === 'waiting') {
-                    bgColor = '#fef3c7'; borderColor = '#d97706';
-                    statusTxt = '⏳ Chờ bắt đầu';
-                    if (laTrongPhong) {
-                        nutHtml = `<button onclick="vaoLaiPhong('${roomId}')" style="padding:6px 14px;background:#d97706;color:white;border:none;border-radius:4px;cursor:pointer;">Vào lại</button>`;
-                    } else if (!room.playerO_id) {
-                        nutHtml = `<button onclick="ngoimVaoPhong('${roomId}')" style="padding:6px 14px;background:#f59e0b;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Vào Solo</button>`;
-                    } else {
-                        nutHtml = `<span style="color:#aaa;font-size:12px;">Đầy</span>`;
-                    }
-                } else if (room.status === 'playing') {
-                    bgColor = '#fed7aa'; borderColor = '#ea580c';
-                    statusTxt = '⚔️ Đang chơi';
-                    if (laTrongPhong) {
-                        nutHtml = `<button onclick="vaoLaiPhong('${roomId}')" style="padding:6px 14px;background:#ea580c;color:white;border:none;border-radius:4px;cursor:pointer;">🔄 Vào lại</button>`;
-                    } else {
-                        nutHtml = `<button onclick="xemPhong('${roomId}')" style="padding:6px 14px;background:#0ea5e9;color:white;border:none;border-radius:4px;cursor:pointer;">👁️ Xem</button>`;
-                    }
-                } else {
-                    statusTxt = '🟢 Trống';
-                    nutHtml   = `<button onclick="ngoimVaoPhong('${roomId}')" style="padding:6px 14px;background:#f59e0b;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Vào Phòng</button>`;
-                }
-                el.style.backgroundColor = bgColor;
-                el.style.borderColor     = borderColor;
-                const xN = room.playerX_name || '---';
-                const oN = room.playerO_name || '---';
-                const wc = room.winCount || 5;
-                const c2d = room.chan2Dau ?? true;
-                const luatTxt = `${wc} quân${c2d ? ' · Chặn 2 đầu' : ''}`;
-                const betTxt = room.betAmount ? room.betAmount.toLocaleString('vi-VN') + ' Xu' : '---';
-                el.innerHTML = `
-                    <div>
-                        <div style="font-weight:bold;font-size:14px;color:#d97706;">💎 ${roomNum} VIP</div>
-                        <div style="font-size:12px;color:#555;margin-top:2px;">
-                            🔴 ${xN} vs 🔵 ${oN}
-                            &nbsp;·&nbsp;<span style="color:#888;">${luatTxt}</span>
-                            &nbsp;·&nbsp;<span style="color:#d97706;">💰 ${betTxt}</span>
-                            &nbsp;·&nbsp;<b>${statusTxt}</b>
-                        </div>
-                    </div>
-                    <div>${nutHtml}</div>
-                `;
+                const el = renderRoomCard(room, roomId, 'vip');
                 container.appendChild(el);
             }
         }
@@ -611,7 +606,9 @@ function langNgheServerNotifications() {
         // Hiển thị alert cho thông báo quan trọng
         if (notif.type === 'warning') {
             setTimeout(() => {
-                alert(`⚠️ THÔNG BÁO TỪ ADMIN:\n\n${notif.message}`);
+                alert(`⚠️ THÔNG BÁO TỪ ADMIN:
+
+${notif.message}`);
             }, 1000);
         }
     });
@@ -903,6 +900,15 @@ function setupEventListeners() {
                     // Hide navigation during battle
                     if (typeof hideTopNavigation === 'function') {
                         hideTopNavigation();
+        console.log('[Room] Header hidden for battle');
+                    }
+                    // YC.TXT FIX: Restore camera position and zoom level after refresh
+                    if (typeof vRowF !== 'undefined' && typeof vColF !== 'undefined') {
+                        vRowF = 0;
+                        vColF = 0;
+                    }
+                    if (typeof renderInfiniteBoard === 'function') {
+                        renderInfiniteBoard();
                     }
                 });
             } else {
@@ -940,62 +946,13 @@ function hienDanhSachPhong() {
         const rooms = snap.val();
         console.log('[DEBUG] Current tab:', currentRoomTab, 'Rooms data:', rooms);
         container.innerHTML = '';
-        const myId = localStorage.getItem('current_user_id');
         // Render rooms based on current tab
         if (currentRoomTab === 'normal') {
             console.log('[DEBUG] Rendering normal rooms 1-', TOTAL_NORMAL_ROOMS);
             for (let i = 1; i <= TOTAL_NORMAL_ROOMS; i++) {
                 const roomId = `phong_${i}`;
                 const room   = (rooms && rooms[roomId]) || taoDataPhongRong(i, false);
-                const el     = document.createElement('div');
-                el.style.cssText = 'padding:10px;margin:5px 0;border:1px solid #ccc;border-radius:6px;display:flex;justify-content:space-between;align-items:center;';
-                const laTrongPhong = (myId === room.playerX_id || myId === room.playerO_id);
-                let statusTxt = '', bgColor = '#f8f9fa', borderColor = '#ddd', nutHtml = '';
-                if (room.status === 'empty') {
-                    statusTxt = '🟢 Trống';
-                    nutHtml   = `<button onclick="ngoimVaoPhong('${roomId}')" style="padding:6px 14px;background:#28a745;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Vào Phòng</button>`;
-                } else if (room.status === 'waiting') {
-                    bgColor = '#e8f5e9'; borderColor = '#4caf50';
-                    statusTxt = '⏳ Chờ bắt đầu';
-                    if (laTrongPhong) {
-                        nutHtml = `<button onclick="vaoLaiPhong('${roomId}')" style="padding:6px 14px;background:#4caf50;color:white;border:none;border-radius:4px;cursor:pointer;">Vào lại</button>`;
-                    } else if (!room.playerO_id) {
-                        nutHtml = `<button onclick="ngoimVaoPhong('${roomId}')" style="padding:6px 14px;background:#007bff;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Vào Solo</button>`;
-                    } else {
-                        nutHtml = `<span style="color:#aaa;font-size:12px;">Đầy</span>`;
-                    }
-                } else if (room.status === 'playing') {
-                    bgColor = '#fff3e0'; borderColor = '#ff9800';
-                    statusTxt = '⚔️ Đang chơi';
-                    if (laTrongPhong) {
-                        nutHtml = `<button onclick="vaoLaiPhong('${roomId}')" style="padding:6px 14px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;">🔄 Vào lại</button>`;
-                    } else {
-                        nutHtml = `<button onclick="xemPhong('${roomId}')" style="padding:6px 14px;background:#17a2b8;color:white;border:none;border-radius:4px;cursor:pointer;">👁️ Xem</button>`;
-                    }
-                } else {
-                    statusTxt = '🟢 Trống';
-                    nutHtml   = `<button onclick="ngoimVaoPhong('${roomId}')" style="padding:6px 14px;background:#28a745;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Vào Phòng</button>`;
-                }
-                el.style.backgroundColor = bgColor;
-                el.style.borderColor     = borderColor;
-                const xN = room.playerX_name || '---';
-                const oN = room.playerO_name || '---';
-                const wc = room.winCount || 5;
-                const c2d = room.chan2Dau ?? true;
-                const luatTxt = `${wc} quân${c2d ? ' · Chặn 2 đầu' : ''}`;
-                const betTxt = room.betAmount ? room.betAmount.toLocaleString('vi-VN') + ' Xu' : '---';
-                el.innerHTML = `
-                    <div>
-                        <div style="font-weight:bold;font-size:14px;">Phòng ${i}</div>
-                        <div style="font-size:12px;color:#555;margin-top:2px;">
-                            🔴 ${xN} vs 🔵 ${oN}
-                            &nbsp;·&nbsp;<span style="color:#888;">${luatTxt}</span>
-                            &nbsp;·&nbsp;<span style="color:#888;">💰 ${betTxt}</span>
-                            &nbsp;·&nbsp;<b>${statusTxt}</b>
-                        </div>
-                    </div>
-                    <div>${nutHtml}</div>
-                `;
+                const el = renderRoomCard(room, roomId, 'normal');
                 container.appendChild(el);
             }
         } else {
@@ -1006,55 +963,7 @@ function hienDanhSachPhong() {
                 const roomId = `phong_${roomNum}`;
                 console.log('[DEBUG] Checking VIP room:', roomId, 'Data:', rooms ? rooms[roomId] : 'null');
                 const room   = (rooms && rooms[roomId]) || taoDataPhongRong(roomNum, true);
-                const el     = document.createElement('div');
-                el.style.cssText = 'padding:10px;margin:5px 0;border:2px solid #f59e0b;border-radius:8px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);';
-                const laTrongPhong = (myId === room.playerX_id || myId === room.playerO_id);
-                let statusTxt = '', bgColor = '#fffbeb', borderColor = '#f59e0b', nutHtml = '';
-                if (room.status === 'empty') {
-                    statusTxt = '🟢 Trống';
-                    nutHtml   = `<button onclick="ngoimVaoPhong('${roomId}')" style="padding:6px 14px;background:#f59e0b;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Vào Phòng</button>`;
-                } else if (room.status === 'waiting') {
-                    bgColor = '#fef3c7'; borderColor = '#d97706';
-                    statusTxt = '⏳ Chờ bắt đầu';
-                    if (laTrongPhong) {
-                        nutHtml = `<button onclick="vaoLaiPhong('${roomId}')" style="padding:6px 14px;background:#d97706;color:white;border:none;border-radius:4px;cursor:pointer;">Vào lại</button>`;
-                    } else if (!room.playerO_id) {
-                        nutHtml = `<button onclick="ngoimVaoPhong('${roomId}')" style="padding:6px 14px;background:#f59e0b;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Vào Solo</button>`;
-                    } else {
-                        nutHtml = `<span style="color:#aaa;font-size:12px;">Đầy</span>`;
-                    }
-                } else if (room.status === 'playing') {
-                    bgColor = '#fed7aa'; borderColor = '#ea580c';
-                    statusTxt = '⚔️ Đang chơi';
-                    if (laTrongPhong) {
-                        nutHtml = `<button onclick="vaoLaiPhong('${roomId}')" style="padding:6px 14px;background:#ea580c;color:white;border:none;border-radius:4px;cursor:pointer;">🔄 Vào lại</button>`;
-                    } else {
-                        nutHtml = `<button onclick="xemPhong('${roomId}')" style="padding:6px 14px;background:#0ea5e9;color:white;border:none;border-radius:4px;cursor:pointer;">👁️ Xem</button>`;
-                    }
-                } else {
-                    statusTxt = '🟢 Trống';
-                    nutHtml   = `<button onclick="ngoimVaoPhong('${roomId}')" style="padding:6px 14px;background:#f59e0b;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Vào Phòng</button>`;
-                }
-                el.style.backgroundColor = bgColor;
-                el.style.borderColor     = borderColor;
-                const xN = room.playerX_name || '---';
-                const oN = room.playerO_name || '---';
-                const wc = room.winCount || 5;
-                const c2d = room.chan2Dau ?? true;
-                const luatTxt = `${wc} quân${c2d ? ' · Chặn 2 đầu' : ''}`;
-                const betTxt = room.betAmount ? room.betAmount.toLocaleString('vi-VN') + ' Xu' : '---';
-                el.innerHTML = `
-                    <div>
-                        <div style="font-weight:bold;font-size:14px;color:#d97706;">💎 ${roomNum} VIP</div>
-                        <div style="font-size:12px;color:#555;margin-top:2px;">
-                            🔴 ${xN} vs 🔵 ${oN}
-                            &nbsp;·&nbsp;<span style="color:#888;">${luatTxt}</span>
-                            &nbsp;·&nbsp;<span style="color:#d97706;">💰 ${betTxt}</span>
-                            &nbsp;·&nbsp;<b>${statusTxt}</b>
-                        </div>
-                    </div>
-                    <div>${nutHtml}</div>
-                `;
+                const el = renderRoomCard(room, roomId, 'vip');
                 container.appendChild(el);
             }
         }
@@ -1064,6 +973,7 @@ function hienDanhSachPhong() {
 // 🪑 VÀO PHÒNG (NGỒi GHẾ X HOẶC O)
 // ══════════════════════════════════════════════════════════════════
 function ngoimVaoPhong(roomId) {
+    console.log('[Room] Join Start - roomId:', roomId);
     console.log('[DEBUG-ENTER] ngoimVaoPhong called with roomId:', roomId);
     if (!currentUsername) { alert('Vui lòng đăng nhập trước!'); return; }
     const myId   = localStorage.getItem('current_user_id');
@@ -1169,6 +1079,9 @@ function ngoimVaoPhong(roomId) {
         const room = result.snapshot.val();
         console.log('[DEBUG-ENTER] Room after transaction:', room);
         currentRoomId     = roomId;
+        console.log('[Room] Join Success - roomId:', roomId, 'role:', myRole);
+        // YC.TXT FIX: Create new session ID for this join
+        if (typeof currentSessionId !== 'undefined') currentSessionId = Date.now().toString();
         myRole            = room.playerX_id === myId ? 'X' : 'O';
         daXoaBanCoTranNay = false;
         localStorage.setItem('current_room_id', roomId);
@@ -1199,6 +1112,7 @@ function ngoimVaoPhong(roomId) {
 }
 window.ngoimVaoPhong = ngoimVaoPhong;
 function vaoLaiPhong(roomId) {
+    console.log('[Room] Rejoin Start - roomId:', roomId);
     const myId = localStorage.getItem('current_user_id');
     const myName = tenCuaToi();
     
@@ -1223,6 +1137,9 @@ function vaoLaiPhong(roomId) {
             
             db.ref(`rooms/${roomId}`).update(pfUpdate).then(() => {
                 currentRoomId     = roomId;
+                console.log('[Room] Rejoin Success - roomId:', roomId, 'role:', (isX ? 'X' : 'O'));
+                // YC.TXT FIX: Create new session ID for this rejoin
+                if (typeof currentSessionId !== 'undefined') currentSessionId = Date.now().toString();
                 myRole            = isX ? 'X' : 'O';
                 daXoaBanCoTranNay = true;
                 currentTurn       = room.turn || 'X';
@@ -1238,6 +1155,10 @@ function vaoLaiPhong(roomId) {
                 setupOnDisconnect(roomId, myRole);
                 const lobbyScreen = document.getElementById('lobby-screen');
                 if (lobbyScreen) lobbyScreen.style.display = 'none';
+                // YC.TXT FIX: Hide header when rejoining battle
+                if (typeof hideTopNavigation === 'function') {
+                    hideTopNavigation();
+                }
                 batDauGiaoDienOnline();
                 // Cập nhật UI ngay lập tức với thông tin phòng hiện tại
                 capNhatUIPhongOnline(room);
@@ -1579,6 +1500,13 @@ function tenCuaToi() {
     return tenHienThi(currentUserData, fb);
 }
 function batDauGiaoDienOnline() {
+    console.log('[Room] Battle UI Init Start');
+    // YC.TXT FIX: Force full Battle Lifecycle on each join
+    // Destroy any existing SharedBoardUI instance to ensure clean state
+    if (typeof SharedBoardUI !== 'undefined' && SharedBoardUI.Lifecycle.state === 'running') {
+        console.log('[Room] Destroying existing SharedBoardUI before re-init');
+        SharedBoardUI.destroy();
+    }
     console.log('[DEBUG-BOARD] batDauGiaoDienOnline called', {
         infCanvasInitialized: typeof infCanvasInitialized !== 'undefined' ? infCanvasInitialized : 'undefined',
         infCanvasId: typeof infCanvas !== 'undefined' && infCanvas ? infCanvas.id : 'null',
@@ -1626,6 +1554,15 @@ function batDauGiaoDienOnline() {
     // Ẩn app-header để bàn cờ chiếm toàn màn hình
     const appHeader = document.getElementById('app-header');
     if (appHeader) appHeader.style.display = 'none';
+    // Ẩn navigation khi vào trận
+    if (typeof hideTopNavigation === 'function') {
+        hideTopNavigation();
+        console.log('[Room] Header hidden for battle');
+    }
+    // Khởi tạo chat state (minimized trên mobile, expanded trên desktop)
+    if (typeof initBattleChatState === 'function') {
+        initBattleChatState();
+    }
     // GIỮ avatar bên trái (🤖, sau đổi thành avatar đối thủ khi load được),
     // khung chữ bên cạnh hiện trạng thái trận đấu realtime
     const botAv = document.getElementById('bot-avatar');
@@ -1705,6 +1642,10 @@ function thoatGiaoDienOnline() {
     // Hiện lại app-header sau khi rời trận
     const appHeaderRestore = document.getElementById('app-header');
     if (appHeaderRestore) appHeaderRestore.style.display = '';
+    // Hiện lại navigation khi thoát trận
+    if (typeof showTopNavigation === 'function') {
+        showTopNavigation();
+    }
     const botAv = document.getElementById('bot-avatar');
     if (botAv) {
         botAv.classList.remove('online-announce');
@@ -1729,17 +1670,22 @@ function thoatGiaoDienOnline() {
 
 // ══ YC.TXT FIX: Cleanup Online mode completely ═════════════════════
 function cleanupOnlineMode() {
+    // Cleanup SharedBoardUI if used
+    if (typeof SharedBoardUI !== 'undefined') {
+        SharedBoardUI.destroy();
+    }
+
     // Clear Firebase listeners
     if (typeof currentRoomId !== 'undefined' && currentRoomId) {
         if (typeof db !== 'undefined') {
             db.ref(`rooms/${currentRoomId}`).off();
         }
     }
-    
+
     // Clear Online state
     currentRoomId = null;
     myRole = null;
-    
+
     // Clear localStorage
     localStorage.removeItem('current_room_id');
 }
@@ -1755,16 +1701,68 @@ function xuLyThoatPhong() {
     roiKhoiPhong();
 }
 window.xuLyThoatPhong = xuLyThoatPhong;
+// ══ YC.TXT FIX: Đầu hàng trong Online Room ═════════════════════════════════
+function surrenderOnlineGame() {
+    if (!currentRoomId || !myRole) {
+        alert('Bạn không trong phòng!');
+        return;
+    }
+    
+    if (myRole === 'viewer') {
+        alert('Người xem không thể đầu hàng!');
+        return;
+    }
+    
+    if (confirm('Bạn có chắc muốn đầu hàng? Bạn sẽ thua trận này.')) {
+        db.ref(`rooms/${currentRoomId}`).once('value').then(snap => {
+            const room = snap.val();
+            if (!room || room.status !== 'playing') {
+                alert('Trận đấu chưa bắt đầu hoặc đã kết thúc!');
+                return;
+            }
+            
+            const opponentRole = myRole === 'X' ? 'O' : 'X';
+            const opponentName = myRole === 'X' ? room.playerO_name : room.playerX_name;
+            
+            // Cập nhật kết quả trên Firebase
+            db.ref(`rooms/${currentRoomId}`).update({
+                status: 'ended',
+                winner: opponentRole,
+                endReason: `${myRole} đầu hàng`,
+                endedAt: Date.now()
+            }).then(() => {
+                thongBaoHeThong(`🏳️ Bạn đã đầu hàng! ${opponentName} thắng!`);
+            });
+        });
+    }
+}
+window.surrenderOnlineGame = surrenderOnlineGame;
 function roiKhoiPhong(onDone) {
-    if (!currentRoomId) { if (onDone) onDone(); return; }
+    console.log('[Room] Leave Start - roomId:', currentRoomId, 'role:', myRole);
+    if (!currentRoomId) { 
+        console.log('[Room] Leave - No currentRoomId, skipping');
+        if (onDone) onDone(); 
+        return; 
+    }
     const rid  = currentRoomId;
     const role = myRole;
     const myId = localStorage.getItem('current_user_id');
     const done = () => {
+        console.log('[Room] Firebase Leave Success - Removing user currentRoomId');
         // Xóa currentRoomId khỏi Firebase khi thoát
-        db.ref(`users/${myId}/currentRoomId`).remove();
-        _resetSauThoat(rid);
-        if (onDone) onDone();
+        db.ref(`users/${myId}/currentRoomId`).remove().then(() => {
+            console.log('[Room] User currentRoomId removed from Firebase');
+            _resetSauThoat(rid);
+            // YC.TXT FIX: Force render room list after leave to ensure UI updates
+            setTimeout(() => {
+                hienDanhSachPhong();
+            }, 100);
+            if (onDone) onDone();
+        }).catch(err => {
+            console.error('[Room] Error removing user currentRoomId:', err);
+            _resetSauThoat(rid);
+            if (onDone) onDone();
+        });
     };
     db.ref(`rooms/${rid}`).once('value').then(snap => {
         const room = snap.val();
@@ -1783,14 +1781,18 @@ function roiKhoiPhong(onDone) {
                     db.ref(`rooms/${rid}`).update({
                         playerX_id: room.playerO_id, playerX_name: room.playerO_name,
                         playerX_status: room.playerO_status || 'offline',
+                        playerX_avatar: room.playerO_avatar || '', playerX_skin: room.playerO_skin || 'skin_default',
                         playerO_id: '', playerO_name: '', playerO_status: 'offline',
+                        playerO_avatar: '', playerO_skin: 'skin_default',
                         status: 'waiting', updatedAt: Date.now()
                     }).then(done);
                 } else {
                     // Không xóa phòng, chỉ reset về empty để có thể vào lại
                     db.ref(`rooms/${rid}`).update({
                         playerX_id: '', playerX_name: '', playerX_status: 'offline',
+                        playerX_avatar: '', playerX_skin: 'skin_default',
                         playerO_id: '', playerO_name: '', playerO_status: 'offline',
+                        playerO_avatar: '', playerO_skin: 'skin_default',
                         status: 'empty', winner: '', endReason: '',
                         moves: { init: true }, lastMove: { row: -1, col: -1, by: '' },
                         updatedAt: Date.now()
@@ -1800,6 +1802,7 @@ function roiKhoiPhong(onDone) {
                 // Khách O thoát → reset guestReady và playerOConfirmed
                 db.ref(`rooms/${rid}`).update({
                     playerO_id: '', playerO_name: '', playerO_status: 'offline',
+                    playerO_avatar: '', playerO_skin: 'skin_default',
                     guestReady: false,
                     playerOConfirmed: null,
                     status: 'waiting', updatedAt: Date.now()
@@ -1813,10 +1816,12 @@ function roiKhoiPhong(onDone) {
     }).catch(() => { done(); });
 }
 function _resetSauThoat(rid) {
+    console.log('[Room] Cleanup Start - roomId:', rid);
     // Dọn listener TRƯỚC khi null currentRoomId
     if (roomListener && rid) {
         db.ref(`rooms/${rid}`).off('value', roomListener);
         roomListener = null;
+        console.log('[Room] Room listener removed');
     }
     // BUG 1 FIX: Reset listening room ID
     _currentListeningRoomId = null;
@@ -1858,6 +1863,7 @@ function _resetSauThoat(rid) {
         const k = `${rid}_${r}`;
         if (_offlineCleanupTimers[k]) { clearTimeout(_offlineCleanupTimers[k]); delete _offlineCleanupTimers[k]; }
     });
+    // YC.TXT FIX: Reset ALL Room State variables
     currentRoomId     = null;
     myRole            = null;
     daXoaBanCoTranNay = false;
@@ -1867,6 +1873,17 @@ function _resetSauThoat(rid) {
     window._onlineSkinX = 'skin_default';
     window._onlineSkinO = 'skin_default';
     localStorage.removeItem('current_room_id');
+    
+    // Reset additional session state variables
+    if (typeof currentPlayerSlot !== 'undefined') currentPlayerSlot = null;
+    if (typeof currentSessionId !== 'undefined') currentSessionId = null;
+    if (typeof isInRoom !== 'undefined') isInRoom = false;
+    if (typeof isInBattle !== 'undefined') isInBattle = false;
+    if (typeof readyState !== 'undefined') readyState = false;
+    if (typeof cachedRoomData !== 'undefined') cachedRoomData = null;
+    if (typeof opponent !== 'undefined') opponent = null;
+    
+    console.log('[Room] Session Destroyed - All state variables reset');
     
     // Clear board state to prevent conflicts when returning to lobby
     if (typeof infiniteMap !== 'undefined') {
@@ -1880,6 +1897,7 @@ function _resetSauThoat(rid) {
     }
     
     thoatGiaoDienOnline();
+    console.log('[Room] Cleanup Complete - UI returned to Lobby');
 }
 // ══════════════════════════════════════════════════════════════════
 // ▶️ BẮT ĐẦU / KICK / READY
@@ -1980,7 +1998,11 @@ function undoOnlineMove() {
                 }
                 
                 // Xác nhận undo
-                const confirmUndo = confirm(`Yêu cầu rút lại 1 nước sẽ tốn ${betAmount.toLocaleString('vi-VN')} Xu nếu đối thủ đồng ý.\n\nSố tiền này sẽ được chuyển cho đối thủ.\n\nBạn có chắc chắn muốn yêu cầu rút?`);
+                const confirmUndo = confirm(`Yêu cầu rút lại 1 nước sẽ tốn ${betAmount.toLocaleString('vi-VN')} Xu nếu đối thủ đồng ý.
+
+Số tiền này sẽ được chuyển cho đối thủ.
+
+Bạn có chắc chắn muốn yêu cầu rút?`);
                 if (!confirmUndo) return;
                 
                 // Gửi request undo lên Firebase
@@ -2485,43 +2507,101 @@ function langNgheThayDoiPhong(roomId) {
             // Resize lại canvas sau khi player card xuất hiện làm thay đổi layout
             // Dùng timeout dài hơn để đảm bảo layout CSS đã paint xong
             const _doInitOnlineCanvas = () => {
-                console.log('[DEBUG-BOARD] Auto-calling renderInfiniteBoard after Firebase data received');
+                console.log('[DEBUG-BOARD] Auto-calling renderInfiniteBoard after Firebase data received - Using SharedBoardUI');
+
+                // Use SharedBoardUI for unified canvas initialization
+                if (typeof SharedBoardUI !== 'undefined') {
+                    const success = SharedBoardUI.init('online');
+                    if (!success) {
+                        console.error('[DEBUG-BOARD] SharedBoardUI.init failed, falling back to old logic');
+                        _doInitOnlineCanvasFallback();
+                    } else {
+                        // SharedBoardUI.init already calls renderInfiniteBoard
+                        console.log('[DEBUG-BOARD] SharedBoardUI.init succeeded');
+                        // YC.TXT FIX: Call renderInfiniteBoard after SharedBoardUI.init to ensure canvas renders immediately
+                        if (typeof renderInfiniteBoard === 'function') {
+                            renderInfiniteBoard();
+                            console.log('[DEBUG-BOARD] renderInfiniteBoard called after SharedBoardUI.init');
+                        }
+                    }
+                } else {
+                    console.warn('[DEBUG-BOARD] SharedBoardUI not loaded, using fallback logic');
+                    _doInitOnlineCanvasFallback();
+                }
+            };
+
+            // Fallback canvas initialization (old logic)
+            const _doInitOnlineCanvasFallback = () => {
+                console.log('[DEBUG-BOARD] Using fallback canvas initialization');
                 const cvOnline = document.getElementById('inf-canvas-online');
-                if (cvOnline) {
-                    const sbOnline = document.getElementById('shared-board-online');
-                    console.log('[DEBUG-BOARD] inf-canvas-online found, dimensions:', {
-                        width: cvOnline.width,
-                        height: cvOnline.height,
-                        clientWidth: cvOnline.clientWidth,
-                        clientHeight: cvOnline.clientHeight,
-                        parentWidth: cvOnline.parentElement ? cvOnline.parentElement.clientWidth : 0,
-                        sbOnlineW: sbOnline ? sbOnline.getBoundingClientRect().width : 0,
-                        sbOnlineH: sbOnline ? sbOnline.getBoundingClientRect().height : 0
+                const sbOnline = document.getElementById('shared-board-online');
+                
+                if (cvOnline && sbOnline) {
+                    // YC.TXT FIX: Use container dimensions directly (like Bot Room)
+                    const containerRect = sbOnline.getBoundingClientRect();
+                    const containerWidth = containerRect.width || window.innerWidth;
+                    const containerHeight = containerRect.height || window.innerHeight;
+
+                    // Set canvas internal dimensions to match container
+                    cvOnline.width = containerWidth;
+                    cvOnline.height = containerHeight;
+                    cvOnline.style.width = '100%';
+                    cvOnline.style.height = '100%';
+
+                    console.log('[DEBUG-BOARD] Canvas dimensions set:', {
+                        containerWidth: containerRect.width,
+                        containerHeight: containerRect.height,
+                        canvasWidth: cvOnline.width,
+                        canvasHeight: cvOnline.height
                     });
                 } else {
-                    console.warn('[DEBUG-BOARD] inf-canvas-online NOT found in DOM!');
+                    console.warn('[DEBUG-BOARD] inf-canvas-online or shared-board-online NOT found in DOM!');
                 }
+                
                 // YC.TXT FIX: Pass canvas element to initInfCanvas instead of hardcoding
                 if (typeof initInfCanvas === 'function' && cvOnline) {
                     initInfCanvas(cvOnline);
                 }
+                
+                // Update infCanvasW/infCanvasH for renderer
+                if (typeof infCanvasW !== 'undefined' && typeof infCanvasH !== 'undefined') {
+                    infCanvasW = cvOnline.width;
+                    infCanvasH = cvOnline.height;
+                }
+                
+                // YC.TXT FIX: Reset viewport to center AFTER canvas has correct size (like Bot Room)
+                if (typeof vRowF !== 'undefined' && typeof vColF !== 'undefined' &&
+                    typeof INF_CS !== 'undefined' && typeof infCanvasW !== 'undefined' && typeof infCanvasH !== 'undefined') {
+                    vRowF = -Math.floor(infCanvasH / INF_CS / 2);
+                    vColF = -Math.floor(infCanvasW / INF_CS / 2);
+                    console.log('[DEBUG-BOARD] Viewport reset to center after canvas resize:', { vRowF, vColF, infCanvasW, infCanvasH, INF_CS });
+                }
+                
                 if (typeof fitCanvasToContainer === 'function') fitCanvasToContainer();
                 if (typeof autoResizeInfCanvas  === 'function') autoResizeInfCanvas();
                 if (typeof renderInfiniteBoard  === 'function') renderInfiniteBoard();
             };
-            // Thử ngay sau 1 frame, nếu container vẫn 0 thì thử lại sau 300ms
-            requestAnimationFrame(() => {
+            
+            // YC.TXT FIX: Measure container directly instead of polling (like Bot Room)
+            const sbOnline = document.getElementById('shared-board-online');
+            if (sbOnline) {
+                // Use requestAnimationFrame to ensure layout has painted
                 requestAnimationFrame(() => {
-                    const sbOnline = document.getElementById('shared-board-online');
-                    const w = sbOnline ? sbOnline.getBoundingClientRect().width : 0;
-                    if (w > 50) {
+                    requestAnimationFrame(() => {
+                        const rect = sbOnline.getBoundingClientRect();
+                        const w = rect.width;
+                        const h = rect.height;
+                        
+                        console.log('[DEBUG-BOARD] Container size measured:', { w, h });
+                        
+                        // Initialize canvas regardless of size (like Bot Room)
                         _doInitOnlineCanvas();
-                    } else {
-                        // Container chưa có kích thước (layout chưa paint) — thử lại sau
-                        setTimeout(_doInitOnlineCanvas, 300);
-                    }
+                    });
                 });
-            });
+            } else {
+                console.warn('[DEBUG-BOARD] shared-board-online container not found, initializing immediately');
+                _doInitOnlineCanvas();
+            }
             // Hiển thị lượt
             const turnEl = document.getElementById('turn-indicator');
             const luat   = `${room.winCount || 5} quân${room.chan2Dau ? ' (Chặn 2 đầu)' : ''}`;
@@ -2563,6 +2643,12 @@ function langNgheThayDoiPhong(roomId) {
                     size: infiniteMap.size,
                     movesCount: movesArray.length
                 });
+                
+                // YC.TXT FIX: Render AFTER Firebase sync moves completes (like Bot Room renders after GameState)
+                if (typeof renderInfiniteBoard === 'function') {
+                    renderInfiniteBoard();
+                    console.log('[DEBUG-BOARD] renderInfiniteBoard called after Firebase sync moves');
+                }
             }
             // Vẽ nước đi mới nhất (cả của mình lẫn đối thủ)
             if (room.lastMove && room.lastMove.by) {
@@ -2746,9 +2832,27 @@ function capNhatUIPhong(room) {
     if (namePO)   namePO.innerText   = room.playerO_id ? tenSafe(room.playerO_name, 'Người chơi O') : 'Chờ đối thủ...';
     // Cập nhật avatar trong versus card (room-view) từ dữ liệu phòng
     const rvAvX = document.getElementById('room-avatar-x');
-    if (rvAvX && room.playerX_avatar) { rvAvX.textContent = room.playerX_avatar; rvAvX.style.fontSize = '24px'; }
+    if (rvAvX) {
+        if (room.playerX_avatar) {
+            rvAvX.textContent = room.playerX_avatar;
+            rvAvX.style.fontSize = '24px';
+        } else {
+            // Reset avatar về mặc định khi ghế trống
+            rvAvX.textContent = 'X';
+            rvAvX.style.fontSize = '';
+        }
+    }
     const rvAvO = document.getElementById('room-avatar-o');
-    if (rvAvO && room.playerO_avatar) { rvAvO.textContent = room.playerO_avatar; rvAvO.style.fontSize = '24px'; }
+    if (rvAvO) {
+        if (room.playerO_avatar) {
+            rvAvO.textContent = room.playerO_avatar;
+            rvAvO.style.fontSize = '24px';
+        } else {
+            // Reset avatar về mặc định khi ghế trống
+            rvAvO.textContent = 'O';
+            rvAvO.style.fontSize = '';
+        }
+    }
     const myId     = localStorage.getItem('current_user_id');
     const laChuX   = myId === room.playerX_id;
     const coDoiThu = !!room.playerO_id;
@@ -2847,6 +2951,20 @@ function capNhatUIPhongOnline(room) {
     // Load thông tin cả 2 người chơi ngay lập tức
     if (room.playerX_id) loadPlayerInfo(room.playerX_id, 'X');
     if (room.playerO_id) loadPlayerInfo(room.playerO_id, 'O');
+    
+    // YC.TXT FIX: Reset avatar về mặc định khi ghế trống
+    if (!room.playerX_id) {
+        const slotXAv = document.querySelector('#slot-playerX .avatar-circle');
+        if (slotXAv) { slotXAv.textContent = 'X'; slotXAv.style.fontSize = ''; }
+        const pcXAv = document.querySelector('#panel-playerX .pc-avatar');
+        if (pcXAv) { pcXAv.textContent = 'X'; pcXAv.style.fontSize = ''; }
+    }
+    if (!room.playerO_id) {
+        const slotOAv = document.querySelector('#slot-playerO .avatar-circle');
+        if (slotOAv) { slotOAv.textContent = 'O'; slotOAv.style.fontSize = ''; }
+        const pcOAv = document.querySelector('#panel-playerO .pc-avatar');
+        if (pcOAv) { pcOAv.textContent = 'O'; pcOAv.style.fontSize = ''; }
+    }
 }
 function loadPlayerInfo(userId, role) {
     // Load user data và room data song song để tối ưu tốc độ

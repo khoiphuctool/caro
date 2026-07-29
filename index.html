@@ -305,7 +305,7 @@ body.game-playing #app-header {
   .lobby-main, .lobby-side { gap: var(--space-3); }
   .room-list { max-height: 350px; }
   .bxh-list { max-height: 400px; }
-  .chat-messages-box { height: 200px; }
+  .chat-messages-box { max-height: 200px; }
   .card { min-height: 200px; }
 }
 
@@ -313,6 +313,13 @@ body.game-playing #app-header {
 @media (max-width: 1023px) and (min-width: 769px) {
   .home-layout { grid-template-columns: 1fr 300px; }
   .lobby-side-rank, .lobby-side-social { grid-column: 2; }
+  
+  /* Tablet scroll containers */
+  .lobby-side-rank, .lobby-side-social {
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 @media (min-width: 1440px) {
@@ -322,7 +329,7 @@ body.game-playing #app-header {
   .home-layout { grid-template-columns: 1fr 360px 360px; gap: var(--space-6); padding: var(--space-5) 40px; }
   .room-list { max-height: 540px; }
   .bxh-list  { max-height: 400px; }
-  .chat-messages-box { height: 320px; }
+  .chat-messages-box { max-height: 320px; }
 }
 @media (min-width: 1920px) {
   .home-layout { grid-template-columns: 1fr 400px 400px; gap: 32px; padding: var(--space-6) 60px; }
@@ -334,10 +341,10 @@ body.game-playing #app-header {
   .btn-join    { padding: 7px 18px; font-size: 13px; }
 }
 
-.lobby-main      { display: flex; flex-direction: column; gap: var(--space-4); }
-.lobby-side      { display: flex; flex-direction: column; gap: var(--space-4); }
-.lobby-side-rank   { display: flex; flex-direction: column; gap: var(--space-4); }
-.lobby-side-social { display: flex; flex-direction: column; gap: var(--space-4); }
+.lobby-main      { display: flex; flex-direction: column; gap: var(--space-4); min-height: 0; }
+.lobby-side      { display: flex; flex-direction: column; gap: var(--space-4); min-height: 0; }
+.lobby-side-rank   { display: flex; flex-direction: column; gap: var(--space-4); min-height: 0; }
+.lobby-side-social { display: flex; flex-direction: column; gap: var(--space-4); min-height: 0; }
 
 /* Đảm bảo các card trong cột chiếm đầy đủ chiều cao */
 .lobby-main > .card, .lobby-side > .card {
@@ -347,13 +354,33 @@ body.game-playing #app-header {
 }
 .card-body {
   flex: 1;
-  overflow-y: visible;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 /* Special handling for room list card to enable proper scrolling */
 .lobby-main > .card:first-child .card-body {
   max-height: 500px;
   overflow-y: auto;
+}
+
+/* Chat card special handling - ensure input is always accessible */
+.lobby-side-social > .card:last-child .card-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Desktop: ensure chat input is not sticky (only mobile) */
+@media (min-width: 769px) {
+  .chat-input-row {
+    position: static;
+    margin: 0;
+    border-top: none;
+    background: transparent;
+  }
 }
 
 .card {
@@ -404,11 +431,22 @@ body.game-playing #app-header {
 
 /* World Chat */
 .chat-messages-box {
-  height: 200px; overflow-y: auto; background: #f8fafc;
-  border: 1px solid var(--card-border); border-radius: var(--radius-sm);
-  padding: var(--space-2); font-size: var(--font-sm); margin-bottom: var(--space-2);
+  flex: 1;
+  min-height: 120px;
+  max-height: 300px;
+  overflow-y: auto; 
+  background: #f8fafc;
+  border: 1px solid var(--card-border); 
+  border-radius: var(--radius-sm);
+  padding: var(--space-2); 
+  font-size: var(--font-sm); 
+  margin-bottom: var(--space-2);
 }
-.chat-input-row { display: flex; gap: var(--space-2); }
+.chat-input-row { 
+  display: flex; 
+  gap: var(--space-2); 
+  flex-shrink: 0;
+}
 .chat-input-row input {
   flex: 1; padding: 7px var(--space-3); border: 1px solid var(--card-border);
   border-radius: var(--radius-sm); font-size: var(--font-sm);
@@ -593,116 +631,363 @@ body.game-playing #app-header {
 .btn-bet-quick.btn-no-bet:hover { background: #94a3b8; color: #fff; }
 
 /* ================================================================
-   BATTLE VIEW
+   BATTLE VIEW - Shared Structure (Fullscreen Overlay like Bot Room)
    ================================================================ */
 #view-battle { background: var(--battle-bg); overflow: hidden; transition: background var(--transition); }
 
-/* Desktop: 3 cột 20% / 60% / 20% */
-.battle-layout-desktop {
-  display: grid;
-  grid-template-columns: minmax(160px, 18%) 1fr minmax(200px, 20%);
-  gap: var(--space-3);
-  padding: var(--space-3);
-  height: calc(100vh - 88px);
-  max-width: 2400px; margin: 0 auto; width: 100%;
-  box-sizing: border-box;
+/* Fullscreen Board Container */
+.battle-board-container {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  z-index: 1;
 }
 
-@media (min-width: 1440px) {
-  .battle-layout-desktop {
-    grid-template-columns: minmax(180px, 15%) 1fr minmax(220px, 18%);
-    gap: var(--space-4);
-    padding: var(--space-4);
-  }
-  #unified-board-slot { min-height: 500px; }
+/* Overlay System */
+.battle-overlay {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
 }
 
-.battle-player-card {
-  background: var(--battle-card-bg); border: 1px solid var(--battle-card-border);
-  border-radius: var(--radius-md); padding: var(--space-4);
-  display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
-  color: var(--battle-text); overflow: hidden;
-  transition: background var(--transition), border var(--transition), color var(--transition);
+.battle-overlay * {
+  pointer-events: auto;
 }
-.battle-avatar {
-  width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center;
-  justify-content: center; font-size: 26px; font-weight: 900; border: 3px solid;
+
+/* Player Overlay (Top Left) */
+.battle-player-overlay-left {
+  top: env(safe-area-inset-top, 12px);
+  left: 12px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 280px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Player Overlay (Top Right) */
+.battle-player-overlay-right {
+  top: env(safe-area-inset-top, 12px);
+  right: 12px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 280px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.battle-avatar-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 900;
+  border: 3px solid;
   flex-shrink: 0;
 }
-.battle-avatar.bx { background: rgba(239,68,68,.2); border-color: #ef4444; color: #ef4444; }
-.battle-avatar.bo { background: rgba(59,130,246,.2); border-color: #3b82f6; color: #3b82f6; }
-.battle-pname { font-size: var(--font-base); font-weight: 700; text-align: center; word-break: break-word; }
-.battle-pstats { font-size: var(--font-xs); color: var(--battle-text-muted); text-align: center; }
-.battle-indicator {
-  padding: 6px 14px; border-radius: var(--radius-full); font-size: var(--font-sm); font-weight: 700;
-  background: rgba(16,185,129,.25); color: #6ee7b7; border: 1px solid rgba(16,185,129,.4);
+
+.battle-avatar-x {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.battle-avatar-o {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.battle-player-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.battle-player-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.battle-player-stats {
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.battle-stat-item {
+  margin-right: 8px;
+}
+
+.battle-turn-indicator {
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(16, 185, 129, 0.25);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.4);
   text-align: center;
-}
-.battle-indicator.inactive { background: rgba(255,255,255,.08); color: #cbd5e1; border-color: rgba(255,255,255,.15); }
-
-/* Cột giữa — bàn cờ */
-.battle-center {
-  display: flex; flex-direction: column; align-items: center;
-  position: relative; overflow: hidden; min-width: 0;
-  justify-content: flex-start;
-  /* Đảm bảo #unified-board-slot có thể flex: 1 */
-  min-height: 0; flex: 1 1 0;
+  white-space: nowrap;
 }
 
-/* unified-board-slot: chiếm toàn bộ chiều cao còn lại, giữ tỉ lệ vuông */
-#unified-board-slot {
-  flex: 1; width: 100%; min-height: 280px;
-  display: flex; justify-content: center; align-items: center;
-  position: relative; overflow: hidden;
+.battle-turn-indicator.inactive {
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
-/* Board bên trong slot: lấy kích thước từ JS (applyCanvasSize),
-   không dùng CSS width/height 100% vì canvas cần px chính xác */
-#unified-board-slot > #inf-resizable {
-  flex-shrink: 0;
-  position: relative;
+/* Zoom Controls (Right Side) */
+.battle-zoom-overlay {
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
-#unified-board-slot > #board {
-  width: 100% !important;
-  height: 100% !important;
+
+.battle-zoom-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #1e293b;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.battle-zoom-btn:hover {
+  background: #fff;
+  transform: scale(1.05);
+}
+
+/* Chat Overlay (Floating) */
+.battle-chat-overlay {
+  bottom: 80px;
+  right: 12px;
+  max-width: 320px;
+  max-height: 400px;
+}
+
+.battle-chat-panel {
+  background: rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.battle-chat-header {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 13px;
+  font-weight: 700;
+  color: #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.battle-chat-toggle {
+  background: none;
+  border: none;
+  color: #e2e8f0;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.battle-chat-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.battle-chat-overlay.minimized .battle-chat-body {
+  display: none;
+}
+
+.battle-chat-overlay.minimized .battle-chat-input {
+  display: none;
+}
+
+.battle-chat-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.battle-chat-messages {
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 12px;
+  color: #cbd5e1;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.battle-chat-input {
+  display: flex;
+  gap: 8px;
+}
+
+.battle-chat-input input {
+  flex: 1;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  color: #e2e8f0;
+  font-size: 12px;
+}
+
+.battle-chat-input button {
+  padding: 6px 12px;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Bet Info Overlay */
+.battle-bet-overlay {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 150;
+}
+
+#battle-bet-info {
+  background: rgba(245, 158, 11, 0.95);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 12px;
+  padding: 16px 24px;
+  font-size: 14px;
+  color: #fff;
+  text-align: center;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* Room Info Overlay */
+.battle-room-info-overlay {
+  bottom: 80px;
+  left: 12px;
+  max-width: 280px;
+}
+
+.battle-room-info-card {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+/* Status Bar Overlay */
+.battle-status-overlay {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 140;
 }
 
 .battle-status-bar {
-  width: 100%; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2);
-  border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4);
-  color: var(--battle-text); font-size: var(--font-sm); font-weight: 700; text-align: center;
-  margin-bottom: var(--space-2); flex-shrink: 0;
-  text-shadow: 0 1px 3px rgba(0,0,0,.5);
-  transition: color var(--transition);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  padding: 12px 24px;
+  color: #1e293b;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
-.battle-right {
-  display: flex; flex-direction: column; gap: var(--space-2);
-  overflow-y: auto; min-width: 0;
+/* Bottom Control Bar */
+.battle-bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 12px 16px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  z-index: 100;
 }
-.battle-chat { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-.battle-chat-messages {
-  flex: 1; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08);
-  border-radius: var(--radius-sm); padding: var(--space-2); overflow-y: auto;
-  font-size: var(--font-xs); color: #cbd5e1; height: 180px; max-height: 180px;
+
+.battle-control-btn {
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  color: #e2e8f0;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
 }
-.quick-chat-bar { display: flex; flex-wrap: wrap; gap: var(--space-1); padding: var(--space-1) 0; }
-.qc-btn {
-  padding: 4px 8px; background: rgba(255,255,255,.08); color: #e2e8f0;
-  border: 1px solid rgba(255,255,255,.15); border-radius: var(--radius-full); font-size: 14px;
-  transition: background var(--transition);
+
+.battle-control-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
-.qc-btn:hover { background: rgba(255,255,255,.2); }
-.battle-chat-input { display: flex; gap: var(--space-1); margin-top: var(--space-2); }
-.battle-chat-input input {
-  flex: 1; padding: 6px var(--space-2); background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.15); border-radius: var(--radius-sm);
-  color: #e2e8f0; font-size: var(--font-xs);
+
+.battle-exit-btn {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
 }
-.battle-chat-input input::placeholder { color: #64748b; }
-.battle-chat-input button {
-  padding: 6px 12px; background: var(--color-primary); color: #fff; border: none;
-  border-radius: var(--radius-sm); font-size: var(--font-xs); font-weight: 700;
+
+.battle-exit-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.battle-surrender-btn {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fcd34d;
+}
+
+.battle-surrender-btn:hover {
+  background: rgba(245, 158, 11, 0.3);
 }
 
 /* Thông tin phòng trong battle */
@@ -750,7 +1035,32 @@ body.game-playing #app-header {
   .lobby-side, .lobby-side-rank, .lobby-side-social { display: none; }
   .lobby-side.mobile-tab-active,
   .lobby-side-rank.mobile-tab-active,
-  .lobby-side-social.mobile-tab-active { display: flex; flex-direction: column; gap: var(--space-2); }
+  .lobby-side-social.mobile-tab-active { 
+    display: flex; 
+    flex-direction: column; 
+    gap: var(--space-2);
+    /* Scroll container for mobile tabs */
+    max-height: calc(100vh - 180px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Lobby main also needs scroll on mobile */
+  .lobby-main {
+    max-height: calc(100vh - 180px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Ensure chat input is always visible on mobile */
+  .chat-input-row {
+    flex-shrink: 0;
+    position: sticky;
+    bottom: 0;
+    background: var(--card-bg);
+    padding: var(--space-2);
+    margin: calc(var(--space-2) * -1);
+    border-top: 1px solid var(--card-border);
+  }
 
   /* Mobile tabs cho lobby */
   .lobby-mobile-tabs {
@@ -778,50 +1088,68 @@ body.game-playing #app-header {
   .lobby-tab-btn[data-tab="rank"]:not(.active):hover       { background: rgba(245,158,11,.15); color: #fbbf24; }
   .lobby-tab-btn[data-tab="community"]:not(.active):hover  { background: rgba(16,185,129,.15); color: #34d399; }
 
-  /* ── BattleView mobile: vertical stack ── */
+  /* ── BattleView mobile: fullscreen overlay like Bot Room ── */
   .battle-layout-desktop {
-    display: flex; flex-direction: column;
-    height: auto; min-height: calc(100vh - 80px);
-    padding: var(--space-2); gap: var(--space-2);
-    overflow-y: auto;
+    display: none; /* Hide grid layout on mobile */
+  }
+  
+  /* Fullscreen board container on mobile */
+  #unified-board-slot {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
 
-  /* Player cards: nằm ngang compact */
+  /* Player cards: overlay positioning like Bot Room */
   .battle-player-card {
-    flex-direction: row; padding: var(--space-2) var(--space-3);
-    align-items: center; justify-content: flex-start; gap: var(--space-3);
+    position: fixed;
+    z-index: 100;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 12px;
+    max-width: 280px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
   }
+  
   .battle-avatar { width: 40px; height: 40px; font-size: 18px; }
   .battle-pstats { display: none; }
-
-  /* Board: chiếm không gian vuông lớn nhất có thể */
+  
+  /* Player X: top left like Bot Room */
+  .battle-player-card:first-child {
+    top: env(safe-area-inset-top, 12px);
+    left: 12px;
+  }
+  
+  /* Player O: top right like Bot Room */
+  .battle-player-card:nth-child(3) {
+    top: env(safe-area-inset-top, 12px);
+    right: 12px;
+  }
+  
+  /* Hide center column wrapper on mobile */
   .battle-center {
-    width: 100%; order: 2; flex: 0 0 auto;
-    min-height: 0;
+    display: none;
   }
-  #unified-board-slot {
-    width: 100%;
-    /* Chiều cao = min(85vw, 55vh) để vừa màn hình dù portrait hay landscape */
-    height: min(85vw, 55vh);
-    min-height: 220px;
-    flex: 0 0 auto;
+  
+  /* Hide right panel (chat) on mobile */
+  .battle-right {
+    display: none;
   }
-  #unified-board-slot > #inf-resizable {
-    /* JS sẽ set kích thước chính xác qua applyCanvasSize */
-    flex-shrink: 0;
+  
+  /* Hide status bar on mobile */
+  .battle-status-bar {
+    display: none;
   }
-  #unified-board-slot > #board {
-    width: 100% !important;
-    height: 100% !important;
-  }
-
-  /* Player X lên trên board */
-  .battle-player-card:first-child { order: 1; }
-  /* Player O xuống dưới board */
-  .battle-player-card:nth-child(3) { order: 3; }
-  /* Right panel: chat + info xuống cuối */
-  .battle-right { order: 4; max-height: 280px; overflow-y: auto; }
-  .battle-chat-messages { height: 120px; max-height: 120px; }
 
   /* ── RoomView mobile ── */
   .room-layout { padding: var(--space-2); gap: var(--space-2); }
@@ -834,6 +1162,30 @@ body.game-playing #app-header {
   .battle-layout-desktop { padding: var(--space-1); gap: var(--space-1); }
   .header-logo { font-size: 12px; }
   .room-layout { padding: var(--space-1); }
+  
+  /* Adjust mobile tab scroll height for very small screens */
+  .lobby-side.mobile-tab-active,
+  .lobby-side-rank.mobile-tab-active,
+  .lobby-side-social.mobile-tab-active {
+    max-height: calc(100vh - 200px);
+  }
+  .lobby-main {
+    max-height: calc(100vh - 200px);
+  }
+  
+  /* Chat adjustments for very small screens */
+  .chat-messages-box {
+    min-height: 100px;
+    max-height: 200px;
+  }
+  .chat-input-row input {
+    font-size: 12px;
+    padding: 6px var(--space-2);
+  }
+  .chat-input-row button {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
 }
 
 /* ================================================================
@@ -928,6 +1280,58 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
   /* DO8.TXT: Ensure container takes available space */
   flex: 1;
   align-self: stretch;
+}
+
+/* Online board specific - fullscreen on mobile/tablet like Bot Room */
+#shared-board-online {
+  transition: all 0.3s ease;
+}
+
+/* Mobile/Tablet: Online room uses fullscreen layout like Bot Room */
+@media (max-width: 1024px) {
+  #shared-board-online {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    z-index: 1;
+    border-radius: 0;
+  }
+  
+  /* Move player cards to overlay positions like Bot Room */
+  .battle-player-card {
+    position: fixed;
+    z-index: 100;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 12px;
+    max-width: 280px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+  
+  /* Player X: top left like Bot Room */
+  .battle-player-card:first-child {
+    top: env(safe-area-inset-top, 12px);
+    left: 12px;
+  }
+  
+  /* Player O: top right like Bot Room */
+  .battle-player-card:nth-child(3) {
+    top: env(safe-area-inset-top, 12px);
+    right: 12px;
+  }
+  
+  /* Hide right panel (chat) on mobile to give more space for board */
+  .battle-right {
+    display: none;
+  }
+  
+  /* Hide status bar on mobile */
+  .battle-status-bar {
+    display: none;
+  }
 }
 
 /* Shared board canvas (DO8.TXT) */
@@ -2091,88 +2495,107 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 </main>
 
 <!-- ================================================================
-     VIEW: BATTLE (Đang đấu) - ONLINE MODE
+     VIEW: BATTLE (Đang đấu) - ONLINE MODE - Shared Structure
      ================================================================ -->
 <main class="view" id="view-battle">
-    <div class="battle-layout-desktop">
-
-        <!-- Cột trái: Player X -->
-        <div class="battle-player-card">
-            <div class="battle-avatar bx" id="battle-avatar-x">X</div>
-            <div class="battle-pname" id="battle-name-x">Người chơi X</div>
-            <div class="battle-pstats" id="battle-stats-x">🤖 0 · ⚔️ 0 · 📉 0</div>
-            <div class="battle-indicator" id="battle-indicator-x">Lượt của bạn</div>
+    <!-- Fullscreen Board Container -->
+    <div id="battle-board-container" class="battle-board-container">
+        <div class="shared-board-container" id="shared-board-online">
+            <canvas id="inf-canvas-online" class="shared-board-canvas"></canvas>
+            <div class="board-coords-display" id="board-coords-online">X: 0, Y: 0</div>
+            <div class="board-controls-overlay">
+                <button class="board-control-btn" onclick="if(typeof undoOnlineMove === 'function') undoOnlineMove();" title="Undo Last Move">↩️</button>
+                <button class="board-control-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(1);" title="Zoom In">+</button>
+                <button class="board-control-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(-1);" title="Zoom Out">−</button>
+            </div>
         </div>
+        <!-- Legacy board fallback -->
+        <div id="inf-resizable" style="display:none;position:relative;user-select:none;"></div>
+        <div class="board" id="board" style="display:none;"></div>
+    </div>
 
-        <!-- Cột giữa: Bàn cờ -->
-        <div class="battle-center">
-            <div class="battle-status-bar" id="battle-status-bar">Đang chơi...</div>
-            <!-- Shared Board Engine (DO4.TXT) -->
-            <div id="unified-board-slot">
-                <div class="shared-board-container" id="shared-board-online">
-                    <canvas id="inf-canvas-online" class="shared-board-canvas"></canvas>
-                    <div class="board-coords-display" id="board-coords-online">X: 0, Y: 0</div>
-                    <div class="board-controls-overlay">
-                        <button class="board-control-btn" onclick="if(typeof undoOnlineMove === 'function') undoOnlineMove();" title="Undo Last Move">↩️</button>
-                        <button class="board-control-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(1);" title="Zoom In">+</button>
-                        <button class="board-control-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(-1);" title="Zoom Out">−</button>
-                    </div>
+    <!-- Overlay: Player X (Top Left) -->
+    <div class="battle-overlay battle-player-overlay-left" id="battle-player-overlay-left">
+        <div class="battle-avatar-circle battle-avatar-x">X</div>
+        <div class="battle-player-details">
+            <div class="battle-player-name" id="battle-name-x">Người chơi X</div>
+            <div class="battle-player-stats">
+                <span class="battle-stat-item" id="battle-stats-x">🤖 0 · ⚔️ 0 · 📉 0</span>
+            </div>
+        </div>
+        <div class="battle-turn-indicator" id="battle-indicator-x">Lượt của bạn</div>
+    </div>
+
+    <!-- Overlay: Player O (Top Right) -->
+    <div class="battle-overlay battle-player-overlay-right" id="battle-player-overlay-right">
+        <div class="battle-avatar-circle battle-avatar-o">O</div>
+        <div class="battle-player-details">
+            <div class="battle-player-name" id="battle-name-o">Người chơi O</div>
+            <div class="battle-player-stats">
+                <span class="battle-stat-item" id="battle-stats-o">🤖 0 · ⚔️ 0 · 📉 0</span>
+            </div>
+        </div>
+        <div class="battle-turn-indicator inactive" id="battle-indicator-o">Đang chờ</div>
+    </div>
+
+    <!-- Overlay: Zoom Controls (Right Side) -->
+    <div class="battle-overlay battle-zoom-overlay">
+        <button class="battle-zoom-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(1);" title="Phóng to">+</button>
+        <button class="battle-zoom-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(-1);" title="Thu nhỏ">−</button>
+        <button class="battle-zoom-btn" onclick="if(typeof vRowF !== 'undefined' && typeof vColF !== 'undefined') { vRowF = 0; vColF = 0; if(typeof renderInfiniteBoard === 'function') renderInfiniteBoard(); }" title="Canh giữa bàn cờ">⌖ Fit</button>
+    </div>
+
+    <!-- Overlay: Chat Panel (Floating) -->
+    <div class="battle-overlay battle-chat-overlay" id="battle-chat-overlay">
+        <div class="battle-chat-panel">
+            <div class="battle-chat-header">
+                <span>🌍 Chat</span>
+                <button class="battle-chat-toggle" onclick="toggleBattleChat()" title="Thu nhỏ/Mở lại">−</button>
+            </div>
+            <div class="battle-chat-body">
+                <div class="battle-chat-messages" id="battle-chat-messages"></div>
+                <div class="quick-chat-bar">
+                    <button class="qc-btn" onclick="guiQuickChat('👍 Hay đó!')">👍</button>
+                    <button class="qc-btn" onclick="guiQuickChat('😂')">😂</button>
+                    <button class="qc-btn" onclick="guiQuickChat('😤')">😤</button>
+                    <button class="qc-btn" onclick="guiQuickChat('🔥')">🔥</button>
                 </div>
-                <!-- Legacy board fallback -->
-                <div id="inf-resizable" style="display:none;position:relative;user-select:none;"></div>
-                <div class="board" id="board" style="display:none;"></div>
-            </div>
-        </div>
-
-        <!-- Cột phải: Player O + Chat -->
-        <div class="battle-right">
-            <div class="battle-player-card">
-                <div class="battle-avatar bo" id="battle-avatar-o">O</div>
-                <div class="battle-pname" id="battle-name-o">Người chơi O</div>
-                <div class="battle-pstats" id="battle-stats-o">🤖 0 · ⚔️ 0 · 📉 0</div>
-                <div class="battle-indicator inactive" id="battle-indicator-o">Đang chờ</div>
-            </div>
-
-            <!-- Nút thoát trong battle -->
-            <button id="btn-leave-battle"
-                onclick="confirmExitBattle()"
-                style="width:100%; padding:8px; background:rgba(239,68,68,.15);
-                       color:#fca5a5; border:1px solid rgba(239,68,68,.3);
-                       border-radius:var(--radius-sm); font-size:12px;
-                       font-weight:700; cursor:pointer; transition:background .2s;">
-                🚪 Thoát trận
-            </button>
-
-            <!-- Bet info trong battle (hiện khi có cược) -->
-            <div id="battle-bet-info" style="display:none;
-                 background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.3);
-                 border-radius:var(--radius-sm); padding:var(--space-2) var(--space-3);
-                 font-size:11px; color:#fbbf24; text-align:center; font-weight:700;">
-            </div>
-
-            <!-- Chat trong battle -->
-            <div class="battle-chat card" style="background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.1); flex:1;">
-                <div class="card-header" style="background:transparent; border-color:rgba(255,255,255,.1); color:#e2e8f0;">🌍 Chat</div>
-                <div class="card-body" style="padding:8px;">
-                    <div class="battle-chat-messages" id="battle-chat-messages"></div>
-                    <div class="quick-chat-bar">
-                        <button class="qc-btn" onclick="guiQuickChat('👍 Hay đó!')">👍</button>
-                        <button class="qc-btn" onclick="guiQuickChat('😂')">😂</button>
-                        <button class="qc-btn" onclick="guiQuickChat('😤')">😤</button>
-                        <button class="qc-btn" onclick="guiQuickChat('🔥')">🔥</button>
-                    </div>
-                    <div class="battle-chat-input">
-                        <input type="text" id="battle-chat-input-field" placeholder="Nhắn tin..." onkeydown="if(event.key==='Enter') guiTinNhanOnline()">
-                        <button onclick="guiTinNhanOnline()">Gửi</button>
-                    </div>
+                <div class="battle-chat-input">
+                    <input type="text" id="battle-chat-input-field" placeholder="Nhắn tin..." onkeydown="if(event.key==='Enter') guiTinNhanOnline()">
+                    <button onclick="guiTinNhanOnline()">Gửi</button>
                 </div>
             </div>
-
-            <!-- Thông tin phòng (luật) -->
-            <div class="battle-room-info-card">
-                <div id="battle-room-info">Đang tải thông tin phòng...</div>
-            </div>
         </div>
+    </div>
+
+    <!-- Overlay: Bet Info (Online Only) -->
+    <div class="battle-overlay battle-bet-overlay" id="battle-bet-overlay" style="display:none;">
+        <div id="battle-bet-info"></div>
+    </div>
+
+    <!-- Overlay: Room Info (Online Only) -->
+    <div class="battle-overlay battle-room-info-overlay" id="battle-room-info-overlay">
+        <div class="battle-room-info-card">
+            <div id="battle-room-info">Đang tải thông tin phòng...</div>
+        </div>
+    </div>
+
+    <!-- Overlay: Status Bar -->
+    <div class="battle-overlay battle-status-overlay" id="battle-status-overlay">
+        <div class="battle-status-bar" id="battle-status-bar">Đang chơi...</div>
+    </div>
+
+    <!-- Bottom Control Bar -->
+    <div class="battle-bottom-bar">
+        <button class="battle-control-btn" onclick="if(typeof undoOnlineMove === 'function') undoOnlineMove();" title="Hoàn tác">
+            ↶ Undo
+        </button>
+        <button class="battle-control-btn battle-surrender-btn" onclick="if(typeof surrenderOnlineGame === 'function') surrenderOnlineGame();" title="Đầu hàng">
+            🏳️ Đầu hàng
+        </button>
+        <button class="battle-control-btn battle-exit-btn" onclick="confirmExitBattle()" title="Thoát">
+            🚪 Thoát trận
+        </button>
     </div>
 </main>
 
@@ -2646,6 +3069,7 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 <script src="src/ai-nao.js"></script>
 <script src="src/bot-tia-chop.js"></script>
 <script src="src/ban-co.js"></script>
+<script src="src/shared-board-ui.js"></script>
 <script src="src/phat-sung.js"></script>
 <script src="src/BatchLearning.js"></script>
 <script src="src/autoplay.js"></script>
@@ -2702,6 +3126,37 @@ window.hideTopNavigation = hideTopNavigation;
 window.showTopNavigation = showTopNavigation;
 window.isGamePlaying = () => isGamePlaying;
 
+/* Battle Chat Toggle - YC.TXT FIX */
+function toggleBattleChat() {
+    const chatOverlay = document.getElementById('battle-chat-overlay');
+    if (!chatOverlay) return;
+    
+    const toggleBtn = chatOverlay.querySelector('.battle-chat-toggle');
+    chatOverlay.classList.toggle('minimized');
+    
+    if (chatOverlay.classList.contains('minimized')) {
+        if (toggleBtn) toggleBtn.textContent = '+';
+    } else {
+        if (toggleBtn) toggleBtn.textContent = '−';
+    }
+}
+
+/* Set default chat state based on device - YC.TXT FIX */
+function initBattleChatState() {
+    const chatOverlay = document.getElementById('battle-chat-overlay');
+    if (!chatOverlay) return;
+    
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+        chatOverlay.classList.add('minimized');
+        const toggleBtn = chatOverlay.querySelector('.battle-chat-toggle');
+        if (toggleBtn) toggleBtn.textContent = '+';
+    }
+}
+
+window.toggleBattleChat = toggleBattleChat;
+window.initBattleChatState = initBattleChatState;
+
 /* ── MOBILE LOBBY TABS ── */
 function switchLobbyTab(tab) {
     const main   = document.querySelector('.lobby-main');
@@ -2730,6 +3185,14 @@ function switchLobbyTab(tab) {
     const tabOrder = ['rooms','rank','community'];
     const idx = tabOrder.indexOf(tab);
     if (btns[idx]) btns[idx].classList.add('active');
+    
+    // Scroll to top of active tab on mobile
+    if (window.innerWidth <= 768) {
+        const activePanel = tab === 'rooms' ? main : (tab === 'rank' ? rank : social);
+        if (activePanel) {
+            activePanel.scrollTop = 0;
+        }
+    }
 }
 window.switchLobbyTab = switchLobbyTab;
 

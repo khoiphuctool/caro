@@ -83,7 +83,7 @@ const BotRoomManager = {
         roomLayout.innerHTML = `
             <div class="room-header-card" style="background:linear-gradient(135deg,#10b981 0%,#059669 100%);">
                 <div class="room-header-title">🤖 Phòng ${botConfig.name}</div>
-                <button class="btn-leave-room" onclick="BotRoomManager.exitBotRoom()">← Quay lại</button>
+                <button class="btn-leave-room" onclick="BotRoomManager.exitBotRoom()">← Thoát phòng</button>
             </div>
 
             <div class="versus-row">
@@ -226,13 +226,33 @@ const BotRoomManager = {
         setTimeout(() => this.updateBotRoomOverlays(), 120);
     },
 
-    // ══ Initialize canvas for BOT ROOM (YC.TXT) ═════════════════════
+    // ══ Initialize canvas for BOT ROOM (YC.TXT - SharedBoardUI Migration) ═════════════════════
     initBotRoomCanvas: function() {
+        console.log('[BOT ROOM] initBotRoomCanvas - Using SharedBoardUI');
+
+        // Use SharedBoardUI for unified canvas initialization
+        if (typeof SharedBoardUI !== 'undefined') {
+            const success = SharedBoardUI.init('bot');
+            if (!success) {
+                console.error('[BOT ROOM] SharedBoardUI.init failed, falling back to old logic');
+                this.initBotRoomCanvasFallback();
+            }
+        } else {
+            console.warn('[BOT ROOM] SharedBoardUI not loaded, using fallback logic');
+            this.initBotRoomCanvasFallback();
+        }
+
+        // YC.TXT FIX: renderInfiniteBoard() will be called AFTER initGame() in startBotBattle()
+        // to ensure GameState.board.infiniteMap is properly initialized
+    },
+
+    // ══ Fallback canvas initialization (old logic) ═════════════════════
+    initBotRoomCanvasFallback: function() {
         // YC.TXT FIX: Use the existing inf-canvas-bot canvas in HTML instead of moving canvas
         const canvas = document.getElementById('inf-canvas-bot');
         const botContainer = document.getElementById('shared-board-bot');
 
-        console.log('[BOT ROOM] initBotRoomCanvas - canvas element:', {
+        console.log('[BOT ROOM] initBotRoomCanvasFallback - canvas element:', {
             canvasId: canvas ? canvas.id : 'null',
             canvasWidth: canvas ? canvas.width : 'null',
             canvasHeight: canvas ? canvas.height : 'null',
@@ -246,31 +266,17 @@ const BotRoomManager = {
             const containerWidth = containerRect.width || window.innerWidth;
             const containerHeight = containerRect.height || window.innerHeight;
 
-            // Log comparison before and after
-            console.log('[BOT ROOM] Dimension comparison:', {
-                windowInnerWidth: window.innerWidth,
-                windowInnerHeight: window.innerHeight,
-                containerWidth,
-                containerHeight,
-                canvasWidthBefore: canvas.width,
-                canvasHeightBefore: canvas.height
-            });
-
             // Set canvas internal dimensions to match container
             canvas.width = containerWidth;
             canvas.height = containerHeight;
             canvas.style.width = '100%';
             canvas.style.height = '100%';
 
-            console.log('[BOT ROOM] initBotRoomCanvas dimensions:', {
-                windowInnerWidth: window.innerWidth,
-                windowInnerHeight: window.innerHeight,
+            console.log('[BOT ROOM] initBotRoomCanvasFallback dimensions:', {
                 containerWidth: containerRect.width,
                 containerHeight: containerRect.height,
                 canvasWidth: canvas.width,
-                canvasHeight: canvas.height,
-                cssWidth: canvas.style.width,
-                cssHeight: canvas.style.height
+                canvasHeight: canvas.height
             });
         }
 
@@ -278,13 +284,11 @@ const BotRoomManager = {
         if (typeof infCanvasW !== 'undefined' && typeof infCanvasH !== 'undefined') {
             infCanvasW = canvas.width;
             infCanvasH = canvas.height;
-            console.log('[BOT ROOM] Updated infCanvasW/infCanvasH:', { infCanvasW, infCanvasH });
         }
 
         // YC.TXT: Ensure constant CELL_SIZE (32px) - don't resize cells
-        // The board should show fewer cells on smaller screens, not smaller cells
         if (typeof INF_CS !== 'undefined') {
-            console.log('[BOT ROOM] CELL_SIZE locked at:', INF_CS, 'px');
+            INF_CS = 32; // Bot room uses constant 32px
         }
 
         // BUG.TXT FIX: Reset viewport offset to center (0,0) at middle of screen
@@ -292,29 +296,11 @@ const BotRoomManager = {
             typeof infCanvasW !== 'undefined' && typeof infCanvasH !== 'undefined') {
             vRowF = -Math.floor(infCanvasH / INF_CS / 2);
             vColF = -Math.floor(infCanvasW / INF_CS / 2);
-            console.log('[BOT ROOM] Viewport offset reset to center:', { vRowF, vColF });
         }
 
         // Initialize canvas with fullscreen size - pass canvas element to avoid hardcode
         if (typeof initInfCanvas === 'function') {
             initInfCanvas(canvas);
-        }
-
-        // YC.TXT FIX: Log after initInfCanvas to verify canvas and ctx
-        console.log('[BOT ROOM] After initInfCanvas - infCanvas:', {
-            infCanvas: typeof infCanvas !== 'undefined' ? infCanvas : 'undefined',
-            infCanvasId: typeof infCanvas !== 'undefined' && infCanvas ? infCanvas.id : 'null',
-            infCtx: typeof infCtx !== 'undefined' ? infCtx : 'undefined'
-        });
-
-        // Re-verify canvas dimensions after initInfCanvas
-        if (canvas) {
-            console.log('[BOT ROOM] Canvas dimensions after initInfCanvas:', {
-                width: canvas.width,
-                height: canvas.height,
-                infCanvasW: typeof infCanvasW !== 'undefined' ? infCanvasW : 'undefined',
-                infCanvasH: typeof infCanvasH !== 'undefined' ? infCanvasH : 'undefined'
-            });
         }
 
         // Initialize camera to center of viewport
@@ -325,9 +311,6 @@ const BotRoomManager = {
 
         // Add resize listener for bot room
         this.addBotRoomResizeListener();
-
-        // YC.TXT FIX: renderInfiniteBoard() will be called AFTER initGame() in startBotBattle()
-        // to ensure GameState.board.infiniteMap is properly initialized
     },
 
     // ══ Add resize listener for BOT ROOM ═════════════════════
@@ -615,16 +598,25 @@ const BotRoomManager = {
 
     // ══ Thoát phòng bot (YC.TXT - Updated for new view) ═════════════════════
     exitBotRoom: function() {
+        console.log('[BotRoom] Exit Start - Full cleanup');
+        
         this.isBotRoomMode  = false;
         this.currentBotRoom = null;
         window.isBotRoomMode    = false;
         window.currentBotConfig = null;
 
-        // Remove resize listener
+        // YC.TXT FIX: Destroy SharedBoardUI FIRST (same as Online Room)
+        if (typeof SharedBoardUI !== 'undefined') {
+            console.log('[BotRoom] Destroying SharedBoardUI');
+            SharedBoardUI.destroy();
+        }
+
+        // Remove resize listener (fallback cleanup)
         this.removeBotRoomResizeListener();
 
-        // YC.TXT FIX: Clear mode from GameModeManager
+        // YC.TXT FIX: Clear mode from GameModeManager (same as Online Room)
         if (typeof GameModeManager !== 'undefined') {
+            console.log('[BotRoom] Clearing GameModeManager');
             GameModeManager.clearMode();
         }
 
@@ -642,6 +634,7 @@ const BotRoomManager = {
         // Xóa currentRoomId khỏi Firebase khi thoát bot room
         const myId = localStorage.getItem('current_user_id');
         if (myId && typeof db !== 'undefined') {
+            console.log('[BotRoom] Removing user currentRoomId from Firebase');
             db.ref(`users/${myId}/currentRoomId`).remove();
         }
 
@@ -658,12 +651,26 @@ const BotRoomManager = {
         const pl = document.querySelector('.practice-layout');
         if (pl) { pl.style.visibility = ''; pl.style.display = ''; }
 
-        // switchView('home') sẽ gọi returnBoardToTraining() và restore shared-board-online
-        // Show navigation when exiting battle
+        // YC.TXT FIX: Show navigation when exiting battle (same as Online Room)
         if (typeof showTopNavigation === 'function') {
+            console.log('[BotRoom] Showing top navigation');
             showTopNavigation();
         }
+
+        // YC.TXT FIX: Reset game state (same as Online Room)
+        if (typeof isGameActive !== 'undefined') {
+            isGameActive = false;
+        }
+        if (typeof infiniteMap !== 'undefined') {
+            infiniteMap.clear();
+        }
+        if (typeof moveHistory !== 'undefined') {
+            moveHistory.length = 0;
+        }
+
+        // switchView('home') sẽ gọi returnBoardToTraining() và restore shared-board-online
         if (typeof switchView === 'function') {
+            console.log('[BotRoom] Switching to home view');
             switchView('home');
         } else {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -671,8 +678,11 @@ const BotRoomManager = {
             if (vh) vh.classList.add('active');
         }
 
-        // Quay về tab bot trong lobby
-        if (typeof switchRoomTab === 'function') switchRoomTab('bot');
+        // YC.TXT FIX: KHÔNG tự động quay lại tab Bot sau khi thoát
+        // Để user tự chọn tab (Bot/Normal/VIP) sau khi thoát
+        // if (typeof switchRoomTab === 'function') switchRoomTab('bot');
+        
+        console.log('[BotRoom] Exit Complete - Full cleanup done');
     },
 
     // ══ Restore canvas to original location (YC.TXT) ═════════════════════

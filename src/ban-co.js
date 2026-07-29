@@ -53,10 +53,13 @@ function fitCanvasToContainer() {
     if (wrapper) {
         const matchBoard = document.getElementById('match-board-section');
         const unifiedSlot = document.getElementById('unified-board-slot');
+        const battleBoardContainer = document.getElementById('battle-board-container');
         if (matchBoard && matchBoard.contains(wrapper)) {
             host = matchBoard;
         } else if (unifiedSlot && unifiedSlot.contains(wrapper)) {
             host = unifiedSlot;
+        } else if (battleBoardContainer && battleBoardContainer.contains(wrapper)) {
+            host = battleBoardContainer;
         } else {
             host = wrapper.parentElement;
         }
@@ -563,11 +566,14 @@ function autoResizeInfCanvas() {
     if (wrapper) {
         const matchBoard = document.getElementById('match-board-section');
         const unifiedSlot = document.getElementById('unified-board-slot');
+        const battleBoardContainer = document.getElementById('battle-board-container');
         let host = null;
         if (matchBoard && matchBoard.contains(wrapper)) {
             host = matchBoard;
         } else if (unifiedSlot && unifiedSlot.contains(wrapper)) {
             host = unifiedSlot;
+        } else if (battleBoardContainer && battleBoardContainer.contains(wrapper)) {
+            host = battleBoardContainer;
         } else {
             host = wrapper.parentElement;
         }
@@ -621,6 +627,20 @@ function renderInfiniteBoardAsync() {
 }
 
 function renderInfiniteBoard() {
+    // YC.TXT FIX: Early guard to prevent log spam - render only when canvas, context, and viewport are ready
+    if (!infCanvas || !infCtx) {
+        // Silent skip - don't log to avoid console spam
+        return;
+    }
+    
+    // Check viewport variables are ready
+    if (typeof vRowF === 'undefined' || typeof vColF === 'undefined' ||
+        typeof infCanvasW === 'undefined' || typeof infCanvasH === 'undefined' ||
+        typeof INF_CS === 'undefined') {
+        // Silent skip - don't log to avoid console spam
+        return;
+    }
+    
     const canvasW = infCanvas?.width || 0;
     const canvasH = infCanvas?.height || 0;
     const logCols = Math.ceil(canvasW / INF_CS) + 1;
@@ -643,12 +663,6 @@ function renderInfiniteBoard() {
     // Tắt render khi fullscreen để tránh flickering
     if (isFullscreen) return;
 
-    // Nếu canvas vẫn null sau khi init (element chưa tồn tại trong DOM), bail out sạch
-    if (!infCanvas || !infCtx) {
-        console.warn('[DEBUG-BOARD] renderInfiniteBoard: canvas/ctx not ready, skipping render');
-        return;
-    }
-
     // BUG.TXT FIX: For Bot Room, use actual canvas dimensions instead of infCanvasW/infCanvasH
     const isBotRoom = window.isBotRoomMode && document.getElementById('view-bot-room')?.classList.contains('active');
 
@@ -658,7 +672,6 @@ function renderInfiniteBoard() {
         infCanvasH = infCanvas.height;
     } else if (infCanvasW === 0 || infCanvasH === 0) {
         // Đảm bảo canvas có kích thước hợp lệ — trường hợp bố cục CSS chưa kịp áp dụng
-        console.warn('[DEBUG-BOARD] renderInfiniteBoard: canvas size is 0, attempting resize');
         const container = infCanvas.parentElement;
         if (container) {
             const cw = container.clientWidth || container.getBoundingClientRect().width;

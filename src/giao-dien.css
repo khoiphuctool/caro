@@ -2935,53 +2935,52 @@ body.in-game-active #inf-canvas-bot {
 
 /* Mobile battle layout (Bot Room) */
 @media (max-width: 768px) {
-  .battle-layout-desktop {
-    display: flex;
-    flex-direction: column;
+  /* Chat panel smaller on mobile */
+  .battle-chat-overlay {
+    max-width: 280px;
+    max-height: 300px;
+    bottom: 70px;
+  }
+  
+  .battle-chat-messages {
+    max-height: 150px;
+  }
+  
+  /* Room info smaller on mobile */
+  .battle-room-info-overlay {
+    max-width: 240px;
+    bottom: 70px;
+  }
+  
+  /* Player overlays smaller on mobile */
+  .battle-player-overlay-left,
+  .battle-player-overlay-right {
+    max-width: 240px;
     padding: 8px;
+  }
+  
+  .battle-avatar-circle {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+  }
+  
+  .battle-player-name {
+    font-size: 12px;
+  }
+  
+  .battle-player-stats {
+    font-size: 10px;
+  }
+  
+  /* Bottom bar buttons smaller on mobile */
+  .battle-bottom-bar {
+    padding: 8px 12px;
     gap: 8px;
-    height: auto;
-    min-height: calc(100vh - 80px);
   }
   
-  /* Bot card lên đầu */
-  .battle-right {
-    order: -1;
-    max-height: none;
-    overflow-y: visible;
-  }
-  
-  /* Player card xuống dưới bàn cờ */
-  .battle-player-card:first-child {
-    order: 2;
-  }
-  
-  /* Bàn cờ ở giữa */
-  .battle-center {
-    order: 1;
-    flex: 1;
-    min-height: 0;
-  }
-  
-  .battle-center #unified-board-slot {
-    height: min(85vw, 55vh);
-    min-height: 220px;
-  }
-  
-  /* Ẩn chat trên mobile */
-  .battle-chat {
-    display: none !important;
-  }
-  
-  /* Nút thoát battle hiển thị rõ hơn */
-  #btn-leave-battle {
-    padding: 12px;
-    font-size: 14px;
-  }
-  
-  /* Battle room info gọn hơn */
-  .battle-room-info-card {
-    font-size: 11px;
-    padding: 8px;
+  .battle-control-btn {
+    padding: 8px 16px;
+    font-size: 12px;
   }
 }

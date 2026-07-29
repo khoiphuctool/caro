@@ -56,8 +56,8 @@ const BotTiaChop = {
         const s = this.make2D(rows, cols, 0);   // điểm tấn công (bot)
         const q = this.make2D(rows, cols, 0);   // điểm phòng thủ (người)
 
-        const maxS = this.evaluatePos(s, machSq, board, rows, cols, winCount);
-        const maxQ = this.evaluatePos(q, userSq, board, rows, cols, winCount);
+        const maxS = this.evaluatePos(s, machSq, board, rows, cols, winCount, minR, minC);
+        const maxQ = this.evaluatePos(q, userSq, board, rows, cols, winCount, minR, minC);
 
         // Log top 15 ô điểm cao nhất
         console.log('[BotTiaChop][evaluatePos] - timestamp:', performance.now());
@@ -198,9 +198,9 @@ const BotTiaChop = {
     },
 
     // ================================================================
-    // WINNING POS — giữ nguyên logic gốc, dùng bound check hợp lệ
+    // WINNING POS — dùng Rule Engine để kiểm tra thắng theo luật game
     // ================================================================
-    winningPos(i, j, mySq, board, rows, cols, winCount) {
+    winningPos(i, j, mySq, board, rows, cols, winCount, minR, minC) {
         const limit = winCount;
         const F = (r, c) => this.f(board, rows, cols, r, c);
         let test3 = 0, test4 = 0;
@@ -210,7 +210,16 @@ const BotTiaChop = {
         L = 1;
         m = 1; while (j + m < cols && F(i, j + m) === mySq) { L++; m++; } m1 = m;
         m = 1; while (j - m >= 0   && F(i, j - m) === mySq) { L++; m++; } m2 = m;
-        if (L > limit - 1) return this.config.winningMove;
+        
+        // Use Rule Engine for win detection - CRITICAL: only return winningMove if Rule Engine confirms
+        if (L >= limit) {
+            if (this.checkWinWithRuleEngine(i, j, mySq, board, rows, cols, winCount, minR, minC)) {
+                return this.config.winningMove;
+            }
+            // If blocked by Rule Engine, DO NOT count as winning move, continue evaluation
+            // Also heavily penalize this position in the score calculation below
+        }
+        
         side1 = (j + m1 < cols && F(i, j + m1) === 0);
         side2 = (j - m2 >= 0   && F(i, j - m2) === 0);
         if (L === limit - 1 && (side1 || side2)) test3++;
@@ -223,7 +232,14 @@ const BotTiaChop = {
         L = 1;
         m = 1; while (i + m < rows && F(i + m, j) === mySq) { L++; m++; } m1 = m;
         m = 1; while (i - m >= 0   && F(i - m, j) === mySq) { L++; m++; } m2 = m;
-        if (L > limit - 1) return this.config.winningMove;
+        
+        // Use Rule Engine for win detection
+        if (L >= limit) {
+            if (this.checkWinWithRuleEngine(i, j, mySq, board, rows, cols, winCount, minR, minC)) {
+                return this.config.winningMove;
+            }
+        }
+        
         side1 = (i + m1 < rows && F(i + m1, j) === 0);
         side2 = (i - m2 >= 0   && F(i - m2, j) === 0);
         if (L === limit - 1 && (side1 || side2)) test3++;
@@ -236,7 +252,14 @@ const BotTiaChop = {
         L = 1;
         m = 1; while (i + m < rows && j + m < cols && F(i + m, j + m) === mySq) { L++; m++; } m1 = m;
         m = 1; while (i - m >= 0   && j - m >= 0   && F(i - m, j - m) === mySq) { L++; m++; } m2 = m;
-        if (L > limit - 1) return this.config.winningMove;
+        
+        // Use Rule Engine for win detection
+        if (L >= limit) {
+            if (this.checkWinWithRuleEngine(i, j, mySq, board, rows, cols, winCount, minR, minC)) {
+                return this.config.winningMove;
+            }
+        }
+        
         side1 = (i + m1 < rows && j + m1 < cols && F(i + m1, j + m1) === 0);
         side2 = (i - m2 >= 0   && j - m2 >= 0   && F(i - m2, j - m2) === 0);
         if (L === limit - 1 && (side1 || side2)) test3++;
@@ -249,7 +272,14 @@ const BotTiaChop = {
         L = 1;
         m = 1; while (i + m < rows && j - m >= 0   && F(i + m, j - m) === mySq) { L++; m++; } m1 = m;
         m = 1; while (i - m >= 0   && j + m < cols && F(i - m, j + m) === mySq) { L++; m++; } m2 = m;
-        if (L > limit - 1) return this.config.winningMove;
+        
+        // Use Rule Engine for win detection
+        if (L >= limit) {
+            if (this.checkWinWithRuleEngine(i, j, mySq, board, rows, cols, winCount, minR, minC)) {
+                return this.config.winningMove;
+            }
+        }
+        
         side1 = (i + m1 < rows && j - m1 >= 0   && F(i + m1, j - m1) === 0);
         side2 = (i - m2 >= 0   && j + m2 < cols && F(i - m2, j + m2) === 0);
         if (L === limit - 1 && (side1 || side2)) test3++;
@@ -264,9 +294,77 @@ const BotTiaChop = {
     },
 
     // ================================================================
+    // CHECK WIN WITH RULE ENGINE — sử dụng checkWinSilent từ game engine
+    // ================================================================
+    checkWinWithRuleEngine(i, j, mySq, board, rows, cols, winCount, minR, minC) {
+        // Convert local coordinates to absolute coordinates
+        const absR = minR + i;
+        const absC = minC + j;
+        
+        // Convert mySq (-1/1) to player string ('O'/'X')
+        const playerStr = mySq === 1 ? 'X' : 'O';
+        
+        // Temporarily place the piece on the actual board
+        const originalValue = GameState.board.infiniteMap.get(`${absR},${absC}`);
+        GameState.board.infiniteMap.set(`${absR},${absC}`, playerStr);
+        
+        // Use Rule Engine to check win
+        let isWin = false;
+        if (typeof checkWinSilent === 'function') {
+            isWin = checkWinSilent(absR, absC);
+        } else {
+            // Fallback to simple count-based check if Rule Engine not available
+            isWin = this.simpleWinCheck(i, j, mySq, board, rows, cols, winCount);
+        }
+        
+        // Restore original value
+        if (originalValue !== undefined) {
+            GameState.board.infiniteMap.set(`${absR},${absC}`, originalValue);
+        } else {
+            GameState.board.infiniteMap.delete(`${absR},${absC}`);
+        }
+        
+        return isWin;
+    },
+
+    // ================================================================
+    // SIMPLE WIN CHECK — fallback khi Rule Engine không available
+    // ================================================================
+    simpleWinCheck(i, j, mySq, board, rows, cols, winCount) {
+        const limit = winCount;
+        const F = (r, c) => this.f(board, rows, cols, r, c);
+        
+        // Check all 4 directions
+        const directions = [
+            { dr: 0, dc: 1 },  // Horizontal
+            { dr: 1, dc: 0 },  // Vertical
+            { dr: 1, dc: 1 },  // Diagonal \
+            { dr: 1, dc: -1 }  // Diagonal /
+        ];
+        
+        for (const { dr, dc } of directions) {
+            let count = 1;
+            let m = 1;
+            while (i + dr * m < rows && j + dc * m < cols && j + dc * m >= 0 && 
+                   F(i + dr * m, j + dc * m) === mySq) {
+                count++;
+                m++;
+            }
+            m = 1;
+            while (i - dr * m >= 0 && j - dc * m >= 0 && j - dc * m < cols && 
+                   F(i - dr * m, j - dc * m) === mySq) {
+                count++;
+                m++;
+            }
+            if (count >= limit) return true;
+        }
+        return false;
+    },
+
+    // ================================================================
     // EVALUATE POS — giữ nguyên logic gốc, có bound check đầy đủ
     // ================================================================
-    evaluatePos(a, mySq, board, rows, cols, winCount) {
+    evaluatePos(a, mySq, board, rows, cols, winCount, minR, minC) {
         const limit = winCount;
         const w = this.config.weights;
         const F = (r, c) => this.f(board, rows, cols, r, c);
@@ -279,7 +377,7 @@ const BotTiaChop = {
                 if (board[i][j] !== 0) { a[i][j] = -1; continue; }
                 if (!this.hasNeighbors(i, j, board, rows, cols)) { a[i][j] = -1; continue; }
 
-                const wp = this.winningPos(i, j, mySq, board, rows, cols, winCount);
+                const wp = this.winningPos(i, j, mySq, board, rows, cols, winCount, minR, minC);
                 if (wp > 0) {
                     a[i][j] = wp;
                 } else {
@@ -362,7 +460,33 @@ const BotTiaChop = {
         console.log('maxQ=' + maxQ);
         console.log('mode=' + mode);
 
-        if (maxQ >= maxS) {
+        // CRITICAL: Always prioritize winning moves (winningMove score) over defense
+        // Check if there's a winning move in attack array
+        const winningMoveScore = this.config.winningMove;
+        let hasWinningMove = false;
+        for (let i = 0; i < rows; i++) {
+            for (let j = 0; j < cols; j++) {
+                if (s[i][j] === winningMoveScore) {
+                    hasWinningMove = true;
+                    break;
+                }
+            }
+            if (hasWinningMove) break;
+        }
+        
+        if (hasWinningMove) {
+            console.log('[BotTiaChop] Found winning move, prioritizing attack');
+            // Force attack mode when winning move exists
+            let bestSec = -1;
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    if (s[i][j] === winningMoveScore) {
+                        if (q[i][j] > bestSec) { bestSec = q[i][j]; nMax = 0; }
+                        if (q[i][j] === bestSec) { iMax[nMax] = i; jMax[nMax] = j; nMax++; }
+                    }
+                }
+            }
+        } else if (maxQ >= maxS) {
             // Phòng thủ quan trọng hơn: chọn ô có q === maxQ, tiebreak bằng s
             let bestSec = -1;
             for (let i = 0; i < rows; i++) {
