@@ -1620,91 +1620,6 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
   border-color: rgba(59, 130, 246, 0.9) transparent transparent transparent;
 }
 
-/* Game Result Popup Overlay (Center) */
-.bot-result-overlay {
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: auto;
-}
-
-.bot-result-box {
-  background: #fff;
-  border-radius: 20px;
-  padding: 32px;
-  text-align: center;
-  max-width: 400px;
-  width: 90%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-  animation: botResultPopup 0.3s ease-out;
-}
-
-@keyframes botResultPopup {
-  from {
-    opacity: 0;
-    transform: scale(0.9) translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-.bot-result-emoji {
-  font-size: 64px;
-  margin-bottom: 16px;
-}
-
-.bot-result-title {
-  font-size: 24px;
-  font-weight: 900;
-  color: #0f172a;
-  margin-bottom: 8px;
-}
-
-.bot-result-subtitle {
-  font-size: 14px;
-  color: #64748b;
-  margin-bottom: 24px;
-}
-
-.bot-result-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.bot-result-btn {
-  padding: 12px 24px;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  border: none;
-  transition: all var(--transition);
-}
-
-.bot-result-replay {
-  background: #10b981;
-  color: #fff;
-}
-
-.bot-result-replay:hover {
-  background: #059669;
-}
-
-.bot-result-exit {
-  background: #ef4444;
-  color: #fff;
-}
-
-.bot-result-exit:hover {
-  background: #dc2626;
-}
 
 /* Bottom Control Bar */
 .bot-bottom-bar {
@@ -1832,22 +1747,6 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
     font-size: 11px;
   }
 
-  .bot-result-box {
-    padding: 24px;
-  }
-
-  .bot-result-emoji {
-    font-size: 48px;
-  }
-
-  .bot-result-title {
-    font-size: 20px;
-  }
-
-  .bot-result-btn {
-    padding: 10px 20px;
-    font-size: 13px;
-  }
 }
 
 /* Chat Bubble Animations */
@@ -2503,11 +2402,6 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
         <div class="shared-board-container" id="shared-board-online">
             <canvas id="inf-canvas-online" class="shared-board-canvas"></canvas>
             <div class="board-coords-display" id="board-coords-online">X: 0, Y: 0</div>
-            <div class="board-controls-overlay">
-                <button class="board-control-btn" onclick="if(typeof undoOnlineMove === 'function') undoOnlineMove();" title="Undo Last Move">↩️</button>
-                <button class="board-control-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(1);" title="Zoom In">+</button>
-                <button class="board-control-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(-1);" title="Zoom Out">−</button>
-            </div>
         </div>
         <!-- Legacy board fallback -->
         <div id="inf-resizable" style="display:none;position:relative;user-select:none;"></div>
@@ -2609,9 +2503,6 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
             <canvas id="inf-canvas-bot" class="shared-board-canvas"></canvas>
             <div class="board-coords-display" id="board-coords-bot">X: 0, Y: 0</div>
         </div>
-        <!-- Legacy fallback -->
-        <div id="inf-resizable-bot" style="display:none;position:relative;user-select:none;"></div>
-        <div class="board" id="board-bot" style="display:none;"></div>
     </div>
 
     <!-- Overlay: Player Info (Top Left) -->
@@ -2653,19 +2544,6 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
     <!-- Overlay: Chat Bot Bubble (Floating) -->
     <div class="bot-overlay bot-chat-overlay" id="bot-chat-bubble">
         <div class="bot-chat-content" id="bot-chat-message">💬 "Chào bạn! Sẵn sàng thua chưa?"</div>
-    </div>
-
-    <!-- Overlay: Game Result Popup (Center) -->
-    <div class="bot-overlay bot-result-overlay" id="bot-result-popup" style="display:none;">
-        <div class="bot-result-box">
-            <div class="bot-result-emoji" id="bot-result-emoji">🏆</div>
-            <div class="bot-result-title" id="bot-result-title">Bạn thắng!</div>
-            <div class="bot-result-subtitle" id="bot-result-subtitle"></div>
-            <div class="bot-result-actions">
-                <button class="bot-result-btn bot-result-replay" onclick="if(typeof BotRoomManager !== 'undefined') BotRoomManager.replayBotBattle();">🔄 Chơi lại</button>
-                <button class="bot-result-btn bot-result-exit" onclick="if(typeof BotRoomManager !== 'undefined') BotRoomManager.exitBotRoom();">🚪 Thoát</button>
-            </div>
-        </div>
     </div>
 
     <!-- Bottom Control Bar -->
@@ -2715,13 +2593,15 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
      ================================================================ -->
 <div id="win-overlay">
     <div class="win-box">
+        <button type="button" class="win-close" onclick="closeWinOverlay()" aria-label="Đóng">×</button>
         <span class="win-emoji" id="win-emoji">🏆</span>
         <div class="win-title"    id="win-title">CHIẾN THẮNG!</div>
         <div class="win-subtitle" id="win-subtitle"></div>
-        <div style="display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+        <div class="win-actions" id="win-actions">
             <button class="btn-play-again" onclick="reviewGame()" id="btn-review"
                 style="background:linear-gradient(135deg,#475569,#1e293b);">🔍 XEM LẠI</button>
-            <button class="btn-play-again" onclick="closeWinAndRestart()">🔄 ĐẤU LẠI</button>
+            <button class="btn-play-again" onclick="closeWinAndRestart()" id="btn-restart">🔄 ĐẤU LẠI</button>
+            <button class="btn-play-again btn-exit-room" onclick="exitRoomFromWinOverlay()" id="btn-exit-room" style="display:none;background:linear-gradient(135deg,#ef4444,#b91c1c);">🚪 Thoát phòng</button>
         </div>
     </div>
 </div>

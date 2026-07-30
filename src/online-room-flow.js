@@ -7,9 +7,18 @@
       playerX_id: '',
       playerX_name: '',
       playerX_status: 'offline',
+      playerX_avatar: '',
+      playerX_skin: 'skin_default',
+      playerX_lastPing: null,
       playerO_id: '',
       playerO_name: '',
       playerO_status: 'offline',
+      playerO_avatar: '',
+      playerO_skin: 'skin_default',
+      playerO_lastPing: null,
+      guestReady: false,
+      playerXConfirmed: null,
+      playerOConfirmed: null,
       turn: 'X',
       winCount: 5,
       chan2Dau: true,
@@ -96,29 +105,47 @@
         nextRoom.playerX_id = safeRoom.playerO_id;
         nextRoom.playerX_name = safeRoom.playerO_name;
         nextRoom.playerX_status = safeRoom.playerO_status || 'offline';
+        nextRoom.playerX_avatar = safeRoom.playerO_avatar || '';
+        nextRoom.playerX_skin = safeRoom.playerO_skin || 'skin_default';
+        nextRoom.playerX_lastPing = safeRoom.playerO_lastPing || null;
         nextRoom.playerO_id = '';
         nextRoom.playerO_name = '';
         nextRoom.playerO_status = 'offline';
+        nextRoom.playerO_avatar = '';
+        nextRoom.playerO_skin = 'skin_default';
+        nextRoom.playerO_lastPing = null;
         nextRoom.status = 'waiting';
       } else {
         nextRoom.playerX_id = '';
         nextRoom.playerX_name = '';
         nextRoom.playerX_status = 'offline';
+        nextRoom.playerX_avatar = '';
+        nextRoom.playerX_skin = 'skin_default';
+        nextRoom.playerX_lastPing = null;
         nextRoom.playerO_id = '';
         nextRoom.playerO_name = '';
         nextRoom.playerO_status = 'offline';
+        nextRoom.playerO_avatar = '';
+        nextRoom.playerO_skin = 'skin_default';
+        nextRoom.playerO_lastPing = null;
         nextRoom.status = 'empty';
       }
     } else if (role === 'O' && myId === safeRoom.playerO_id) {
       nextRoom.playerO_id = '';
       nextRoom.playerO_name = '';
       nextRoom.playerO_status = 'offline';
+      nextRoom.playerO_avatar = '';
+      nextRoom.playerO_skin = 'skin_default';
+      nextRoom.playerO_lastPing = null;
       nextRoom.status = 'waiting';
     }
     nextRoom.winner = '';
     nextRoom.endReason = '';
     nextRoom.moves = { init: true };
     nextRoom.lastMove = { row: -1, col: -1, by: '' };
+    nextRoom.guestReady = false;
+    nextRoom.playerXConfirmed = null;
+    nextRoom.playerOConfirmed = null;
     nextRoom.updatedAt = Date.now();
     return nextRoom;
   }

@@ -28,6 +28,29 @@ let daXoaBanCoTranNay = false;
 let currentUsername = null;
 let currentUserData = null;
 let welcomeNotificationShown = false;
+let _pendingOnDisconnects = {};
+let _connectedListeners = {};
+
+function _cancelPendingOnDisconnects() {
+    Object.values(_pendingOnDisconnects).forEach(disconnectAction => {
+        if (disconnectAction && typeof disconnectAction.cancel === 'function') {
+            try { disconnectAction.cancel(); } catch (e) { console.warn('[Firebase] cancel onDisconnect failed', e); }
+        }
+    });
+    _pendingOnDisconnects = {};
+}
+
+function _clearConnectedListeners() {
+    Object.entries(_connectedListeners).forEach(([rid, listener]) => {
+        if (listener) {
+            try { db.ref('.info/connected').off('value', listener); } catch (e) {
+                console.warn('[Firebase] clear connected listener failed', rid, e);
+            }
+        }
+    });
+    _connectedListeners = {};
+    connectedListener = null;
+}
 // ── Bind UI buttons ngay khi DOM ready — không chờ Firebase ──
 // Đảm bảo nút Đăng Nhập / Solo Online luôn hoạt động kể cả khi Firebase SDK chậm load
 document.addEventListener('DOMContentLoaded', function() {
@@ -102,7 +125,6 @@ let leaderboardListener = null;
 let historyListener     = null;
 let connectedListener   = null;
 // Map lưu connected listeners theo roomId để tránh overwrite
-const _connectedListeners = {};
 let userDataListener    = null;  // fetchUserData listener
 let userDataUserId      = null;
 // Tọa độ nước cuối cục bộ (tránh vẽ lặp)
@@ -286,16 +308,13 @@ function renderRoomListImmediate() {
         return;
     }
 
-    console.log('[DEBUG] renderRoomListImmediate - Current tab:', currentRoomTab);
     
     // Fetch current rooms data from Firebase
     db.ref('rooms').once('value').then(snap => {
         const rooms = snap.val();
-        console.log('[DEBUG] renderRoomListImmediate - Rooms data:', rooms);
         container.innerHTML = '';
         // Render rooms based on current tab
         if (currentRoomTab === 'normal') {
-            console.log('[DEBUG] Rendering normal rooms 1-', TOTAL_NORMAL_ROOMS);
             for (let i = 1; i <= TOTAL_NORMAL_ROOMS; i++) {
                 const roomId = `phong_${i}`;
                 const room   = (rooms && rooms[roomId]) || taoDataPhongRong(i, false);
@@ -304,11 +323,9 @@ function renderRoomListImmediate() {
             }
         } else {
             // VIP tab
-            console.log('[DEBUG] Rendering VIP rooms 1-', TOTAL_VIP_ROOMS, 'as phong_21-40');
             for (let i = 1; i <= TOTAL_VIP_ROOMS; i++) {
                 const roomNum = TOTAL_NORMAL_ROOMS + i;
                 const roomId = `phong_${roomNum}`;
-                console.log('[DEBUG] Checking VIP room:', roomId, 'Data:', rooms ? rooms[roomId] : 'null');
                 const room   = (rooms && rooms[roomId]) || taoDataPhongRong(roomNum, true);
                 const el = renderRoomCard(room, roomId, 'vip');
                 container.appendChild(el);
@@ -1010,11 +1027,9 @@ function hienDanhSachPhong() {
         // Tab Bot không cần Firebase — BotRoomManager đã xử lý
         if (currentRoomTab === 'bot') return;
         const rooms = snap.val();
-        console.log('[DEBUG] Current tab:', currentRoomTab, 'Rooms data:', rooms);
         container.innerHTML = '';
         // Render rooms based on current tab
         if (currentRoomTab === 'normal') {
-            console.log('[DEBUG] Rendering normal rooms 1-', TOTAL_NORMAL_ROOMS);
             for (let i = 1; i <= TOTAL_NORMAL_ROOMS; i++) {
                 const roomId = `phong_${i}`;
                 const room   = (rooms && rooms[roomId]) || taoDataPhongRong(i, false);
@@ -1023,11 +1038,9 @@ function hienDanhSachPhong() {
             }
         } else {
             // VIP tab
-            console.log('[DEBUG] Rendering VIP rooms 1-', TOTAL_VIP_ROOMS, 'as phong_21-40');
             for (let i = 1; i <= TOTAL_VIP_ROOMS; i++) {
                 const roomNum = TOTAL_NORMAL_ROOMS + i;
                 const roomId = `phong_${roomNum}`;
-                console.log('[DEBUG] Checking VIP room:', roomId, 'Data:', rooms ? rooms[roomId] : 'null');
                 const room   = (rooms && rooms[roomId]) || taoDataPhongRong(roomNum, true);
                 const el = renderRoomCard(room, roomId, 'vip');
                 container.appendChild(el);
@@ -1153,16 +1166,24 @@ function xemPhong(roomId) {
 window.xemPhong = xemPhong;
 // onDisconnect: set offline + cập nhật lastActive để cleanup manager có thể dọn
 function setupOnDisconnect(roomId, role) {
+    if (!roomId || !role || !db) return;
+    _cancelPendingOnDisconnects();
+
     const sf  = role === 'X' ? 'playerX_status' : 'playerO_status';
     const ref = db.ref(`rooms/${roomId}/${sf}`);
-    ref.onDisconnect().set('offline');
-    // Ghi dấu thời gian mất kết nối để Room Cleanup Manager nhận biết phòng bỏ hoang
-    db.ref(`rooms/${roomId}`).onDisconnect().update({ updatedAt: Date.now() });
-    // Hủy listener cũ của roomId này nếu có
+    _pendingOnDisconnects.roomStatus = ref.onDisconnect().set('offline');
+    const roomUpdatedRef = db.ref(`rooms/${roomId}`);
+    _pendingOnDisconnects.roomUpdatedAt = roomUpdatedRef.onDisconnect().update({ updatedAt: Date.now() });
+
+    const myId = localStorage.getItem('current_user_id');
+    if (myId) {
+        const userRoomRef = db.ref(`users/${myId}/currentRoomId`);
+        _pendingOnDisconnects.userCurrentRoomId = userRoomRef.onDisconnect().remove();
+    }
+
     if (_connectedListeners[roomId]) {
         db.ref('.info/connected').off('value', _connectedListeners[roomId]);
     }
-    // Khi reconnect → restore online và cập nhật lastActive
     _connectedListeners[roomId] = db.ref('.info/connected').on('value', snap => {
         if (typeof runtimeGuard !== 'undefined' && runtimeGuard.markCallback) runtimeGuard.markCallback('connected', roomId);
         if (snap.val() === true && currentRoomId === roomId) {
@@ -1170,12 +1191,6 @@ function setupOnDisconnect(roomId, role) {
             db.ref(`rooms/${roomId}`).update({ updatedAt: Date.now() });
         }
     });
-    const myId = localStorage.getItem('current_user_id');
-    // Remove stale currentRoomId if client disconnects unexpectedly
-    if (myId) {
-        db.ref(`users/${myId}/currentRoomId`).onDisconnect().remove();
-    }
-    // Giữ connectedListener trỏ đến listener hiện tại (dùng trong cleanup)
     connectedListener = _connectedListeners[roomId];
 }
 // ══════════════════════════════════════════════════════════════════
@@ -1634,6 +1649,8 @@ function roiKhoiPhong(onDone) {
 }
 function _resetSauThoat(rid) {
     console.log('[Room] Cleanup Start - roomId:', rid);
+    // Cancel any pending disconnect actions for this session first
+    _cancelPendingOnDisconnects();
     // Dọn listener TRƯỚC khi null currentRoomId
     if (roomListener && rid) {
         db.ref(`rooms/${rid}`).off('value', roomListener);
@@ -1642,14 +1659,10 @@ function _resetSauThoat(rid) {
     }
     // BUG 1 FIX: Reset listening room ID
     _currentListeningRoomId = null;
-    // Dọn connected listener theo roomId
-    if (rid && _connectedListeners[rid]) {
-        db.ref('.info/connected').off('value', _connectedListeners[rid]);
-        delete _connectedListeners[rid];
-        connectedListener = null;
-    }
+    // Dọn all connected listeners for room lifecycle
+    _clearConnectedListeners();
     // (Chat phòng đã gộp vào Chat Thế Giới — dọn ở tatChatTheGioi() bên dưới)
-    // BUG 4 FIX: Clean up all other listeners when leaving room
+    // BUG 4 Fix: Clean up all other listeners when leaving room
     if (onlineUsersListener) {
         db.ref('online_users').off('value', onlineUsersListener);
         onlineUsersListener = null;
@@ -2715,6 +2728,45 @@ function langNgheThayDoiPhong(roomId) {
         }
     });
 }
+function _resetOnlineRoomSlotUI(role) {
+    const upper = role.toUpperCase();
+    const lower = role.toLowerCase();
+    const defaultLetter = upper;
+
+    const battleAv = document.getElementById(`battle-avatar-${lower}`);
+    if (battleAv) { battleAv.textContent = defaultLetter; battleAv.style.fontSize = '18px'; }
+
+    const battleName = document.getElementById(`battle-name-${lower}`);
+    if (battleName) battleName.textContent = upper === 'X' ? 'Người chơi X' : 'Người chơi O';
+
+    const battleStats = document.getElementById(`battle-stats-${lower}`);
+    if (battleStats) battleStats.textContent = '';
+
+    const roomAv = document.getElementById(`room-avatar-${lower}`);
+    if (roomAv) { roomAv.textContent = defaultLetter; roomAv.style.fontSize = ''; }
+
+    const slotAv = document.querySelector(`#slot-player${upper} .avatar-circle`);
+    if (slotAv) { slotAv.textContent = defaultLetter; slotAv.style.fontSize = ''; }
+
+    const pcAv = document.querySelector(`#panel-player${upper} .pc-avatar`);
+    if (pcAv) { pcAv.textContent = defaultLetter; pcAv.style.fontSize = ''; }
+
+    const skinPreviewEl = document.getElementById(`skin-preview-${lower}`);
+    if (skinPreviewEl) {
+        skinPreviewEl.textContent = defaultLetter;
+        skinPreviewEl.title = upper === 'X' ? 'X' : 'O';
+    }
+
+    const viewName = document.getElementById(`view-name-${upper}`);
+    if (viewName) viewName.innerText = upper === 'X' ? 'Người chơi X' : 'Đối thủ';
+
+    const nameEl = document.getElementById(`name-p${upper}`);
+    if (nameEl) nameEl.innerText = upper === 'X' ? 'Đang chờ...' : 'Chờ đối thủ...';
+
+    const statusEl = document.getElementById(`status-p${upper}`);
+    if (statusEl) statusEl.innerText = upper === 'X' ? 'Offline' : 'Trống ghế';
+}
+
 function capNhatUIPhong(room) {
     const txtTitle = document.getElementById('txt-room-title');
     const namePX   = document.getElementById('name-pX');
@@ -2762,6 +2814,9 @@ function capNhatUIPhong(room) {
     const ledO = document.getElementById('led-pO');
     if (ledX) ledX.style.background = room.playerX_status === 'online' ? '#28a745' : '#dc3545';
     if (ledO) ledO.style.background = coDoiThu && room.playerO_status === 'online' ? '#28a745' : '#aaa';
+
+    if (!room.playerX_id) _resetOnlineRoomSlotUI('X');
+    if (!room.playerO_id) _resetOnlineRoomSlotUI('O');
     // Panel luật — chỉ X thấy khi waiting
     const rulesPanel = document.getElementById('room-rules-panel');
     if (rulesPanel) {
@@ -2853,18 +2908,13 @@ function capNhatUIPhongOnline(room) {
     
     // YC.TXT FIX: Reset avatar về mặc định khi ghế trống
     if (!room.playerX_id) {
-        const slotXAv = document.querySelector('#slot-playerX .avatar-circle');
-        if (slotXAv) { slotXAv.textContent = 'X'; slotXAv.style.fontSize = ''; }
-        const pcXAv = document.querySelector('#panel-playerX .pc-avatar');
-        if (pcXAv) { pcXAv.textContent = 'X'; pcXAv.style.fontSize = ''; }
+        _resetOnlineRoomSlotUI('X');
     }
     if (!room.playerO_id) {
-        const slotOAv = document.querySelector('#slot-playerO .avatar-circle');
-        if (slotOAv) { slotOAv.textContent = 'O'; slotOAv.style.fontSize = ''; }
-        const pcOAv = document.querySelector('#panel-playerO .pc-avatar');
-        if (pcOAv) { pcOAv.textContent = 'O'; pcOAv.style.fontSize = ''; }
+        _resetOnlineRoomSlotUI('O');
     }
 }
+
 function loadPlayerInfo(userId, role) {
     // Load user data và room data song song để tối ưu tốc độ
     const userPromise = db.ref('users/' + userId).once('value');
@@ -3127,7 +3177,13 @@ function xuLyKetThucVan(room) {
                 // If not running, this will resolve immediately (no animation started)
                 await playCoinBurstAsync(0, '');
             }
-            hienUIVanMoi(msg);
+            const old = document.getElementById('van-moi-overlay');
+            if (old) old.remove();
+            if (typeof showWinOverlay === 'function') {
+                showWinOverlay(room.winner, false, '', '');
+            } else {
+                hienUIVanMoi(msg);
+            }
         })();
     }
     // Guard chống ghi rank trùng — dùng endedAt (chỉ set 1 lần khi ván kết thúc)
@@ -3137,14 +3193,21 @@ function xuLyKetThucVan(room) {
     const winnerId  = room.winner === 'X' ? room.playerX_id : room.playerO_id;
     const loserId   = room.winner === 'X' ? room.playerO_id : room.playerX_id;
     const myId      = localStorage.getItem('current_user_id');
+    const betAmount = room.betAmount || 0;
+    const minBetCheck = room.isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
+    const hasBet = betAmount && betAmount >= minBetCheck;
     // Thắng thực sự = không có endReason "bỏ cuộc" (tức là thắng bằng nước cờ)
     const thangThucSu = !endReason.includes('bỏ cuộc');
+
+    // Bet settlement UI for loser client
+    if (myId === loserId && hasBet && typeof playCoinBurst === 'function') {
+        setTimeout(() => {
+            playCoinBurst(-betAmount, 'Thua cược -Xu 😔');
+        }, 500);
+    }
+
     // Chỉ người thắng ghi rank — ưu tiên người thắng ghi để tránh trùng
     if (myId === winnerId) {
-        // Kiểm tra có cược không
-        const minBetCheck = room.isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
-        const hasBet = room.betAmount && room.betAmount >= minBetCheck;
-        
         // Chỉ +winSolo khi thắng bằng nước cờ thực sự
         if (thangThucSu) {
             db.ref(`users/${winnerId}/winSolo`).transaction(c => (c || 0) + 1);
@@ -3175,9 +3238,7 @@ function xuLyKetThucVan(room) {
         }
     }
     // Xử lý cược: chỉ gọi từ winner và chỉ khi có cược
-    // Loser sẽ nhận xu popup qua transaction của winner
-    const minBetCheck = room.isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
-    const hasBet = room.betAmount && room.betAmount >= minBetCheck;
+    // Loser sẽ nhận xu popup qua local end-state UI
     if (myId === winnerId && hasBet && typeof ketThucCuoc === 'function') {
         ketThucCuoc(currentRoomId, room.winner, false);
     }
@@ -3259,6 +3320,8 @@ function batDauVanMoi() {
     daXoaBanCoTranNay = false;
     locallyAppliedLastMove = { row: -2, col: -2 };
     _lastProcessedWinner = '';
+    window._suppressOnlineWinOverlay = false;
+    window._suppressOnlineWinOverlayRoom = null;
     const old = document.getElementById('van-moi-overlay');
     if (old) old.remove();
     const btnBack = document.getElementById('btn-back-to-result');

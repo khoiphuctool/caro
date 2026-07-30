@@ -2404,7 +2404,7 @@ function getBotMove() {
         let eThree = 0;
         for (const { dr, dc } of DIRECTIONS) {
             const { count, blockedBoth } = countLineAndBlocked(r, c, dr, dc, hp);
-            if (count === winCount - 2 && !(blockBothEnds && blockedBoth)) eThree++;
+            if (count === winCount - 2 && !blockedBoth) eThree++;
         }
         setCell(r, c, '');
         if (eThree >= 2) {

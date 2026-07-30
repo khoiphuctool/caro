@@ -415,9 +415,6 @@ const BotRoomManager = {
     replayBotBattle: function() {
         if (!this.currentBotRoom) return;
 
-        // Hide result popup if visible
-        this.hideBotResultPopup();
-
         // Xóa state restore khi chơi lại để tránh dùng state cũ
         localStorage.removeItem('bot_room_mode');
         localStorage.removeItem('bot_room_config');
@@ -465,15 +462,20 @@ const BotRoomManager = {
             window.onWinBotXu(gameMode);
         }
 
-        // Show new result popup
         if (winner === 'X') {
-            this.showBotResultPopup('win');
+            if (typeof showWinOverlay === 'function') {
+                showWinOverlay('X', false, '', '🏆');
+            }
             this.showBotSpeech('Bạn thắng rồi! Đáng nể đấy! Thử ván nữa không?');
         } else if (winner === 'O') {
-            this.showBotResultPopup('lose');
+            if (typeof showWinOverlay === 'function') {
+                showWinOverlay('O', true, '', '💀');
+            }
             this.showBotSpeech('Tôi đã bảo rồi! Còn lâu mới thắng được tôi! 😈');
         } else {
-            this.showBotResultPopup('draw');
+            if (typeof showWinOverlay === 'function') {
+                showWinOverlay('draw', false, 'Trận đấu hòa! Lần sau sẽ thắng được đâu!', '🤝');
+            }
             this.showBotSpeech('Hòa! Lần sau sẽ thắng được đâu!');
         }
     },
@@ -556,44 +558,14 @@ const BotRoomManager = {
                 isGameActive = false;
             }
 
-            // Show result popup
-            this.showBotResultPopup('lose');
+            // Show shared win overlay for bot victory
+            if (typeof showWinOverlay === 'function') {
+                showWinOverlay('O', true, 'Bạn đã đầu hàng. Bot thắng ván này!', '😈');
+            }
 
             // Update bot chat
             this.showBotSpeech('Bạn đã đầu hàng! Tôi thắng rồi! 😈');
         }
-    },
-
-    // ══ Show BOT result popup (YC.TXT) ═════════════════════════════════
-    showBotResultPopup: function(result) {
-        const popup = document.getElementById('bot-result-popup');
-        if (!popup) return;
-
-        const emoji = document.getElementById('bot-result-emoji');
-        const title = document.getElementById('bot-result-title');
-        const subtitle = document.getElementById('bot-result-subtitle');
-
-        if (result === 'win') {
-            if (emoji) emoji.textContent = '🏆';
-            if (title) title.textContent = 'Bạn thắng!';
-            if (subtitle) subtitle.textContent = 'Chúc mừng! Bạn đã đánh bại bot.';
-        } else if (result === 'lose') {
-            if (emoji) emoji.textContent = '😢';
-            if (title) title.textContent = 'Bạn thua!';
-            if (subtitle) subtitle.textContent = 'Bot đã chiến thắng. Thử lại nhé!';
-        } else if (result === 'draw') {
-            if (emoji) emoji.textContent = '🤝';
-            if (title) title.textContent = 'Hòa!';
-            if (subtitle) subtitle.textContent = 'Trận đấu kết thúc hòa.';
-        }
-
-        popup.style.display = 'flex';
-    },
-
-    // ══ Hide BOT result popup ══════════════════════════════════════════
-    hideBotResultPopup: function() {
-        const popup = document.getElementById('bot-result-popup');
-        if (popup) popup.style.display = 'none';
     },
 
     // ══ Thoát phòng bot (YC.TXT - Updated for new view) ═════════════════════
@@ -627,9 +599,6 @@ const BotRoomManager = {
         localStorage.removeItem('game_mode_context');
         localStorage.removeItem('current_room_id');
         sessionStorage.removeItem('bot_session');
-
-        // Hide result popup if visible
-        this.hideBotResultPopup();
 
         // Xóa currentRoomId khỏi Firebase khi thoát bot room
         const myId = localStorage.getItem('current_user_id');

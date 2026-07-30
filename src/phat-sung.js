@@ -92,30 +92,95 @@ function stopConfetti() {
 
 // ===== WIN OVERLAY =====
 function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
+    const oldVanMoi = document.getElementById('van-moi-overlay');
+    if (oldVanMoi) oldVanMoi.remove();
+    const btnBackToResult = document.getElementById('btn-back-to-result');
+    if (btnBackToResult) btnBackToResult.remove();
+
     const overlay = document.getElementById('win-overlay');
     const emojiEl = document.getElementById('win-emoji');
     const titleEl = document.getElementById('win-title');
     const subEl   = document.getElementById('win-subtitle');
     const btnReview = document.getElementById('btn-review');
-    const btnRestart = overlay.querySelector('.btn-play-again:not(#btn-review)');
+    const btnRestart = document.getElementById('btn-restart');
+    const btnExitRoom = document.getElementById('btn-exit-room');
 
-    if (gameMode === 'solo') {
-        emojiEl.textContent = '🏆';
-        titleEl.textContent = `NGƯỜI ${winner} CHIẾN THẮNG!`;
-        titleEl.style.color = winner === 'X' ? '#2563eb' : '#dc2626';
-        subEl.textContent   = `Người ${winner} đã giành chiến thắng ván này.`;
-        startConfetti();
-        // Solo: chỉ hiện nút Xem lại, ẩn nút Đấu lại
-        if (btnReview) btnReview.style.display = 'inline-block';
-        if (btnRestart) btnRestart.style.display = 'none';
+    const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
+    if (isOnline && window._suppressOnlineWinOverlay && window._suppressOnlineWinOverlayRoom === (window.currentRoomId || currentRoomId)) {
+        return;
+    }
+    const isDraw = winner === 'draw' || winner === 'tie';
+    const localRole = isOnline ? window.myOnlineRole : null;
+    const localWon = isDraw ? false : (isOnline
+        ? !!localRole && winner === localRole
+        : (gameMode === 'solo' ? true : (isBotWin ? winner !== humanPiece : winner === humanPiece)));
+
+    overlay.classList.toggle('winner', localWon);
+    overlay.classList.toggle('loser', !localWon && !isDraw);
+    overlay.classList.toggle('draw', isDraw);
+
+    if (btnReview) {
+        btnReview.style.display = 'inline-block';
+        btnReview.textContent = 'XEM LẠI';
+        btnReview.onclick = reviewGame;
+    }
+    if (btnRestart) {
+        btnRestart.style.display = 'inline-block';
+        btnRestart.textContent = 'ĐẤU LẠI';
+        btnRestart.onclick = closeWinAndRestart;
+    }
+    if (btnExitRoom) btnExitRoom.style.display = window.isBotRoomMode ? 'inline-block' : 'none';
+
+    if (isOnline) {
+        if (btnReview) {
+            btnReview.textContent = 'Quay về phòng';
+            btnReview.onclick = returnToRoomFromWinOverlay;
+        }
+        if (btnRestart) {
+            btnRestart.textContent = 'Thoát phòng';
+            btnRestart.onclick = exitRoomFromWinOverlay;
+        }
+        if (btnExitRoom) {
+            btnExitRoom.style.display = 'none';
+        }
+    }
+
+    if (isDraw) {
+        emojiEl.textContent = tauntEmoji || '🤝';
+        titleEl.textContent = 'HÒA!';
+        titleEl.style.color = '#64748b';
+        subEl.textContent = tauntMessage || 'Trận đấu kết thúc hòa. Lần sau sẽ thắng được đâu!';
+    } else if (gameMode === 'solo') {
+        if (localWon) {
+            emojiEl.textContent = '🏆';
+            titleEl.textContent = 'CHIẾN THẮNG!';
+            titleEl.style.color = '#f59e0b';
+            subEl.textContent = 'Bạn đã chiến thắng trận đấu. Tiếp tục duy trì phong độ!';
+            startConfetti();
+        } else {
+            emojiEl.textContent = tauntEmoji || '💔';
+            titleEl.textContent = 'THẤT BẠI!';
+            titleEl.style.color = '#ef4444';
+            subEl.textContent = tauntMessage || 'Đối thủ đã thắng ván này. Đừng nản, lần sau cố gắng hơn!';
+        }
+    } else if (isOnline) {
+        if (localWon) {
+            emojiEl.textContent = '🏆';
+            titleEl.textContent = 'CHIẾN THẮNG!';
+            titleEl.style.color = '#f59e0b';
+            subEl.textContent = 'Bạn đã chiến thắng trận đấu. Tiếp tục duy trì phong độ!';
+            startConfetti();
+        } else {
+            emojiEl.textContent = tauntEmoji || '💔';
+            titleEl.textContent = 'THẤT BẠI!';
+            titleEl.style.color = '#ef4444';
+            subEl.textContent = tauntMessage || 'Đối thủ đã thắng ván này. Đừng nản, lần sau cố gắng hơn!';
+        }
     } else if (isBotWin) {
-        emojiEl.textContent = tauntEmoji || 'THUA ĐẬM 💀';
-        titleEl.textContent = 'rất cố gắng , cần tu luyện thêm!';
+        emojiEl.textContent = tauntEmoji || '😢';
+        titleEl.textContent = 'THẤT BẠI!';
         titleEl.style.color = '#ef4444';
-        subEl.textContent   = tauntMessage || 'Gừng càng già càng cay — bó tay thì gặp anh Chần!';
-        // Bot: hiện cả 2 nút
-        if (btnReview) btnReview.style.display = 'inline-block';
-        if (btnRestart) btnRestart.style.display = 'inline-block';
+        subEl.textContent = tauntMessage || 'BOT đã thắng ván này. Hãy thử lại để cải thiện!';
     } else {
         emojiEl.textContent = '🏆';
         titleEl.textContent = 'CHIẾN THẮNG!';
@@ -142,11 +207,7 @@ function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
         }
         subEl.textContent = rankMessage;
         startConfetti();
-        // Hiệu ứng nổ xu
         if (typeof playCoinBurst === 'function') setTimeout(() => playCoinBurst(0), 600);
-        // Win bot: hiện cả 2 nút
-        if (btnReview) btnReview.style.display = 'inline-block';
-        if (btnRestart) btnRestart.style.display = 'inline-block';
     }
 
     overlay.classList.add('show');
@@ -155,7 +216,12 @@ function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
 function closeWinAndRestart() {
     document.getElementById('win-overlay').classList.remove('show');
     stopConfetti();
-    
+
+    if (window.isBotRoomMode && typeof BotRoomManager !== 'undefined' && typeof BotRoomManager.replayBotBattle === 'function') {
+        BotRoomManager.replayBotBattle();
+        return;
+    }
+
     // Sử dụng requestAnimationFrame để chuyển đổi mượt hơn
     requestAnimationFrame(() => {
         initGame();
@@ -167,28 +233,46 @@ function closeWinAndRestart() {
 }
 
 function reviewGame() {
-    // Chặn review khi đang chơi online
     if (window.isOnlineModeActive && window.isOnlineModeActive()) {
-        alert("Bạn đang trong trận đấu Online, không thể xem lại ván cờ!");
-        return;
+        returnToRoomFromWinOverlay();
+    } else {
+        document.getElementById('win-overlay').classList.remove('show');
+        stopConfetti();
+        requestAnimationFrame(() => {
+            if (isInfinite && winningCellCoords.length > 0) {
+                const [wr, wc] = winningCellCoords[Math.floor(winningCellCoords.length / 2)];
+                if (typeof vRowF !== 'undefined' && typeof vColF !== 'undefined' && 
+                    typeof infCanvasH !== 'undefined' && typeof INF_CS !== 'undefined' &&
+                    typeof infCanvasW !== 'undefined' && typeof renderInfiniteBoard === 'function') {
+                    vRowF = wr - (infCanvasH / INF_CS) / 2;
+                    vColF = wc - (infCanvasW / INF_CS) / 2;
+                    renderInfiniteBoard();
+                }
+            }
+            statusPanel.innerHTML = `⬆️ Đang xem lại ván đấu &nbsp;|&nbsp; <button onclick="closeWinAndRestart()" style="padding:4px 16px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:0.9rem;">🔄 Đấu Lại</button>`;
+        });
     }
-    
+}
+
+function returnToRoomFromWinOverlay() {
+    const overlay = document.getElementById('win-overlay');
+    if (overlay) overlay.classList.remove('show');
+    stopConfetti();
+
+    if (typeof window.quayLaiPhongChinhO === 'function') {
+        window.quayLaiPhongChinhO();
+    }
+}
+
+function exitRoomFromWinOverlay() {
     document.getElementById('win-overlay').classList.remove('show');
     stopConfetti();
-    
-    // Sử dụng requestAnimationFrame để render mượt hơn
-    requestAnimationFrame(() => {
-        // DISABLED Shared Board Engine - use old system only
-        if (isInfinite && winningCellCoords.length > 0) {
-            const [wr, wc] = winningCellCoords[Math.floor(winningCellCoords.length / 2)];
-            if (typeof vRowF !== 'undefined' && typeof vColF !== 'undefined' && 
-                typeof infCanvasH !== 'undefined' && typeof INF_CS !== 'undefined' &&
-                typeof infCanvasW !== 'undefined' && typeof renderInfiniteBoard === 'function') {
-                vRowF = wr - (infCanvasH / INF_CS) / 2;
-                vColF = wc - (infCanvasW / INF_CS) / 2;
-                renderInfiniteBoard();
-            }
-        }
-        statusPanel.innerHTML = `⬆️ Đang xem lại ván đấu &nbsp;|&nbsp; <button onclick="closeWinAndRestart()" style="padding:4px 16px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:0.9rem;">🔄 Đấu Lại</button>`;
-    });
+    if (window.isBotRoomMode && typeof BotRoomManager !== 'undefined' && typeof BotRoomManager.exitBotRoom === 'function') {
+        BotRoomManager.exitBotRoom();
+        return;
+    }
+    if (typeof window.thoatPhongSauVan === 'function') {
+        window.thoatPhongSauVan();
+        return;
+    }
 }

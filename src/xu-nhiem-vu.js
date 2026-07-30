@@ -557,7 +557,6 @@ function ketThucCuoc(roomId, winnerRole, isDraw) {
                     if (myId === winnerId) {
                         setTimeout(() => {
                             playCoinBurst(bet, 'Thắng cược! 🏆💰');
-                            showXuPopup(bet, 'Thắng cược +Xu 🏆');
                         }, 500); // Delay để bàn cờ kịp render nước cuối
                     }
                 });
@@ -570,9 +569,8 @@ function ketThucCuoc(roomId, winnerRole, isDraw) {
             }).then(() => {
                 if (myId === loserId) {
                     setTimeout(() => {
-                        // BUG 2 FIX: Add coin loss animation for loser
+                        // BUG 2 Fix: Add coin loss animation for loser
                         playCoinBurst(-bet, 'Thua cược -Xu 😔');
-                        showXuPopup(-bet, 'Thua cược -Xu 😔');
                     }, 500); // Delay để bàn cờ kịp render nước cuối
                 }
             });
@@ -644,16 +642,12 @@ function showXuPopup(amount, label) {
     const sub    = label || (isCong ? 'Nhận xu!' : 'Trừ xu');
 
     const el = document.createElement('div');
-    el.className = 'xu-popup';
-    if (!isCong) {
-        el.style.borderColor = '#f87171';
-        el.style.boxShadow   = '0 0 16px rgba(248,113,113,0.5), 0 4px 12px rgba(0,0,0,0.3)';
-    }
+    el.className = `xu-popup ${isCong ? 'gain' : 'loss'}`;
 
     el.innerHTML = `
         <span class="xu-popup-icon">${isCong ? '🪙' : '💸'}</span>
         <div>
-            <div class="xu-popup-text" style="color:${isCong ? '#FFD700' : '#f87171'}">${text}</div>
+            <div class="xu-popup-text">${text}</div>
             <div class="xu-popup-sub">${sub}</div>
         </div>
     `;

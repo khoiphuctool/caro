@@ -212,6 +212,8 @@ function _healthCheckRoom(roomId, room) {
         updates.playerX_id     = '';
         updates.playerX_name   = '';
         updates.playerX_status = 'offline';
+        updates.playerX_avatar = '';
+        updates.playerX_skin   = 'skin_default';
         updates.playerX_lastPing = null;
     }
 
@@ -221,6 +223,8 @@ function _healthCheckRoom(roomId, room) {
         updates.playerO_id     = '';
         updates.playerO_name   = '';
         updates.playerO_status = 'offline';
+        updates.playerO_avatar = '';
+        updates.playerO_skin   = 'skin_default';
         updates.playerO_lastPing = null;
     }
 
@@ -247,10 +251,14 @@ function _healthCheckRoom(roomId, room) {
         updates.playerX_id     = room.playerO_id;
         updates.playerX_name   = room.playerO_name;
         updates.playerX_status = room.playerO_status;
+        updates.playerX_avatar = room.playerO_avatar || '';
+        updates.playerX_skin   = room.playerO_skin   || 'skin_default';
         updates.playerX_lastPing = room.playerO_lastPing || null;
         updates.playerO_id     = '';
         updates.playerO_name   = '';
         updates.playerO_status = 'offline';
+        updates.playerO_avatar = '';
+        updates.playerO_skin   = 'skin_default';
         updates.playerO_lastPing = null;
         updates.status         = 'waiting';
         updates.winner         = '';
@@ -459,10 +467,14 @@ function _patchNgoimVaoPhong() {
                 if (room.playerX_id && !xAlive) {
                     cleanUpdates.playerX_id = ''; cleanUpdates.playerX_name = '';
                     cleanUpdates.playerX_status = 'offline'; cleanUpdates.playerX_lastPing = null;
+                    cleanUpdates.playerX_avatar = '';
+                    cleanUpdates.playerX_skin = 'skin_default';
                 }
                 if (room.playerO_id && !oAlive) {
                     cleanUpdates.playerO_id = ''; cleanUpdates.playerO_name = '';
                     cleanUpdates.playerO_status = 'offline'; cleanUpdates.playerO_lastPing = null;
+                    cleanUpdates.playerO_avatar = '';
+                    cleanUpdates.playerO_skin = 'skin_default';
                 }
                 // Nếu không còn ai sau khi dọn → reset status
                 const afterX = room.playerX_id && !xAlive ? false : xAlive;
@@ -472,6 +484,9 @@ function _patchNgoimVaoPhong() {
                     cleanUpdates.winner = ''; cleanUpdates.endReason = '';
                     cleanUpdates.moves = { init: true };
                     cleanUpdates.lastMove = { row: -1, col: -1, by: '' };
+                    cleanUpdates.guestReady = false;
+                    cleanUpdates.playerXConfirmed = null;
+                    cleanUpdates.playerOConfirmed = null;
                 }
                 console.log(`[RoomHealth] Dọn ghost trong phòng ${roomId} trước khi vào`);
                 _db.ref(`rooms/${roomId}`).update(cleanUpdates).then(() => {
