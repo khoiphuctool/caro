@@ -89,6 +89,7 @@ const SharedBoardUI = (function() {
             // Setup ResizeObserver for efficient layout changes
             this.resizeObserver = new ResizeObserver(() => {
                 this.updateBreakpoint();
+                this.onContainerResize();
             });
             
             this.resizeObserver.observe(container);
@@ -113,6 +114,14 @@ const SharedBoardUI = (function() {
                 console.log('[SharedBoardUI] Breakpoint changed:', this.currentBreakpoint, '->', newBreakpoint);
                 this.currentBreakpoint = newBreakpoint;
                 this.applyLayout();
+            }
+        },
+
+        onContainerResize() {
+            if (!CanvasManager.canvas) return;
+            CanvasManager.resizeToContainer();
+            if (typeof renderInfiniteBoard === 'function') {
+                renderInfiniteBoard();
             }
         },
         
@@ -157,6 +166,7 @@ const SharedBoardUI = (function() {
         canvas: null,
         container: null,
         initialized: false,
+        needsViewportResetAfterResize: false,
         
         init(mode) {
             // Prevent re-initialization if already running for same mode
@@ -183,12 +193,15 @@ const SharedBoardUI = (function() {
             }
             
             // Set canvas dimensions to match container
-            this.resizeToContainer();
+            const hasContainerSize = this.resizeToContainer();
+            if (!hasContainerSize) {
+                console.warn('[SharedBoardUI] Canvas container has no measurable size yet; continuing init and waiting for resize events');
+                this.needsViewportResetAfterResize = true;
+            }
             
-            // YC.TXT FIX: Ensure canvas has valid dimensions before marking as initialized
+            // YC.TXT FIX: Do not fail initialization when the canvas is initially hidden.
             if (this.canvas.width === 0 || this.canvas.height === 0) {
-                console.warn('[SharedBoardUI] Canvas has zero dimensions after resize, deferring initialization');
-                return false;
+                console.warn('[SharedBoardUI] Canvas has zero dimensions after resize, continuing initialization');
             }
             
             // Update global variables for renderer
@@ -207,25 +220,41 @@ const SharedBoardUI = (function() {
         },
         
         resizeToContainer() {
-            if (!this.canvas || !this.container) return;
+            if (!this.canvas || !this.container) return false;
             
             const containerRect = this.container.getBoundingClientRect();
-            const containerWidth = containerRect.width || window.innerWidth;
-            const containerHeight = containerRect.height || window.innerHeight;
+            const containerWidth = containerRect.width;
+            const containerHeight = containerRect.height;
+            
+            if (containerWidth <= 0 || containerHeight <= 0) {
+                console.warn('[SharedBoardUI] resizeToContainer skipped because container has no size yet:', {
+                    containerId: this.container.id,
+                    width: containerWidth,
+                    height: containerHeight
+                });
+                return false;
+            }
             
             // Only resize if dimensions actually changed (prevent flicker)
             if (this.canvas.width !== containerWidth || this.canvas.height !== containerHeight) {
                 this.canvas.width = containerWidth;
                 this.canvas.height = containerHeight;
-                this.canvas.style.width = '100%';
-                this.canvas.style.height = '100%';
+                this.canvas.style.width = containerWidth + 'px';
+                this.canvas.style.height = containerHeight + 'px';
                 
                 // Update global variables
                 if (typeof infCanvasW !== 'undefined') infCanvasW = this.canvas.width;
                 if (typeof infCanvasH !== 'undefined') infCanvasH = this.canvas.height;
                 
                 console.log('[SharedBoardUI] Canvas resized:', { width: containerWidth, height: containerHeight });
+
+                if (this.needsViewportResetAfterResize && typeof ViewportManager !== 'undefined' && typeof ViewportManager.resetToCenter === 'function') {
+                    console.log('[SharedBoardUI] Resetting viewport after late canvas resize');
+                    ViewportManager.resetToCenter();
+                    this.needsViewportResetAfterResize = false;
+                }
             }
+            return true;
         },
         
         getCanvas() {
@@ -495,6 +524,16 @@ const SharedBoardUI = (function() {
             
             // Initialize resize listener
             ResizeManager.init(mode);
+
+            // Schedule a second sizing pass after layout stabilizes
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    CanvasManager.resizeToContainer();
+                    if (typeof renderInfiniteBoard === 'function') {
+                        renderInfiniteBoard();
+                    }
+                });
+            });
             
             // Update global infCanvas for renderer
             if (typeof infCanvas !== 'undefined') {

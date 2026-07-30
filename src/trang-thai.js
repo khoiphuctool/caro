@@ -195,22 +195,18 @@ function getCell(r, c) {
 function setCell(r, c, val) {
     const oldVal = getCell(r, c);
     if (isInfinite) {
-        console.log('[setCell] infiniteMap reference:', infiniteMap);
-        console.log('[setCell] GameState.board.infiniteMap reference:', typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : 'GameState undefined');
-        console.log('[setCell] same map?', infiniteMap === (typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : null));
+        if (window.DEBUG_SYNC) {
+            console.log('[setCell] infiniteMap reference:', infiniteMap);
+            console.log('[setCell] GameState.board.infiniteMap reference:', typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : 'GameState undefined');
+            console.log('[setCell] same map?', infiniteMap === (typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : null));
+        }
 
         if (val === "") {
             infiniteMap.delete(`${r},${c}`);
-            console.log('[setCell] REMOVE');
-            console.log('(' + r + ',' + c + ')');
-            console.log('player=' + oldVal);
-            console.log('size=' + infiniteMap.size);
+            if (window.DEBUG_SYNC) console.log('[setCell] REMOVE', r, c, 'old=', oldVal, 'size=', infiniteMap.size);
         } else {
             infiniteMap.set(`${r},${c}`, val);
-            console.log('[setCell] ADD');
-            console.log('(' + r + ',' + c + ')');
-            console.log('player=' + val);
-            console.log('size=' + infiniteMap.size);
+            if (window.DEBUG_SYNC) console.log('[setCell] ADD', r, c, 'player=', val, 'size=', infiniteMap.size);
         }
     } else {
         // Guard: boardState chưa tồn tại hoặc hàng chưa khởi tạo → fallback về infiniteMap

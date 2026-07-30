@@ -440,13 +440,14 @@ function _patchRoomListRender() {
 
 function _patchNgoimVaoPhong() {
     const _origNgoi = window.ngoimVaoPhong;
-    window.ngoimVaoPhong = function(roomId) {
-        if (!_db) { _origNgoi.apply(this, arguments); return; }
+    window.ngoimVaoPhong = function(...args) {
+        const roomId = args[0];
+        if (!_db) { _origNgoi.apply(this, args); return; }
 
         // Đọc room trước để kiểm tra ghost
         _db.ref(`rooms/${roomId}`).once('value').then(snap => {
             const room = snap.val();
-            if (!room) { _origNgoi.apply(this, [roomId]); return; }
+            if (!room) { _origNgoi.apply(this, args); return; }
 
             const xAlive = !!room.playerX_id && isPlayerAlive(room, 'X');
             const oAlive = !!room.playerO_id && isPlayerAlive(room, 'O');
@@ -474,13 +475,13 @@ function _patchNgoimVaoPhong() {
                 }
                 console.log(`[RoomHealth] Dọn ghost trong phòng ${roomId} trước khi vào`);
                 _db.ref(`rooms/${roomId}`).update(cleanUpdates).then(() => {
-                    _origNgoi.apply(window, [roomId]);
-                }).catch(() => { _origNgoi.apply(window, [roomId]); });
+                    _origNgoi.apply(window, args);
+                }).catch(() => { _origNgoi.apply(window, args); });
             } else {
                 // Không có ghost → vào thẳng
-                _origNgoi.apply(window, [roomId]);
+                _origNgoi.apply(window, args);
             }
-        }).catch(() => { _origNgoi.apply(window, [roomId]); });
+        }).catch(() => { _origNgoi.apply(window, args); });
     };
     console.log('[RoomHealth] ngoimVaoPhong patched — tự dọn ghost trước khi vào');
 }

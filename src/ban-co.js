@@ -239,29 +239,30 @@ function setupDpadControls() {
 
 function initInfCanvas(canvasElement) {
     // YC.TXT FIX: Canvas element is REQUIRED - no fallback to hardcode DOM lookup
-    console.log('[DEBUG-BOARD] initInfCanvas START', canvasElement, canvasElement?.id);
+    if (window.DEBUG_SYNC) console.log('[DEBUG-BOARD] initInfCanvas START', { canvasElementId: canvasElement?.id, canvasElement });
 
     if (!canvasElement) {
         console.error('[DEBUG-BOARD] initInfCanvas: canvasElement is REQUIRED - no fallback to hardcode DOM lookup');
         return;
     }
 
+    const previousCanvas = infCanvas;
     infCanvas = canvasElement;
     const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
 
     // BUG 3 FIX: Only skip if already initialized AND pointing to the correct canvas element
-    if (infCanvasInitialized && infCanvas && infCanvas.id === infCanvas.id) {
+    if (infCanvasInitialized && previousCanvas && previousCanvas === infCanvas) {
         console.warn('[DEBUG-BOARD] initInfCanvas already called for', infCanvas.id, '— skipping duplicate');
         return;
     }
 
     // Reset flag when switching to a different canvas
-    if (infCanvas && infCanvas.id !== infCanvas.id) {
-        console.log('[DEBUG-BOARD] Canvas mode switched from', infCanvas.id, 'to', infCanvas.id, '— re-initializing');
+    if (previousCanvas && previousCanvas !== infCanvas) {
+        console.log('[DEBUG-BOARD] Canvas mode switched from', previousCanvas.id, 'to', infCanvas.id, '— re-initializing');
         infCanvasInitialized = false;
     }
 
-    console.log('[DEBUG-BOARD] initInfCanvas called:', {
+    if (window.DEBUG_SYNC) console.log('[DEBUG-BOARD] initInfCanvas called:', {
         isOnline,
         canvasId: infCanvas.id,
         canvasWidth: infCanvas.width,
@@ -318,9 +319,9 @@ function initInfCanvas(canvasElement) {
         // Bot Room: canvas dimensions already set by initBotRoomCanvas
         infCanvasW = infCanvas.width;
         infCanvasH = infCanvas.height;
-        console.log('[DEBUG-BOARD] Bot Room: using existing canvas dimensions:', { infCanvasW, infCanvasH });
+        if (window.DEBUG_SYNC) console.log('[DEBUG-BOARD] Bot Room: using existing canvas dimensions:', { infCanvasW, infCanvasH });
         updateCursorByTurn();
-        console.log('[DEBUG-BOARD] initInfCanvas DONE - ctx initialized');
+        if (window.DEBUG_SYNC) console.log('[DEBUG-BOARD] initInfCanvas DONE - ctx initialized');
         return;
     }
 
@@ -349,12 +350,12 @@ function initInfCanvas(canvasElement) {
         infCanvas.height = infCanvasH;
         infCanvas.style.width  = infCanvasW + 'px';
         infCanvas.style.height = infCanvasH + 'px';
-        console.log('[DEBUG-BOARD] Canvas size set for online from container:', {
+        if (window.DEBUG_SYNC) console.log('[DEBUG-BOARD] Canvas size set for online from container:', {
             infCanvasW, infCanvasH, sbRect,
             containerW, containerH
         });
         updateCursorByTurn();
-        console.log('[DEBUG-BOARD] initInfCanvas DONE - ctx initialized');
+        if (window.DEBUG_SYNC) console.log('[DEBUG-BOARD] initInfCanvas DONE - ctx initialized');
         // YC.TXT FIX: Don't call renderInfiniteBoard() here - let caller handle lifecycle
         // renderInfiniteBoard();
         // Fit lại sau khi layout CSS hoàn tất (2 frames để đảm bảo)
@@ -374,10 +375,10 @@ function initInfCanvas(canvasElement) {
         infCanvas.height = infCanvasH;
         infCanvas.style.width = infCanvasW + 'px';
         infCanvas.style.height = infCanvasH + 'px';
-        console.log('[DEBUG-BOARD] Canvas size set from saved:', { infCanvasW, infCanvasH });
+        if (window.DEBUG_SYNC) console.log('[DEBUG-BOARD] Canvas size set from saved:', { infCanvasW, infCanvasH });
         updateInfiniteResizeHandles();
         updateCursorByTurn();
-        console.log('[DEBUG-BOARD] initInfCanvas DONE - ctx initialized');
+        if (window.DEBUG_SYNC) console.log('[DEBUG-BOARD] initInfCanvas DONE - ctx initialized');
         // YC.TXT FIX: Don't call renderInfiniteBoard() here - let caller handle lifecycle
         // renderInfiniteBoard();
         requestAnimationFrame(() => requestAnimationFrame(() => fitCanvasToContainer()));
@@ -388,10 +389,10 @@ function initInfCanvas(canvasElement) {
         infCanvas.width = infCanvasW; infCanvas.height = infCanvasH;
         infCanvas.style.width = infCanvasW + 'px';
         infCanvas.style.height = infCanvasH + 'px';
-        console.log('[DEBUG-BOARD] Canvas size set to default:', { infCanvasW, infCanvasH });
+        if (window.DEBUG_SYNC) console.log('[DEBUG-BOARD] Canvas size set to default:', { infCanvasW, infCanvasH });
         updateInfiniteResizeHandles();
         updateCursorByTurn();
-        console.log('[DEBUG-BOARD] initInfCanvas DONE - ctx initialized');
+        if (window.DEBUG_SYNC) console.log('[DEBUG-BOARD] initInfCanvas DONE - ctx initialized');
         // YC.TXT FIX: Don't call renderInfiniteBoard() here - let caller handle lifecycle
         // renderInfiniteBoard();
         requestAnimationFrame(() => requestAnimationFrame(() => resizeInfCanvas()));
@@ -614,6 +615,7 @@ function renderInfiniteBoardAsync() {
     
     return new Promise((resolve) => {
         // Call original render
+        if (window.DEBUG_SYNC) console.log('[DEBUG-BOARD] renderInfiniteBoardAsync() calling renderInfiniteBoard()');
         renderInfiniteBoard();
         
         // Wait for browser to paint the frame

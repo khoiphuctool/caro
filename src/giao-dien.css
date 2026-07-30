@@ -951,13 +951,20 @@ input[type="checkbox"] {
         padding: 4px !important;
     }
     
-    /* ── Canvas: Thu nhỏ tự động theo màn hình (không áp dụng cho Bot Room) ── */
-    #inf-canvas,
-    #inf-canvas-online {
+    /* ── Offline canvas: Thu nhỏ tự động theo màn hình ── */
+    #inf-canvas {
         max-width: 100% !important;
         max-height: 60vh !important;
         width: auto !important;
         height: auto !important;
+    }
+
+    /* ── Online battle canvas: full container, do JS controls size directly ── */
+    #inf-canvas-online {
+        max-width: 100% !important;
+        max-height: none !important;
+        width: 100% !important;
+        height: 100% !important;
     }
 
     /* ── Bot Room Canvas: Full container, không bị CSS resize ── */
@@ -1591,6 +1598,9 @@ body.in-game-active #inf-resizable {
 body.in-game-active #inf-canvas,
 body.in-game-active #inf-canvas-online {
     max-width: 100% !important;
+    max-height: none !important;
+    width: 100% !important;
+    height: 100% !important;
 }
 
 /* Bot Room không bị giới hạn max-width khi in-game-active */
@@ -2174,8 +2184,8 @@ body.in-game-active #inf-canvas-bot {
     /* Giới hạn bàn cờ trên mobile — tối đa 55vh để còn scroll xuống (không áp dụng Bot Room) */
     .match-board-section { padding: 4px; }
     #inf-resizable { max-height: 55vh; overflow: hidden; }
-    #inf-canvas,
-    #inf-canvas-online { max-height: 55vh; }
+    #inf-canvas { max-height: 55vh; }
+    #inf-canvas-online { max-height: none !important; }
 
     /* Bot Room không bị giới hạn max-height trên mobile */
     #inf-canvas-bot { max-height: none !important; }
