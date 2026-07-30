@@ -466,8 +466,8 @@ function promptRankName(moves, mode, winCnt, boardLabel, winnerLabel, dangerScor
         const loggedName = (typeof currentUserData !== 'undefined' && currentUserData && currentUserData.displayName)
             ? currentUserData.displayName : currentUsername;
         saveRankEntry(loggedName);
-        if (typeof addNotification === 'function') {
-            addNotification('rank', `🏅 Đã tự động lưu BXH cho ${loggedName}: ${score.toLocaleString('vi-VN')} điểm`);
+        if (typeof enqueueNotification === 'function') {
+            enqueueNotification('system_events', { type: 'rank', message: `🏅 Đã tự động lưu BXH cho ${loggedName}: ${score.toLocaleString('vi-VN')} điểm` });
         }
         return;
     }

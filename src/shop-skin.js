@@ -450,8 +450,8 @@ function muaSkin(skinId) {
         const newOwned = [...ownedSkins, skinId];
         return database.ref(`users/${uid}/ownedSkins`).set(newOwned).then(() => {
             if (typeof showXuPopup === 'function') showXuPopup(-skin.price, `Mua skin ${skin.icon_X}${skin.icon_O}`);
-            if (typeof addNotification === 'function') {
-                addNotification('win', `🛍️ Mua thành công bộ skin "${skin.name}"!`);
+            if (typeof enqueueNotification === 'function') {
+                enqueueNotification('system_events', { type: 'win', message: `🛍️ Mua thành công bộ skin "${skin.name}"!` });
             }
             renderShopSkin();
         });
@@ -471,8 +471,8 @@ function trangBiSkin(skinId) {
     if (!skin) return;
 
     database.ref(`users/${uid}/equippedSkin`).set(skinId).then(() => {
-        if (typeof addNotification === 'function') {
-            addNotification('win', `✅ Đã trang bị bộ cờ "${skin.name}" (${skin.icon_X} & ${skin.icon_O})`);
+        if (typeof enqueueNotification === 'function') {
+            enqueueNotification('system_events', { type: 'win', message: `✅ Đã trang bị bộ cờ "${skin.name}" (${skin.icon_X} & ${skin.icon_O})` });
         }
         renderShopSkin();
         // Render lại bàn cờ để áp dụng skin mới ngay lập tức

@@ -60,9 +60,9 @@ function addCoins(amount, reason) {
         .then(res => {
             if (res.committed) {
                 showXuPopup(amount, reason || (amount > 0 ? 'Nhận xu' : 'Trừ xu'));
-                if (typeof addNotification === 'function') {
+                if (typeof enqueueNotification === 'function') {
                     const sign = amount > 0 ? '+' : '';
-                    addNotification('win', `💰 ${sign}${amount.toLocaleString('vi-VN')} Xu (${reason})`);
+                    enqueueNotification('system_events', { type: 'win', message: `💰 ${sign}${amount.toLocaleString('vi-VN')} Xu (${reason})` });
                 }
             }
             return res.committed;
@@ -84,8 +84,8 @@ function checkAndGrantWelcomeBonus(uid) {
                 if (!res.committed) return;
                 showXuPopup(XU_CONFIG.WELCOME_BONUS, 'Quà chào mừng 🎁');
                 renderNhiemVuTab();
-                if (typeof addNotification === 'function') {
-                    addNotification('win', `🎉 Chào mừng! Bạn nhận được ${XU_CONFIG.WELCOME_BONUS} Xu quà chào mừng!`);
+                if (typeof enqueueNotification === 'function') {
+                    enqueueNotification('system_events', { type: 'win', message: `🎉 Chào mừng! Bạn nhận được ${XU_CONFIG.WELCOME_BONUS} Xu quà chào mừng!` });
                 }
             });
     });
@@ -136,8 +136,8 @@ function diemDanh() {
                 alert(`✅ Điểm danh thành công! +${XU_CONFIG.DAILY_CHECKIN} Xu`);
                 showXuPopup(XU_CONFIG.DAILY_CHECKIN, 'Điểm danh 📅');
                 renderNhiemVuTab();
-                if (typeof addNotification === 'function') {
-                    addNotification('win', `✅ Điểm danh +${XU_CONFIG.DAILY_CHECKIN} Xu`);
+                if (typeof enqueueNotification === 'function') {
+                    enqueueNotification('system_events', { type: 'win', message: `✅ Điểm danh +${XU_CONFIG.DAILY_CHECKIN} Xu` });
                 }
             });
     });
@@ -210,8 +210,8 @@ function processWinBot(modeDiff) {
                         if (coinsRes.committed) {
                             if (newUsed === maxAllowed && bonusReward > 0) {
                                 showXuPopup(bonusReward, `🎉 Hoàn thành ${maxAllowed} trận!`);
-                                if (typeof addNotification === 'function') {
-                                    addNotification('win', `🎉 Chúc mừng! Hoàn thành ${maxAllowed} trận, thưởng thêm ${bonusReward} Xu!`);
+                                if (typeof enqueueNotification === 'function') {
+                                    enqueueNotification('system_events', { type: 'win', message: `🎉 Chúc mừng! Hoàn thành ${maxAllowed} trận, thưởng thêm ${bonusReward} Xu!` });
                                 }
                             }
                             return totalReward;
@@ -308,8 +308,8 @@ function buyAvatar(avatarId) {
             const newOwned = [...owned, avatarId];
             return userRef.update({ ownedAvatars: newOwned }).then(() => {
                 showXuPopup(-XU_CONFIG.AVATAR_PRICE, `Mua avatar ${av.emoji}`);
-                if (typeof addNotification === 'function') {
-                    addNotification('win', `🛍️ Mua thành công avatar ${av.emoji} ${av.name}!`);
+                if (typeof enqueueNotification === 'function') {
+                    enqueueNotification('system_events', { type: 'win', message: `🛍️ Mua thành công avatar ${av.emoji} ${av.name}!` });
                 }
                 renderShopAvatar();
             });
@@ -504,8 +504,8 @@ function batDauCuoc(roomId, playerXId, playerOId) {
         ]).then(() => {
             // Popup thông báo cược đã kích hoạt
             showXuPopup(0, `Cược ${bet.toLocaleString('vi-VN')} Xu 🎲`);
-            if (typeof addNotification === 'function') {
-                addNotification('win', `🎲 Cược kích hoạt! Người thắng nhận ${bet.toLocaleString('vi-VN')} Xu từ người thua!`);
+            if (typeof enqueueNotification === 'function') {
+                enqueueNotification('system_events', { type: 'win', message: `🎲 Cược kích hoạt! Người thắng nhận ${bet.toLocaleString('vi-VN')} Xu từ người thua!` });
             }
             return true;
         });
@@ -546,7 +546,7 @@ function ketThucCuoc(roomId, winnerRole, isDraw) {
             setTimeout(() => {
                 showXuPopup(0, 'Hòa cược 🤝');
             }, 500); // Delay để bàn cờ kịp render
-            if (typeof addNotification === 'function') addNotification('win', `🤝 Hòa! Không đổi xu.`);
+            if (typeof enqueueNotification === 'function') enqueueNotification('system_events', { type: 'win', message: `🤝 Hòa! Không đổi xu.` });
         } else {
             const winnerId = winnerRole === 'X' ? xId : oId;
             const loserId  = winnerRole === 'X' ? oId  : xId;
@@ -575,8 +575,8 @@ function ketThucCuoc(roomId, winnerRole, isDraw) {
                 }
             });
             
-            if (typeof addNotification === 'function') {
-                addNotification('win', `🏆 Người thắng nhận ${bet.toLocaleString('vi-VN')} Xu từ người thua!`);
+            if (typeof enqueueNotification === 'function') {
+                enqueueNotification('system_events', { type: 'win', message: `🏆 Người thắng nhận ${bet.toLocaleString('vi-VN')} Xu từ người thua!` });
             }
         }
         // Xóa dữ liệu cược khỏi phòng
@@ -942,12 +942,12 @@ function onWinBotXu(modeName) {
     processWinBot(diff).then(earned => {
         if (earned > 0) {
             playCoinBurst(earned, 'Thắng Bot! 🏆');
-            if (typeof addNotification === 'function') {
-                addNotification('win', `🏆 Thắng Bot! +${earned} Xu`);
+            if (typeof enqueueNotification === 'function') {
+                enqueueNotification('system_events', { type: 'win', message: `🏆 Thắng Bot! +${earned} Xu` });
             }
         } else {
-            if (typeof addNotification === 'function') {
-                addNotification('win', 'Hết lượt nhận Xu từ Bot hôm nay. Thử cấp độ khác hoặc quay lại vào ngày mai!');
+            if (typeof enqueueNotification === 'function') {
+                enqueueNotification('system_events', { type: 'win', message: 'Hết lượt nhận Xu từ Bot hôm nay. Thử cấp độ khác hoặc quay lại vào ngày mai!' });
             }
         }
     });
@@ -1001,8 +1001,8 @@ function _runOnWinSoloXu(uid, database) {
         const reward = XU_CONFIG.SOLO_WIN_REWARD;
 
         if (used >= max) {
-            if (typeof addNotification === 'function') {
-                addNotification('win', `Đã đạt giới hạn ${max} trận thắng Solo/ngày — quay lại vào ngày mai!`);
+            if (typeof enqueueNotification === 'function') {
+                enqueueNotification('system_events', { type: 'win', message: `Đã đạt giới hạn ${max} trận thắng Solo/ngày — quay lại vào ngày mai!` });
             }
             return;
         }
@@ -1016,8 +1016,8 @@ function _runOnWinSoloXu(uid, database) {
                         if (!coinsRes.committed) return;
                         const rem = max - (used + 1);
                         playCoinBurst(reward, `Thắng Solo Online! 🏆`);
-                        if (typeof addNotification === 'function') {
-                            addNotification('win', `🏆 Thắng Solo! +${reward} Xu (còn ${rem}/${max} lượt hôm nay)`);
+                        if (typeof enqueueNotification === 'function') {
+                            enqueueNotification('system_events', { type: 'win', message: `🏆 Thắng Solo! +${reward} Xu (còn ${rem}/${max} lượt hôm nay)` });
                         }
                     });
             });

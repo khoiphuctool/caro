@@ -63,17 +63,18 @@ body.fullscreen-mode #inf-canvas-online {
 }
 
 #notification-ticker {
-    background: rgba(15, 23, 42, 0.88);
+    background: var(--bg-primary);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
-    border: 1px solid rgba(255,255,255,0.1);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
-    border-radius: 8px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
+    border-radius: var(--radius-md);
     overflow: hidden;
     width: 100%;
     box-sizing: border-box;
     margin-bottom: 4px;
     align-self: stretch; /* Trải rộng hết chiều ngang trong flex column */
+    transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 
 #ticker-content {
@@ -94,26 +95,26 @@ body.fullscreen-mode #inf-canvas-online {
     display: inline-flex;
     align-items: center;
     padding: 3px 10px;
-    border-radius: 20px;
-    background: rgba(255,255,255,0.08);
-    color: #e2e8f0;
+    border-radius: var(--radius-full);
+    background: var(--bg-panel);
+    color: var(--text-primary);
     font-size: 0.8rem;
     white-space: nowrap;
 }
 
 .ticker-item.online {
-    background: rgba(34, 197, 94, 0.2);
-    color: #86efac;
+    background: var(--color-success-light);
+    color: var(--color-success);
 }
 
 .ticker-item.win {
-    background: rgba(245, 158, 11, 0.2);
-    color: #fcd34d;
+    background: var(--color-warning-light);
+    color: var(--color-warning);
 }
 
 .ticker-item.chat {
-    background: rgba(99, 102, 241, 0.2);
-    color: #a5b4fc;
+    background: var(--color-info-light);
+    color: var(--color-info);
 }
 
 /* Responsive cho mobile */
@@ -412,7 +413,7 @@ h1 {
     text-align: center;
     font-weight: 900;
     width: 100%;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+    background: linear-gradient(135deg, var(--color-primary) 0%, #8b5cf6 50%, #ec4899 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -434,12 +435,15 @@ h1 {
     display: flex;
     gap: 8px;
     padding: 6px 10px;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     align-items: center;
     justify-content: center;
     flex-wrap: wrap;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: var(--shadow-sm);
     max-width: 100%;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 
 .config-group {
@@ -463,21 +467,25 @@ input[type="checkbox"] {
     width: 18px;
     height: 18px;
     cursor: pointer;
-    accent-color: #2563eb;
+    accent-color: var(--color-primary);
 }
 
 .status-panel {
     font-size: 0.95rem;
     margin: 8px 0 4px 0;
     padding: 8px 15px;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     text-align: center;
     min-width: 200px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    box-shadow: var(--shadow-sm);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     line-height: 1.2;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 
 .main-layout {
@@ -505,13 +513,17 @@ input[type="checkbox"] {
 .side-panel {
     width: 140px;
     padding: 10px;
-    border-radius: 10px;
+    border-radius: var(--radius-lg);
     font-size: 0.8rem;
     line-height: 1.4;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    box-shadow: var(--shadow-sm);
     flex-shrink: 0;
     overflow-y: auto;
     max-height: calc(100vh - 150px);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 
 .side-panel h3 {
@@ -525,19 +537,22 @@ input[type="checkbox"] {
 
 .game-container {
     padding: 8px;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     overflow: hidden;
     flex: 1;
     max-width: 100%;
     max-height: 100%;
     min-height: 300px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    box-shadow: var(--shadow-lg);
     cursor: default;
     user-select: none;
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 .game-container.inf-mode {
     overflow: hidden;
@@ -579,8 +594,8 @@ input[type="checkbox"] {
     width: 34px;
     height: 34px;
     border: none;
-    border-radius: 8px;
-    background: rgba(30, 41, 59, 0.75);
+    border-radius: var(--radius-sm);
+    background: rgba(0, 0, 0, 0.75);
     color: #fff;
     font-size: 13px;
     line-height: 1;
@@ -591,9 +606,10 @@ input[type="checkbox"] {
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: background var(--transition-fast);
 }
 .dpad-btn:active {
-    background: rgba(59, 130, 246, 0.9);
+    background: var(--color-primary);
     transform: scale(0.94);
 }
 /* Bố cục chữ thập: ▲ giữa hàng trên, ◀ ▼ ▶ hàng dưới */
@@ -605,27 +621,27 @@ input[type="checkbox"] {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    border: 2px solid #2563eb;
-    background: rgba(255, 255, 255, 0.95);
-    color: #2563eb;
+    border: 2px solid var(--color-primary);
+    background: var(--bg-card);
+    color: var(--color-primary);
     font-size: 1.5rem;
     font-weight: bold;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    transition: all 0.2s;
+    box-shadow: var(--shadow-md);
+    transition: all var(--transition-fast);
     line-height: 1;
 }
 .zoom-btn:hover {
-    background: #2563eb;
+    background: var(--color-primary);
     color: white;
     transform: scale(1.1);
 }
 .zoom-btn:active { transform: scale(0.95); }
-.zoom-btn.zoom-undo { border-color: #f59e0b; color: #f59e0b; }
-.zoom-btn.zoom-undo:hover { background: #f59e0b; color: white; }
+.zoom-btn.zoom-undo { border-color: var(--color-warning); color: var(--color-warning); }
+.zoom-btn.zoom-undo:hover { background: var(--color-warning); color: white; }
 
 #inf-canvas,
 #inf-canvas-bot,
@@ -655,12 +671,13 @@ input[type="checkbox"] {
 }
 .rs-handle {
     position: absolute;
-    background: rgba(99,102,241,0.55);
+    background: var(--color-primary);
     border-radius: 3px;
     z-index: 20;
-    transition: background 0.15s;
+    transition: background var(--transition-fast);
+    opacity: 0.55;
 }
-.rs-handle:hover { background: rgba(99,102,241,0.95); }
+.rs-handle:hover { background: var(--color-primary); opacity: 0.95; }
 .rs-n  { top:0px;    left:var(--inf-handle-size);  right:var(--inf-handle-size); height:var(--inf-edge-handle-size); cursor:n-resize; }
 .rs-s  { bottom:0px; left:var(--inf-handle-size);  right:var(--inf-handle-size); height:var(--inf-edge-handle-size); cursor:s-resize; }
 .rs-w  { left:0px;   top:var(--inf-handle-size);    bottom:var(--inf-handle-size); width:var(--inf-edge-handle-size); cursor:w-resize; }
@@ -699,7 +716,7 @@ input[type="checkbox"] {
 }
 
 .cell.last-move {
-    outline: 3px solid #f59e0b !important;
+    outline: 3px solid var(--color-warning) !important;
     outline-offset: -3px;
     animation: modernFlash 0.8s infinite alternate;
     z-index: 10;
@@ -752,12 +769,14 @@ input[type="checkbox"] {
 }
 .bot-bubble {
     position: relative;
-    background: rgba(255,255,255,0.95);
-    border-radius: 10px;
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
     padding: 6px 10px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    box-shadow: var(--shadow-sm);
     max-width: 180px;
     min-width: 100px;
+    border: 1px solid var(--border);
+    transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 .bot-bubble::before {
     content: '';
@@ -767,11 +786,11 @@ input[type="checkbox"] {
     top: 50%;
     transform: translateY(-50%);
     border: 6px solid transparent;
-    border-right-color: rgba(255,255,255,0.95);
+    border-right-color: var(--bg-card);
 }
 .bot-message {
     font-size: 0.8rem;
-    color: #1e293b;
+    color: var(--text-primary);
     line-height: 1.3;
     word-wrap: break-word;
 }
@@ -787,23 +806,23 @@ input[type="checkbox"] {
 /* ── Chế độ ONLINE (PvP): tái sử dụng khung thoại bot làm THANH THÔNG BÁO HỆ THỐNG ──
    GIỮ avatar (🤖 hoặc avatar đối thủ) bên trái, đổi khung chữ sang phong cách system */
 .bot-avatar.online-announce .bot-bubble {
-    background: rgba(15, 23, 42, 0.88);
-    border: 1px solid rgba(99, 102, 241, 0.65);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    background: rgba(0, 0, 0, 0.88);
+    border: 1px solid var(--color-primary);
+    box-shadow: var(--shadow-md);
     max-width: 240px;
 }
 .bot-avatar.online-announce .bot-bubble::before {
     /* Mũi nhọn trỏ về avatar — đổi màu khớp nền tối */
-    border-right-color: rgba(15, 23, 42, 0.88);
+    border-right-color: rgba(0, 0, 0, 0.88);
 }
 .bot-avatar.online-announce .bot-message {
-    color: #e0e7ff;
+    color: var(--text-primary);
     font-weight: bold;
 }
 /* Không dùng hiệu ứng "annoying" của bot khi đang là thanh thông báo */
 .bot-avatar.online-announce .bot-bubble.annoying {
     animation: none;
-    background: rgba(15, 23, 42, 0.88);
+    background: rgba(0, 0, 0, 0.88);
 }
 
 .btn-restart {
@@ -811,11 +830,14 @@ input[type="checkbox"] {
     padding: 12px 40px;
     font-size: 1.05rem;
     font-weight: bold;
-    border-radius: 25px;
+    border-radius: var(--radius-full);
     cursor: pointer;
     border: none;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    box-shadow: var(--shadow-md);
     align-self: center;
+    background: var(--color-primary);
+    color: #fff;
+    transition: background var(--transition-fast);
 }
 
 /* ===== RESPONSIVE ===== */
@@ -1014,16 +1036,17 @@ input[type="checkbox"] {
     .btn-save-size {
         padding: 4px 8px !important;
         font-size: 11px !important;
-        background: #10b981 !important;
+        background: var(--color-success) !important;
         color: white !important;
         border: none !important;
-        border-radius: 4px !important;
+        border-radius: var(--radius-sm) !important;
         cursor: pointer !important;
         margin-left: 8px !important;
         flex-shrink: 0 !important;
+        transition: background var(--transition-fast) !important;
     }
     .btn-save-size:hover {
-        background: #059669 !important;
+        background: var(--color-success-hover) !important;
     }
 
     /* ── Thanh zoom preset: cuộn ngang thay vì xuống dòng ── */
@@ -1140,12 +1163,12 @@ input[type="checkbox"] {
 }
 
 .win-box {
-    background: linear-gradient(135deg, #1e293b, #0f172a);
-    border: 2px solid #f59e0b;
-    border-radius: 24px;
+    background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary));
+    border: 2px solid var(--color-warning);
+    border-radius: var(--radius-2xl);
     padding: 48px 60px;
     text-align: center;
-    box-shadow: 0 0 60px rgba(245,158,11,0.4), 0 20px 60px rgba(0,0,0,0.6);
+    box-shadow: 0 0 60px rgba(245,158,11,0.4), var(--shadow-xl);
     animation: winBoxPop 0.5s cubic-bezier(0.34,1.56,0.64,1);
     max-width: 420px;
     width: 90%;
@@ -1165,7 +1188,7 @@ input[type="checkbox"] {
     line-height: 34px;
     cursor: pointer;
     text-align: center;
-    transition: background 0.2s ease;
+    transition: background var(--transition-fast);
 }
 .win-close:hover {
     background: rgba(255,255,255,0.22);
@@ -1188,28 +1211,28 @@ input[type="checkbox"] {
 .win-title {
     font-size: 1.9rem;
     font-weight: 900;
-    color: #f59e0b;
+    color: var(--color-warning);
     margin: 0 0 8px;
     text-transform: uppercase;
     letter-spacing: 2px;
 }
 .win-subtitle {
     font-size: 1rem;
-    color: #94a3b8;
+    color: var(--text-secondary);
     margin: 0 0 32px;
 }
 .btn-play-again {
     padding: 14px 48px;
     font-size: 1.1rem;
     font-weight: 800;
-    border-radius: 50px;
+    border-radius: var(--radius-full);
     border: none;
     cursor: pointer;
-    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    background: linear-gradient(135deg, var(--color-warning), var(--color-danger));
     color: #fff;
     letter-spacing: 1px;
     box-shadow: 0 4px 20px rgba(245,158,11,0.5);
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
     text-transform: uppercase;
 }
 .btn-play-again:hover {
@@ -1222,16 +1245,17 @@ input[type="checkbox"] {
     flex: 1;
     min-width: 200px;
     max-width: 50%;
-    border-radius: 10px;
+    border-radius: var(--radius-lg);
     padding: 8px 10px;
     box-sizing: border-box;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
     flex-shrink: 0;
     max-height: calc(100vh - 150px);
     overflow-y: auto;
     position: relative;
     overflow: hidden;
+    transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 #history-panel .resize-handle {
     position: absolute;
@@ -1240,13 +1264,14 @@ input[type="checkbox"] {
     transform: translateY(-50%);
     width: 8px;
     height: 80px;
-    background: rgba(99,102,241,0.5);
+    background: var(--color-primary);
     cursor: ew-resize;
-    border-radius: 4px;
-    transition: background 0.15s;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
     z-index: 100;
+    opacity: 0.5;
 }
-#history-panel .resize-handle:hover { background: rgba(99,102,241,0.9); }
+#history-panel .resize-handle:hover { background: var(--color-primary); opacity: 0.9; }
 .history-header {
     display: flex;
     align-items: center;
@@ -1260,7 +1285,7 @@ input[type="checkbox"] {
     font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: #0f172a;
+    color: var(--text-primary);
 }
 .history-toggle-btn {
     background: none;
@@ -1268,15 +1293,15 @@ input[type="checkbox"] {
     cursor: pointer;
     font-size: 0.85rem;
     padding: 2px 4px;
-    border-radius: 4px;
-    color: #475569;
-    transition: background 0.15s;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    transition: background var(--transition-fast);
 }
-.history-toggle-btn:hover { background: rgba(0,0,0,0.06); }
+.history-toggle-btn:hover { background: var(--bg-primary); }
 .history-body {
     display: none;
     margin-top: 10px;
-    border-top: 2px solid #e2e8f0;
+    border-top: 2px solid var(--border);
     padding-top: 10px;
 }
 .history-body.open { display: block; }
@@ -1308,9 +1333,9 @@ input[type="checkbox"] {
     gap: 0px;
 }
 .history-item .h-mode { font-size: 0.6rem; opacity: 0.65; }
-.history-item.win  { background: rgba(37,99,235,0.12);  border-left: 3px solid #2563eb; }
-.history-item.lose { background: rgba(220,38,38,0.12);  border-left: 3px solid #dc2626; }
-.history-item.draw { background: rgba(100,116,139,0.15); border-left: 3px solid #64748b; }
+.history-item.win  { background: var(--color-primary-light);  border-left: 3px solid var(--color-primary); }
+.history-item.lose { background: var(--color-danger-light);  border-left: 3px solid var(--color-danger); }
+.history-item.draw { background: var(--bg-panel); border-left: 3px solid var(--text-secondary); }
 #history-empty {
     text-align: center;
     opacity: 0.45;
@@ -1336,11 +1361,11 @@ input[type="checkbox"] {
     flex: 1;
     min-width: 200px;
     max-width: 50%;
-    border-radius: 10px;
+    border-radius: var(--radius-lg);
     padding: 8px 10px;
     box-sizing: border-box;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
     flex-shrink: 0;
     max-height: calc(100vh - 150px);
     position: relative;
@@ -1348,6 +1373,7 @@ input[type="checkbox"] {
        danh sách tự cuộn riêng — KHÔNG dùng overflow:hidden đè mất overflow-y:auto */
     display: flex;
     flex-direction: column;
+    transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 #rank-panel .resize-handle {
     position: absolute;
@@ -1356,12 +1382,13 @@ input[type="checkbox"] {
     transform: translateY(-50%);
     width: 4px;
     height: 60px;
-    background: rgba(99,102,241,0.3);
+    background: var(--color-primary);
     cursor: ew-resize;
-    border-radius: 2px;
-    transition: background 0.15s;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
+    opacity: 0.3;
 }
-#rank-panel .resize-handle:hover { background: rgba(99,102,241,0.7); }
+#rank-panel .resize-handle:hover { background: var(--color-primary); opacity: 0.7; }
 #rank-panel h3 {
     margin: 0 0 12px;
     font-size: 1rem;
@@ -1369,8 +1396,8 @@ input[type="checkbox"] {
     letter-spacing: 1px;
     text-align: center;
     padding-bottom: 8px;
-    color: #0f172a;
-    border-bottom: 2px solid #e2e8f0;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--border);
     flex-shrink: 0;
 }
 .rank-tabs {
@@ -1383,16 +1410,16 @@ input[type="checkbox"] {
 }
 .rank-tab {
     padding: 4px 14px;
-    border-radius: 20px;
-    border: 1px solid #cbd5e1;
-    background: #f1f5f9;
-    color: #475569;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    color: var(--text-secondary);
     font-size: 0.82rem;
     font-weight: bold;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all var(--transition-fast);
 }
-.rank-tab.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+.rank-tab.active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
 /* Danh sách BXH: chiều cao giới hạn + BẮT BUỘC cuộn dọc khi dài.
    flex:1 + min-height:0 để chia đúng phần còn lại trong panel (không đè nút).
    padding-bottom để dòng cuối không dính sát nút bên dưới */
@@ -1410,19 +1437,19 @@ input[type="checkbox"] {
     align-items: center;
     gap: 10px;
     padding: 7px 12px;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     font-size: 0.88rem;
     font-weight: 600;
     margin-bottom: 4px;
-    background: #f8fafc;
-    border-left: 3px solid #cbd5e1;
+    background: var(--bg-panel);
+    border-left: 3px solid var(--border);
 }
-.rank-item.rank-1 { background: rgba(245,158,11,0.12); border-color: #f59e0b; }
-.rank-item.rank-2 { background: rgba(148,163,184,0.15); border-color: #94a3b8; }
-.rank-item.rank-3 { background: rgba(180,120,60,0.13);  border-color: #b4783c; }
+.rank-item.rank-1 { background: var(--color-warning-light); border-color: var(--color-warning); }
+.rank-item.rank-2 { background: var(--bg-primary); border-color: var(--text-secondary); }
+.rank-item.rank-3 { background: var(--bg-primary); border-color: var(--text-muted); }
 .rank-medal { font-size: 1.2rem; min-width: 26px; text-align: center; }
 .rank-name  { flex: 1; }
-.rank-time  { font-size: 0.88rem; color: #2563eb; font-weight: 800; min-width: 60px; text-align: right; }
+.rank-time  { font-size: 0.88rem; color: var(--color-primary); font-weight: 800; min-width: 60px; text-align: right; }
 .rank-meta  { font-size: 0.75rem; opacity: 0.55; min-width: 70px; text-align: right; }
 .btn-clear-rank {
     margin-top: 10px;
@@ -1451,42 +1478,45 @@ input[type="checkbox"] {
 }
 #name-overlay.show { display: flex; }
 .name-box {
-    background: #1e293b;
-    border: 2px solid #f59e0b;
-    border-radius: 20px;
+    background: var(--bg-secondary);
+    border: 2px solid var(--color-warning);
+    border-radius: var(--radius-2xl);
     padding: 36px 44px;
     text-align: center;
     width: 90%;
     max-width: 380px;
     box-shadow: 0 0 40px rgba(245,158,11,0.3);
+    transition: background var(--transition-normal), border-color var(--transition-normal);
 }
-.name-box h2 { color: #f59e0b; margin: 0 0 6px; font-size: 1.4rem; }
-.name-box p  { color: #94a3b8; margin: 0 0 20px; font-size: 0.95rem; }
+.name-box h2 { color: var(--color-warning); margin: 0 0 6px; font-size: 1.4rem; }
+.name-box p  { color: var(--text-secondary); margin: 0 0 20px; font-size: 0.95rem; }
 .name-box input {
     width: 100%;
     padding: 10px 16px;
-    border-radius: 10px;
-    border: 1px solid #475569;
-    background: #0f172a;
-    color: #fff;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    color: var(--text-primary);
     font-size: 1rem;
     font-weight: bold;
     box-sizing: border-box;
     margin-bottom: 16px;
     outline: none;
     text-align: center;
+    transition: border-color var(--transition-fast), background var(--transition-normal);
 }
-.name-box input:focus { border-color: #f59e0b; }
+.name-box input:focus { border-color: var(--color-warning); }
 .btn-save-name {
     padding: 10px 36px;
-    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    background: linear-gradient(135deg, var(--color-warning), var(--color-danger));
     color: #fff;
     border: none;
-    border-radius: 50px;
+    border-radius: var(--radius-full);
     font-size: 1rem;
     font-weight: 800;
     cursor: pointer;
     letter-spacing: 1px;
+    transition: filter var(--transition-fast);
 }
 .btn-save-name:hover { filter: brightness(1.1); }
 
@@ -1497,7 +1527,7 @@ input[type="checkbox"] {
     align-items: center;
     gap: 6px;
     padding: 10px 10px;
-    border-radius: 10px;
+    border-radius: var(--radius-lg);
     color: white;
     min-width: 100px;
     max-width: 130px;
@@ -1505,15 +1535,15 @@ input[type="checkbox"] {
     flex-shrink: 0;
     flex-grow: 0;
     align-self: flex-start;
-    box-shadow: 0 3px 12px rgba(0,0,0,0.2);
+    box-shadow: var(--shadow-md);
     text-align: center;
     box-sizing: border-box;
 }
 .player-card-x {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--color-primary) 0%, #764ba2 100%);
 }
 .player-card-o {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    background: linear-gradient(135deg, #f093fb 0%, var(--color-danger) 100%);
 }
 .pc-avatar {
     width: 44px; height: 44px;
@@ -1638,13 +1668,15 @@ body.in-game-active #inf-canvas-bot {
     min-height: 12px;
     max-width: 20px;
     max-height: 20px;
-    background: rgba(139, 92, 246, 0.6);
-    border-radius: 3px;
+    background: var(--color-primary);
+    border-radius: var(--radius-sm);
     z-index: 100;
-    transition: background 0.15s;
+    transition: background var(--transition-fast);
+    opacity: 0.6;
 }
 .gc-resize-handle:hover {
-    background: rgba(139, 92, 246, 0.9);
+    background: var(--color-primary);
+    opacity: 0.9;
 }
 .gc-resize-se {
     bottom: 0px;
@@ -1670,21 +1702,22 @@ body.in-game-active #inf-canvas-bot {
 /* ===== LOBBY LAYOUT STYLES ===== */
 /* Khung bọc chung cho các ô chức năng ở sảnh */
 .panel-box {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
     padding: 15px;
     margin-bottom: 15px;
+    transition: background var(--transition-normal), border-color var(--transition-normal);
     box-shadow: 0 2px 4px rgba(0,0,0,0.02);
 }
 
-.panel-title {
-    margin-top: 0;
+.panel-box h3 {
+    margin: 0 0 10px;
     margin-bottom: 10px;
     font-size: 16px;
     font-weight: bold;
-    color: #1e293b;
-    border-bottom: 2px solid #3b82f6;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--color-primary);
     padding-bottom: 5px;
 }
 
@@ -1698,17 +1731,17 @@ body.in-game-active #inf-canvas-bot {
 .btn-blue {
     width: 100%;
     padding: 12px;
-    background: #007bff;
+    background: var(--color-info);
     color: white;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     font-weight: bold;
     cursor: pointer;
-    font-size: 15px;
+    transition: background var(--transition-fast);
 }
 
 .btn-blue:hover {
-    background: #0056b3;
+    background: var(--color-info-hover);
 }
 
 /* ==================== CẤU HÌNH DÀN HÀNG NGANG PC ==================== */
@@ -1760,20 +1793,19 @@ body.in-game-active #inf-canvas-bot {
 }
 .btn-size-preset {
     padding: 6px 14px;
-    background: #4a5568;
+    background: var(--text-secondary);
     color: white;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     font-weight: bold;
-    font-size: 14px;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background var(--transition-fast);
 }
 .btn-size-preset:hover {
-    background: #2d3748;
+    background: var(--text-primary);
 }
 .btn-size-preset:active {
-    background: #1a202c;
+    background: var(--text-muted);
 }
 .auto-size-toggle {
     display: flex;
@@ -1785,16 +1817,16 @@ body.in-game-active #inf-canvas-bot {
 .btn-save-size {
     padding: 6px 12px;
     font-size: 12px;
-    background: #10b981;
+    background: var(--color-success);
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     cursor: pointer;
     margin-left: 8px;
-    transition: background 0.2s;
+    transition: background var(--transition-fast);
 }
 .btn-save-size:hover {
-    background: #059669;
+    background: var(--color-success-hover);
 }
 .toggle-label {
     display: flex;
@@ -1803,7 +1835,7 @@ body.in-game-active #inf-canvas-bot {
     cursor: pointer;
     font-size: 13px;
     font-weight: 600;
-    color: #4a5568;
+    color: var(--text-secondary);
 }
 .toggle-label input[type="checkbox"] {
     display: none;
@@ -1811,10 +1843,10 @@ body.in-game-active #inf-canvas-bot {
 .toggle-slider {
     width: 40px;
     height: 20px;
-    background: #cbd5e1;
-    border-radius: 20px;
+    background: var(--border);
+    border-radius: var(--radius-full);
     position: relative;
-    transition: background 0.2s;
+    transition: background var(--transition-fast);
 }
 .toggle-slider::before {
     content: '';
@@ -1828,7 +1860,7 @@ body.in-game-active #inf-canvas-bot {
     transition: transform 0.2s;
 }
 .toggle-label input[type="checkbox"]:checked + .toggle-slider {
-    background: #28a745;
+    background: var(--color-success);
 }
 .toggle-label input[type="checkbox"]:checked + .toggle-slider::before {
     transform: translateX(20px);
@@ -1857,16 +1889,16 @@ body.in-game-active #inf-canvas-bot {
 }
 .btn-zoom {
     padding: 6px 14px;
-    background: #6c757d;
+    background: var(--text-secondary);
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     font-weight: bold;
-    font-size: 14px;
     cursor: pointer;
+    transition: background var(--transition-fast);
 }
 .btn-zoom-in {
-    background: #28a745;
+    background: var(--color-success);
 }
 .zoom-presets {
     display: flex;
@@ -1876,20 +1908,19 @@ body.in-game-active #inf-canvas-bot {
 }
 .btn-zoom-preset {
     padding: 5px 12px;
-    background: #4a5568;
+    background: var(--text-secondary);
     color: white;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     font-weight: bold;
-    font-size: 13px;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background var(--transition-fast);
 }
 .btn-zoom-preset:hover {
-    background: #2d3748;
+    background: var(--text-primary);
 }
 .btn-zoom-preset:active {
-    background: #1a202c;
+    background: var(--text-muted);
 }
 
 /* KHU VỰC CHỨA BÀN CỜ */
@@ -1899,9 +1930,9 @@ body.in-game-active #inf-canvas-bot {
     height: auto;             /* Cho phép chiều cao tự động theo nội dung */
     max-height: none;         /* Không giới hạn chiều cao tối đa */
     margin: 15px auto;        /* Căn giữa khung theo chiều ngang */
-    border: 2px solid #3b82f6;/* Viền xanh làm nổi bật khu vực bàn cờ */
-    border-radius: 8px;
-    background-color: #ffffff;
+    border: 2px solid var(--color-primary);/* Viền xanh làm nổi bật khu vực bàn cờ */
+    border-radius: var(--radius-md);
+    background-color: var(--bg-card);
     
     /* Cho phép hiển thị tràn ra ngoài, không thanh cuộn */
     overflow: visible !important; 
@@ -1934,8 +1965,8 @@ body.in-game-active #inf-canvas-bot {
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
-    background: #1e293b;
-    color: white;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
     padding: 10px 14px;
     border-radius: 8px;
     font-weight: bold;
@@ -1954,7 +1985,7 @@ body.in-game-active #inf-canvas-bot {
     flex-shrink: 0;
 }
 .btn-danger {
-    background: #ef4444;
+    background: var(--color-danger);
     color: white;
     border: none;
     padding: 7px 12px;
@@ -1965,7 +1996,7 @@ body.in-game-active #inf-canvas-bot {
     min-height: 36px;
 }
 .btn-success {
-    background: #22c55e;
+    background: var(--color-success);
     color: white;
     border: none;
     padding: 7px 12px;
@@ -1976,7 +2007,7 @@ body.in-game-active #inf-canvas-bot {
     min-height: 36px;
 }
 .btn-kick {
-    background: #f97316;
+    background: var(--color-warning);
     color: white;
     border: none;
     padding: 4px 8px;
@@ -1987,20 +2018,21 @@ body.in-game-active #inf-canvas-bot {
 }
 .invite-panel {
     flex: 1;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
     padding: 10px;
+    transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 .invite-user-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 6px 4px;
-    border-bottom: 1px dashed #e2e8f0;
+    border-bottom: 1px dashed var(--border);
 }
 .btn-invite-action {
-    background: #3b82f6;
+    background: var(--color-primary);
     color: white;
     border: none;
     padding: 5px 10px;
@@ -2017,11 +2049,12 @@ body.in-game-active #inf-canvas-bot {
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
     padding: 10px 8px;
     margin: 8px 0;
+    transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 .player-slot {
     display: flex;
@@ -2035,7 +2068,7 @@ body.in-game-active #inf-canvas-bot {
     width: 40px;
     height: 40px;
     min-width: 40px;
-    background: #3b82f6;
+    background: var(--color-primary);
     color: white;
     font-size: 20px;
     font-weight: bold;
@@ -2044,43 +2077,43 @@ body.in-game-active #inf-canvas-bot {
     justify-content: center;
     border-radius: 50%;
 }
-.avatar-o { background: #ef4444; }
+.avatar-o { background: var(--color-danger); }
 .player-info { min-width: 0; }
 .player-name {
     font-weight: bold;
     font-size: 14px;
-    color: #334155;
+    color: var(--text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 100px;
 }
-.player-status { font-size: 11px; color: #64748b; margin-top: 2px; }
+.player-status { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
 .btn-ready {
-    background: #22c55e;
+    background: var(--color-success);
     color: white;
     border: none;
     padding: 4px 10px;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     cursor: pointer;
     font-size: 11px;
     font-weight: bold;
     margin-top: 4px;
-    transition: background 0.2s;
+    transition: background var(--transition-fast);
 }
 .btn-ready:hover {
-    background: #16a34a;
+    background: var(--color-success-hover);
 }
 .ready-indicator {
     font-size: 11px;
-    color: #16a34a;
+    color: var(--color-success);
     font-weight: bold;
     margin-top: 4px;
 }
 .vs-text {
     font-size: 20px;
     font-weight: bold;
-    color: #94a3b8;
+    color: var(--text-secondary);
     flex-shrink: 0;
 }
 
@@ -2088,25 +2121,25 @@ body.in-game-active #inf-canvas-bot {
 #turn-indicator {
     text-align: center;
     padding: 6px 10px;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     font-weight: bold;
     font-size: 13px;
     margin: 6px 0;
-    transition: background 0.3s, color 0.3s;
-    background: #eff6ff;
-    color: #1d4ed8;
-    border: 1px solid #bfdbfe;
+    transition: background var(--transition-normal), color var(--transition-normal);
+    background: var(--color-info-light);
+    color: var(--color-info);
+    border: 1px solid var(--color-info);
 }
 #turn-indicator.my-turn {
-    background: #dcfce7;
-    color: #15803d;
-    border-color: #86efac;
+    background: var(--color-success-light);
+    color: var(--color-success);
+    border-color: var(--color-success);
     animation: turnPulse 1s ease-in-out infinite alternate;
 }
 #turn-indicator.opponent-turn {
-    background: #fef9c3;
-    color: #854d0e;
-    border-color: #fde68a;
+    background: var(--color-warning-light);
+    color: var(--color-warning);
+    border-color: var(--color-warning);
 }
 @keyframes turnPulse {
     from { box-shadow: 0 0 0 0 rgba(21,128,61,0.3); }
@@ -2115,10 +2148,11 @@ body.in-game-active #inf-canvas-bot {
 
 /* Bàn cờ */
 .match-board-section {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
     padding: 8px;
+    transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 
 /* Khu vực dưới: Mời và Chat */
@@ -2131,25 +2165,26 @@ body.in-game-active #inf-canvas-bot {
 .invite-panel, .chat-panel {
     flex: 1;
     min-width: 240px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
     padding: 10px;
     box-sizing: border-box;
+    transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 .invite-panel h4, .chat-panel h4 {
     margin: 0 0 8px 0;
-    color: #1e293b;
-    border-bottom: 1px solid #cbd5e1;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border);
     padding-bottom: 4px;
     font-size: 13px;
 }
 .scroll-list {
     height: 100px;
     overflow-y: auto;
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
     padding: 6px;
     font-size: 13px;
     -webkit-overflow-scrolling: touch;
@@ -2164,14 +2199,17 @@ body.in-game-active #inf-canvas-bot {
 .chat-input-row input {
     flex: 1;
     padding: 8px;
-    border: 1px solid #cbd5e1;
-    border-radius: 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
     font-size: 14px;
     min-height: 36px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    transition: border-color var(--transition-fast), background var(--transition-normal);
 }
 .chat-input-row button {
-    background: #3b82f6;
-    color: white;
+    background: var(--color-primary);
+    color: var(--text-primary);
     border: none;
     padding: 0 14px;
     border-radius: 4px;
@@ -2224,7 +2262,7 @@ body.in-game-active #inf-canvas-bot {
     word-break: break-word;
 }
 .chat-message-line strong {
-    color: #007bff;
+    color: var(--color-info);
     margin-right: 4px;
 }
 
@@ -2236,22 +2274,22 @@ body.in-game-active #inf-canvas-bot {
     border-radius: 50%;
     margin-left: 5px;
     vertical-align: middle;
-    background: #94a3b8;
+    background: var(--text-secondary);
     box-shadow: 0 0 0 0 rgba(148,163,184,0.4);
-    transition: background 0.4s, box-shadow 0.4s;
+    transition: background var(--transition-normal), box-shadow var(--transition-normal);
     flex-shrink: 0;
 }
 .ping-led.online {
-    background: #22c55e;
+    background: var(--color-success);
     box-shadow: 0 0 0 3px rgba(34,197,94,0.25);
     animation: ledPulse 2s ease-in-out infinite;
 }
 .ping-led.away {
-    background: #f59e0b;
+    background: var(--color-warning);
     box-shadow: 0 0 0 3px rgba(245,158,11,0.25);
 }
 .ping-led.offline {
-    background: #ef4444;
+    background: var(--color-danger);
     box-shadow: 0 0 0 3px rgba(239,68,68,0.25);
 }
 @keyframes ledPulse {
@@ -2268,9 +2306,9 @@ body.in-game-active #inf-canvas-bot {
 }
 .qc-btn {
     padding: 4px 8px;
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    background: var(--bg-panel);
     cursor: pointer;
     font-size: 16px;
     line-height: 1;
@@ -2278,42 +2316,42 @@ body.in-game-active #inf-canvas-bot {
     min-width: 36px;
     min-height: 32px;
 }
-.qc-btn:hover { background: #e2e8f0; transform: scale(1.1); }
+.qc-btn:hover { background: var(--bg-primary); transform: scale(1.1); }
 .qc-btn:active { transform: scale(0.95); }
 .qc-more {
-    background: #3b82f6;
-    color: white;
-    border-color: #3b82f6;
+    background: var(--color-primary);
+    color: var(--text-primary);
+    border-color: var(--color-primary);
     font-size: 14px;
     font-weight: bold;
 }
-.qc-more:hover { background: #2563eb; }
+.qc-more:hover { background: var(--color-primary-hover); }
 #quick-chat-menu {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
     margin-bottom: 6px;
     padding: 6px;
-    background: #f1f5f9;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
+    background: var(--bg-panel);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
 }
 .qc-full {
     padding: 5px 10px;
-    border: 1px solid #cbd5e1;
-    border-radius: 16px;
-    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    background: var(--bg-card);
     cursor: pointer;
     font-size: 12px;
     white-space: nowrap;
     transition: background 0.15s;
     min-height: 30px;
 }
-.qc-full:hover { background: #dbeafe; border-color: #93c5fd; }
+.qc-full:hover { background: var(--color-info-light); border-color: var(--color-info); }
 
 /* Chat system message (quick chat gửi bởi mình) */
-.chat-message-line.self strong { color: #22c55e; }
-.chat-message-line.system { color: #94a3b8; font-style: italic; font-size: 11px; }
+.chat-message-line.self strong { color: var(--color-success); }
+.chat-message-line.system { color: var(--text-secondary); font-style: italic; font-size: 11px; }
 
 /* ══════════════════════════════════════════════
    HỆ THỐNG XU, SHOP, NHIỆM VỤ, BXH ĐẠI GIA
@@ -2325,18 +2363,19 @@ body.in-game-active #inf-canvas-bot {
     align-items: center;
     gap: 6px;
     padding: 4px 10px;
-    background: linear-gradient(135deg, #fef3c7, #fde68a);
-    border: 1px solid #f59e0b;
-    border-radius: 20px;
+    background: linear-gradient(135deg, var(--color-warning-light), var(--color-warning));
+    border: 1px solid var(--color-warning);
+    border-radius: var(--radius-full);
     font-size: 13px;
     font-weight: bold;
-    color: #92400e;
+    color: var(--color-warning);
     cursor: pointer;
     flex-shrink: 0;
     white-space: nowrap;
+    transition: background var(--transition-normal), border-color var(--transition-normal);
 }
-#xu-header-area:hover { background: linear-gradient(135deg, #fde68a, #fbbf24); }
-#xu-balance { font-size: 14px; color: #d97706; }
+#xu-header-area:hover { background: linear-gradient(135deg, var(--color-warning), var(--color-warning-hover)); }
+#xu-balance { font-size: 14px; color: var(--color-warning); }
 
 /* Nút hành động nhanh (Nhiệm vụ, Shop, BXH Đại Gia) */
 .xu-action-btns { display: flex; gap: 5px; flex-wrap: wrap; flex-shrink: 0; }
@@ -2351,9 +2390,9 @@ body.in-game-active #inf-canvas-bot {
     white-space: nowrap;
 }
 .xu-action-btn:hover { opacity: 0.85; }
-.btn-nhiem-vu   { background: #d1fae5; color: #065f46; border: 1px solid #10b981; }
-.btn-shop-av    { background: #ede9fe; color: #5b21b6; border: 1px solid #7c3aed; }
-.btn-dagia      { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
+.btn-nhiem-vu   { background: var(--color-success-light); color: var(--color-success); border: 1px solid var(--color-success); }
+.btn-shop-av    { background: var(--color-info-light); color: var(--color-info); border: 1px solid var(--color-info); }
+.btn-dagia      { background: var(--color-warning-light); color: var(--color-warning); border: 1px solid var(--color-warning); }
 
 /* ── MODAL BASE ── */
 .xu-modal-overlay {
@@ -2363,38 +2402,41 @@ body.in-game-active #inf-canvas-bot {
     justify-content: center; align-items: center;
 }
 .xu-modal-box {
-    background: #fff; border-radius: 14px; padding: 24px;
+    background: var(--bg-card); border-radius: var(--radius-lg); padding: 24px;
     width: 90%; max-width: 520px; max-height: 85vh;
     overflow-y: auto; font-family: Arial; position: relative;
-    box-shadow: 0 8px 40px rgba(0,0,0,.3);
+    box-shadow: var(--shadow-xl);
+    transition: background var(--transition-normal);
 }
 .xu-modal-header {
     display: flex; justify-content: space-between; align-items: center;
     margin-bottom: 16px;
 }
-.xu-modal-title { font-size: 18px; font-weight: bold; color: #1f2937; margin: 0; }
+.xu-modal-title { font-size: 18px; font-weight: bold; color: var(--text-primary); margin: 0; }
 .xu-modal-close {
     background: none; border: none; font-size: 24px;
-    cursor: pointer; color: #9ca3af; line-height: 1;
+    cursor: pointer; color: var(--text-secondary); line-height: 1;
+    transition: color var(--transition-fast);
 }
 
 /* ── NHIỆM VỤ ── */
 .nv-item {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 12px; border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-md);
     margin-bottom: 10px; gap: 10px;
+    transition: border-color var(--transition-normal);
 }
 .nv-info { display: flex; align-items: center; gap: 10px; flex: 1; }
 .nv-icon { font-size: 24px; }
-.nv-title { font-weight: bold; font-size: 14px; color: #111827; }
-.nv-desc  { font-size: 12px; color: #6b7280; margin-top: 2px; }
+.nv-title { font-weight: bold; font-size: 14px; color: var(--text-primary); }
+.nv-desc  { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
 .nv-btn {
     padding: 7px 14px; border: none; border-radius: 8px;
     cursor: pointer; font-size: 13px; font-weight: bold; white-space: nowrap;
 }
-.nv-claim { background: #22c55e; color: white; }
-.nv-claim:hover { background: #16a34a; }
-.nv-done  { background: #e5e7eb; color: #9ca3af; cursor: default; }
+.nv-claim { background: var(--color-success); color: white; }
+.nv-claim:hover { background: var(--color-success-hover); }
+.nv-done  { background: var(--bg-panel); color: var(--text-secondary); cursor: default; }
 
 /* ── SHOP AVATAR ── */
 #shop-avatar-grid {
@@ -2403,56 +2445,62 @@ body.in-game-active #inf-canvas-bot {
     gap: 12px; margin-top: 12px;
 }
 .av-card {
-    border: 2px solid #e5e7eb; border-radius: 10px;
+    border: 2px solid var(--border); border-radius: var(--radius-md);
     padding: 12px 8px; text-align: center;
-    position: relative; transition: border-color .2s;
-    background: #fafafa;
+    position: relative; transition: border-color var(--transition-normal);
+    background: var(--bg-panel);
 }
-.av-card-equipped { border-color: #f59e0b; background: #fffbeb; }
+.av-card-equipped { border-color: var(--color-warning); background: var(--color-warning-light); }
 .av-emoji { font-size: 36px; margin-bottom: 4px; }
-.av-name  { font-size: 12px; font-weight: bold; color: #374151; margin-bottom: 6px; }
+.av-name  { font-size: 12px; font-weight: bold; color: var(--text-primary); margin-bottom: 6px; }
 .av-lock  { position: absolute; top: 6px; right: 8px; font-size: 14px; }
 .av-btn   { width: 100%; padding: 5px 4px; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: bold; }
-.av-use   { background: #3b82f6; color: white; }
-.av-use:hover { background: #2563eb; }
-.av-buy   { background: #f59e0b; color: white; }
-.av-buy:hover { background: #d97706; }
-.av-equipped { background: #e5e7eb; color: #9ca3af; cursor: default; }
+.av-use   { background: var(--color-primary); color: white; }
+.av-use:hover { background: var(--color-primary-hover); }
+.av-buy   { background: var(--color-warning); color: white; }
+.av-buy:hover { background: var(--color-warning-hover); }
+.av-equipped { background: var(--bg-panel); color: var(--text-secondary); cursor: default; }
 
 /* ── BXH ĐẠI GIA ── */
 .dagia-item {
     display: flex; align-items: center; gap: 10px;
-    padding: 10px 12px; border-radius: 8px;
-    margin-bottom: 6px; background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    padding: 10px 12px; border-radius: var(--radius-sm);
+    margin-bottom: 6px; background: var(--bg-panel);
+    border: 1px solid var(--border);
+    transition: background var(--transition-normal), border-color var(--transition-normal);
 }
-.dagia-top1 { background: linear-gradient(135deg,#fff7ed,#fef3c7); border-color: #f59e0b; }
-.dagia-top2 { background: linear-gradient(135deg,#f8fafc,#e2e8f0); border-color: #94a3b8; }
-.dagia-top3 { background: linear-gradient(135deg,#fff8f0,#fde8d0); border-color: #d97706; }
+.dagia-top1 { background: linear-gradient(135deg,var(--color-warning-light),var(--color-warning)); border-color: var(--color-warning); }
+.dagia-top2 { background: linear-gradient(135deg,var(--bg-panel),var(--bg-primary)); border-color: var(--text-secondary); }
+.dagia-top3 { background: linear-gradient(135deg,var(--color-warning-light),var(--color-warning)); border-color: var(--color-warning-hover); }
 .dagia-medal { font-size: 20px; flex-shrink: 0; width: 28px; }
-.dagia-name  { flex: 1; font-weight: bold; font-size: 14px; color: #1f2937; }
+.dagia-name  { flex: 1; font-weight: bold; font-size: 14px; color: var(--text-primary); }
 .dagia-title {
     display: inline-block; font-size: 10px; font-weight: bold;
-    background: #fef3c7; color: #92400e; border-radius: 4px;
+    background: var(--color-warning-light); color: var(--color-warning); border-radius: var(--radius-sm);
     padding: 1px 5px; margin-left: 6px;
 }
-.dagia-coins { font-size: 13px; color: #d97706; font-weight: bold; white-space: nowrap; }
+.dagia-coins { font-size: 13px; color: var(--color-warning); font-weight: bold; white-space: nowrap; }
 
 /* ── CƯỢC ONLINE trong phòng ── */
 .bet-panel {
-    background: #fff7ed; border: 1px solid #fed7aa;
-    border-radius: 8px; padding: 10px 14px; margin: 8px 0;
+    background: var(--color-warning-light); border: 1px solid var(--color-warning);
+    border-radius: var(--radius-sm); padding: 10px 14px; margin: 8px 0;
     font-size: 13px;
+    transition: background var(--transition-normal), border-color var(--transition-normal);
 }
-.bet-panel label { font-weight: bold; color: #92400e; }
+.bet-panel label { font-weight: bold; color: var(--color-warning); }
 .bet-input {
-    padding: 5px 8px; border: 1px solid #f59e0b;
-    border-radius: 6px; font-size: 13px; width: 100px;
+    padding: 5px 8px; border: 1px solid var(--color-warning);
+    border-radius: var(--radius-sm); font-size: 13px; width: 100px;
     margin: 0 6px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    transition: border-color var(--transition-fast), background var(--transition-normal);
 }
 .bet-btn {
-    padding: 5px 12px; background: #f59e0b; color: white;
-    border: none; border-radius: 6px; cursor: pointer; font-weight: bold;
+    padding: 5px 12px; background: var(--color-warning); color: white;
+    border: none; border-radius: var(--radius-sm); cursor: pointer; font-weight: bold;
+    transition: background var(--transition-fast);
 }
 
 /* ── XU POPUP (+100 Xu animation) ── */
@@ -2464,7 +2512,7 @@ body.in-game-active #inf-canvas-bot {
     align-items: center;
     gap: 6px;
     background: rgba(0, 0, 0, 0.72);
-    border: 2px solid #FFD700;
+    border: 2px solid var(--color-warning);
     border-radius: 999px;
     padding: 8px 18px 8px 14px;
     box-shadow: 0 0 18px rgba(255, 215, 0, 0.55), 0 4px 16px rgba(0,0,0,0.35);
@@ -2472,11 +2520,11 @@ body.in-game-active #inf-canvas-bot {
     white-space: nowrap;
 }
 .xu-popup.gain {
-    border-color: #FFD700;
-    box-shadow: 0 0 18px rgba(255, 215, 0, 0.55), 0 4px 16px rgba(0,0,0,0.35);
+    border-color: var(--color-warning);
+    box-shadow: 0 0 18px rgba(245, 158, 11, 0.55), 0 4px 16px rgba(0,0,0,0.35);
 }
 .xu-popup.loss {
-    border-color: #f87171;
+    border-color: var(--color-danger);
     background: rgba(30, 18, 28, 0.94);
     box-shadow: 0 0 18px rgba(248,113,113,0.55), 0 4px 16px rgba(0,0,0,0.35);
     animation: xuPopFloatLoss 3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
@@ -2484,29 +2532,29 @@ body.in-game-active #inf-canvas-bot {
 .xu-popup-icon {
     font-size: 22px;
     line-height: 1;
-    filter: drop-shadow(0 0 6px #FFD700);
+    filter: drop-shadow(0 0 6px var(--color-warning));
 }
 .xu-popup.loss .xu-popup-icon {
-    filter: drop-shadow(0 0 6px #f87171);
+    filter: drop-shadow(0 0 6px var(--color-danger));
 }
 .xu-popup-text {
     font-size: 20px;
     font-weight: 900;
-    color: #FFD700;
+    color: var(--color-warning);
     font-family: 'Segoe UI', system-ui, sans-serif;
     letter-spacing: 0.5px;
-    text-shadow: 0 0 10px rgba(255,215,0,0.8), 0 1px 0 rgba(0,0,0,0.5);
+    text-shadow: 0 0 10px rgba(245,158,11,0.8), 0 1px 0 rgba(0,0,0,0.5);
 }
 .xu-popup.loss .xu-popup-text {
-    color: #fecaca;
-    text-shadow: 0 0 10px rgba(248,113,113,0.8), 0 1px 0 rgba(0,0,0,0.35);
+    color: var(--color-danger-light);
+    text-shadow: 0 0 10px rgba(239,68,68,0.8), 0 1px 0 rgba(0,0,0,0.35);
 }
 .xu-popup.loss .xu-popup-sub {
-    color: #fca5a5;
+    color: var(--color-danger-light);
 }
 .xu-popup-sub {
     font-size: 11px;
-    color: #fde68a;
+    color: var(--color-warning);
     margin-top: 1px;
     font-weight: 600;
 }
@@ -2528,10 +2576,11 @@ body.in-game-active #inf-canvas-bot {
 /* BXH tab Đại Gia trong lobby */
 .bxh-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
 .bxh-tab {
-    padding: 5px 14px; border: 1px solid #e5e7eb; border-radius: 16px;
-    background: #f9fafb; cursor: pointer; font-size: 13px; font-weight: bold;
+    padding: 5px 14px; border: 1px solid var(--border); border-radius: var(--radius-full);
+    background: var(--bg-panel); cursor: pointer; font-size: 13px; font-weight: bold;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
 }
-.bxh-tab.active { background: #f59e0b; color: white; border-color: #f59e0b; }
+.bxh-tab.active { background: var(--color-warning); color: white; border-color: var(--color-warning); }
 
 
 /* ══════════════════════════════════════════════════════════════════
@@ -2584,7 +2633,7 @@ body.in-game-active #inf-canvas-bot {
 .shop-board-skin-name {
     font-weight: 600;
     font-size: 0.9rem;
-    color: #e2e8f0;
+    color: var(--text-primary);
 }
 
 .shop-board-skin-rarity {
@@ -2595,7 +2644,7 @@ body.in-game-active #inf-canvas-bot {
 
 .shop-board-skin-desc {
     font-size: 0.75rem;
-    color: #94a3b8;
+    color: var(--text-secondary);
     line-height: 1.3;
 }
 
@@ -2615,25 +2664,25 @@ body.in-game-active #inf-canvas-bot {
 }
 
 .shop-board-skin-btn.buy {
-    background: #3b82f6;
+    background: var(--color-primary);
     color: white;
 }
 
 .shop-board-skin-btn.buy:hover {
-    background: #2563eb;
+    background: var(--color-primary-hover);
 }
 
 .shop-board-skin-btn.equip {
-    background: #10b981;
+    background: var(--color-success);
     color: white;
 }
 
 .shop-board-skin-btn.equip:hover {
-    background: #059669;
+    background: var(--color-success-hover);
 }
 
 .shop-board-skin-btn.equipped {
-    background: #6b7280;
+    background: var(--text-secondary);
     color: white;
     cursor: not-allowed;
 }
@@ -2658,11 +2707,12 @@ body.in-game-active #inf-canvas-bot {
 }
 
 .skin-card {
-    background: #fff;
-    border: 2px solid #e2e8f0;
-    border-radius: 14px;
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-lg);
     padding: 14px 10px 12px;
     display: flex;
+    transition: background var(--transition-normal), border-color var(--transition-normal);
     flex-direction: column;
     align-items: center;
     gap: 6px;
@@ -2675,8 +2725,8 @@ body.in-game-active #inf-canvas-bot {
     box-shadow: 0 6px 18px rgba(0,0,0,0.1);
 }
 .skin-card-equipped {
-    border-color: #10b981;
-    background: linear-gradient(135deg, #f0fdf4, #ffffff);
+    border-color: var(--color-success);
+    background: linear-gradient(135deg, var(--color-success-light), var(--bg-card));
     box-shadow: 0 0 0 3px rgba(16,185,129,0.2);
 }
 .skin-card-locked {
@@ -2692,7 +2742,7 @@ body.in-game-active #inf-canvas-bot {
 }
 .skin-vs {
     font-size: 0.65rem;
-    color: #94a3b8;
+    color: var(--text-secondary);
     font-weight: bold;
 }
 .skin-piece-x, .skin-piece-o { line-height: 1; }
@@ -2700,13 +2750,13 @@ body.in-game-active #inf-canvas-bot {
 .skin-name {
     font-size: 0.82rem;
     font-weight: 700;
-    color: #1e293b;
+    color: var(--text-primary);
     text-align: center;
     line-height: 1.2;
 }
 .skin-desc {
     font-size: 0.68rem;
-    color: #64748b;
+    color: var(--text-secondary);
     text-align: center;
     line-height: 1.3;
 }
@@ -2742,23 +2792,23 @@ body.in-game-active #inf-canvas-bot {
 .skin-btn:active { transform: scale(0.97); }
 
 .skin-equipped {
-    background: #d1fae5;
-    color: #065f46;
+    background: var(--color-success-light);
+    color: var(--color-success);
     cursor: default;
 }
 .skin-use {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: linear-gradient(135deg, var(--color-primary), #8b5cf6);
     color: #fff;
 }
 .skin-use:hover { opacity: 0.88; }
 .skin-buy {
-    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    background: linear-gradient(135deg, var(--color-warning), var(--color-danger));
     color: #fff;
 }
 .skin-buy:hover { opacity: 0.88; }
 .skin-cant-afford {
-    background: #e5e7eb;
-    color: #9ca3af;
+    background: var(--bg-panel);
+    color: var(--text-secondary);
     cursor: not-allowed;
 }
 
@@ -2769,11 +2819,11 @@ body.in-game-active #inf-canvas-bot {
     align-items: center;
     margin-bottom: 12px;
     font-size: 0.85rem;
-    color: #475569;
+    color: var(--text-secondary);
     gap: 8px;
     flex-wrap: wrap;
 }
-.shop-skin-info b { color: #d97706; }
+.shop-skin-info b { color: var(--color-warning); }
 
 /* Mobile */
 @media (max-width: 600px) {
@@ -2791,10 +2841,11 @@ body.in-game-active #inf-canvas-bot {
    ================================================================ */
 
 #view-training {
-  background: #0f172a;
+  background: var(--bg-secondary);
   position: relative;
   overflow: hidden;
   display: none !important;
+  transition: background var(--transition-normal);
 }
 
 .practice-layout {
@@ -2814,7 +2865,7 @@ body.in-game-active #inf-canvas-bot {
   padding: 16px;
   display: flex; flex-direction: column;
   align-items: center; gap: 8px;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .practice-avatar {
@@ -2823,25 +2874,25 @@ body.in-game-active #inf-canvas-bot {
   font-size: 24px; font-weight: 900; border: 3px solid;
   flex-shrink: 0;
 }
-.practice-avatar-x { background: rgba(239,68,68,.2); border-color: #ef4444; color: #ef4444; }
-.practice-avatar-o { background: rgba(59,130,246,.2); border-color: #3b82f6; color: #3b82f6; }
+.practice-avatar-x { background: var(--color-danger-light); border-color: var(--color-danger); color: var(--color-danger); }
+.practice-avatar-o { background: var(--color-primary-light); border-color: var(--color-primary); color: var(--color-primary); }
 
 .practice-pname {
   font-size: 14px; font-weight: 700;
-  text-align: center; word-break: break-word; color: #e2e8f0;
+  text-align: center; word-break: break-word; color: var(--text-primary);
 }
-.practice-pstats { font-size: 11px; color: #94a3b8; text-align: center; }
+.practice-pstats { font-size: 11px; color: var(--text-secondary); text-align: center; }
 
 .practice-indicator {
   padding: 4px 12px; border-radius: 9999px;
   font-size: 11px; font-weight: 700; text-align: center;
 }
 .practice-indicator-active {
-  background: rgba(16,185,129,.15); color: #34d399;
-  border: 1px solid rgba(16,185,129,.3);
+  background: var(--color-success-light); color: var(--color-success);
+  border: 1px solid var(--color-success);
 }
 .practice-indicator-inactive {
-  background: rgba(255,255,255,.05); color: #64748b;
+  background: var(--bg-panel); color: var(--text-secondary);
   border: 1px solid transparent;
 }
 
@@ -2859,7 +2910,7 @@ body.in-game-active #inf-canvas-bot {
   border: 1px solid rgba(255,255,255,.1);
   border-radius: 6px;
   padding: 8px 16px;
-  color: #e2e8f0; font-size: 12px; font-weight: 600;
+  color: var(--text-primary); font-size: 12px; font-weight: 600;
   text-align: center; margin-bottom: 8px; flex-shrink: 0;
 }
 
@@ -2882,20 +2933,20 @@ body.in-game-active #inf-canvas-bot {
   background: rgba(255,255,255,.07);
   border: 1px solid rgba(255,255,255,.18);
   border-radius: 6px;
-  color: #e2e8f0; font-size: 14px; font-weight: 700;
+  color: var(--text-primary); font-size: 14px; font-weight: 700;
   cursor: pointer; transition: background .15s, border-color .15s;
   text-align: center;
 }
 .practice-bot-btn:hover {
-  background: rgba(99,102,241,.25); border-color: #6366f1;
+  background: var(--color-primary-light); border-color: var(--color-primary);
 }
 .practice-bot-btn-god {
-  border-color: rgba(239,68,68,.5);
-  background: rgba(239,68,68,.1);
-  color: #fca5a5;
+  border-color: var(--color-danger);
+  background: var(--color-danger-light);
+  color: var(--color-danger);
 }
 .practice-bot-btn-god:hover {
-  background: rgba(239,68,68,.25); border-color: #ef4444;
+  background: var(--color-danger); border-color: var(--color-danger);
 }
 
 /* Nút controls */
@@ -2906,20 +2957,20 @@ body.in-game-active #inf-canvas-bot {
   transition: background .15s;
 }
 .practice-ctrl-replay {
-  background: rgba(16,185,129,.15); color: #34d399;
-  border-color: rgba(16,185,129,.35);
+  background: var(--color-success-light); color: var(--color-success);
+  border-color: var(--color-success);
 }
-.practice-ctrl-replay:hover { background: rgba(16,185,129,.3); }
+.practice-ctrl-replay:hover { background: var(--color-success); }
 .practice-ctrl-change {
-  background: rgba(99,102,241,.15); color: #a5b4fc;
-  border-color: rgba(99,102,241,.35);
+  background: var(--color-primary-light); color: var(--color-primary);
+  border-color: var(--color-primary);
 }
-.practice-ctrl-change:hover { background: rgba(99,102,241,.3); }
+.practice-ctrl-change:hover { background: var(--color-primary); }
 .practice-ctrl-exit {
-  background: rgba(239,68,68,.1); color: #fca5a5;
-  border-color: rgba(239,68,68,.3);
+  background: var(--color-danger-light); color: var(--color-danger);
+  border-color: var(--color-danger);
 }
-.practice-ctrl-exit:hover { background: rgba(239,68,68,.2); }
+.practice-ctrl-exit:hover { background: var(--color-danger); }
 
 /* Mobile practice */
 @media (max-width: 768px) {

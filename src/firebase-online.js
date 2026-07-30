@@ -661,8 +661,8 @@ function langNgheServerNotifications() {
         const now = Date.now();
         if (now - notif.timestamp > 300000) return; // 5 phút = 300000ms
         // Hiển thị thông báo qua ticker
-        if (typeof addNotification === 'function') {
-            addNotification(notif.type || 'info', notif.message);
+        if (typeof enqueueNotification === 'function') {
+            enqueueNotification('system_events', { type: notif.type || 'info', message: notif.message });
         }
         // Hiển thị alert cho thông báo quan trọng
         if (notif.type === 'warning') {
@@ -1937,8 +1937,8 @@ function handleUndoResponse(approved) {
                         // Thông báo
                         thongBaoHeThong(`↩️ Đã đồng ý rút nước - nhận ${betAmount.toLocaleString('vi-VN')} Xu!`);
                         
-                        if (typeof addNotification === 'function') {
-                            addNotification('win', `↩️ Đã duyệt rút +${betAmount.toLocaleString('vi-VN')} Xu`);
+                        if (typeof enqueueNotification === 'function') {
+                            enqueueNotification('system_events', { type: 'win', message: `↩️ Đã duyệt rút +${betAmount.toLocaleString('vi-VN')} Xu` });
                         }
                     });
                 });
@@ -3551,8 +3551,8 @@ function khoiDongChatTheGioi() {
             if (d.timestamp && d.timestamp >= startTs) {
                 const sender = d.sender || 'Người chơi';
                 const msg = d.message || '';
-                if (typeof addNotification === 'function') {
-                    addNotification('chat', `💬 ${sender}: ${msg}`);
+                if (typeof enqueueNotification === 'function') {
+                    enqueueNotification('chat_messages', { type: 'chat', message: `💬 ${sender}: ${msg}` });
                 }
             }
         });

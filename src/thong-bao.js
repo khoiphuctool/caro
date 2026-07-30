@@ -5,6 +5,135 @@ let notificationQueue = [];
 let notificationCache = new Map();
 let notificationListenersStarted = false;
 let welcomeShown = false;
+let tickerInitialized = false;
+let isAnimating = false;
+
+// ===== HỆ THỐNG REGISTRY NGUỒN THÔNG BÁO =====
+// Quản lý nhiều nguồn thông báo chạy tuần tự
+
+const notificationRegistry = {};
+let sourceQueue = [];
+let currentSource = null;
+
+// Đăng ký nguồn thông báo mới
+function registerNotificationSource(sourceId, config) {
+    notificationRegistry[sourceId] = {
+        name: config.name,
+        priority: config.priority || 2,
+        enabled: true,
+        listener: null,
+        queue: [],
+        isProcessing: false,
+        callback: config.callback
+    };
+    console.log('[REGISTRY] Registered source:', sourceId, config.name);
+}
+
+// Thêm thông báo vào queue của nguồn
+function enqueueNotification(sourceId, notification) {
+    const source = notificationRegistry[sourceId];
+    if (!source || !source.enabled) {
+        console.log('[REGISTRY] Source not found or disabled:', sourceId);
+        return;
+    }
+    
+    source.queue.push(notification);
+    console.log('[REGISTRY] Enqueued to', sourceId, ':', notification.message.substring(0, 30) + '...');
+    
+    // Nếu nguồn chưa trong global queue, thêm vào
+    if (!sourceQueue.includes(sourceId)) {
+        sourceQueue.push(sourceId);
+        console.log('[REGISTRY] Added to source queue:', sourceId);
+    }
+    
+    // Nếu không có nguồn đang chạy, bắt đầu xử lý
+    if (!currentSource) {
+        console.log('[REGISTRY] No current source, starting processing');
+        processNextSource();
+    }
+}
+
+// Xử lý nguồn tiếp theo trong hàng đợi
+function processNextSource() {
+    // Sắp xếp theo priority (1=cao nhất)
+    sourceQueue.sort((a, b) => {
+        return notificationRegistry[a].priority - notificationRegistry[b].priority;
+    });
+    
+    if (sourceQueue.length === 0) {
+        console.log('[REGISTRY] Source queue empty, stopping');
+        currentSource = null;
+        return;
+    }
+    
+    currentSource = sourceQueue.shift();
+    const source = notificationRegistry[currentSource];
+    
+    console.log('[REGISTRY] Processing source:', currentSource, 'Queue length:', source.queue.length);
+    
+    if (source.queue.length > 0) {
+        processSourceQueue(currentSource);
+    } else {
+        // Queue rỗng, chuyển sang nguồn tiếp theo
+        console.log('[REGISTRY] Source queue empty, moving to next');
+        processNextSource();
+    }
+}
+
+// Xử lý queue của một nguồn
+function processSourceQueue(sourceId) {
+    const source = notificationRegistry[sourceId];
+    source.isProcessing = true;
+    
+    if (source.queue.length === 0) {
+        source.isProcessing = false;
+        console.log('[REGISTRY] Source queue finished:', sourceId);
+        processNextSource();
+        return;
+    }
+    
+    const notification = source.queue.shift();
+    console.log('[REGISTRY] Processing notification from', sourceId, ':', notification.message.substring(0, 30) + '...');
+    
+    // Thêm vào global queue (sử dụng logic addNotification nhưng bypass isAnimating check)
+    const cacheKey = `${notification.type}_${notification.message}`;
+    const now = Date.now();
+    
+    // Dedup
+    const lastShown = notificationCache.get(cacheKey) || 0;
+    if (now - lastShown < DEDUPE_TIME) {
+        console.log('[REGISTRY] DEDUP SKIPPED:', { cacheKey, timeSinceLast: now - lastShown });
+        // Chuyển sang notification tiếp theo
+        processSourceQueue(sourceId);
+        return;
+    }
+    notificationCache.set(cacheKey, now);
+    
+    notificationQueue.push({ type: notification.type, message: notification.message });
+    if (notificationQueue.length > MAX_QUEUE) notificationQueue.shift();
+    
+    // Render nếu không đang animating
+    if (!isAnimating) {
+        _renderTicker();
+    }
+}
+
+// Bật/tắt nguồn thông báo
+function toggleNotificationSource(sourceId, enabled) {
+    if (notificationRegistry[sourceId]) {
+        notificationRegistry[sourceId].enabled = enabled;
+        console.log('[REGISTRY] Toggled source:', sourceId, 'enabled:', enabled);
+        
+        // Nếu tắt và đang trong queue, xóa đi
+        if (!enabled) {
+            const idx = sourceQueue.indexOf(sourceId);
+            if (idx > -1) {
+                sourceQueue.splice(idx, 1);
+                console.log('[REGISTRY] Removed disabled source from queue:', sourceId);
+            }
+        }
+    }
+}
 
 const DEDUPE_TIME = 20000; // không lặp cùng nội dung trong 20 giây
 const MAX_QUEUE = 8;
@@ -35,10 +164,14 @@ function addNotification(type, message) {
 
     console.log('[TICKER-DEBUG] addNotification() - Queue state:', { 
         length: notificationQueue.length, 
-        queue: notificationQueue.map(n => ({ type: n.type, msg: n.message.substring(0, 30) + '...' }))
+        queue: notificationQueue.map(n => ({ type: n.type, msg: n.message.substring(0, 30) + '...' })),
+        isAnimating: isAnimating
     });
     
-    _renderTicker();
+    // Chỉ render nếu không đang animating
+    if (!isAnimating) {
+        _renderTicker();
+    }
 }
 
 // ── Render ticker marquee ──
@@ -103,6 +236,9 @@ function _renderTicker() {
     ticker.classList.add('has-content');
     document.body.classList.add('ticker-on');
     
+    // Đánh dấu đang animating
+    isAnimating = true;
+    
     console.log('[TICKER-DEBUG] _renderTicker() - Classes added:', { 
         hasContent: ticker.classList.contains('has-content'),
         tickerOn: document.body.classList.contains('ticker-on')
@@ -121,7 +257,7 @@ function setupOnlineNotificationListener() {
         const user = snap.val();
         if (!user || Date.now() - user.lastActive >= 30000) return;
         const name = user.displayName || user.username || 'Người chơi';
-        addNotification('online', `🟢 ${name} vừa trực tuyến`);
+        enqueueNotification('online_users', { type: 'online', message: `🟢 ${name} vừa trực tuyến` });
     });
 }
 
@@ -134,7 +270,7 @@ function setupWinNotificationListener() {
         .on('child_added', snap => {
             const res = snap.val();
             if (!res || !res.msg || res.ts < startTs) return;
-            addNotification('win', res.msg);
+            enqueueNotification('match_results', { type: 'win', message: res.msg });
         });
 
     // Lắng nghe history chỉ cho thắng bot (tránh trùng với match_results cho trận online)
@@ -151,13 +287,40 @@ function setupWinNotificationListener() {
         // Chỉ thông báo khi thắng bot (bỏ qua PvP vì match_results đã xử lý)
         const isBot = loserName.startsWith('🤖') || loserName.toLowerCase().includes('bot');
         if (isBot) {
-            addNotification('win', `🏆 ${winnerName} vừa xuất sắc vượt qua ${loserName}!`);
+            enqueueNotification('match_results', { type: 'win', message: `🏆 ${winnerName} vừa xuất sắc vượt qua ${loserName}!` });
         }
     });
 }
 
 // ── Khởi tạo ──
-function initNotificationTicker() {
+function initNotificationTicker(force = false) {
+    // Ngăn khởi tạo trùng lặp (trừ khi force=true)
+    if (tickerInitialized && !force) {
+        console.log('[TICKER-DEBUG] initNotificationTicker() - Already initialized, skipping');
+        return;
+    }
+    
+    // Đăng ký các nguồn thông báo mặc định
+    registerNotificationSource('online_users', {
+        name: 'Người dùng trực tuyến',
+        priority: 2
+    });
+    
+    registerNotificationSource('match_results', {
+        name: 'Kết quả trận đấu',
+        priority: 1
+    });
+    
+    registerNotificationSource('chat_messages', {
+        name: 'Tin nhắn chat',
+        priority: 3
+    });
+    
+    registerNotificationSource('system_events', {
+        name: 'Sự kiện hệ thống',
+        priority: 1
+    });
+    
     // Setup animation listeners for ticker-content
     const content = document.getElementById('ticker-content');
     if (content) {
@@ -195,6 +358,8 @@ function initNotificationTicker() {
                     remaining: notificationQueue.length,
                     nextItem: notificationQueue[0].message.substring(0, 30) + '...'
                 });
+                // Reset flag trước khi render lượt tiếp theo
+                isAnimating = false;
                 _renderTicker();
             } else {
                 console.log('[TICKER-DEBUG] animationend - Queue empty, cleaning up ticker');
@@ -205,6 +370,16 @@ function initNotificationTicker() {
                 }
                 content.innerHTML = '';
                 content.style.animation = 'none';
+                // Reset flag khi queue rỗng
+                isAnimating = false;
+                
+                // Nếu đang xử lý registry, chuyển sang nguồn tiếp theo
+                if (currentSource) {
+                    console.log('[REGISTRY] Animation ended, continuing source processing');
+                    // Reset isAnimating trước khi process tiếp
+                    isAnimating = false;
+                    processSourceQueue(currentSource);
+                }
             }
 
             const ticker = document.getElementById('notification-ticker');
@@ -223,7 +398,7 @@ function initNotificationTicker() {
 
     if (!myId) {
         if (!welcomeShown) {
-            addNotification('online', '🎮 Chào mừng đến Caro Online! Đăng nhập để chơi và nhận thưởng.');
+            enqueueNotification('system_events', { type: 'online', message: '🎮 Chào mừng đến Caro Online! Đăng nhập để chơi và nhận thưởng.' });
             welcomeShown = true;
         }
         return;
@@ -234,14 +409,18 @@ function initNotificationTicker() {
         setupOnlineNotificationListener();
         setupWinNotificationListener();
     }
+    
+    tickerInitialized = true;
+    console.log('[TICKER-DEBUG] initNotificationTicker() - Initialized successfully');
 }
 
 // Gọi lại initNotificationTicker sau khi đăng nhập thành công
 function reinitTickerAfterLogin(displayName) {
     welcomeShown = true; // Đã đăng nhập rồi, không cần hiển thị welcome cho guest nữa
     notificationListenersStarted = false;
+    tickerInitialized = false; // Reset flag để cho phép reinit sau đăng nhập
     const name = displayName || 'bạn';
-    addNotification('welcome', `🎉 Chào mừng ${name} đã quay lại! Chúc ${name} một ngày vui vẻ!`);
+    enqueueNotification('system_events', { type: 'welcome', message: `🎉 Chào mừng ${name} đã quay lại! Chúc ${name} một ngày vui vẻ!` });
     initNotificationTicker();
 }
 
@@ -249,5 +428,8 @@ function reinitTickerAfterLogin(displayName) {
 window.addNotification      = addNotification;
 window.initNotificationTicker = initNotificationTicker;
 window.reinitTickerAfterLogin = reinitTickerAfterLogin;
+window.registerNotificationSource = registerNotificationSource;
+window.enqueueNotification = enqueueNotification;
+window.toggleNotificationSource = toggleNotificationSource;
 
 window.addEventListener('load', () => setTimeout(initNotificationTicker, 800));
