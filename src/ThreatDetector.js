@@ -111,9 +111,12 @@ const ThreatDetector = {
             }
         }
 
+        const specialPatterns = this.detectSpecialPatterns(r, c, opponent, winCount);
+
         return {
             maxThreat,
             patternScores,
+            specialPatterns,
             isUrgent: maxThreat >= this.THREAT.CRITICAL
         };
     },
@@ -250,7 +253,20 @@ const ThreatDetector = {
             blocksMultipleThreats: false,
             createsAttack: false,
             strategicPosition: false,
-            nearCenter: false
+            nearCenter: false,
+            // Thêm thông tin chi tiết về việc chặn đầu nào
+            blocksOpenEnd: false,
+            blocksBlockedEnd: false,
+            openEndCount: 0,
+            blockedEndCount: 0,
+            // ══════════════════════════════════════════════════════════════════
+            // THÊM: Đánh giá lợi thế chiến lược sau khi chặn
+            // ══════════════════════════════════════════════════════════════════
+            attackScore: 0,
+            createsThreeOpen: false,
+            createsFourOpen: false,
+            createsFork: false,
+            distanceFromCenter: 0
         };
 
         // Kiểm tra xem chặn này có ngăn được nhiều đe dọa khác không
@@ -274,6 +290,69 @@ const ThreatDetector = {
             }
         }
 
+        // ══════════════════════════════════════════════════════════════════
+        // PHÂN TÍCH CHI TIẾT: Chặn đầu mở vs đầu đã chặn
+        // ══════════════════════════════════════════════════════════════════
+        for (const { direction, pattern } of patterns) {
+            if (pattern === PatternDetector.PATTERN.NONE) continue;
+            
+            const { headBlocked, tailBlocked } = PatternDetector.countLineAndBlocked(
+                r, c, direction.dr, direction.dc, opponent
+            );
+            
+            // Nếu chặn ở đầu mở (chưa bị chặn) → rất quan trọng
+            if (!headBlocked) {
+                analysis.blocksOpenEnd = true;
+                analysis.openEndCount++;
+            }
+            // Nếu chặn ở đầu đã chặn → ít quan trọng hơn
+            if (headBlocked) {
+                analysis.blocksBlockedEnd = true;
+                analysis.blockedEndCount++;
+            }
+            
+            // Kiểm tra cả 2 đầu
+            if (!tailBlocked) {
+                analysis.blocksOpenEnd = true;
+                analysis.openEndCount++;
+            }
+            if (tailBlocked) {
+                analysis.blocksBlockedEnd = true;
+                analysis.blockedEndCount++;
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // ĐÁNH GIÁ LỢI THẾ CHIẾN LƯỢC SAU KHI CHẶN
+        // ══════════════════════════════════════════════════════════════════
+        
+        // Đánh giá đòn tấn công sau khi chặn
+        for (const { pattern } of attackPatterns) {
+            if (pattern === PatternDetector.PATTERN.THREE_OPEN) {
+                analysis.createsThreeOpen = true;
+                analysis.attackScore += 5000;
+            }
+            if (pattern === PatternDetector.PATTERN.FOUR_OPEN) {
+                analysis.createsFourOpen = true;
+                analysis.attackScore += 20000;
+            }
+            if (pattern === PatternDetector.PATTERN.FIVE) {
+                analysis.attackScore += 100000;
+            }
+        }
+
+        // Kiểm tra fork (nhiều đe dọa cùng lúc)
+        let attackThreatCount = 0;
+        for (const { pattern } of attackPatterns) {
+            if (pattern !== PatternDetector.PATTERN.NONE) {
+                attackThreatCount++;
+            }
+        }
+        if (attackThreatCount >= 2) {
+            analysis.createsFork = true;
+            analysis.attackScore += 10000;
+        }
+
         // Kiểm tra vị trí chiến lược (gần trung tâm)
         const isInfinite = typeof GameState !== 'undefined' && GameState.board ? GameState.board.isInfinite : false;
         const infiniteMap = typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : null;
@@ -287,8 +366,14 @@ const ThreatDetector = {
             }
             const cr = sr / n, cc = sc / n;
             const dist = Math.abs(r - cr) + Math.abs(c - cc);
+            analysis.distanceFromCenter = dist;
             analysis.nearCenter = dist < 5;
             analysis.strategicPosition = analysis.nearCenter;
+            
+            // Bonus cho vị trí gần trung tâm
+            if (dist < 3) analysis.attackScore += 3000;
+            else if (dist < 5) analysis.attackScore += 2000;
+            else if (dist < 8) analysis.attackScore += 1000;
         }
 
         return analysis;
@@ -301,6 +386,48 @@ const ThreatDetector = {
         // Base score từ threat
         for (const { pattern } of threat.patternScores) {
             score += this.getScore(pattern, false);
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // QUAN TRỌNG NHẤT: Ưu tiên chặn đầu MỞ (chưa có quân đối thủ)
+        // Chặn đầu mở quan trọng hơn nhiều so với đầu đã chặn
+        // ══════════════════════════════════════════════════════════════════
+        if (analysis.blocksOpenEnd) {
+            // Chặn đầu mở → multiplier rất cao
+            score *= 3.0;
+            
+            // Bonus thêm cho mỗi đầu mở chặn được
+            score += analysis.openEndCount * 5000;
+        }
+        
+        // Chặn đầu đã chặn → penalty (ít quan trọng)
+        if (analysis.blocksBlockedEnd && !analysis.blocksOpenEnd) {
+            // Nếu chỉ chặn đầu đã chặn → giảm điểm mạnh
+            score *= 0.3;
+            score -= analysis.blockedEndCount * 2000;
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // ĐÁNH GIÁ LỢI THẾ CHIẾN LƯỢC SAU KHI CHẶN
+        // Với luật chặn 2 đầu, đối thủ sẽ không thắng → ưu tiên chặn tạo thế cờ tốt
+        // ══════════════════════════════════════════════════════════════════
+        
+        // Thêm attackScore từ analysis (đánh giá đòn tấn công sau khi chặn)
+        score += analysis.attackScore;
+        
+        // Bonus lớn nếu chặn tạo THREE_OPEN (tạo thế cờ tấn công)
+        if (analysis.createsThreeOpen) {
+            score += 8000;
+        }
+        
+        // Bonus rất lớn nếu chặn tạo FOUR_OPEN (gần thắng)
+        if (analysis.createsFourOpen) {
+            score += 25000;
+        }
+        
+        // Bonus cực lớn nếu chặn tạo fork (nhiều đe dọa)
+        if (analysis.createsFork) {
+            score += 15000;
         }
 
         // Urgency multiplier
@@ -321,12 +448,12 @@ const ThreatDetector = {
             score *= 1.4;
         }
 
-        // Bonus cho tạo đe dọa cho đối thủ
+        // Bonus cho tạo đe dọa cho đối thủ (đã được tính trong attackScore)
         if (analysis.createsAttack) {
             score *= 1.2;
         }
 
-        // Bonus cho vị trí chiến lược
+        // Bonus cho vị trí chiến lược (đã được tính trong attackScore)
         if (analysis.strategicPosition) {
             score *= 1.1;
         }
@@ -394,7 +521,127 @@ const ThreatDetector = {
     }
 };
 
+const ThreatEngine = {
+    getForcedMove(player, opponent, winCount, blockBothEnds) {
+        const cells = this.getTacticalCells();
+        if (!cells || cells.length === 0) return null;
+
+        const empties = cells.filter(({ r, c }) => getCell(r, c) === '');
+        if (empties.length === 0) return null;
+
+        const checks = [
+            { fn: this.findWinningMove, reason: 'Win Now' },
+            { fn: this.findBlockingWinMove, reason: 'Block Win' },
+            { fn: this.findBlockThreeOpenMove, reason: 'Block THREE_OPEN' },
+            { fn: this.findForcedFourMove, reason: 'Forced Four' },
+            { fn: this.findBlockForcedFourMove, reason: 'Block Forced Four' },
+            { fn: this.findDoubleThreatMove, reason: 'Double Threat' }
+        ];
+
+        for (const check of checks) {
+            const move = check.fn.call(this, empties, player, opponent, winCount, blockBothEnds);
+            if (move) {
+                return { move, reason: check.reason };
+            }
+        }
+
+        return null;
+    },
+
+    getTacticalCells() {
+        if (typeof getAllTacticalCells === 'function') {
+            return getAllTacticalCells();
+        }
+        return [];
+    },
+
+    isForbiddenMove(r, c, player, winCount) {
+        if (typeof PatternDetector === 'undefined') return false;
+        if (typeof PatternDetector.detectDoubleThree === 'function' && PatternDetector.detectDoubleThree(r, c, player, winCount)) return true;
+        if (typeof PatternDetector.detectDoubleFour === 'function' && PatternDetector.detectDoubleFour(r, c, player, winCount)) return true;
+        return false;
+    },
+
+    filterForbiddenMoves(candidates, player, winCount) {
+        return candidates.filter(({ r, c }) => !this.isForbiddenMove(r, c, player, winCount));
+    },
+
+    findWinningMove(cells, player) {
+        for (const { r, c } of cells) {
+            setCell(r, c, player);
+            const win = typeof checkWinSilent === 'function' ? checkWinSilent(r, c) : false;
+            setCell(r, c, '');
+            if (win) return { r, c };
+        }
+        return null;
+    },
+
+    findBlockingWinMove(cells, player, opponent) {
+        for (const { r, c } of cells) {
+            setCell(r, c, opponent);
+            const win = typeof checkWinSilent === 'function' ? checkWinSilent(r, c) : false;
+            setCell(r, c, '');
+            if (win) return { r, c };
+        }
+        return null;
+    },
+
+    findBlockThreeOpenMove(cells, player, opponent, winCount, blockBothEnds) {
+        for (const { r, c } of cells) {
+            const threat = ThreatDetector.evaluateDefenseThreat(r, c, opponent, winCount, blockBothEnds);
+            if (threat.maxThreat >= ThreatDetector.THREAT.HIGH) {
+                const hasThreeOpen = threat.patternScores.some(p => p.pattern === PatternDetector.PATTERN.THREE_OPEN);
+                const hasDangerousSpecial = threat.specialPatterns && (
+                    threat.specialPatterns.doubleThree ||
+                    threat.specialPatterns.fourThree ||
+                    threat.specialPatterns.doubleFour
+                );
+
+                if (hasThreeOpen || hasDangerousSpecial) {
+                    return { r, c };
+                }
+            }
+        }
+        return null;
+    },
+
+    findForcedFourMove(cells, player, opponent, winCount) {
+        if (typeof countWinningCompletionEnds !== 'function') return null;
+        for (const { r, c } of cells) {
+            if (countWinningCompletionEnds(r, c, player) >= 2) {
+                return { r, c };
+            }
+        }
+        return null;
+    },
+
+    findBlockForcedFourMove(cells, player, opponent, winCount, blockBothEnds) {
+        for (const { r, c } of cells) {
+            const threat = ThreatDetector.evaluateDefenseThreat(r, c, opponent, winCount, blockBothEnds);
+            if (threat.maxThreat >= ThreatDetector.THREAT.CRITICAL) {
+                return { r, c };
+            }
+        }
+        return null;
+    },
+
+    findDoubleThreatMove(cells, player, opponent, winCount) {
+        for (const { r, c } of cells) {
+            const threat = ThreatDetector.evaluateAttackThreat(r, c, player, winCount, true);
+            if (threat.specialPatterns.doubleFour || threat.specialPatterns.fourThree || threat.specialPatterns.doubleThree) {
+                return { r, c };
+            }
+        }
+        return null;
+    }
+};
+
+if (typeof window !== 'undefined') {
+    window.ThreatEngine = ThreatEngine;
+}
+
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = ThreatDetector;
+    module.exports.ThreatEngine = ThreatEngine;
 }

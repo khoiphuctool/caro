@@ -5,7 +5,7 @@
 const AIController = {
     // ===== CONFIGURATION =====
     config: {
-        useNewArchitecture: false,  // Bật/tắt kiến trúc mới - ĐÃ TẮT, DÙNG LOGIC CŨ
+        useNewArchitecture: true,  // Bật/tắt kiến trúc mới - ĐÃ BẬT, DÙNG PIPELINE SP2
         debugMode: false,
         defaultDepth: 5,
         defaultTimeLimit: 2000
@@ -19,7 +19,13 @@ const AIController = {
         const gameMode = options.gameMode ?? document.getElementById('game-mode')?.value ?? 'ai-god';
         const winCount = options.winCount ?? 5;
         const blockBothEnds = options.blockBothEnds ??
-            (typeof document !== 'undefined' ? document.getElementById('block-both-ends')?.checked : true);
+            (typeof getBlockBothEnds === 'function' ? getBlockBothEnds() : true);
+
+        // Nếu chế độ bot-super, ưu tiên dùng BotSuper riêng để giữ logic mở đầu và bảng chiến thuật cũ
+        if (gameMode === 'bot-super' && typeof BotSuper !== 'undefined' && typeof BotSuper.getBotMove === 'function') {
+            console.log('[AIController] Routing bot-super to BotSuper.getBotMove');
+            return BotSuper.getBotMove({ player, opponent, winCount, depth: this.config.defaultDepth });
+        }
 
         // Sử dụng kiến trúc mới nếu được bật
         if (this.config.useNewArchitecture) {
@@ -44,27 +50,23 @@ const AIController = {
     getBotMoveNewArchitecture(options) {
         const { player, opponent, gameMode, winCount, blockBothEnds } = options;
 
-        // Log start
         if (typeof DebugLogger !== 'undefined') {
             DebugLogger.log(DebugLogger.CATEGORY.AI_DECISION, DebugLogger.LEVEL.INFO,
-                           'AI move calculation started', { player, gameMode, winCount });
+                           'AI pipeline start', { player, gameMode, winCount });
         }
 
-        // Update bot thinking UI
         if (typeof updateBotThinking === 'function') {
             updateBotThinking('Đang phân tích bàn cờ...');
         }
 
-        // Get candidates
         const candidates = Evaluation.getCandidateMoves(2);
         if (candidates.length === 0) {
             return { r: 0, c: 0 };
         }
 
-        // Filter valid candidates
         const validCands = candidates.filter(({ r, c }) => {
-            const cell = typeof GameState !== 'undefined' ? 
-                GameState.getBoardCell(r, c) : 
+            const cell = typeof GameState !== 'undefined' ?
+                GameState.getBoardCell(r, c) :
                 (typeof getCell === 'function' ? getCell(r, c) : "");
             return cell === '';
         });
@@ -73,123 +75,109 @@ const AIController = {
             return { r: 0, c: 0 };
         }
 
-        // ══════════════════════════════════════════════════════
-        // 0. BOT THẮNG NGAY — tuyệt đối ưu tiên
-        // Xác minh bằng checkWinSilent (chuẩn luật thật, gồm cả luật chặn 2 đầu)
-        // vì PatternDetector xử lý luật này không theo cài đặt blockBothEnds.
-        // ══════════════════════════════════════════════════════
-        for (const { r, c } of validCands) {
-            if (this.isRealWin(r, c, player, winCount)) {
-                if (typeof updateBotThinking === 'function') {
-                    updateBotThinking('TÌM THẤY NƯỚC THẮNG! 🎯');
-                }
-                if (typeof DebugLogger !== 'undefined') {
-                    DebugLogger.log(DebugLogger.CATEGORY.AI_DECISION, DebugLogger.LEVEL.INFO,
-                                   'Winning move found', { r, c });
-                }
-                return { r, c };
-            }
-        }
+        const legalCands = (typeof ThreatEngine !== 'undefined')
+            ? ThreatEngine.filterForbiddenMoves(validCands, player, winCount)
+            : validCands;
+        const evalCands = legalCands.length > 0 ? legalCands : validCands;
 
-        // ══════════════════════════════════════════════════════
-        // 1. ĐỊCH THẮNG NGAY — phải chặn tuyệt đối
-        // ══════════════════════════════════════════════════════
-        for (const { r, c } of validCands) {
-            if (this.isRealWin(r, c, opponent, winCount)) {
-                if (typeof updateBotThinking === 'function') {
-                    updateBotThinking('Chặn kịp! 😤');
-                }
-                if (typeof DebugLogger !== 'undefined') {
-                    DebugLogger.log(DebugLogger.CATEGORY.AI_DECISION, DebugLogger.LEVEL.INFO,
-                                   'Blocking winning threat', { r, c });
-                }
-                return { r, c };
-            }
-        }
+        let forcedMove = null;
+        if (typeof ThreatEngine !== 'undefined') {
+            const forced = ThreatEngine.getForcedMove(player, opponent, winCount, blockBothEnds);
+            if (forced && forced.move) {
+                forcedMove = forced.move;
 
-        // ══════════════════════════════════════════════════════
-        // 1.2. ĐỊCH CÓ FOUR_OPEN — chặn ngay, 1 nước nữa là thua
-        // ══════════════════════════════════════════════════════
-        for (const { r, c } of validCands) {
-            const threat = ThreatDetector.evaluateDefenseThreat(r, c, opponent, winCount, blockBothEnds);
-            if (threat.maxThreat === ThreatDetector.THREAT.CRITICAL) {
-                // Check nếu có FOUR_OPEN
-                const hasFourOpen = threat.patternScores.some(p =>
-                    p.pattern === PatternDetector.PATTERN.FOUR_OPEN
-                );
-                if (hasFourOpen) {
-                    if (typeof updateBotThinking === 'function') {
+                // Thêm thoại hay từ ai-nao.js
+                if (typeof updateBotThinking === 'function') {
+                    if (forced.reason === 'Win Now') {
+                        updateBotThinking('TÌM THẤY NƯỚC THẮNG! 🎯');
+                    } else if (forced.reason === 'Block Win' || forced.reason === 'Block THREE_OPEN') {
+                        updateBotThinking('Chặn kịp! 😤');
+                    } else if (forced.reason === 'Forced Four') {
+                        updateBotThinking('Tạo FOUR thắng chắc! ⚔️');
+                    } else if (forced.reason === 'Block Forced Four') {
                         updateBotThinking('Chặn FOUR nguy hiểm! 🚨');
+                    } else if (forced.reason === 'Double Threat') {
+                        updateBotThinking('Phát hiện fork! ⚡');
+                    } else {
+                        updateBotThinking('Tìm thấy nước đi tốt! 🎯');
                     }
-                    if (typeof DebugLogger !== 'undefined') {
-                        DebugLogger.log(DebugLogger.CATEGORY.AI_DECISION, DebugLogger.LEVEL.INFO,
-                                       'Blocking FOUR_OPEN threat', { r, c });
-                    }
-                    return { r, c };
                 }
-            }
-        }
 
-        // ══════════════════════════════════════════════════════
-        // 1.5. BOT TẠO FOUR KHÔNG THỂ CHẶN — thắng chắc lượt sau
-        // CHỈ khi địch KHÔNG có chuỗi FOUR nguy hiểm còn sống
-        // ══════════════════════════════════════════════════════
-        let _opponentHasCriticalFour = false;
-        if (typeof countLineAndBlocked === 'function' && typeof DIRECTIONS !== 'undefined') {
-            for (const { r, c } of validCands) {
-                setCell(r, c, opponent);
-                for (const dir of DIRECTIONS) {
-                    const { count, blockedBoth } = countLineAndBlocked(r, c, dir.dr, dir.dc, opponent);
-                    if (count >= winCount - 1 && !blockedBoth) { _opponentHasCriticalFour = true; break; }
-                }
-                setCell(r, c, '');
-                if (_opponentHasCriticalFour) break;
-            }
-        }
-        if (!_opponentHasCriticalFour) {
-            const forcedFour = this.findForcedFourMove(validCands, player);
-            if (forcedFour) {
-                if (typeof updateBotThinking === 'function') {
-                    updateBotThinking('Tạo FOUR thắng chắc! ⚔️');
-                }
+                const logLine = `Threat Engine → Move (${forcedMove.r},${forcedMove.c}) ${forced.reason} FINAL → (${forcedMove.r},${forcedMove.c})`;
+                console.log(logLine);
                 if (typeof DebugLogger !== 'undefined') {
                     DebugLogger.log(DebugLogger.CATEGORY.AI_DECISION, DebugLogger.LEVEL.INFO,
-                                   'Forced four (unstoppable) found', forcedFour);
+                                   'Threat Engine forced move', { move: forcedMove, reason: forced.reason });
                 }
-                return forcedFour;
+                return forcedMove;
             }
         }
 
-        // ══════════════════════════════════════════════════════
-        // 2. DIFFICULTY-BASED PIPELINE
-        // ══════════════════════════════════════════════════════
-        const isEasy = gameMode === 'ai-easy';
-        const isMedium = gameMode === 'ai-medium';
-        const isHard = gameMode === 'ai-hard';
-        const isGod = gameMode === 'ai-god';
+        const evaluatedCands = evalCands.map(({ r, c }) => {
+            const evaluation = Evaluation.evaluateCell(r, c, player, winCount, blockBothEnds);
+            return {
+                move: { r, c },
+                score: evaluation.score,
+                threat: evaluation.threat
+            };
+        });
+        evaluatedCands.sort((a, b) => b.score - a.score);
+        const topEvaluations = evaluatedCands.slice(0, Math.min(evaluatedCands.length, 5));
 
-        // Easy mode: simple evaluation
-        if (isEasy) {
-            return this.getEasyModeMove(validCands, player, opponent, winCount, blockBothEnds);
+        const searchDepth = this.config.defaultDepth;
+        const searchTimeLimit = this.config.defaultTimeLimit;
+        const searchResult = Search.findBestMove(player, {
+            algorithm: Search.ALGORITHM.PVS,
+            depth: searchDepth,
+            timeLimit: searchTimeLimit,
+            winCount,
+            blockBothEnds
+        });
+
+        const councilCandidates = topEvaluations.map(c => CouncilAI.createCandidate(
+            c.move,
+            'Evaluation',
+            c.score,
+            70,
+            'Evaluation'
+        ));
+        councilCandidates.push(CouncilAI.createCandidate(
+            searchResult.move,
+            'Search',
+            searchResult.score || 0,
+            90,
+            'Search'
+        ));
+
+        // Thêm thoại cho Search
+        if (typeof updateBotThinking === 'function') {
+            updateBotThinking(`PVS d=${searchDepth} + Quiescence... 🧠`);
         }
 
-        // Medium mode: basic search
-        if (isMedium) {
-            return this.getMediumModeMove(validCands, player, opponent, winCount, blockBothEnds);
+        const finalDecision = CouncilAI.decide(councilCandidates, {
+            player,
+            opponent,
+            winCount,
+            depth: 3
+        });
+
+        const finalMove = finalDecision && finalDecision.move ? finalDecision.move : searchResult.move;
+        const evaluationMove = topEvaluations.length > 0 ? topEvaluations[0].move : { r: 0, c: 0 };
+        const searchMove = searchResult.move || { r: 0, c: 0 };
+
+        const logLine = `Threat Engine → No Forced Move Evaluation → Move (${evaluationMove.r},${evaluationMove.c}) Score ${Math.round(topEvaluations.length > 0 ? topEvaluations[0].score : 0)} Search → Move (${searchMove.r},${searchMove.c}) PV +${Math.round(searchResult.score || 0)} Council → Verified → Choose (${finalMove.r},${finalMove.c}) FINAL → (${finalMove.r},${finalMove.c})`;
+        console.log(logLine);
+
+        if (typeof DebugLogger !== 'undefined') {
+            DebugLogger.log(DebugLogger.CATEGORY.AI_DECISION, DebugLogger.LEVEL.INFO,
+                           'AI pipeline final decision', {
+                               evaluation: topEvaluations,
+                               search: searchResult,
+                               final: finalMove
+                           });
         }
 
-        // Hard mode: deeper search
-        if (isHard) {
-            return this.getHardModeMove(validCands, player, opponent, winCount, blockBothEnds);
-        }
-
-        // God mode: full search with advanced patterns
-        if (isGod) {
-            return this.getGodModeMove(validCands, player, opponent, winCount, blockBothEnds);
-        }
-
-        // Default: medium mode
-        return this.getMediumModeMove(validCands, player, opponent, winCount, blockBothEnds);
+        return finalMove;
     },
 
     // ===== REAL WIN CHECK =====

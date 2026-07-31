@@ -298,8 +298,8 @@ a { text-decoration: none; transition: color var(--transition-fast); }
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-2) var(--space-4);
-  min-height: 48px;
+  padding: var(--space-3) var(--space-4);
+  min-height: 56px;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
   transition: background var(--transition-normal);
@@ -308,40 +308,121 @@ a { text-decoration: none; transition: color var(--transition-fast); }
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-4) !important;
+  gap: var(--space-3) !important;
   flex-wrap: wrap;
 }
+/* Avatar với gradient border đẹp hơn */
 .user-avatar-mini {
-  width: 36px !important;
-  height: 36px !important;
-  font-size: 18px !important;
+  width: 44px !important;
+  height: 44px !important;
+  font-size: 22px !important;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-info));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+  box-shadow: var(--shadow-md);
+}
+.user-avatar-mini:hover {
+  transform: scale(1.1);
+}
+/* Card thông tin user */
+.user-info-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }
 .user-info-mini {
-  align-items: center; /* Căn giữa chữ trong cụm thông tin */
-  text-align: center;
+  align-items: flex-start;
+  text-align: left;
 }
 .user-info-mini .u-name {
-  font-size: var(--font-base) !important;
-}
-/* Hiển thị skin đang dùng */
-.u-skin-current {
-  font-size: var(--font-xs);
-  color: var(--color-warning);
+  font-size: var(--font-md) !important;
   font-weight: 700;
-  background: var(--color-warning-light);
+  color: var(--text-primary);
+}
+/* Rank badge đẹp hơn */
+.user-info-mini .u-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#my-rank {
+  font-size: var(--font-xs);
+  font-weight: 700;
   padding: 2px 8px;
   border-radius: var(--radius-full);
-  margin-top: 2px;
-  display: inline-block;
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-info-light));
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
 }
-.user-xu {
-  font-size: var(--font-base) !important;
-  padding: var(--space-1) var(--space-2);
+/* Level badge */
+#header-user-level {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
   background: var(--color-warning-light);
   color: var(--color-warning);
-  border-radius: var(--radius-sm);
-  font-weight: 700;
+  border: 1px solid var(--color-warning);
 }
+/* Skin và Board tags */
+.u-skin-current {
+  font-size: var(--font-xs);
+  color: var(--color-info);
+  font-weight: 600;
+  background: var(--color-info-light);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  border: 1px solid var(--color-info);
+}
+/* Xu badge đẹp hơn */
+.user-xu {
+  font-size: var(--font-sm) !important;
+  padding: var(--space-2) var(--space-3);
+  background: linear-gradient(135deg, var(--color-warning-light), var(--color-warning));
+  color: #fff;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+.user-xu:hover {
+  transform: scale(1.05);
+}
+/* Nút action buttons */
+.btn-settings, .btn-logout {
+  padding: 6px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  transition: all var(--transition-fast);
+}
+.btn-settings { 
+  background: var(--bg-card); 
+  color: var(--text-secondary); 
+  border: 1px solid var(--border);
+}
+.btn-settings:hover { 
+  background: var(--bg-primary); 
+  color: var(--text-primary);
+  border-color: var(--color-primary);
+}
+.btn-logout   { 
+  background: var(--color-danger); 
+  color: #fff;
+}
+.btn-logout:hover { background: var(--color-danger-hover); }
 
 /* Shop dropdown */
 .shop-dropdown { position: relative; }
@@ -2098,17 +2179,21 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
         <!-- Khi đã đăng nhập -->
         <div class="user-bar hidden" id="header-user-bar">
             <div class="user-avatar-mini" id="user-avatar-display" onclick="moCapNhatTaiKhoan()">?</div>
-            <div class="user-info-mini">
-                <span class="u-name" id="user-display-name">...</span>
-                <span class="u-meta">
-                    <span id="my-rank">🐣 Gà Con</span>
-                </span>
-                <span class="u-skin-current" id="user-skin-display">Skin: Mặc định</span>
-                <span class="u-skin-current" id="user-board-display" style="margin-left:4px;">Bàn: Mặc định</span>
+            <div class="user-info-card">
+                <div class="user-info-mini">
+                    <span class="u-name" id="user-display-name">...</span>
+                    <span class="u-meta">
+                        <span id="my-rank">🐣 Gà Con</span>
+                    </span>
+                </div>
+                <div style="display:flex; gap:4px; flex-wrap:wrap;">
+                    <span class="u-skin-current" id="user-skin-display">Skin: Mặc định</span>
+                    <span class="u-skin-current" id="user-board-display">Bàn: Mặc định</span>
+                </div>
             </div>
             <span class="user-xu" id="xu-balance" onclick="moNhiemVu()">💰 0 Xu</span>
-            <button class="btn-settings" onclick="moCapNhatTaiKhoan()">⚙️ Cài đặt</button>
-            <button class="btn-logout" id="btn-logout">🚪 Đăng xuất</button>
+            <button class="btn-settings" onclick="moCapNhatTaiKhoan()">⚙️</button>
+            <button class="btn-logout" id="btn-logout">🚪</button>
         </div>
 
         <!-- Mini stats (chỉ hiện khi đăng nhập) - Solo stats hidden per DO6.TXT -->
@@ -2678,7 +2763,7 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
     <div class="battle-overlay battle-zoom-overlay">
         <button class="battle-zoom-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(1);" title="Phóng to">+</button>
         <button class="battle-zoom-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(-1);" title="Thu nhỏ">−</button>
-        <button class="battle-zoom-btn" onclick="if(typeof vRowF !== 'undefined' && typeof vColF !== 'undefined') { vRowF = 0; vColF = 0; if(typeof renderInfiniteBoard === 'function') renderInfiniteBoard(); }" title="Canh giữa bàn cờ">⌖ Fit</button>
+        <button class="battle-zoom-btn" onclick="if(typeof vRowF !== 'undefined' && typeof vColF !== 'undefined' && typeof infCanvasW !== 'undefined' && typeof infCanvasH !== 'undefined' && typeof INF_CS !== 'undefined') { if(typeof lastMoveR !== 'undefined' && typeof lastMoveC !== 'undefined') { const cols = infCanvasW / INF_CS, rows = infCanvasH / INF_CS; vRowF = lastMoveR - rows / 2; vColF = lastMoveC - cols / 2; } else { vRowF = 0; vColF = 0; } if(typeof renderInfiniteBoard === 'function') renderInfiniteBoard(); }" title="Di chuyển đến nước vừa đánh">⌖ Fit</button>
     </div>
 
     <!-- Overlay: Chat Panel (Floating) -->
@@ -2780,7 +2865,7 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
     <div class="bot-overlay bot-zoom-overlay">
         <button class="bot-zoom-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(1);" title="Phóng to">+</button>
         <button class="bot-zoom-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(-1);" title="Thu nhỏ">−</button>
-        <button class="bot-zoom-btn" onclick="if(typeof vRowF !== 'undefined' && typeof vColF !== 'undefined') { vRowF = 0; vColF = 0; if(typeof renderInfiniteBoard === 'function') renderInfiniteBoard(); }" title="Canh giữa bàn cờ">⌖ Fit</button>
+        <button class="bot-zoom-btn" onclick="if(typeof vRowF !== 'undefined' && typeof vColF !== 'undefined' && typeof infCanvasW !== 'undefined' && typeof infCanvasH !== 'undefined' && typeof INF_CS !== 'undefined') { if(typeof lastMoveR !== 'undefined' && typeof lastMoveC !== 'undefined') { const cols = infCanvasW / INF_CS, rows = infCanvasH / INF_CS; vRowF = lastMoveR - rows / 2; vColF = lastMoveC - cols / 2; } else { vRowF = 0; vColF = 0; } if(typeof renderInfiniteBoard === 'function') renderInfiniteBoard(); }" title="Di chuyển đến nước vừa đánh">⌖ Fit</button>
     </div>
 
     <!-- Overlay: Chat Bot Bubble (Floating) -->
@@ -3201,6 +3286,7 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 <script src="src/hoc-kinh-nghiem.js"></script>
 <script src="src/ai-nao.js"></script>
 <script src="src/bot-tia-chop.js"></script>
+<script src="src/CouncilAI.js"></script>
 <script src="src/bot-super.js"></script>
 <script src="src/ban-co.js"></script>
 <script src="src/shared-board-ui.js"></script>
@@ -3973,6 +4059,11 @@ window.switchView = function(name) {
     _origSwitchView(name);
 
     if (name === 'battle') {
+        if (typeof hideTopNavigation === 'function') {
+            hideTopNavigation();
+        } else {
+            document.body.classList.add('game-playing');
+        }
         // YC.TXT FIX: Check GameModeManager before rendering Online UI
         const currentMode = typeof GameModeManager !== 'undefined' ? GameModeManager.getCurrentMode() : null;
         

@@ -268,16 +268,15 @@ const SharedBoardUI = (function() {
  
     // ================================================================
     // VIEWPORT MANAGER - Viewport offset and camera
-    // ================================================================
+    // ══════════════════════════════════════════════════════════════════
     const ViewportManager = {
         resetToCenter() {
-            if (typeof vRowF !== 'undefined' && typeof vColF !== 'undefined' &&
-                typeof infCanvasW !== 'undefined' && typeof infCanvasH !== 'undefined' &&
-                typeof INF_CS !== 'undefined') {
-                vRowF = -Math.floor(infCanvasH / INF_CS / 2);
-                vColF = -Math.floor(infCanvasW / INF_CS / 2);
-                console.log('[SharedBoardUI] Viewport reset to center:', { vRowF, vColF, infCanvasW, infCanvasH, INF_CS });
-                
+            if (typeof Camera !== 'undefined' && typeof infCanvasW !== 'undefined' &&
+                typeof infCanvasH !== 'undefined' && typeof INF_CS !== 'undefined') {
+                Camera.setPosition(-Math.floor(infCanvasW / INF_CS / 2), -Math.floor(infCanvasH / INF_CS / 2));
+                syncCameraToViewport();
+                console.log('[SharedBoardUI] Viewport reset to center:', { Camera, infCanvasW, infCanvasH, INF_CS });
+
                 // YC.TXT FIX: Trigger render after viewport reset to ensure canvas renders immediately
                 if (typeof renderInfiniteBoard === 'function') {
                     requestAnimationFrame(() => {
@@ -287,8 +286,9 @@ const SharedBoardUI = (function() {
                 }
             }
         },
-        
+
         getViewport() {
+            syncCameraToViewport(); // Ensure vRowF/vColF synced with Camera
             return {
                 vRowF: typeof vRowF !== 'undefined' ? vRowF : 0,
                 vColF: typeof vColF !== 'undefined' ? vColF : 0

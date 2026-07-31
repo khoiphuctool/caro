@@ -403,6 +403,12 @@ function getSearchCandidates() {
     return cells;
 }
 
+function getEarlyOpeningMove(validCands) {
+    if (!validCands || validCands.length === 0) return null;
+    const pool = validCands.slice(0, Math.max(1, Math.ceil(validCands.length / 2)));
+    return pool[Math.floor(Math.random() * pool.length)];
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // getAllTacticalCells — KHÔNG giới hạn 50, dùng cho Tactical Scan
 // Trả về tất cả ô trống lân cận quân đang trên bàn (margin 2).
@@ -451,15 +457,19 @@ let _cachedBlockBothEnds = false;
 let _blockBothEndsDirty = true;
 function getBlockBothEnds() {
     if (_blockBothEndsDirty) {
-        let checked = false;
-        if (window.isBotVsBotMode) {
-            const el = document.getElementById('bot-vs-bot-block-both');
-            checked = el ? el.checked : false;
+        if (typeof getBlockBothEndsEnabled === 'function') {
+            _cachedBlockBothEnds = getBlockBothEndsEnabled();
         } else {
-            const el = document.getElementById('block-both-ends');
-            checked = el ? el.checked : false;
+            let checked = false;
+            if (window.isBotVsBotMode) {
+                const el = document.getElementById('bot-vs-bot-block-both');
+                checked = el ? el.checked : false;
+            } else {
+                const el = document.getElementById('block-both-ends');
+                checked = el ? el.checked : false;
+            }
+            _cachedBlockBothEnds = checked;
         }
-        _cachedBlockBothEnds = checked;
         _blockBothEndsDirty = false;
     }
     return _cachedBlockBothEnds;
@@ -1751,7 +1761,7 @@ function makeAIMove() {
     console.log('[makeAIMove] called', { gameMode, currentPlayer, botPiece, humanPiece, isBotMode: isBotMode(), isBotVsBotMode: window.isBotVsBotMode, isGameActive });
     // AIController là điểm vào chính. Giữ engine cũ làm fallback cho chế độ God
     // và trường hợp controller chưa tải được.
-    if (typeof AIController !== 'undefined' && AIController.config.useNewArchitecture) {
+    if (typeof AIController !== 'undefined') {
         return AIController.makeAIMove({
             player: botPiece,
             opponent: humanPiece,
@@ -1969,10 +1979,44 @@ function godEngineMove(bp, hp, validCands, isGod) {
     const moveCount = moveHistory.length;
     const startTime = Date.now();
 
+    // ══════════════════════════════════════════════════════════════════
+    // CHIẾN LƯỢC MỚI: Sử dụng Bot Tia Chớp làm tư vấn viên cho God/ToiThuong
+    // Bot Tia Chớp có scoring system rất mạnh (winningMove, openFour, twoThrees)
+    // ══════════════════════════════════════════════════════════════════
+    
+    // Thử dùng Bot Tia Chớp để tư vấn nước đi tốt nhất
+    if (typeof BotTiaChop !== 'undefined' && typeof BotTiaChop.getBotMove === 'function') {
+        console.log('[godEngineMove] Consulting BotTiaChop for move recommendation');
+        try {
+            const tiaChopMove = BotTiaChop.getBotMove({
+                player: bp,
+                opponent: hp,
+                winCount: wc
+            });
+            if (tiaChopMove && tiaChopMove.r !== undefined && tiaChopMove.c !== undefined) {
+                console.log('[godEngineMove] BotTiaChop recommended move:', tiaChopMove);
+                
+                // Verify nước đi có hợp lệ không
+                if (getCell(tiaChopMove.r, tiaChopMove.c) === '') {
+                    console.log('[godEngineMove] Using BotTiaChop recommendation (verified valid)');
+                    return { move: tiaChopMove, reason: 'BotTiaChop_advisor' };
+                } else {
+                    console.warn('[godEngineMove] BotTiaChop recommended invalid cell, continuing with godEngine logic');
+                }
+            }
+        } catch (e) {
+            console.warn('[godEngineMove] BotTiaChop consultation failed:', e);
+        }
+    }
+
     // ── LAYER 0: Nước đầu — random ──
     if (moveCount <= 2) {
-        const pool = validCands.slice(0, Math.max(1, Math.ceil(validCands.length / 2)));
-        return { move: pool[Math.floor(Math.random() * pool.length)], reason: 'early_random' };
+        const earlyMove = typeof getEarlyOpeningMove === 'function'
+            ? getEarlyOpeningMove(validCands)
+            : null;
+        if (earlyMove) {
+            return { move: earlyMove, reason: 'early_random' };
+        }
     }
 
     // ── LAYER 1: Immediate Tactical Scan (dùng ThreatDetector) ──
