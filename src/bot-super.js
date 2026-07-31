@@ -34,8 +34,6 @@ const BotSuper = {
         const wc = options.winCount || winCount || 5;
         const depth = options.depth || this.config.searchDepth;
 
-        console.log('[BotSuper Ultimate] getBotMove', { player, opponent, winCount: wc, depth });
-
         // ══════════════════════════════════════════════════════════════════
         // LAYER 0: Nước đầu và nước thứ 2 — dùng random thật sự khi board còn rất nhỏ
         // ═══════════════════════════════════════════════════════════════════
@@ -45,7 +43,6 @@ const BotSuper = {
             if (validCands.length > 0) {
                 const randomIndex = Math.floor(Math.random() * validCands.length);
                 const earlyMove = validCands[randomIndex];
-                console.log('[BotSuper Ultimate] Early opening random move:', earlyMove, { validCount: validCands.length });
                 return earlyMove;
             }
         }
@@ -62,7 +59,6 @@ const BotSuper = {
             const win = checkWinSilent(r, c);
             setCell(r, c, '');
             if (win) {
-                console.log('[BotSuper Ultimate] Win now:', { r, c });
                 return { r, c };
             }
         }
@@ -74,7 +70,6 @@ const BotSuper = {
             const win = checkWinSilent(r, c);
             setCell(r, c, '');
             if (win) {
-                console.log('[BotSuper Ultimate] Block win:', { r, c });
                 return { r, c };
             }
         }
@@ -92,11 +87,6 @@ const BotSuper = {
                     t.specialPatterns.doubleFour
                 );
                 if (t.maxThreat >= ThreatDetector.THREAT.CRITICAL || hasDangerousSpecial) {
-                    console.log('[BotSuper Ultimate] BLOCKING ENEMY CRITICAL THREAT:', {
-                        r, c,
-                        threatLevel: t.maxThreat,
-                        specialPatterns: t.specialPatterns
-                    });
                     return { r, c };
                 }
             }
@@ -107,11 +97,6 @@ const BotSuper = {
                 const blockPositions = ThreatDetector.analyzeBlockPositions(allEmpty, opponent, wc, true);
                 if (blockPositions.length > 0) {
                     const bestBlock = blockPositions[0];
-                    console.log('[BotSuper Ultimate] Strategic block selected:', {
-                        position: { r: bestBlock.r, c: bestBlock.c },
-                        score: bestBlock.score,
-                        analysis: bestBlock.analysis
-                    });
                     return { r: bestBlock.r, c: bestBlock.c };
                 }
             }
@@ -145,7 +130,6 @@ const BotSuper = {
             }
         }
         if (bestForced) {
-            console.log('[BotSuper Ultimate] Win opportunity - Forced four:', bestForced);
             return bestForced;
         }
 
@@ -162,7 +146,6 @@ const BotSuper = {
                         }
                     }
                     if (threatCount >= 2) {
-                        console.log('[BotSuper Ultimate] Win opportunity - Fork:', { r, c });
                         return { r, c };
                     }
                 }
@@ -177,7 +160,6 @@ const BotSuper = {
                     p.pattern === PatternDetector.PATTERN.FOUR_OPEN
                 );
                 if (hasFourOpen) {
-                    console.log('[BotSuper Ultimate] Win opportunity - FOUR_OPEN:', { r, c });
                     return { r, c };
                 }
             }
@@ -192,7 +174,6 @@ const BotSuper = {
             }));
             earlyScores.sort((a, b) => b.score - a.score);
             if (earlyScores[0] && earlyScores[0].score > -Infinity) {
-                console.log('[BotSuper Ultimate] Early phase fast move selected:', earlyScores[0]);
                 return { r: earlyScores[0].r, c: earlyScores[0].c };
             }
         }
@@ -279,7 +260,6 @@ const BotSuper = {
         // LAYER 3: Council AI Decision Engine
         // ══════════════════════════════════════════════════════════════════
         if (typeof CouncilAI !== 'undefined' && candidates.length > 0) {
-            console.log('[BotSuper Ultimate] Passing', candidates.length, 'candidates to Council AI');
             try {
                 const finalDecision = CouncilAI.decide(candidates, {
                     player: player,
@@ -287,7 +267,6 @@ const BotSuper = {
                     winCount: wc,
                     depth: depth
                 });
-                console.log('[BotSuper Ultimate] Council AI decision:', finalDecision);
                 return finalDecision.move;
             } catch (e) {
                 console.warn('[BotSuper Ultimate] Council AI failed, fallback:', e);
@@ -300,7 +279,6 @@ const BotSuper = {
         // LAYER 4: Fallback - Direct return nếu Council không khả dụng
         // ══════════════════════════════════════════════════════════════════
         if (candidates.length > 0) {
-            console.log('[BotSuper Ultimate] Council unavailable, returning best candidate');
             return candidates[0].move;
         }
     }

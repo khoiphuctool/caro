@@ -223,14 +223,14 @@ const ThreatDetector = {
 
         for (const { r, c } of candidates) {
             const threat = this.evaluateDefenseThreat(r, c, opponent, winCount, blockBothEnds);
-            
-            // Chỉ quan tâm FOUR_OPEN
+
+            // Quan tâm mọi pattern có mức CRITICAL (ví dụ: FOUR_OPEN hoặc THREE_OPEN)
             if (threat.maxThreat !== this.THREAT.CRITICAL) continue;
-            
-            const hasFourOpen = threat.patternScores.some(p => 
-                p.pattern === PatternDetector.PATTERN.FOUR_OPEN
-            );
-            if (!hasFourOpen) continue;
+
+            const hasFourOpen = threat.patternScores.some(p => p.pattern === PatternDetector.PATTERN.FOUR_OPEN);
+            const hasThreeOpen = threat.patternScores.some(p => p.pattern === PatternDetector.PATTERN.THREE_OPEN);
+            // Nếu không phải FOUR_OPEN hay THREE_OPEN thì bỏ qua
+            if (!hasFourOpen && !hasThreeOpen) continue;
 
             // Phân tích chi tiết vị trí chặn
             const analysis = this.analyzeBlockPosition(r, c, opponent, winCount);
