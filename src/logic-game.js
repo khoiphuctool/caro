@@ -174,6 +174,14 @@ function initGame() {
     if (winCount < 3) winCount = 3;
 
     isSolo = gameMode === 'solo';
+    if (!gameMode && window.isBotRoomMode && window.currentBotConfig) {
+        if (window.currentBotConfig.gameMode !== 'bot-vs-bot') {
+            gameMode = window.currentBotConfig.gameMode || 'ai-easy';
+        } else if (window.botVsBotState && window.botVsBotState.botXMode) {
+            gameMode = window.botVsBotState.botXMode;
+        }
+        console.warn('[initGame] fallback gameMode from bot room config:', gameMode);
+    }
     const groupPiece = document.getElementById('group-piece');
     const groupFirst = document.getElementById('group-first');
     if (groupPiece) groupPiece.style.display = isSolo ? 'none' : 'flex';
@@ -580,6 +588,7 @@ function makeMove(r, c) {
 
     currentPlayer = currentPlayer === "X" ? "O" : "X";
     updateCursorByTurn();
+    console.log('[makeMove] nextPlayer=', currentPlayer, 'botPiece=', botPiece, 'humanPiece=', humanPiece, 'isBotMode=', isBotMode(), 'isBotVsBotMode=', window.isBotVsBotMode);
 
     if (isBotMode() && !isBotMove && !window.isBotVsBotMode) evaluatePlayerMove(r, c);
     if (isGameActive && isBotMode() && currentPlayer === humanPiece && !window.isBotVsBotMode) startPlayerTurnTimer();

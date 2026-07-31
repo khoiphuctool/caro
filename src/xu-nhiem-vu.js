@@ -181,10 +181,17 @@ function processWinBot(modeDiff) {
     const database = _getDb();
     if (!uid || !database) return Promise.resolve(0);
 
-    const limitKey = modeDiff; // 'easy'|'medium'|'hard'|'god'|'lightning'
+    const validKeys = ['easy', 'medium', 'hard', 'god', 'lightning', 'super'];
+    let limitKey = modeDiff;
+    if (!validKeys.includes(limitKey)) {
+        console.warn('[processWinBot] unknown modeDiff, falling back to easy:', modeDiff);
+        limitKey = 'easy';
+    }
+
     const maxAllowed = XU_CONFIG.BOT_DAILY_LIMIT[limitKey] || 5;
     const reward = XU_CONFIG.BOT_REWARD[limitKey] || 300;
     const bonusReward = XU_CONFIG.BOT_BONUS_REWARD[limitKey] || 0;
+    console.log('[processWinBot] limitKey=', limitKey, 'used/max=', maxAllowed, 'reward=', reward, 'bonus=', bonusReward);
 
     const limitsRef = database.ref(`users/${uid}/botDailyLimits`);
     return resetBotLimitsIfNeeded(limitsRef).then(() => {
@@ -963,6 +970,10 @@ function onWinBotXu(modeName) {
     const uid = _getUid();
     if (!uid) return;
     const diff = DIFF_KEY[modeName] || 'easy';
+    if (diff !== 'super' && modeName === 'bot-super') {
+        console.warn('[onWinBotXu] Unexpected mapping for bot-super, diff=', diff);
+    }
+    console.log('[onWinBotXu] modeName=', modeName, 'diff=', diff);
     processWinBot(diff).then(earned => {
         if (earned > 0) {
             playCoinBurst(earned, 'Thắng Bot! 🏆');
@@ -973,6 +984,9 @@ function onWinBotXu(modeName) {
             if (typeof enqueueNotification === 'function') {
                 enqueueNotification('system_events', { type: 'win', message: 'Hết lượt nhận Xu từ Bot hôm nay. Thử cấp độ khác hoặc quay lại vào ngày mai!' });
             }
+        }
+        if (typeof renderNhiemVuTab === 'function') {
+            renderNhiemVuTab();
         }
     });
 }

@@ -169,10 +169,15 @@ function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
             subEl.textContent = tauntMessage || 'Đối thủ đã thắng ván này. Đừng nản, lần sau cố gắng hơn!';
         }
     } else if (window.isBotVsBotMode) {
+        const botWinnerMode = window.BotRoomManager?.botVsBotState
+            ? window.BotRoomManager.botVsBotState[winner === 'X' ? 'botXMode' : 'botOMode']
+            : null;
+        const winnerLabel = botWinnerMode ? `Bot ${winner} (${botWinnerMode})` : `Bot ${winner}`;
+
         emojiEl.textContent = tauntEmoji || '🤖';
         titleEl.textContent = `BOT ${winner} THẮNG!`;
         titleEl.style.color = '#2563eb';
-        subEl.textContent = `Trận đấu Bot vs Bot đã kết thúc. Bot ${winner} giành chiến thắng!`;
+        subEl.textContent = `Trận đấu Bot vs Bot đã kết thúc. ${winnerLabel} giành chiến thắng!`;
     } else if (isOnline) {
         if (localWon) {
             emojiEl.textContent = '🏆';

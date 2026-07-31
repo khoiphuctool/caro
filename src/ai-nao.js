@@ -1748,6 +1748,7 @@ function assessThreats(cands, bp, hp) {
 }
 
 function makeAIMove() {
+    console.log('[makeAIMove] called', { gameMode, currentPlayer, botPiece, humanPiece, isBotMode: isBotMode(), isBotVsBotMode: window.isBotVsBotMode, isGameActive });
     // AIController là điểm vào chính. Giữ engine cũ làm fallback cho chế độ God
     // và trường hợp controller chưa tải được.
     if (typeof AIController !== 'undefined' && AIController.config.useNewArchitecture) {
@@ -1759,7 +1760,10 @@ function makeAIMove() {
             blockBothEnds: getBlockBothEnds()
         });
     }
-    if (!isGameActive) return;
+    if (!isGameActive) {
+        console.log('[makeAIMove] aborted because game is not active');
+        return;
+    }
     isBotMove = true;
     window.cellScores = {};
     const move = getBotMove();

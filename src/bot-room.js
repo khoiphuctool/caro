@@ -251,7 +251,15 @@ const BotRoomManager = {
 
         // Áp cài đặt vào engine
         const modeEl = document.getElementById('game-mode');
-        if (modeEl) modeEl.value = this.currentBotRoom.gameMode;
+        if (modeEl) {
+            if (this.currentBotRoom.gameMode === 'bot-vs-bot') {
+                const wxEl = document.getElementById('bot-vs-bot-x-mode');
+                modeEl.value = wxEl && wxEl.value ? wxEl.value : 'bot-toi-thuong';
+                console.log('[BotRoom] bot-vs-bot initial gameMode set to', modeEl.value);
+            } else {
+                modeEl.value = this.currentBotRoom.gameMode;
+            }
+        }
 
         const winSelect = document.getElementById('win-count');
         if (winSelect) winSelect.value = wc;
@@ -529,7 +537,9 @@ const BotRoomManager = {
 
         setTimeout(() => {
             if (!isGameActive) return;
+            console.log('[performBotVsBotMove] currentPlayer=', state.currentPlayer, 'botMode=', botMode, 'gameMode=', gameMode, 'botPiece=', botPiece, 'humanPiece=', humanPiece);
             const move = getBotMove();
+            console.log('[performBotVsBotMove] move=', move);
             if (move) {
                 const originalIsBotMove = isBotMove;
                 isBotMove = true;
