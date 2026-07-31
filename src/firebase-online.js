@@ -878,8 +878,11 @@ function setupEventListeners() {
         // YC.TXT FIX: Use centralized GameModeManager to check current mode
         if (typeof GameModeManager !== 'undefined' && GameModeManager.isActive()) {
             const currentMode = GameModeManager.getCurrentMode();
-            console.log('[Firebase Online] Skipping Online reconnect - another mode is active:', currentMode);
-            return;
+            if (currentMode !== GameModes.ONLINE) {
+                console.log('[Firebase Online] Skipping Online reconnect - another mode is active:', currentMode);
+                return;
+            }
+            console.log('[Firebase Online] Online mode restored on load, proceeding with reconnect');
         }
         
         const savedRoom = localStorage.getItem('current_room_id');
@@ -1766,6 +1769,8 @@ function cleanupOnlineMode() {
     // Clear Online state
     currentRoomId = null;
     myRole = null;
+    window._suppressOnlineWinOverlay = false;
+    window._suppressOnlineWinOverlayRoom = null;
 
     // Clear localStorage
     localStorage.removeItem('current_room_id');
@@ -2059,6 +2064,12 @@ function undoOnlineMove() {
             return;
         }
         
+        // Giới hạn 1 trận chỉ được tối đa rút 1 nước
+        if (room.undoUsed) {
+            alert('Phòng này đã dùng quyền rút nước rồi!');
+            return;
+        }
+
         // Kiểm tra đã có undo request pending chưa
         if (room.undoRequest) {
             alert('Đang có yêu cầu rút nước đang chờ xử lý!');
@@ -2585,7 +2596,11 @@ function langNgheThayDoiPhong(roomId) {
                 daXoaBanCoTranNay = true;
                 locallyAppliedLastMove = { row: -2, col: -2 };
                 _lastProcessedWinner = '';
-                if (typeof window.xoaBanCoCu === 'function') window.xoaBanCoCu();
+                if (typeof window.xoaBanCoCu === 'function') {
+        window.xoaBanCoCu();
+        window._suppressOnlineWinOverlay = false;
+        window._suppressOnlineWinOverlayRoom = null;
+    }
                 // Ẩn overlay và nút xem lại
                 const old = document.getElementById('van-moi-overlay');
                 if (old) old.remove();
@@ -2849,6 +2864,7 @@ function langNgheThayDoiPhong(roomId) {
                     xuLyKetThucVan(room);
                 }
             }
+            maybeAutoStartRematch(room);
         } else {
             _prevRoomStatus = room.status;
         }
@@ -3432,6 +3448,21 @@ function xuLyKetThucVan(room) {
     if (myId === winnerId && hasBet && typeof ketThucCuoc === 'function') {
         ketThucCuoc(currentRoomId, room.winner, false);
     }
+
+    // Preserve rematch configuration so O can confirm keep-cược/luật
+    if (typeof db !== 'undefined' && currentRoomId) {
+        db.ref(`rooms/${currentRoomId}`).update({
+            rematchConfig: {
+                betAmount: room.betAmount || null,
+                winCount: room.winCount || 5,
+                chan2Dau: room.chan2Dau ?? true,
+                firstTurn: room.firstTurn || 'X',
+                isVip: room.isVip || false
+            },
+            rematchRequested: false,
+            updatedAt: Date.now()
+        });
+    }
 }
 // ══════════════════════════════════════════════════════════════════
 // 🔄 UI VÁN MỚI & CHỈNH LUẬT
@@ -3455,18 +3486,18 @@ function hienUIVanMoi(msg) {
     `;
     const isX = myRole === 'X';
     const actHTML = isX ? `
-        <p style="margin:10px 0 14px;color:#555;font-size:13px;">Chỉnh luật ở thanh phòng rồi bấm Bắt đầu</p>
+        <p style="margin:10px 0 14px;color:#555;font-size:13px;">Chỉnh luật ở thanh phòng rồi bấm ĐẤU LẠI hoặc Bắt đầu.</p>
         <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
             <button onclick="xemLaiBanCo()" style="padding:9px 14px;background:#6c757d;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;">🔍 Xem lại</button>
-            <button onclick="batDauVanMoi()" style="padding:9px 20px;background:#28a745;color:white;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:bold;">▶ Quay lại phòng chính</button>
+            <button onclick="requestRematchFromWinOverlay()" style="padding:9px 20px;background:#16a34a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:bold;">🕹 Đấu lại</button>
             <button onclick="thoatPhongSauVan()" style="padding:9px 12px;background:#dc3545;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Thoát</button>
         </div>
     ` : `
-        <p style="margin:10px 0 12px;color:#555;font-size:13px;">Chờ chủ phòng bắt đầu ván mới...</p>
+        <p style="margin:10px 0 12px;color:#555;font-size:13px;">Chờ chủ phòng bắt đầu ván mới — hoặc bấm Đồng Ý để giữ cược/luật cũ.</p>
         <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
             <button onclick="xemLaiBanCo()" style="padding:9px 14px;background:#6c757d;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;">🔍 Xem lại</button>
-            <button onclick="quayLaiPhongChinhO()" style="padding:9px 16px;background:#28a745;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:bold;">▶ Quay lại phòng chính</button>
-            <button onclick="thoatPhongSauVan()" style="padding:9px 12px;background:#dc3545;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Thoát</button>
+            <button onclick="oSanSangVaQuayVePhong()" style="padding:9px 16px;background:#16a34a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:bold;">🟢 Đồng ý chơi lại giữ cược</button>
+            <button onclick="thoatPhongSauVan()" style="padding:9px 12px;background:#dc2626;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Thoát</button>
         </div>
     `;
     overlay.innerHTML = `
@@ -3478,6 +3509,18 @@ function hienUIVanMoi(msg) {
     if (isX) {
         const rulesPanel = document.getElementById('room-rules-panel');
         if (rulesPanel) rulesPanel.style.display = 'block';
+    }
+}
+function oSanSangVaQuayVePhong() {
+    const old = document.getElementById('van-moi-overlay');
+    if (old) old.remove();
+    const btnBack = document.getElementById('btn-back-to-result');
+    if (btnBack) btnBack.remove();
+    if (typeof window.oSanSang === 'function') {
+        window.oSanSang();
+    }
+    if (typeof window.quayLaiPhongChinhO === 'function') {
+        window.quayLaiPhongChinhO();
     }
 }
 function xemLaiBanCo() {
@@ -3515,19 +3558,99 @@ function batDauVanMoi() {
     const btnBack = document.getElementById('btn-back-to-result');
     if (btnBack) btnBack.remove();
     if (typeof window.xoaBanCoCu === 'function') window.xoaBanCoCu();
-    // Reset về waiting — chủ phòng sẽ thấy nút Bắt đầu, chọn lại luật rồi bấm
-    // An toàn hơn set playing thẳng vì tránh race condition với O
-    db.ref(`rooms/${currentRoomId}`).update({
-        status:    'waiting',
-        winner:    '',
-        endReason: '',
-        moves:     { init: true },
-        lastMove:  { row: -1, col: -1, by: '' },
-        endedAt:   null,
-        updatedAt: Date.now()
+
+    db.ref(`rooms/${currentRoomId}`).once('value').then(snap => {
+        const room = snap.val() || {};
+        const rematchConfig = room.rematchConfig || {
+            betAmount: room.betAmount || null,
+            winCount:  room.winCount || 5,
+            chan2Dau:  room.chan2Dau ?? true,
+            firstTurn: room.firstTurn || 'X',
+            isVip:     room.isVip || false
+        };
+        const updates = {
+            status:    'waiting',
+            winner:    '',
+            endReason: '',
+            moves:     { init: true },
+            lastMove:  { row: -1, col: -1, by: '' },
+            endedAt:   null,
+            undoUsed:  false,
+            updatedAt: Date.now()
+        };
+
+        const isRematch = Boolean(room.rematchConfig || room.status === 'ended');
+        if (isRematch) {
+            updates.betAmount = rematchConfig.betAmount || null;
+            updates.betPot = 0;
+            updates.winCount = rematchConfig.winCount;
+            updates.chan2Dau = rematchConfig.chan2Dau;
+            updates.firstTurn = rematchConfig.firstTurn;
+            updates.isVip = rematchConfig.isVip;
+            updates.rematchConfig = rematchConfig;
+            updates.rematchRequested = room.rematchRequested || true;
+            // Preserve rematch-related flags if the guest already accepted
+            updates.guestReady = room.guestReady || false;
+            updates.playerOConfirmed = room.playerOConfirmed || null;
+            updates.playerXConfirmed = room.playerXConfirmed || null;
+            updates.rematchXReady = room.rematchXReady || false;
+            updates.rematchOReady = room.rematchOReady || false;
+        } else {
+            updates.betAmount = null;
+            updates.betPot = 0;
+            updates.guestReady = false;
+            updates.playerOConfirmed = null;
+            updates.playerXConfirmed = null;
+            updates.rematchConfig = null;
+            updates.rematchRequested = false;
+        }
+        db.ref(`rooms/${currentRoomId}`).update(updates);
     });
 }
 window.batDauVanMoi = batDauVanMoi;
+
+function getRematchConfigFromRoom(room) {
+    return room.rematchConfig || {
+        betAmount: room.betAmount || null,
+        winCount:  room.winCount || 5,
+        chan2Dau:  room.chan2Dau ?? true,
+        firstTurn: room.firstTurn || 'X',
+        isVip:     room.isVip || false
+    };
+}
+
+function maybeAutoStartRematch(room) {
+    if (!room || room.status !== 'ended' || !room.rematchRequested) return;
+    if (!room.rematchXReady || !room.rematchOReady) return;
+    if (!currentRoomId || myRole !== 'X') return;
+
+    const rematchConfig = getRematchConfigFromRoom(room);
+    const minBetCheck = rematchConfig.isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
+    const hasBet = rematchConfig.betAmount && rematchConfig.betAmount >= minBetCheck;
+
+    if (hasBet) {
+        db.ref(`rooms/${currentRoomId}`).update({
+            status:           'bet_confirm',
+            winCount:         rematchConfig.winCount,
+            chan2Dau:         rematchConfig.chan2Dau,
+            firstTurn:        rematchConfig.firstTurn,
+            isVip:            rematchConfig.isVip,
+            betAmount:        rematchConfig.betAmount,
+            betPot:           0,
+            guestReady:       true,
+            playerXConfirmed: true,
+            playerOConfirmed: true,
+            rematchRequested: false,
+            rematchXReady:    false,
+            rematchOReady:    false,
+            rematchConfig,
+            updatedAt:        Date.now()
+        });
+    } else {
+        _thucSuBatDauGame(room, rematchConfig.winCount, rematchConfig.chan2Dau, rematchConfig.firstTurn);
+    }
+}
+
 // Khách O bấm "Quay lại phòng chính" — chỉ ẩn overlay, ở lại phòng chờ chủ X bắt đầu
 function quayLaiPhongChinhO() {
     const old = document.getElementById('van-moi-overlay');

@@ -9,9 +9,9 @@ const XU_CONFIG = {
     WELCOME_BONUS: 40000,
     DAILY_CHECKIN: 5000,
     AVATAR_PRICE: 3000,
-    BOT_REWARD: { easy: 700, medium: 900, hard: 1200, god: 2000, lightning: 2000 },
-    BOT_DAILY_LIMIT: { easy: 10, medium: 12, hard: 10, god: 10, lightning: 10 },
-    BOT_BONUS_REWARD: { easy: 10000, medium: 15000, hard: 20000, god: 30000, lightning: 25000 }, // Thưởng khi đạt max limit
+    BOT_REWARD: { easy: 700, medium: 900, hard: 1200, god: 2000, lightning: 2000, super: 5000 },
+    BOT_DAILY_LIMIT: { easy: 10, medium: 12, hard: 10, god: 10, lightning: 10, super: 5 },
+    BOT_BONUS_REWARD: { easy: 10000, medium: 15000, hard: 20000, god: 30000, lightning: 25000, super: 50000 }, // Thưởng khi đạt max limit
     SOLO_WIN_REWARD: 200,      // Thưởng thắng PvP Solo Online
     SOLO_WIN_DAILY_LIMIT: 20,  // Tối đa 20 trận/ngày
     BET_MIN: 100,
@@ -26,7 +26,8 @@ const DIFF_KEY = {
     'ai-medium': 'medium',
     'ai-hard': 'hard',
     'ai-god': 'god',
-    'bot-tia-chop': 'lightning'
+    'bot-tia-chop': 'lightning',
+    'bot-super': 'super'
 };
 
 // ──────────────────────────────────────────────
@@ -168,7 +169,7 @@ function resetBotLimitsIfNeeded(limitsRef) {
         if (!data || data.lastResetDate !== today) {
             return limitsRef.set({
                 lastResetDate: today,
-                easy: 0, medium: 0, hard: 0, god: 0, lightning: 0
+                easy: 0, medium: 0, hard: 0, god: 0, lightning: 0, super: 0
             });
         }
     });
@@ -402,6 +403,21 @@ function oSanSang() {
 
         const minBetCheck = room.isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
         const hasBet = room.betAmount && room.betAmount >= minBetCheck;
+        const updates = { guestReady: true, updatedAt: Date.now() };
+
+        if (room.status === 'ended') {
+            updates.rematchRequested = true;
+            updates.rematchOReady = true;
+            if (!room.rematchConfig) {
+                updates.rematchConfig = {
+                    betAmount: room.betAmount || null,
+                    winCount: room.winCount || 5,
+                    chan2Dau: room.chan2Dau ?? true,
+                    firstTurn: room.firstTurn || 'X',
+                    isVip: room.isVip || false
+                };
+            }
+        }
 
         if (hasBet) {
             // Có cược → yêu cầu xác nhận
@@ -411,18 +427,10 @@ function oSanSang() {
                 return;
             }
             // Đồng ý cược → set cả guestReady và playerOConfirmed
-            database.ref(`rooms/${roomId}`).update({
-                guestReady: true,
-                playerOConfirmed: true,
-                updatedAt: Date.now()
-            });
-        } else {
-            // Không có cược → chỉ cần guestReady
-            database.ref(`rooms/${roomId}`).update({
-                guestReady: true,
-                updatedAt: Date.now()
-            });
+            updates.playerOConfirmed = true;
         }
+
+        database.ref(`rooms/${roomId}`).update(updates);
 
         // Cập nhật UI
         const btnReady  = document.getElementById('btn-guest-ready');
@@ -907,7 +915,8 @@ function renderNhiemVuTab() {
             { key:'medium', label:'Bot Trung Bình',max: XU_CONFIG.BOT_DAILY_LIMIT.medium, reward: XU_CONFIG.BOT_REWARD.medium, bonus: XU_CONFIG.BOT_BONUS_REWARD.medium },
             { key:'hard',   label:'Bot Khó',       max: XU_CONFIG.BOT_DAILY_LIMIT.hard,   reward: XU_CONFIG.BOT_REWARD.hard,   bonus: XU_CONFIG.BOT_BONUS_REWARD.hard },
             { key:'god',    label:'Bot Tối Thượng',max: XU_CONFIG.BOT_DAILY_LIMIT.god,    reward: XU_CONFIG.BOT_REWARD.god,    bonus: XU_CONFIG.BOT_BONUS_REWARD.god },
-            { key:'lightning', label:'Bot Tia Chớp',max: XU_CONFIG.BOT_DAILY_LIMIT.lightning, reward: XU_CONFIG.BOT_REWARD.lightning, bonus: XU_CONFIG.BOT_BONUS_REWARD.lightning }
+            { key:'lightning', label:'Bot Tia Chớp',max: XU_CONFIG.BOT_DAILY_LIMIT.lightning, reward: XU_CONFIG.BOT_REWARD.lightning, bonus: XU_CONFIG.BOT_BONUS_REWARD.lightning },
+            { key:'super', label:'Bot Siêu Phàm', max: XU_CONFIG.BOT_DAILY_LIMIT.super, reward: XU_CONFIG.BOT_REWARD.super, bonus: XU_CONFIG.BOT_BONUS_REWARD.super }
         ];
         el.innerHTML = rows.map(r => {
             const used = limits[r.key] || 0;

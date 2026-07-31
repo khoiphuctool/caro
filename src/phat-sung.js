@@ -105,6 +105,9 @@ function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
     const btnRestart = document.getElementById('btn-restart');
     const btnExitRoom = document.getElementById('btn-exit-room');
 
+    if (!overlay) return;
+    if (overlay.classList.contains('show')) return;
+
     const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
     if (isOnline && window._suppressOnlineWinOverlay && window._suppressOnlineWinOverlayRoom === (window.currentRoomId || currentRoomId)) {
         return;
@@ -133,15 +136,17 @@ function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
 
     if (isOnline) {
         if (btnReview) {
-            btnReview.textContent = 'Quay về phòng';
-            btnReview.onclick = returnToRoomFromWinOverlay;
+            btnReview.textContent = '🔍 XEM LẠI';
+            btnReview.onclick = reviewGame;
         }
         if (btnRestart) {
-            btnRestart.textContent = 'Thoát phòng';
-            btnRestart.onclick = exitRoomFromWinOverlay;
+            btnRestart.textContent = '🕹 ĐẤU LẠI';
+            btnRestart.onclick = requestRematchFromWinOverlay;
         }
         if (btnExitRoom) {
-            btnExitRoom.style.display = 'none';
+            btnExitRoom.style.display = 'inline-block';
+            btnExitRoom.textContent = '🚪 Quay về phòng';
+            btnExitRoom.onclick = returnToRoomFromWinOverlay;
         }
     }
 
@@ -163,6 +168,11 @@ function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
             titleEl.style.color = '#ef4444';
             subEl.textContent = tauntMessage || 'Đối thủ đã thắng ván này. Đừng nản, lần sau cố gắng hơn!';
         }
+    } else if (window.isBotVsBotMode) {
+        emojiEl.textContent = tauntEmoji || '🤖';
+        titleEl.textContent = `BOT ${winner} THẮNG!`;
+        titleEl.style.color = '#2563eb';
+        subEl.textContent = `Trận đấu Bot vs Bot đã kết thúc. Bot ${winner} giành chiến thắng!`;
     } else if (isOnline) {
         if (localWon) {
             emojiEl.textContent = '🏆';
@@ -211,9 +221,84 @@ function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
     }
 
     overlay.classList.add('show');
+    if (isOnline) {
+        window._suppressOnlineWinOverlay = true;
+        window._suppressOnlineWinOverlayRoom = (window.currentRoomId || currentRoomId) || null;
+    }
 }
 
+function closeWinOverlay() {
+    const overlay = document.getElementById('win-overlay');
+    if (overlay) overlay.classList.remove('show');
+    if (typeof stopConfetti === 'function') stopConfetti();
+    if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+        window._suppressOnlineWinOverlay = true;
+        window._suppressOnlineWinOverlayRoom = (window.currentRoomId || currentRoomId) || null;
+    }
+}
+window.closeWinOverlay = closeWinOverlay;
+
+function requestRematchFromWinOverlay() {
+    const overlay = document.getElementById('win-overlay');
+    if (overlay) overlay.classList.remove('show');
+    if (typeof stopConfetti === 'function') stopConfetti();
+    if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+        window._suppressOnlineWinOverlay = true;
+        window._suppressOnlineWinOverlayRoom = (window.currentRoomId || currentRoomId) || null;
+    }
+
+    const roomId = window.currentRoomId || currentRoomId;
+    const role = (typeof window.myOnlineRole !== 'undefined') ? window.myOnlineRole : (typeof myRole !== 'undefined' ? myRole : null);
+    if (!roomId || !role) {
+        if (typeof window.quayLaiPhongChinhO === 'function') window.quayLaiPhongChinhO();
+        return;
+    }
+
+    db.ref(`rooms/${roomId}`).once('value').then(snap => {
+        const room = snap.val();
+        if (!room || room.status !== 'ended') {
+            if (typeof thongBaoHeThong === 'function') {
+                thongBaoHeThong('❌ Chỉ có thể đấu lại khi trận đã kết thúc.');
+            }
+            return;
+        }
+
+        const rematchConfig = room.rematchConfig || {
+            betAmount: room.betAmount || null,
+            winCount:  room.winCount || 5,
+            chan2Dau:  room.chan2Dau ?? true,
+            firstTurn: room.firstTurn || 'X',
+            isVip:     room.isVip || false
+        };
+        const updates = {
+            rematchRequested: true,
+            rematchConfig,
+            rematchXReady: role === 'X' || room.rematchXReady || false,
+            rematchOReady: role === 'O' || room.rematchOReady || false,
+            updatedAt: Date.now()
+        };
+        if (role === 'O') {
+            const minBetCheck = rematchConfig.isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
+            if (rematchConfig.betAmount && rematchConfig.betAmount >= minBetCheck) {
+                updates.playerOConfirmed = true;
+                updates.guestReady = true;
+            }
+        }
+        if (role === 'X') {
+            updates.playerXConfirmed = true;
+        }
+        db.ref(`rooms/${roomId}`).update(updates);
+
+        if (typeof window.quayLaiPhongChinhO === 'function') window.quayLaiPhongChinhO();
+    });
+}
+window.requestRematchFromWinOverlay = requestRematchFromWinOverlay;
+
 function closeWinAndRestart() {
+    if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+        requestRematchFromWinOverlay();
+        return;
+    }
     document.getElementById('win-overlay').classList.remove('show');
     stopConfetti();
 
@@ -233,31 +318,31 @@ function closeWinAndRestart() {
 }
 
 function reviewGame() {
-    if (window.isOnlineModeActive && window.isOnlineModeActive()) {
-        returnToRoomFromWinOverlay();
-    } else {
-        document.getElementById('win-overlay').classList.remove('show');
-        stopConfetti();
-        requestAnimationFrame(() => {
-            if (isInfinite && winningCellCoords.length > 0) {
-                const [wr, wc] = winningCellCoords[Math.floor(winningCellCoords.length / 2)];
-                if (typeof vRowF !== 'undefined' && typeof vColF !== 'undefined' && 
-                    typeof infCanvasH !== 'undefined' && typeof INF_CS !== 'undefined' &&
-                    typeof infCanvasW !== 'undefined' && typeof renderInfiniteBoard === 'function') {
-                    vRowF = wr - (infCanvasH / INF_CS) / 2;
-                    vColF = wc - (infCanvasW / INF_CS) / 2;
-                    renderInfiniteBoard();
-                }
+    document.getElementById('win-overlay').classList.remove('show');
+    stopConfetti();
+    requestAnimationFrame(() => {
+        if (isInfinite && winningCellCoords.length > 0) {
+            const [wr, wc] = winningCellCoords[Math.floor(winningCellCoords.length / 2)];
+            if (typeof vRowF !== 'undefined' && typeof vColF !== 'undefined' && 
+                typeof infCanvasH !== 'undefined' && typeof INF_CS !== 'undefined' &&
+                typeof infCanvasW !== 'undefined' && typeof renderInfiniteBoard === 'function') {
+                vRowF = wr - (infCanvasH / INF_CS) / 2;
+                vColF = wc - (infCanvasW / INF_CS) / 2;
+                renderInfiniteBoard();
             }
-            statusPanel.innerHTML = `⬆️ Đang xem lại ván đấu &nbsp;|&nbsp; <button onclick="closeWinAndRestart()" style="padding:4px 16px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:0.9rem;">🔄 Đấu Lại</button>`;
-        });
-    }
+        }
+        statusPanel.innerHTML = `⬆️ Đang xem lại ván đấu &nbsp;|&nbsp; <button onclick="closeWinAndRestart()" style="padding:4px 16px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:0.9rem;">🔄 Đấu Lại</button>`;
+    });
 }
 
 function returnToRoomFromWinOverlay() {
     const overlay = document.getElementById('win-overlay');
     if (overlay) overlay.classList.remove('show');
     stopConfetti();
+    if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+        window._suppressOnlineWinOverlay = true;
+        window._suppressOnlineWinOverlayRoom = (window.currentRoomId || currentRoomId) || null;
+    }
 
     if (typeof window.quayLaiPhongChinhO === 'function') {
         window.quayLaiPhongChinhO();
@@ -265,8 +350,13 @@ function returnToRoomFromWinOverlay() {
 }
 
 function exitRoomFromWinOverlay() {
-    document.getElementById('win-overlay').classList.remove('show');
+    const overlay = document.getElementById('win-overlay');
+    if (overlay) overlay.classList.remove('show');
     stopConfetti();
+    if (window.isOnlineModeActive && window.isOnlineModeActive()) {
+        window._suppressOnlineWinOverlay = true;
+        window._suppressOnlineWinOverlayRoom = (window.currentRoomId || currentRoomId) || null;
+    }
     if (window.isBotRoomMode && typeof BotRoomManager !== 'undefined' && typeof BotRoomManager.exitBotRoom === 'function') {
         BotRoomManager.exitBotRoom();
         return;

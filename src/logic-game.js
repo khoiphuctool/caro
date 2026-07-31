@@ -3,7 +3,8 @@
 
 // Helper: kiểm tra có phải chế độ đấu bot không (bao gồm cả bot-toi-thuong, bot-tia-chop)
 function isBotMode(mode) {
-    return (mode || gameMode).startsWith('ai') || (mode || gameMode) === 'bot-toi-thuong' || (mode || gameMode) === 'bot-tia-chop';
+    const m = mode || gameMode;
+    return m.startsWith('ai') || m === 'bot-toi-thuong' || m === 'bot-tia-chop' || m === 'bot-super';
 }
 
 // ===== TIMER =====
@@ -353,6 +354,12 @@ function makeMove(r, c) {
             return;
         }
 
+        // Chặn: nếu có yêu cầu undo đang chờ, không được đánh tiếp
+        if (window.undoRequestPending) {
+            console.warn('[DEBUG-BOARD] makeMove blocked: undo request pending');
+            return;
+        }
+
         // Vẽ quân lên bàn trước (optimistic update)
         moveCount++;
         setCell(r, c, quanToi);
@@ -574,11 +581,11 @@ function makeMove(r, c) {
     currentPlayer = currentPlayer === "X" ? "O" : "X";
     updateCursorByTurn();
 
-    if (isBotMode() && !isBotMove) evaluatePlayerMove(r, c);
-    if (isGameActive && isBotMode() && currentPlayer === humanPiece) startPlayerTurnTimer();
+    if (isBotMode() && !isBotMove && !window.isBotVsBotMode) evaluatePlayerMove(r, c);
+    if (isGameActive && isBotMode() && currentPlayer === humanPiece && !window.isBotVsBotMode) startPlayerTurnTimer();
 
     updateStatus();
-    if (isGameActive && isBotMode() && currentPlayer === botPiece) {
+    if (isGameActive && isBotMode() && currentPlayer === botPiece && !window.isBotVsBotMode) {
         const thinkTime = gameMode === 'ai-god' || gameMode === 'bot-toi-thuong' ? 500 :
                         gameMode === 'bot-tia-chop' ? 200 :
                         gameMode === 'ai-hard' ? 300 : 180;
@@ -596,7 +603,9 @@ function checkWin(r, c) {
     const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
     const blockBothEndsEnabled = isOnline
         ? (typeof currentRule !== 'undefined' && currentRule === 'chan_2_dau')
-        : !!document.getElementById('block-both-ends')?.checked;
+        : (window.isBotVsBotMode
+            ? !!document.getElementById('bot-vs-bot-block-both')?.checked
+            : !!document.getElementById('block-both-ends')?.checked);
 
     for (let { dr, dc } of directions) {
         const cells = [[r, c]];
@@ -632,7 +641,9 @@ function checkWin(r, c) {
 function checkWinSilent(r, c) {
     const player = getCell(r, c);
     const opp    = player === "X" ? "O" : "X";
-    const blockBothEndsEnabled = document.getElementById('block-both-ends').checked;
+    const blockBothEndsEnabled = window.isBotVsBotMode
+        ? !!document.getElementById('bot-vs-bot-block-both')?.checked
+        : !!document.getElementById('block-both-ends')?.checked;
 
     for (let { dr, dc } of DIRECTIONS) {
         let fwd = 0, bwd = 0;
@@ -671,11 +682,18 @@ window.xoaBanCoCu = function() {
     }
     // Reset mảng dữ liệu logic cờ
     if (typeof infiniteMap !== 'undefined') infiniteMap.clear();
+    if (typeof GameState !== 'undefined' && GameState.board && GameState.board.infiniteMap) {
+        GameState.board.infiniteMap.clear();
+    }
     if (typeof moveHistory !== 'undefined') moveHistory.length = 0;
     if (typeof lastMoveR   !== 'undefined') { lastMoveR = null; lastMoveC = null; }
     if (typeof currentPlayer !== 'undefined') currentPlayer = 'X';
     if (typeof winningCellCoords !== 'undefined') winningCellCoords.length = 0;
     if (typeof isGameActive !== 'undefined') isGameActive = true;
+    if (window._suppressOnlineWinOverlay) {
+        window._suppressOnlineWinOverlay = false;
+        window._suppressOnlineWinOverlayRoom = null;
+    }
     // Reset hover để không còn chấm xanh
     if (typeof infHoverR !== 'undefined') { infHoverR = null; infHoverC = null; }
 

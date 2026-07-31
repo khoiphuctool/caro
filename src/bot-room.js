@@ -7,16 +7,18 @@ const BotRoomManager = {
         { id: 1, name: 'Bot Dễ',        emoji: '🟢', color: '#10b981', gameMode: 'ai-easy',        description: 'Dành cho người mới' },
         { id: 2, name: 'Bot Trung Bình', emoji: '🟡', color: '#f59e0b', gameMode: 'ai-medium',      description: 'Luyện phản xạ' },
         { id: 3, name: 'Bot Khó',        emoji: '🟠', color: '#f97316', gameMode: 'ai-hard',        description: 'Thử thách thật sự' },
-        { id: 4, name: 'Bot Tối Thượng', emoji: '💀', color: '#ef4444', gameMode: 'bot-toi-thuong', description: 'Cấp cao nhất' },
-        { id: 5, name: 'Bot Tia Chớp',  emoji: '⚡', color: '#3b82f6', gameMode: 'bot-tia-chop',   description: 'Tốc độ 2000x' },
-        { id: 6, name: 'Sắp ra mắt',    emoji: '🔒', color: '#94a3b8', gameMode: null,             description: 'Mở khóa theo nhiệm vụ' },
-        { id: 7, name: 'Sắp ra mắt',    emoji: '🔒', color: '#94a3b8', gameMode: null,             description: 'Mở khóa theo nhiệm vụ' },
+        { id: 4, name: 'Bot Tối Thượng', emoji: '💀', color: '#ef4444', gameMode: 'bot-toi-thuong', description: 'Cấp Tinh Anh' },
+        { id: 5, name: 'Bot Tia Chớp',  emoji: '⚡', color: '#3b82f6', gameMode: 'bot-tia-chop',   description: 'Tốc độ siêu nhanh' },
+        { id: 6, name: 'Bot Siêu Phàm',  emoji: '🌟', color: '#8b5cf6', gameMode: 'bot-super',       description: 'Thách thức đặc biệt (mở theo nhiệm vụ)' },
+        { id: 7, name: 'Bot vs Bot',     emoji: '🤖', color: '#8b5cf6', gameMode: 'bot-vs-bot',      description: 'Chọn 2 bot cho X/O, trận đấu tự động' },
         { id: 8, name: 'Sắp ra mắt',    emoji: '🔒', color: '#94a3b8', gameMode: null,             description: 'Mở khóa theo nhiệm vụ' },
         { id: 9, name: 'Sắp ra mắt',    emoji: '🔒', color: '#94a3b8', gameMode: null,             description: 'Mở khóa theo nhiệm vụ' }
     ],
 
     currentBotRoom: null,
     isBotRoomMode:  false,
+    botVsBotState:  null,
+    isBotVsBotMode: false,
 
     // ══ Danh sách phòng bot trong lobby ══════════════════════════
     openBotLobby: function() {
@@ -79,6 +81,85 @@ const BotRoomManager = {
         if (!roomLayout) return;
 
         const username = localStorage.getItem('current_username') || 'Bạn';
+        const botOptions = this.BOT_ROOMS
+            .filter(r => r.gameMode && r.gameMode !== 'bot-vs-bot')
+            .map(r => `<option value="${r.gameMode}">${r.emoji} ${r.name}</option>`)
+            .join('');
+
+        if (botConfig.gameMode === 'bot-vs-bot') {
+            roomLayout.innerHTML = `
+            <div class="room-header-card" style="background:linear-gradient(135deg,#6366f1 0%,#4f46e5 100%);">
+                <div class="room-header-title">🤖 Phòng ${botConfig.name}</div>
+                <button class="btn-leave-room" onclick="BotRoomManager.exitBotRoom()">← Thoát phòng</button>
+            </div>
+
+            <div class="versus-row">
+                <div class="player-slot-card">
+                    <div class="avatar-circle-lg player-x">X</div>
+                    <div class="player-name">Bot X</div>
+                    <div class="pc-info"><span class="badge badge-green">Bot</span></div>
+                </div>
+                <div class="vs-badge">VS</div>
+                <div class="player-slot-card">
+                    <div class="avatar-circle-lg player-o"
+                         style="background:#eef2ff;border-color:#6366f1;color:#4338ca;font-size:26px;">O</div>
+                    <div class="player-name">Bot O</div>
+                    <div class="pc-info">
+                        <span class="badge" style="background:#6366f1;color:white;">Bot</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cài đặt Bot Đấu Bot -->
+            <div class="card" style="background:#eef2ff;border:1px solid #6366f1;">
+                <div class="card-body" style="padding:16px;">
+                    <div style="font-weight:700;color:#312e81;margin-bottom:12px;">⚙️ Cài đặt đối đầu</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;">
+                        <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;flex:1;min-width:200px;">
+                            <span>Bot X (đi trước)</span>
+                            <select id="bot-vs-bot-x-mode"
+                                    style="padding:8px;border-radius:8px;border:1px solid #c7d2fe;background:#fff;font-size:14px;">
+                                ${botOptions}
+                            </select>
+                        </label>
+                        <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;flex:1;min-width:200px;">
+                            <span>Bot O (đi sau)</span>
+                            <select id="bot-vs-bot-o-mode"
+                                    style="padding:8px;border-radius:8px;border:1px solid #c7d2fe;background:#fff;font-size:14px;">
+                                ${botOptions}
+                            </select>
+                        </label>
+                        <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;flex:1;min-width:200px;">
+                            <span>Số quân thắng</span>
+                            <select id="bot-vs-bot-win-count"
+                                    style="padding:8px;border-radius:8px;border:1px solid #c7d2fe;background:#fff;font-size:14px;">
+                                <option value="3">3 quân</option>
+                                <option value="4">4 quân</option>
+                                <option value="5" selected>5 quân</option>
+                                <option value="6">6 quân</option>
+                                <option value="7">7 quân</option>
+                            </select>
+                        </label>
+                    </div>
+                    <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:14px;cursor:pointer;">
+                        <input type="checkbox" id="bot-vs-bot-block-both" checked
+                               style="width:16px;height:16px;accent-color:#6366f1;">
+                        🛡️ Chặn 2 đầu
+                    </label>
+                    <div style="margin-top:12px;color:#4b5563;font-size:13px;">Chọn 2 bot và bắt đầu, trận đấu sẽ diễn ra tự động trên bàn cờ BOT hiện tại.</div>
+                </div>
+            </div>
+
+            <button id="btn-bot-start"
+                    onclick="BotRoomManager.startBotBattle()"
+                    style="padding:16px;background:#6366f1;color:white;border:none;border-radius:8px;font-size:18px;font-weight:bold;cursor:pointer;width:100%;transition:all 0.2s;"
+                    onmouseover="this.style.background='#4f46e5'"
+                    onmouseout="this.style.background='#6366f1'">
+                ⚔️ Bắt Đầu Bot vs Bot
+            </button>
+        `;
+            return;
+        }
 
         roomLayout.innerHTML = `
             <div class="room-header-card" style="background:linear-gradient(135deg,#10b981 0%,#059669 100%);">
@@ -175,14 +256,24 @@ const BotRoomManager = {
         const winSelect = document.getElementById('win-count');
         if (winSelect) winSelect.value = wc;
 
-        const playerPiece = document.getElementById('player-piece');
-        if (playerPiece) playerPiece.value = 'X';   // người luôn X
+        if (this.currentBotRoom.gameMode === 'bot-vs-bot') {
+            window.isBotRoomMode   = true;
+            window.isBotVsBotMode  = true;
+            window.currentBotConfig = this.currentBotRoom;
+        } else {
+            window.isBotRoomMode   = true;
+            window.isBotVsBotMode  = false;
+            window.currentBotConfig = this.currentBotRoom;
 
-        const firstMoveEl = document.getElementById('first-move');
-        if (firstMoveEl) firstMoveEl.value = fm;
+            const playerPiece = document.getElementById('player-piece');
+            if (playerPiece) playerPiece.value = 'X';   // người luôn X
 
-        const blockBothEnds = document.getElementById('block-both-ends');
-        if (blockBothEnds) blockBothEnds.checked = bb;
+            const firstMoveEl = document.getElementById('first-move');
+            if (firstMoveEl) firstMoveEl.value = fm;
+
+            const blockBothEnds = document.getElementById('block-both-ends');
+            if (blockBothEnds) blockBothEnds.checked = bb;
+        }
 
         // Cập nhật currentRoomId lên Firebase để người khác biết đang bận (bot room)
         const myId = localStorage.getItem('current_user_id');
@@ -220,6 +311,10 @@ const BotRoomManager = {
         // YC.TXT FIX: Call renderInfiniteBoard() AFTER initGame() to ensure GameState.board.infiniteMap is initialized
         if (typeof renderInfiniteBoard === 'function') {
             renderInfiniteBoard();
+        }
+
+        if (this.currentBotRoom.gameMode === 'bot-vs-bot') {
+            this.startBotVsBot();
         }
 
         // Update overlay UI
@@ -367,6 +462,95 @@ const BotRoomManager = {
         }
     },
 
+    // ══ Bắt đầu Bot vs Bot tự động khi phòng bot-vs-bot được chọn
+    startBotVsBot: function() {
+        const wxEl = document.getElementById('bot-vs-bot-x-mode');
+        const woEl = document.getElementById('bot-vs-bot-o-mode');
+        const wcEl = document.getElementById('bot-vs-bot-win-count');
+        const bbEl = document.getElementById('bot-vs-bot-block-both') || document.getElementById('bot-room-block-both');
+
+        const botXMode = wxEl ? wxEl.value : 'bot-toi-thuong';
+        const botOMode = woEl ? woEl.value : 'bot-tia-chop';
+        const winCount = wcEl ? parseInt(wcEl.value, 10) : 5;
+        const blockBoth = bbEl ? bbEl.checked : true;
+
+        this.botVsBotState = {
+            botXMode,
+            botOMode,
+            winCount,
+            blockBoth,
+            currentPlayer: 'X'
+        };
+
+        // Khởi tạo game mode và cài đặt board
+        if (typeof modeSelect !== 'undefined') modeSelect.value = botXMode;
+        if (typeof document !== 'undefined') {
+            const winSelect = document.getElementById('win-count');
+            if (winSelect) winSelect.value = winCount;
+            const blockBothEnds = document.getElementById('block-both-ends');
+            if (blockBothEnds) blockBothEnds.checked = blockBoth;
+        }
+
+        // Set state để đếm lượt tự động
+        isSolo = false;
+        gameMode = botXMode;
+        botPiece = 'O';
+        humanPiece = 'X';
+        currentPlayer = 'X';
+        isGameActive = true;
+
+        // Start automatic bot-vs-bot play regardless of X/O order
+        setTimeout(() => this.performBotVsBotMove(), 100);
+    },
+
+    performBotVsBotMove: function() {
+        if (!this.botVsBotState || !this.isBotRoomMode || !this.currentBotRoom) return;
+        if (!isGameActive) return;
+
+        const state = this.botVsBotState;
+        const botMode = state.currentPlayer === 'X' ? state.botXMode : state.botOMode;
+
+        this.updateBotRoomOverlays();
+
+        // Set gameMode cho makeAIMove / getBotMove
+        const originalGameMode = gameMode;
+        gameMode = botMode;
+
+        const originalBotPiece = botPiece;
+        const originalHumanPiece = humanPiece;
+        const originalIsSolo = isSolo;
+
+        isSolo = false;
+        botPiece = state.currentPlayer;
+        humanPiece = state.currentPlayer === 'X' ? 'O' : 'X';
+
+        const thinkTime = botMode === 'ai-god' || botMode === 'bot-toi-thuong' ? 500 :
+                          botMode === 'bot-tia-chop' ? 200 : 300;
+
+        setTimeout(() => {
+            if (!isGameActive) return;
+            const move = getBotMove();
+            if (move) {
+                const originalIsBotMove = isBotMove;
+                isBotMove = true;
+                makeMove(move.r, move.c);
+                isBotMove = originalIsBotMove;
+            }
+
+            // Restore original mode values for board updates
+            gameMode = originalGameMode;
+            botPiece = originalBotPiece;
+            humanPiece = originalHumanPiece;
+            isSolo = originalIsSolo;
+
+            state.currentPlayer = state.currentPlayer === 'X' ? 'O' : 'X';
+            const winner = typeof currentPlayer !== 'undefined' ? currentPlayer : null;
+            if (isGameActive) {
+                setTimeout(() => this.performBotVsBotMove(), 180);
+            }
+        }, thinkTime);
+    },
+
     // ══ Update BOT ROOM overlay UI (YC.TXT) ═════════════════════
     updateBotRoomOverlays: function() {
         const username = localStorage.getItem('current_username') || 'Bạn';
@@ -405,9 +589,16 @@ const BotRoomManager = {
         // Update turn indicators
         const playerIndicator = document.getElementById('bot-player-indicator');
         const botIndicator = document.getElementById('bot-bot-indicator');
-        
-        if (playerIndicator) playerIndicator.textContent = 'Lượt của bạn';
-        if (botIndicator) botIndicator.textContent = 'Đang chờ';
+
+        if (this.currentBotRoom && this.currentBotRoom.gameMode === 'bot-vs-bot' && this.botVsBotState) {
+            if (playerName) playerName.textContent = 'Bot X';
+            if (botName) botName.textContent = 'Bot O';
+            if (playerIndicator) playerIndicator.textContent = this.botVsBotState.currentPlayer === 'X' ? 'Đang đánh' : 'Đang chờ';
+            if (botIndicator) botIndicator.textContent = this.botVsBotState.currentPlayer === 'O' ? 'Đang đánh' : 'Đang chờ';
+        } else {
+            if (playerIndicator) playerIndicator.textContent = 'Lượt của bạn';
+            if (botIndicator) botIndicator.textContent = 'Đang chờ';
+        }
     },
 
 
@@ -421,6 +612,10 @@ const BotRoomManager = {
 
         // Re-initialize game
         if (typeof initGame === 'function') initGame();
+
+        if (this.currentBotRoom.gameMode === 'bot-vs-bot') {
+            this.startBotVsBot();
+        }
 
         // Update overlay UI
         setTimeout(() => this.updateBotRoomOverlays(), 80);
@@ -570,7 +765,13 @@ const BotRoomManager = {
 
     // ══ Thoát phòng bot (YC.TXT - Updated for new view) ═════════════════════
     exitBotRoom: function() {
-        console.log('[BotRoom] Exit Start - Full cleanup');
+        if (!this.isBotRoomMode) {
+            console.warn('[BotRoom] Exit called but not in bot room');
+            return;
+        }
+        
+        const shouldReload = confirm('Bạn đang thoát phòng BOT offline. Trang sẽ tải lại để xóa trạng thái phòng ma và trở về chế độ chính.\n\nBấm OK để thoát và load lại trang, Cancel để chỉ trở về menu.');
+        console.log('[BotRoom] Exit Start - Full cleanup, reload=', shouldReload);
         
         this.isBotRoomMode  = false;
         this.currentBotRoom = null;
@@ -585,6 +786,8 @@ const BotRoomManager = {
 
         // Remove resize listener (fallback cleanup)
         this.removeBotRoomResizeListener();
+
+        window.isBotVsBotMode = false;
 
         // YC.TXT FIX: Clear mode from GameModeManager (same as Online Room)
         if (typeof GameModeManager !== 'undefined') {
@@ -652,6 +855,12 @@ const BotRoomManager = {
         // if (typeof switchRoomTab === 'function') switchRoomTab('bot');
         
         console.log('[BotRoom] Exit Complete - Full cleanup done');
+
+        if (shouldReload) {
+            console.log('[BotRoom] Reloading page after bot exit to clear offline room state');
+            window.location.reload();
+            return;
+        }
     },
 
     // ══ Restore canvas to original location (YC.TXT) ═════════════════════
@@ -686,5 +895,6 @@ window.BotRoomManager = BotRoomManager;
     
     // Reset BOT flags
     window.isBotRoomMode    = false;
+    window.isBotVsBotMode  = false;
     window.currentBotConfig = null;
 })();

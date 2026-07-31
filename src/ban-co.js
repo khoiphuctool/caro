@@ -1063,7 +1063,8 @@ function infOnClick(e) {
     }
 
     // ── OFFLINE MODE ──
-    if (gameMode.startsWith('ai') && currentPlayer === botPiece) return;
+    if (window.isBotVsBotMode) return;
+    if (isBotMode() && currentPlayer === botPiece) return;
     if (getCell(r, c) !== '') return;
     makeMove(r, c);
 }
@@ -1102,7 +1103,8 @@ function infOnKeyDown(e) {
     }
 
     if (e.key !== 'Enter') return;
-    if (gameMode.startsWith('ai') && currentPlayer === botPiece) return;
+    if (window.isBotVsBotMode) return;
+    if (isBotMode() && currentPlayer === botPiece) return;
     if (infHoverR === null || infHoverC === null) return;
     if (getCell(infHoverR, infHoverC) !== '') return;
     makeMove(infHoverR, infHoverC);
@@ -1146,7 +1148,7 @@ function infOnTouchEnd(e) {
         if (window.isOnlineModeActive && window.isOnlineModeActive()) {
             makeMove(r, c);
         // ── OFFLINE MODE ──
-        } else if (!(gameMode.startsWith('ai') && currentPlayer === botPiece)) {
+        } else if (!window.isBotVsBotMode && !(isBotMode() && currentPlayer === botPiece)) {
             makeMove(r, c);
         }
     }

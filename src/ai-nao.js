@@ -451,8 +451,15 @@ let _cachedBlockBothEnds = false;
 let _blockBothEndsDirty = true;
 function getBlockBothEnds() {
     if (_blockBothEndsDirty) {
-        const el = document.getElementById('block-both-ends');
-        _cachedBlockBothEnds = el ? el.checked : false;
+        let checked = false;
+        if (window.isBotVsBotMode) {
+            const el = document.getElementById('bot-vs-bot-block-both');
+            checked = el ? el.checked : false;
+        } else {
+            const el = document.getElementById('block-both-ends');
+            checked = el ? el.checked : false;
+        }
+        _cachedBlockBothEnds = checked;
         _blockBothEndsDirty = false;
     }
     return _cachedBlockBothEnds;
@@ -2209,6 +2216,7 @@ function getBotMove() {
     const isGod       = gameMode === 'ai-god';
     const isTiaChop   = gameMode === 'bot-tia-chop';
     const isToiThuong = gameMode === 'bot-toi-thuong';
+    const isSuper     = gameMode === 'bot-super';
 
     updateBotThinking('Đang phân tích bàn cờ...');
 
@@ -2232,6 +2240,19 @@ function getBotMove() {
         }
         // Fallback nếu BotTiaChop không khả dụng
         console.warn('[ai-nao] BotTiaChop not available or returned null, using fallback');
+    }
+
+    // BOT SIÊU PHÀM - gọi logic riêng nếu có
+    if (isSuper) {
+        if (typeof BotSuper !== 'undefined' && typeof BotSuper.getBotMove === 'function') {
+            console.log('[ai-nao] Bot Siêu Phàm mode detected - calling BotSuper');
+            const move = BotSuper.getBotMove({ player: bp, opponent: hp, winCount, depth: 6 });
+            if (move) {
+                updateBotThinking('Bot Siêu Phàm ⚔️');
+                return move;
+            }
+        }
+        console.warn('[ai-nao] BotSuper not available or returned null, continuing fallback');
     }
 
     // ══ 1. BOT THẮNG NGAY — quét tất cả ô tactical, không bị giới hạn 50 ══
