@@ -420,10 +420,11 @@ body.game-playing #app-header {
 
 .home-layout {
   display: grid;
-  grid-template-columns: 1fr 300px 300px;
+  grid-template-columns: minmax(320px, 420px) minmax(320px, 1.5fr) minmax(320px, 420px);
   gap: var(--space-4);
   padding: var(--space-4);
-  width: 100%;
+  width: min(100%, 1740px);
+  margin: 0 auto;
   flex: 1;
   box-sizing: border-box;
   align-items: stretch;
@@ -431,15 +432,42 @@ body.game-playing #app-header {
 
 /* Màn hình vừa (1024-1366px): tối ưu layout */
 @media (min-width: 1024px) and (max-width: 1366px) {
+  /* Use a 2-column layout on medium screens: main + right sidebar */
   .home-layout {
-    grid-template-columns: 1fr 280px 280px;
+    grid-template-columns: 1fr 420px;
     gap: var(--space-3);
-    padding: var(--space-3);
+    padding: var(--space-2) var(--space-3) var(--space-3);
+    align-items: start;
   }
+  /* Ensure children align to top to avoid one column dropping lower */
+  .home-layout > * { align-self: start; }
+  /* Remove any unexpected top margin on cards inside this layout */
+  .home-layout .card { margin-top: 0; }
+  /* Ensure both side blocks stack into the second column */
+  /* Place main lobby into the first column and side panels into the second column */
+  .lobby-main { grid-column: 1; }
+  .lobby-side-rank, .lobby-side-social { grid-column: 2; }
   .lobby-main, .lobby-side { gap: var(--space-3); }
-  .room-list { max-height: 350px; }
-  .bxh-list { max-height: 400px; }
-  .chat-messages-box { max-height: 200px; }
+  /* Give the room list more vertical room so it doesn't get pushed down */
+  /* Use viewport-based max-height so the room list fills available screen space */
+  .room-list { max-height: 520px; }
+  .lobby-main > .card:first-child .card-body {
+    /* header + paddings ~140px (reduced) so room list can extend further down */
+    max-height: calc(100vh - 250px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* let inner .room-list scroll */
+  }
+  /* Make the room list take remaining height and scroll internally so it matches the card body height */
+  .lobby-main > .card:first-child .card-body .room-list {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    min-height: 0; /* required for flex children to allow proper shrinking */
+    padding-bottom: var(--space-3); /* give breathing room at bottom so last item isn't flush */
+    scroll-padding-bottom: var(--space-3);
+  }
+  .bxh-list { max-height: 520px; }
+  .chat-messages-box { max-height: 300px; }
   .card { min-height: 200px; }
 }
 
@@ -457,16 +485,16 @@ body.game-playing #app-header {
 }
 
 @media (min-width: 1440px) {
-  .home-layout { grid-template-columns: 1fr 320px 320px; padding: var(--space-4) var(--space-6); }
+  .home-layout { grid-template-columns: minmax(360px, 440px) minmax(360px, 1.4fr) minmax(360px, 440px); padding: var(--space-4) var(--space-6); }
 }
 @media (min-width: 1600px) {
-  .home-layout { grid-template-columns: 1fr 360px 360px; gap: var(--space-6); padding: var(--space-5) 40px; }
+  .home-layout { grid-template-columns: minmax(380px, 460px) minmax(420px, 1.4fr) minmax(380px, 460px); gap: var(--space-6); padding: var(--space-5) 40px; }
   .room-list { max-height: 540px; }
   .bxh-list  { max-height: 400px; }
   .chat-messages-box { max-height: 320px; }
 }
 @media (min-width: 1920px) {
-  .home-layout { grid-template-columns: 1fr 400px 400px; gap: 32px; padding: var(--space-6) 60px; }
+  .home-layout { grid-template-columns: minmax(400px, 480px) minmax(420px, 1.4fr) minmax(400px, 480px); gap: 32px; padding: var(--space-6) 60px; }
   .room-list { max-height: 660px; }
   .card-header { font-size: 16px; padding: var(--space-4) var(--space-5); }
   .card-body   { padding: var(--space-4) var(--space-5); }
@@ -490,11 +518,18 @@ body.game-playing #app-header {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  position: relative;
 }
 
 /* Special handling for room list card to enable proper scrolling */
 .lobby-main > .card:first-child .card-body {
-  max-height: 500px;
+  max-height: 580px;
+  overflow-y: auto;
+}
+
+/* Đồng bộ chiều cao cho BXH cạnh phải để cột hai không bị thấp hơn */
+.lobby-side-rank > .card .card-body {
+  max-height: 580px;
   overflow-y: auto;
 }
 
@@ -562,15 +597,41 @@ body.game-playing #app-header {
 .online-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-success); flex-shrink: 0; }
 
 /* Leaderboard */
-.bxh-tabs { display: flex; gap: var(--space-1); margin-bottom: var(--space-2); }
+.bxh-tabs {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: var(--space-2);
+}
 .bxh-tab {
-  padding: 4px 12px; border: 1px solid var(--border); background: var(--bg-panel);
-  border-radius: var(--radius-full); font-size: var(--font-sm); font-weight: 600; color: var(--text-secondary);
+  padding: 8px 16px;
+  min-width: 96px;
+  text-align: center;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  border-radius: var(--radius-full);
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--text-secondary);
   transition: all var(--transition-fast);
 }
-.bxh-tab:hover { background: var(--bg-primary); }
+.bxh-tab:hover { background: var(--bg-primary); color: var(--text-primary); }
 .bxh-tab.active { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
-.bxh-list { max-height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-1); }
+.bxh-list { min-height: 220px; max-height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-1); }
+
+.room-tab-row {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-panel);
+  border-radius: 12px;
+  padding-top: 8px;
+}
+
+.room-tab-row button {
+  min-width: 0;
+}
 
 /* World Chat */
 .chat-messages-box {
@@ -2071,62 +2132,62 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
         <button class="lobby-tab-btn"        data-tab="community" onclick="switchLobbyTab('community')"><span class="tab-icon">🌍</span><span class="tab-label">Cộng đồng</span></button>
     </div>
     <div class="home-layout">
-        <!-- CỘT CHÍNH: Danh sách phòng -->
-        <div class="lobby-main">
-            <div class="card">
-                <div class="card-header">🎮 Thách Đấu Online</div>
-                <div class="card-body">
-                    <p class="text-muted" style="margin-bottom:12px;">Chọn phòng để tham gia. Người vào trước là chủ phòng (X), người sau là khách (O).</p>
-                    <div style="display:flex;gap:10px;margin-bottom:12px;">
-                        <button id="tab-normal" onclick="switchRoomTab('normal')" style="flex:1;padding:8px;background:#6366f1;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">🎮 Kênh Thường</button>
-                        <button id="tab-vip" onclick="switchRoomTab('vip')" style="flex:1;padding:8px;background:#e5e7eb;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💎 Kênh VIP</button>
-                        <button id="tab-bot" onclick="switchRoomTab('bot')" style="flex:1;padding:8px;background:#e5e7eb;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">🤖 Phòng Bot</button>
-                    </div>
-                    <div class="room-list" id="room-list">
-                        <div class="text-muted" style="text-align:center; padding:24px;">Đang tải danh sách phòng...</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Lịch sử trận đấu online -->
-            <div class="card">
-                <div class="card-header">📜 Lịch Sử Trận Đấu Trực Tuyến</div>
-                <div class="card-body">
-                    <div id="lich-su-online-container" style="max-height:200px; overflow-y:auto;">
-                        <span class="text-muted">Đang tải lịch sử...</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- CỘT PHỤ: BXH (đưa lên cột thứ 2) -->
+        <!-- CỘT PHỤ: BXH (đưa lên cột thứ 1) -->
         <div class="lobby-side lobby-side-rank">
             <!-- BXH -->
             <div class="card">
                 <div class="card-header">🏆 Bảng Xếp Hạng</div>
                 <div class="card-body">
                     <div class="bxh-tabs">
-                        <button class="bxh-tab active" id="bxh-tab-elo"    onclick="switchBxhTab('elo')"   >🏅 Rank</button>
+                        <button class="bxh-tab active" id="bxh-tab-dagia"  onclick="switchBxhTab('dagia')" >👑 Đại Gia</button>
+                        <button class="bxh-tab"        id="bxh-tab-elo"    onclick="switchBxhTab('elo')"   >🏅 Rank</button>
                         <button class="bxh-tab"        id="bxh-tab-bot"    onclick="switchBxhTab('bot')"   >🤖 Bot</button>
                         <button class="bxh-tab"        id="bxh-tab-solo"   onclick="switchBxhTab('solo')"  >⚔️ Solo</button>
-                        <button class="bxh-tab"        id="bxh-tab-dagia"  onclick="switchBxhTab('dagia')" >👑 Đại Gia</button>
                     </div>
-                    <div id="bxh-online-container"  class="bxh-list">Đang tải...</div>
+                    <div id="bxh-online-container"  class="bxh-list" style="display:none;">Đang tải...</div>
                     <div id="bxh-bot-container"     class="bxh-list" style="display:none;"></div>
                     <div id="bxh-solo-container"    class="bxh-list" style="display:none;"></div>
-                    <div id="bxh-dagia-lobby"       class="bxh-list" style="display:none;"></div>
+                    <div id="bxh-dagia-lobby"       class="bxh-list" style="min-height:220px;">Đang tải...</div>
+                </div>
+            </div>
+
+            <!-- Kỳ thủ trực tuyến -->
+            <div class="card">
+                <div class="card-header">👥 Kỳ Thủ Trực Tuyến</div>
+                <div class="card-body">
+                    <div class="online-users-list" id="danh-sach-online">
+                        <span class="text-muted">Đang tải...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CỘT CHÍNH: Danh sách phòng -->
+        <div class="lobby-main">
+            <div class="card">
+                <div class="card-header">🎮 Thách Đấu Online</div>
+                <div class="card-body">
+                    <p class="text-muted" style="margin-bottom:12px;">Chọn phòng để tham gia. Người vào trước là chủ phòng (X), người sau là khách (O).</p>
+                    <div class="room-tab-row" style="display:flex;gap:10px;margin-bottom:12px;">
+                        <button id="tab-normal" onclick="switchRoomTab('normal')" style="flex:1;padding:8px;background:#6366f1;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">🎮 Kênh Thường</button>
+                        <button id="tab-vip" onclick="switchRoomTab('vip')" style="flex:1;padding:8px;background:#e5e7eb;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💎 Kênh VIP</button>
+                        <button id="tab-bot" onclick="switchRoomTab('bot')" style="flex:1;padding:8px;background:#e5e7eb;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">🤖 Phòng Bot</button>
+                    </div>
+                    <div class="room-list" id="room-list" style="position:relative;">
+                        <div class="text-muted" style="text-align:center; padding:24px;">Đang tải danh sách phòng...</div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- CỘT PHỤ: Online + Chat (xuống cột thứ 3) -->
         <div class="lobby-side lobby-side-social">
-            <!-- Người online -->
+            <!-- Lịch sử trận đấu online -->
             <div class="card">
-                <div class="card-header">👥 Kỳ Thủ Trực Tuyến</div>
+                <div class="card-header">📜 Lịch Sử Trận Đấu Trực Tuyến</div>
                 <div class="card-body">
-                    <div class="online-users-list" id="danh-sach-online">
-                        <span class="text-muted">Đang tải...</span>
+                    <div id="lich-su-online-container" style="max-height:200px; overflow-y:auto;">
+                        <span class="text-muted">Đang tải lịch sử...</span>
                     </div>
                 </div>
             </div>
@@ -3285,8 +3346,20 @@ function _updateMobileTabs() {
     }
 }
 window.addEventListener('resize', _updateMobileTabs);
-// Chạy lần đầu sau DOM ready
-document.addEventListener('DOMContentLoaded', _updateMobileTabs);
+
+function _initLobbyTabs() {
+    _updateMobileTabs();
+    if (!window._bxhInitialized && typeof switchBxhTab === 'function') {
+        switchBxhTab(window._initialBxhTab);
+    }
+}
+
+// Khởi tạo ngay nếu DOM đã sẵn sàng, hoặc lắng nghe khi DOMContentLoaded chưa xảy ra.
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _initLobbyTabs);
+} else {
+    _initLobbyTabs();
+}
 
 /* ── SHOP DROPDOWN ── */
 function toggleShopMenu() {
@@ -3336,7 +3409,10 @@ function startBattleView() {
 window.startBattleView = startBattleView;
 
 /* ── BXH TABS (Lobby) ── */
+window._initialBxhTab = 'dagia';
+window._bxhInitialized = false;
 function switchBxhTab(tab) {
+    window._bxhInitialized = true;
     const tabs = ['elo','bot','solo','dagia'];
     const containers = {
         elo:   document.getElementById('bxh-online-container'),
@@ -3356,12 +3432,18 @@ function switchBxhTab(tab) {
     if (activeBtn) activeBtn.classList.add('active');
 
     // Lazy load từng tab
-    if (tab === 'dagia' && typeof loadBxhDaiGia === 'function') {
-        loadBxhDaiGia('bxh-dagia-lobby');
+    if (tab === 'dagia') {
+        if (typeof loadBxhDaiGia === 'function') {
+            loadBxhDaiGia('bxh-dagia-lobby');
+        }
     } else if (tab === 'bot') {
-        loadBxhBot('bxh-bot-container');
+        if (typeof loadBxhBot === 'function') {
+            loadBxhBot('bxh-bot-container');
+        }
     } else if (tab === 'solo') {
-        loadBxhSolo('bxh-solo-container');
+        if (typeof loadBxhSolo === 'function') {
+            loadBxhSolo('bxh-solo-container');
+        }
     }
 }
 window.switchBxhTab = switchBxhTab;
@@ -3569,6 +3651,7 @@ initConfetti();
 document.getElementById('block-both-ends').checked = loadBlockBothEndsSetting();
 applyPanelSizes();
 setupPanelResize();
+if (typeof switchBxhTab === 'function') switchBxhTab('dagia');
 </script>
 
 <!-- ScoreTable Config Functions -->

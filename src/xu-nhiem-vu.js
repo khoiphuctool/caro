@@ -594,7 +594,16 @@ window.ketThucCuoc = ketThucCuoc;
 function loadBxhDaiGia(containerId) {
     const database = _getDb();
     const container = document.getElementById(containerId);
-    if (!database || !container) return;
+    if (!container) return;
+    if (!database) {
+        container.innerHTML = '<div style="text-align:center;color:#aaa;padding:10px;">Đang kết nối...</div>';
+        window._bxhDaiGiaRetryCount = (window._bxhDaiGiaRetryCount || 0) + 1;
+        if (window._bxhDaiGiaRetryCount <= 10) {
+            setTimeout(() => loadBxhDaiGia(containerId), 300);
+        }
+        return;
+    }
+    window._bxhDaiGiaRetryCount = 0;
     container.innerHTML = '<div style="text-align:center;color:#aaa;padding:10px;">Đang tải...</div>';
 
     database.ref('users').orderByChild('coins').limitToLast(50).once('value').then(snap => {
@@ -623,6 +632,12 @@ function loadBxhDaiGia(containerId) {
     });
 }
 window.loadBxhDaiGia = loadBxhDaiGia;
+if (typeof window.switchBxhTab === 'function') {
+    const dagiaTab = document.getElementById('bxh-tab-dagia');
+    if (window._bxhInitialized || (dagiaTab && dagiaTab.classList.contains('active'))) {
+        window.switchBxhTab('dagia');
+    }
+}
 
 function escapeHtml(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
