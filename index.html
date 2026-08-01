@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
@@ -2737,24 +2737,28 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 
     <!-- Overlay: Player X (Top Left) -->
     <div class="battle-overlay battle-player-overlay-left" id="battle-player-overlay-left">
-        <div class="battle-avatar-circle battle-avatar-x">X</div>
+        <div class="battle-avatar-circle battle-avatar-x" id="battle-avatar-x">X</div>
         <div class="battle-player-details">
             <div class="battle-player-name" id="battle-name-x">Người chơi X</div>
+            <div id="battle-role-x" style="font-size:11px;color:#94a3b8;margin-top:4px;">X</div>
             <div class="battle-player-stats">
                 <span class="battle-stat-item" id="battle-stats-x">🤖 0 · ⚔️ 0 · 📉 0</span>
             </div>
+            <div class="battle-player-timer" id="battle-timer-x" style="margin-top:8px;padding:4px 8px;border-radius:999px;font-size:12px;background:rgba(255,255,255,.08);color:#94a3b8;display:inline-block;">02:30</div>
         </div>
         <div class="battle-turn-indicator" id="battle-indicator-x">Lượt của bạn</div>
     </div>
 
     <!-- Overlay: Player O (Top Right) -->
     <div class="battle-overlay battle-player-overlay-right" id="battle-player-overlay-right">
-        <div class="battle-avatar-circle battle-avatar-o">O</div>
+        <div class="battle-avatar-circle battle-avatar-o" id="battle-avatar-o">O</div>
         <div class="battle-player-details">
             <div class="battle-player-name" id="battle-name-o">Người chơi O</div>
+            <div id="battle-role-o" style="font-size:11px;color:#94a3b8;margin-top:4px;">O</div>
             <div class="battle-player-stats">
                 <span class="battle-stat-item" id="battle-stats-o">🤖 0 · ⚔️ 0 · 📉 0</span>
             </div>
+            <div class="battle-player-timer" id="battle-timer-o" style="margin-top:8px;padding:4px 8px;border-radius:999px;font-size:12px;background:rgba(255,255,255,.08);color:#94a3b8;display:inline-block;">02:30</div>
         </div>
         <div class="battle-turn-indicator inactive" id="battle-indicator-o">Đang chờ</div>
     </div>
@@ -2807,14 +2811,14 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
     </div>
 
     <!-- Bottom Control Bar -->
-    <div class="battle-bottom-bar">
-        <button class="battle-control-btn" onclick="if(typeof undoOnlineMove === 'function') undoOnlineMove();" title="Hoàn tác">
+    <div class="battle-bottom-bar" id="battle-bottom-bar">
+        <button class="battle-control-btn" id="btn-battle-undo" onclick="if(typeof undoOnlineMove === 'function') undoOnlineMove();" title="Hoàn tác">
             ↶ Undo
         </button>
-        <button class="battle-control-btn battle-surrender-btn" onclick="if(typeof surrenderOnlineGame === 'function') surrenderOnlineGame();" title="Đầu hàng">
+        <button class="battle-control-btn battle-surrender-btn" id="btn-battle-surrender" onclick="if(typeof surrenderOnlineGame === 'function') surrenderOnlineGame();" title="Đầu hàng">
             🏳️ Đầu hàng
         </button>
-        <button class="battle-control-btn battle-exit-btn" onclick="confirmExitBattle()" title="Thoát">
+        <button class="battle-control-btn battle-exit-btn" id="btn-battle-exit" onclick="confirmExitBattle()" title="Thoát">
             🚪 Thoát trận
         </button>
     </div>

@@ -222,7 +222,7 @@ function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
         }
         subEl.textContent = rankMessage;
         startConfetti();
-        if (typeof playCoinBurst === 'function') setTimeout(() => playCoinBurst(0), 600);
+        // Do not call playCoinBurst(0) here; it causes unnecessary animation.
     }
 
     overlay.classList.add('show');
@@ -246,6 +246,11 @@ window.closeWinOverlay = closeWinOverlay;
 function requestRematchFromWinOverlay() {
     const overlay = document.getElementById('win-overlay');
     if (overlay) overlay.classList.remove('show');
+    const oldVanMoi = document.getElementById('van-moi-overlay');
+    if (oldVanMoi) oldVanMoi.remove();
+    const btnBackToResult = document.getElementById('btn-back-to-result');
+    if (btnBackToResult) btnBackToResult.remove();
+
     if (typeof stopConfetti === 'function') stopConfetti();
     if (window.isOnlineModeActive && window.isOnlineModeActive()) {
         window._suppressOnlineWinOverlay = true;
@@ -277,13 +282,14 @@ function requestRematchFromWinOverlay() {
         };
         const updates = {
             rematchRequested: true,
+            rematchRequestedBy: role,
             rematchConfig,
-            rematchXReady: role === 'X' || room.rematchXReady || false,
-            rematchOReady: role === 'O' || room.rematchOReady || false,
+            rematchXReady: role === 'X' ? true : (room.rematchXReady || false),
+            rematchOReady: role === 'O' ? true : (room.rematchOReady || false),
             updatedAt: Date.now()
         };
         if (role === 'O') {
-            const minBetCheck = rematchConfig.isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
+            const minBetCheck = rematchConfig.isVip ? (typeof XU_CONFIG !== 'undefined' ? XU_CONFIG.VIP_BET_MIN : 10000) : (typeof XU_CONFIG !== 'undefined' ? XU_CONFIG.BET_MIN : 100);
             if (rematchConfig.betAmount && rematchConfig.betAmount >= minBetCheck) {
                 updates.playerOConfirmed = true;
                 updates.guestReady = true;
@@ -292,9 +298,11 @@ function requestRematchFromWinOverlay() {
         if (role === 'X') {
             updates.playerXConfirmed = true;
         }
-        db.ref(`rooms/${roomId}`).update(updates);
-
-        if (typeof window.quayLaiPhongChinhO === 'function') window.quayLaiPhongChinhO();
+        db.ref(`rooms/${roomId}`).update(updates).then(() => {
+            if (typeof thongBaoHeThong === 'function') {
+                thongBaoHeThong('🕹 Đã gửi yêu cầu đấu lại - chờ đối thủ xác nhận...');
+            }
+        });
     });
 }
 window.requestRematchFromWinOverlay = requestRematchFromWinOverlay;
@@ -305,6 +313,8 @@ function closeWinAndRestart() {
         return;
     }
     document.getElementById('win-overlay').classList.remove('show');
+    const oldVanMoi = document.getElementById('van-moi-overlay');
+    if (oldVanMoi) oldVanMoi.remove();
     stopConfetti();
 
     if (window.isBotRoomMode && typeof BotRoomManager !== 'undefined' && typeof BotRoomManager.replayBotBattle === 'function') {
@@ -323,7 +333,16 @@ function closeWinAndRestart() {
 }
 
 function reviewGame() {
-    document.getElementById('win-overlay').classList.remove('show');
+    const winOv = document.getElementById('win-overlay');
+    if (winOv) winOv.classList.remove('show');
+    const oldVanMoi = document.getElementById('van-moi-overlay');
+    if (oldVanMoi) oldVanMoi.remove();
+    const btnBackToResult = document.getElementById('btn-back-to-result');
+    if (btnBackToResult) btnBackToResult.remove();
+    if (typeof xemLaiBanCo === 'function') {
+        xemLaiBanCo();
+        return;
+    }
     stopConfetti();
     requestAnimationFrame(() => {
         if (isInfinite && winningCellCoords.length > 0) {

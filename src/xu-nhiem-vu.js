@@ -665,14 +665,20 @@ function escapeHtml(str) {
 //   amount < 0 → trừ xu (đỏ)
 // ──────────────────────────────────────────────
 function showXuPopup(amount, label) {
-    if (!amount || amount === 0) return;
+    if (amount === undefined || amount === null || Number.isNaN(amount)) return;
+    const hasLabel = typeof label === 'string' && label.trim() !== '';
+    if (amount === 0 && !hasLabel) return;
     const isCong = amount > 0;
+    const isLoss = amount < 0;
     const absAmt = Math.abs(amount);
-    const text   = (isCong ? '+' : '−') + absAmt.toLocaleString('vi-VN') + ' Xu';
-    const sub    = label || (isCong ? 'Nhận xu!' : 'Trừ xu');
+    const text = amount === 0
+        ? '0 Xu'
+        : (isCong ? '+' : '−') + absAmt.toLocaleString('vi-VN') + ' Xu';
+    const sub = label || (isCong ? 'Nhận xu!' : 'Trừ xu');
+    const icon = amount > 0 ? '🪙' : amount < 0 ? '💸' : 'ℹ️';
 
     const el = document.createElement('div');
-    el.className = `xu-popup ${isCong ? 'gain' : 'loss'}`;
+    el.className = `xu-popup ${isCong ? 'gain' : isLoss ? 'loss' : 'neutral'}`;
 
     el.innerHTML = `
         <span class="xu-popup-icon">${isCong ? '🪙' : '💸'}</span>

@@ -372,6 +372,10 @@ function makeMove(r, c) {
         moveCount++;
         setCell(r, c, quanToi);
         moveHistory.push({ r, c, player: quanToi });
+        if (typeof locallyAppliedLastMove !== 'undefined') {
+            locallyAppliedLastMove.row = r;
+            locallyAppliedLastMove.col = c;
+        }
         
         // DISABLED Shared Board Engine sync - use old system only
         // This prevents conflicts between old system and SharedBoardEngine
@@ -624,20 +628,10 @@ function checkWin(r, c) {
         if (cells.length < winCount) continue;
 
         if (blockBothEndsEnabled) {
-            let headBlocked = false, headDist = 1;
-            while (!headBlocked && headDist <= 50) {
-                const val = getCell(r + dr*(fwd+headDist), c + dc*(fwd+headDist));
-                if (val === opp) { headBlocked = true; break; }
-                if (val === player) break;
-                headDist++;
-            }
-            let tailBlocked = false, tailDist = 1;
-            while (!tailBlocked && tailDist <= 50) {
-                const val = getCell(r - dr*(bwd+tailDist), c - dc*(tailDist+bwd));
-                if (val === opp) { tailBlocked = true; break; }
-                if (val === player) break;
-                tailDist++;
-            }
+            const headCell = getCell(r + dr*(fwd+1), c + dc*(fwd+1));
+            const tailCell = getCell(r - dr*(bwd+1), c - dc*(bwd+1));
+            const headBlocked = headCell === opp;
+            const tailBlocked = tailCell === opp;
             if (headBlocked && tailBlocked) continue;
         }
         highlightWinners(cells);
@@ -662,20 +656,10 @@ function checkWinSilent(r, c) {
         if (count < winCount) continue;
 
         if (blockBothEndsEnabled) {
-            let headBlocked = false, headDist = 1;
-            while (!headBlocked && headDist <= 50) {
-                const val = getCell(r + dr*(fwd+headDist), c + dc*(fwd+headDist));
-                if (val === opp) { headBlocked = true; break; }
-                if (val === player) break;
-                headDist++;
-            }
-            let tailBlocked = false, tailDist = 1;
-            while (!tailBlocked && tailDist <= 50) {
-                const val = getCell(r - dr*(bwd+tailDist), c - dc*(tailDist+bwd));
-                if (val === opp) { tailBlocked = true; break; }
-                if (val === player) break;
-                tailDist++;
-            }
+            const headCell = getCell(r + dr*(fwd+1), c + dc*(fwd+1));
+            const tailCell = getCell(r - dr*(bwd+1), c - dc*(bwd+1));
+            const headBlocked = headCell === opp;
+            const tailBlocked = tailCell === opp;
             if (headBlocked && tailBlocked) continue;
         }
         return true;
@@ -815,20 +799,10 @@ window.checkWinLogicOld = function(row, col, playerRole, customRule, customWinCo
         if (cells.length < currentWinCount) continue;
 
         if (blockBothEndsEnabled) {
-            let headBlocked = false, headDist = 1;
-            while (!headBlocked && headDist <= 50) {
-                const val = getCell(row + dr*(fwd+headDist), col + dc*(fwd+headDist));
-                if (val === opp) { headBlocked = true; break; }
-                if (val === player) break;
-                headDist++;
-            }
-            let tailBlocked = false, tailDist = 1;
-            while (!tailBlocked && tailDist <= 50) {
-                const val = getCell(row - dr*(bwd+tailDist), col - dc*(tailDist+bwd));
-                if (val === opp) { tailBlocked = true; break; }
-                if (val === player) break;
-                tailDist++;
-            }
+            const headCell = getCell(row + dr*(fwd+1), col + dc*(fwd+1));
+            const tailCell = getCell(row - dr*(bwd+1), col - dc*(bwd+1));
+            const headBlocked = headCell === opp;
+            const tailBlocked = tailCell === opp;
             if (headBlocked && tailBlocked) continue;
         }
         highlightWinners(cells);

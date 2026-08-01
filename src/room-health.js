@@ -301,10 +301,27 @@ function _checkAfk() {
     }
 
     if (idle >= AFK_KICK_MS) {
-        console.log('[RoomHealth] AFK timeout → tự động rời phòng');
+        console.log('[RoomHealth] AFK timeout → xử thua do AFK');
         _hideAfkWarning();
-        stopAfkDetection();
-        if (typeof xuLyThoatPhong === 'function') xuLyThoatPhong();
+        _afkWarned = false;
+
+        const roomId = (typeof currentRoomId !== 'undefined') ? currentRoomId : null;
+        const role   = (typeof myRole !== 'undefined') ? myRole : null;
+        if (roomId && role && role !== 'viewer' && _db) {
+            _db.ref(`rooms/${roomId}`).once('value').then(snap => {
+                const room = snap.val();
+                if (!room || room.status !== 'playing') return;
+                const opponentRole = role === 'X' ? 'O' : 'X';
+                _db.ref(`rooms/${roomId}`).update({
+                    status: 'ended',
+                    winner: opponentRole,
+                    endReason: `${role} AFK`,
+                    endedAt: Date.now(),
+                    updatedAt: Date.now()
+                });
+            }).catch(() => {});
+        }
+        // Không tự thoát phòng; vẫn giữ trong phòng để xử lý kết thúc trận và rematch nếu cần.
     }
 }
 
@@ -324,7 +341,7 @@ function _showAfkWarning(secLeft) {
     }
     box.innerHTML = `
         ⚠️ Bạn đang không hoạt động!<br>
-        <span style="font-size:12px;color:#94a3b8;">Sẽ rời phòng trong ~${secLeft}s nếu không có tương tác</span><br>
+        <span style="font-size:12px;color:#94a3b8;">Sẽ bị xử thua do AFK sau ~${secLeft}s nếu không có tương tác</span><br>
         <button onclick="window._touchActivity();document.getElementById('afk-warning-box').remove()"
             style="margin-top:8px;padding:6px 20px;background:#10b981;color:#fff;border:none;
                    border-radius:20px;cursor:pointer;font-weight:700;font-size:13px;">

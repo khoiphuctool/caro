@@ -2035,9 +2035,51 @@ window.chuPhongBatDauGame = chuPhongBatDauGame;
 // Nếu approve: trừ xu từ requester, cộng cho approver, rút nước
 // Nếu reject: không làm gì, người kia đánh tiếp
 // Trong khi chờ approve: không thể đánh tiếp
+// Helper: Lấy mảng nước đi đã sắp xếp theo thứ tự timestamp tăng dần
+function getSortedMovesArray(roomMoves) {
+    if (!roomMoves) return [];
+    const arr = Array.isArray(roomMoves) ? roomMoves : Object.values(roomMoves);
+    return arr.filter(m => m && (m.row !== undefined || m.r !== undefined)).sort((a, b) => (a.timestamp || a.ts || 0) - (b.timestamp || b.ts || 0));
+}
+
+// Helper: Cập nhật giao diện thanh điều khiển dưới bàn cờ (Trận đấu vs Kết thúc)
+function _updateBattleBottomBar(isEnded) {
+    const bar = document.getElementById('battle-bottom-bar');
+    if (!bar) return;
+    if (isEnded) {
+        bar.innerHTML = `
+            <button class="battle-control-btn" style="background:#16a34a;color:white;font-weight:bold;" onclick="requestRematchFromWinOverlay()" title="Đấu lại">
+                🕹 Đấu lại
+            </button>
+            <button class="battle-control-btn" style="background:#6c757d;color:white;font-weight:bold;" onclick="xemLaiBanCo()" title="Xem lại">
+                🔍 Xem lại
+            </button>
+            <button class="battle-control-btn battle-exit-btn" onclick="thoatPhongSauVan()" title="Thoát">
+                🚪 Thoát
+            </button>
+        `;
+    } else {
+        // Hide undo button for players who already used their undo in this match
+        const lastRoom = (typeof window._lastRoomSnapshot !== 'undefined') ? window._lastRoomSnapshot : null;
+        const myUndoUsed = lastRoom && lastRoom.undoUsed && (typeof myRole !== 'undefined') && lastRoom.undoUsed[myRole];
+        bar.innerHTML = `
+            ${myUndoUsed ? '' : `<button class="battle-control-btn" id="btn-battle-undo" onclick="if(typeof undoOnlineMove === 'function') undoOnlineMove();" title="Hoàn tác">↶ Undo</button>`}
+            <button class="battle-control-btn battle-surrender-btn" id="btn-battle-surrender" onclick="if(typeof surrenderOnlineGame === 'function') surrenderOnlineGame();" title="Đầu hàng">
+                🏳️ Đầu hàng
+            </button>
+            <button class="battle-control-btn battle-exit-btn" id="btn-battle-exit" onclick="confirmExitBattle()" title="Thoát">
+                🚪 Thoát trận
+            </button>
+        `;
+    }
+}
+window._updateBattleBottomBar = _updateBattleBottomBar;
+
+// ===== UNDO MOVE IN ONLINE MODE =====
+// Request-approve mechanism: người vừa đánh request undo, đối thủ approve/reject
 function undoOnlineMove() {
-    if (!currentRoomId || !myRole) {
-        alert('Bạn không trong phòng!');
+    if (!currentRoomId || !myRole || myRole === 'viewer' || !db) {
+        alert('Bạn không ở trong trận đấu!');
         return;
     }
     
@@ -2058,15 +2100,16 @@ function undoOnlineMove() {
             return;
         }
         
-        // Cần ít nhất 1 nước để undo
-        if (!room.moves || room.moves.length < 1) {
+        const movesArray = getSortedMovesArray(room.moves);
+        if (!movesArray || movesArray.length < 1) {
             alert('Chưa có nước nào để rút!');
             return;
         }
         
-        // Giới hạn 1 trận chỉ được tối đa rút 1 nước
-        if (room.undoUsed) {
-            alert('Phòng này đã dùng quyền rút nước rồi!');
+        // Giới hạn: mỗi người chỉ được undo 1 lần trong 1 trận
+        // room.undoUsed is an object { X: bool, O: bool }
+        if (room.undoUsed && room.undoUsed[myRole]) {
+            alert('Bạn đã dùng quyền rút nước trong trận này rồi!');
             return;
         }
 
@@ -2090,20 +2133,15 @@ function undoOnlineMove() {
                 }
                 
                 // Xác nhận undo
-                const confirmUndo = confirm(`Yêu cầu rút lại 1 nước sẽ tốn ${betAmount.toLocaleString('vi-VN')} Xu nếu đối thủ đồng ý.
-
-Số tiền này sẽ được chuyển cho đối thủ.
-
-Bạn có chắc chắn muốn yêu cầu rút?`);
+                const confirmUndo = confirm(`Yêu cầu rút lại 1 nước sẽ tốn ${betAmount.toLocaleString('vi-VN')} Xu nếu đối thủ đồng ý.\n\nSố tiền này sẽ được chuyển cho đối thủ.\n\nBạn có chắc chắn muốn yêu cầu rút?`);
                 if (!confirmUndo) return;
                 
                 // Gửi request undo lên Firebase
-                const moveIndex = Array.isArray(room.moves) ? room.moves.length - 1 : 0;
                 db.ref(`rooms/${currentRoomId}`).update({
                     undoRequest: {
                         requester: myRole,
                         requesterId: myId,
-                        moveIndex: moveIndex,
+                        moveIndex: movesArray.length - 1,
                         betAmount: betAmount,
                         timestamp: Date.now()
                     },
@@ -2113,16 +2151,15 @@ Bạn có chắc chắn muốn yêu cầu rút?`);
                 });
             });
         } else {
-            // Không có cược - request undo miễn phí
-            const confirmUndo = confirm('Yêu cầu rút lại 1 nước?');
+            // Không có cược - vẫn bắt buộc yêu cầu đối thủ xác nhận
+            const confirmUndo = confirm('Yêu cầu rút lại 1 nước? Nước đi sẽ chỉ được rút nếu đối thủ đồng ý.');
             if (!confirmUndo) return;
             
-            const moveIndex = Array.isArray(room.moves) ? room.moves.length - 1 : 0;
             db.ref(`rooms/${currentRoomId}`).update({
                 undoRequest: {
                     requester: myRole,
                     requesterId: myId,
-                    moveIndex: moveIndex,
+                    moveIndex: movesArray.length - 1,
                     betAmount: 0,
                     timestamp: Date.now()
                 },
@@ -2133,6 +2170,7 @@ Bạn có chắc chắn muốn yêu cầu rút?`);
         }
     });
 }
+
 // Xử lý approve/reject undo request
 function handleUndoResponse(approved) {
     console.log('[DEBUG-UNDO] handleUndoResponse called:', { approved, currentRoomId, myRole });
@@ -2144,7 +2182,6 @@ function handleUndoResponse(approved) {
     
     db.ref(`rooms/${currentRoomId}`).once('value').then(snap => {
         const room = snap.val();
-        console.log('[DEBUG-UNDO] Room data fetched:', { hasRoom: !!room, hasUndoRequest: !!room?.undoRequest });
         
         if (!room || !room.undoRequest) {
             console.log('[DEBUG-UNDO] No room or no undoRequest');
@@ -2152,22 +2189,17 @@ function handleUndoResponse(approved) {
         }
         
         const request = room.undoRequest;
-        console.log('[DEBUG-UNDO] Undo request:', request);
         
         // Chỉ người được request mới có thể approve/reject
         if (request.requester === myRole) {
-            console.log('[DEBUG-UNDO] Cannot approve own request');
             alert('Bạn không thể tự duyệt yêu cầu của mình!');
             return;
         }
         
         if (approved) {
-            console.log('[DEBUG-UNDO] Approving undo request');
-            // Approve: trừ xu từ requester, cộng cho approver, rút nước
             const requesterId = request.requesterId;
             const approverId = localStorage.getItem('current_user_id');
             const betAmount = request.betAmount || 0;
-            console.log('[DEBUG-UNDO] Bet amount:', betAmount);
             
             if (betAmount > 0) {
                 // Trừ xu từ requester
@@ -2180,37 +2212,29 @@ function handleUndoResponse(approved) {
                     // Cộng xu cho approver
                     db.ref(`users/${approverId}/coins`).transaction(c => (c || 0) + betAmount).then(oppResult => {
                         if (!oppResult.committed) {
-                            // Hoàn lại xu cho requester nếu fail
                             db.ref(`users/${requesterId}/coins`).transaction(c => (c || 0) + betAmount);
                             alert('Lỗi khi chuyển xu!');
                             return;
                         }
                         
-                        // Thực hiện undo trước (cần room.undoRequest để xác định lượt)
                         _performUndo(room, 1, request.requester);
                         
-                        // Xóa undo request sau khi undo xong
                         db.ref(`rooms/${currentRoomId}/undoRequest`).remove().then(() => {
-                            // Ẩn modal và clear flag sau khi xóa request thành công
                             const undoModal = document.getElementById('undo-request-modal');
                             if (undoModal) undoModal.style.display = 'none';
                             window.undoRequestPending = false;
                         });
                         
-                        // Thông báo
                         thongBaoHeThong(`↩️ Đã đồng ý rút nước - nhận ${betAmount.toLocaleString('vi-VN')} Xu!`);
-                        
                         if (typeof addNotification === 'function') {
                             addNotification('win', `↩️ Đã duyệt rút +${betAmount.toLocaleString('vi-VN')} Xu`);
                         }
                     });
                 });
             } else {
-                // Không có cược - undo miễn phí
-                console.log('[DEBUG-UNDO] No bet, performing free undo');
+                // Không có cược - undo miễn phí khi đối thủ đồng ý
                 _performUndo(room, 1, request.requester);
                 db.ref(`rooms/${currentRoomId}/undoRequest`).remove().then(() => {
-                    // Ẩn modal và clear flag sau khi xóa request thành công
                     const undoModal = document.getElementById('undo-request-modal');
                     if (undoModal) undoModal.style.display = 'none';
                     window.undoRequestPending = false;
@@ -2218,10 +2242,8 @@ function handleUndoResponse(approved) {
                 thongBaoHeThong('↩️ Đã đồng ý rút nước!');
             }
         } else {
-            // Reject: chỉ xóa request, không làm gì khác
-            console.log('[DEBUG-UNDO] Rejecting undo request');
+            // Reject: xóa request
             db.ref(`rooms/${currentRoomId}/undoRequest`).remove().then(() => {
-                // Ẩn modal và clear flag sau khi xóa request thành công
                 const undoModal = document.getElementById('undo-request-modal');
                 if (undoModal) undoModal.style.display = 'none';
                 window.undoRequestPending = false;
@@ -2230,76 +2252,68 @@ function handleUndoResponse(approved) {
         }
     });
 }
+
 function _performUndo(room, movesToRemove, requesterRole) {
-    // Convert room.moves to array if it's an object (Firebase stores arrays as objects)
-    const movesArray = Array.isArray(room.moves) ? room.moves : Object.values(room.moves || {});
-    
+    const movesArray = getSortedMovesArray(room.moves);
     if (!movesArray || movesArray.length < movesToRemove) return;
     
-    // Xóa movesToRemove nước cuối
     const newMoves = movesArray.slice(0, -movesToRemove);
-    
-    // Lượt quay về người vừa request undo (người bị rút nước)
     const newTurn = requesterRole || 'X';
     
-    // Xác định lastMove mới - handle different property name formats
-    const lastMove = newMoves.length > 0 ? newMoves[newMoves.length - 1] : null;
-    const newLastMove = lastMove ? { 
-        row: lastMove.row !== undefined ? lastMove.row : (lastMove.r !== undefined ? lastMove.r : -1), 
-        col: lastMove.col !== undefined ? lastMove.col : (lastMove.c !== undefined ? lastMove.c : -1), 
-        by: lastMove.by !== undefined ? lastMove.by : (lastMove.player !== undefined ? lastMove.player : '') 
-    } : { row: -1, col: -1, by: '' };
-    
-    console.log('[DEBUG-UNDO] Performing undo:', {
-        movesToRemove,
-        requesterRole,
-        newTurn,
-        newMovesCount: newMoves.length,
-        newLastMove,
-        lastMoveRaw: lastMove,
-        originalMovesType: typeof room.moves,
-        originalMovesIsArray: Array.isArray(room.moves),
-        originalMovesLength: movesArray.length,
-        newMovesArray: newMoves
+    const newMovesObject = {};
+    newMoves.forEach(m => {
+        const r = m.row !== undefined ? m.row : m.r;
+        const c = m.col !== undefined ? m.col : m.c;
+        const by = m.by !== undefined ? m.by : m.player;
+        const ts = m.timestamp || m.ts || Date.now();
+        newMovesObject[`${r}_${c}`] = { row: r, col: c, by: by, timestamp: ts };
     });
     
-    // Cập nhật Firebase
+    const lastMove = newMoves.length > 0 ? newMoves[newMoves.length - 1] : null;
+    const newLastMove = lastMove ? { 
+        row: lastMove.row !== undefined ? lastMove.row : lastMove.r, 
+        col: lastMove.col !== undefined ? lastMove.col : lastMove.c, 
+        by: lastMove.by !== undefined ? lastMove.by : lastMove.player 
+    } : { row: -1, col: -1, by: '' };
+    
+    // Cập nhật ngay locallyAppliedLastMove để langNgheThayDoiPhong không trigger thucHienVeNuocDi thừa
+    if (typeof locallyAppliedLastMove !== 'undefined') {
+        locallyAppliedLastMove.row = newLastMove.row;
+        locallyAppliedLastMove.col = newLastMove.col;
+    }
+    
+    // Mark that this requester has used their undo in this match
+    const prevUndo = room && room.undoUsed ? room.undoUsed : { X: false, O: false };
+    const newUndo = Object.assign({}, prevUndo);
+    newUndo[requesterRole] = true;
+
     const updateData = {
-        moves: newMoves,
+        moves: newMovesObject,
         turn: newTurn,
         lastMove: newLastMove,
+        undoUsed: newUndo,
         updatedAt: Date.now()
     };
     
-    console.log('[DEBUG-UNDO] Firebase update data:', updateData);
-    
     db.ref(`rooms/${currentRoomId}`).update(updateData).then(() => {
-        console.log('[DEBUG-UNDO] Firebase updated successfully');
-        
-        // Cập nhật local state
         if (typeof moveHistory !== 'undefined') {
             moveHistory.length = 0;
             newMoves.forEach(m => {
                 moveHistory.push({ 
-                    r: m.row !== undefined ? m.row : (m.r !== undefined ? m.r : 0), 
-                    c: m.col !== undefined ? m.col : (m.c !== undefined ? m.c : 0), 
-                    player: m.by !== undefined ? m.by : (m.player !== undefined ? m.player : '') 
+                    r: m.row !== undefined ? m.row : m.r, 
+                    c: m.col !== undefined ? m.col : m.c, 
+                    player: m.by !== undefined ? m.by : m.player 
                 });
             });
         }
         
-        // CẬP NHẬT infiniteMap - QUAN TRỌNG: renderInfiniteBoard vẽ từ infiniteMap
         if (typeof infiniteMap !== 'undefined') {
             infiniteMap.clear();
             newMoves.forEach(m => {
-                const r = m.row !== undefined ? m.row : (m.r !== undefined ? m.r : 0);
-                const c = m.col !== undefined ? m.col : (m.c !== undefined ? m.c : 0);
-                const player = m.by !== undefined ? m.by : (m.player !== undefined ? m.player : '');
+                const r = m.row !== undefined ? m.row : m.r;
+                const c = m.col !== undefined ? m.col : m.c;
+                const player = m.by !== undefined ? m.by : m.player;
                 infiniteMap.set(`${r},${c}`, player);
-            });
-            console.log('[DEBUG-UNDO] infiniteMap updated:', {
-                size: infiniteMap.size,
-                entries: Array.from(infiniteMap.entries())
             });
         }
         
@@ -2314,51 +2328,92 @@ function _performUndo(room, movesToRemove, requesterRole) {
             currentTurn = newTurn;
         }
         
-        console.log('[DEBUG-UNDO] Local state updated:', {
-            currentPlayer,
-            currentTurn,
-            moveHistoryLength: moveHistory ? moveHistory.length : 0,
-            moveHistoryContent: moveHistory ? JSON.stringify(moveHistory) : 'undefined',
-            lastMoveR,
-            lastMoveC
-        });
-        
-        // Re-render bàn cờ để xóa quân vừa rút
         if (typeof renderInfiniteBoard === 'function') {
-            console.log('[DEBUG-UNDO] Calling renderInfiniteBoard...');
             renderInfiniteBoard();
-            console.log('[DEBUG-UNDO] Board re-rendered');
-        } else {
-            console.error('[DEBUG-UNDO] renderInfiniteBoard is not available!');
         }
     });
 }
 window.undoOnlineMove = undoOnlineMove;
 window.handleUndoResponse = handleUndoResponse;
+
 // Helper function to show undo modal
 function _showUndoModal(request, betAmount) {
-    const undoModal = document.getElementById('undo-request-modal');
+    let undoModal = document.getElementById('undo-request-modal');
     if (!undoModal) {
-        // Tạo modal nếu chưa có
-        const modal = document.createElement('div');
-        modal.id = 'undo-request-modal';
-        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
-        modal.innerHTML = `
-            <div style="background:white;padding:20px;border-radius:10px;max-width:400px;text-align:center;">
-                <h3 style="margin-bottom:15px;">↩️ Yêu cầu rút nước</h3>
-                <p style="margin-bottom:15px;">Bên ${request.requester} muốn rút lại nước vừa đánh.</p>
-                <p style="margin-bottom:15px;">${betAmount > 0 ? `Nếu đồng ý, bạn sẽ nhận ${betAmount.toLocaleString('vi-VN')} Xu.` : 'Không có cược.'}</p>
-                <div style="display:flex;gap:10px;justify-content:center;">
-                    <button onclick="handleUndoResponse(true)" style="padding:10px 20px;background:#10b981;color:white;border:none;border-radius:5px;cursor:pointer;">Đồng ý</button>
-                    <button onclick="handleUndoResponse(false)" style="padding:10px 20px;background:#ef4444;color:white;border:none;border-radius:5px;cursor:pointer;">Từ chối</button>
-                </div>
+        undoModal = document.createElement('div');
+        undoModal.id = 'undo-request-modal';
+        undoModal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
+        document.body.appendChild(undoModal);
+    }
+    undoModal.innerHTML = `
+        <div style="background:white;padding:24px;border-radius:12px;max-width:380px;text-align:center;box-shadow:0 10px 25px rgba(0,0,0,0.3);">
+            <h3 style="margin-bottom:12px;color:#1e293b;font-size:18px;">↩️ Yêu cầu rút nước</h3>
+            <p style="margin-bottom:12px;color:#475569;font-size:14px;">Bên <b>${request.requester}</b> muốn rút lại nước vừa đánh.</p>
+            <p style="margin-bottom:18px;color:#64748b;font-size:13px;">${betAmount > 0 ? `Nếu đồng ý, bạn sẽ nhận <b>${betAmount.toLocaleString('vi-VN')} Xu</b>.` : 'Ván cược 0 xu.'}</p>
+            <div style="display:flex;gap:12px;justify-content:center;">
+                <button onclick="handleUndoResponse(true)" style="padding:10px 20px;background:#10b981;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px;">🟢 Đồng ý</button>
+                <button onclick="handleUndoResponse(false)" style="padding:10px 20px;background:#ef4444;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px;">❌ Từ chối</button>
             </div>
-        `;
+        </div>
+    `;
+    undoModal.style.display = 'flex';
+}
+
+// Modal xác nhận Đấu lại (Rematch) từ đối thủ
+function _showRematchModal(room) {
+    const modalId = 'rematch-confirm-modal';
+    let modal = document.getElementById(modalId);
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = modalId;
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
         document.body.appendChild(modal);
+    }
+    const requesterRole = room.rematchRequestedBy || (myRole === 'X' ? 'O' : 'X');
+    const requesterName = requesterRole === 'X' ? tenSafe(room.playerX_name, 'Chủ phòng X') : tenSafe(room.playerO_name, 'Người chơi O');
+    modal.innerHTML = `
+        <div style="background:white;padding:24px;border-radius:12px;max-width:380px;text-align:center;box-shadow:0 10px 25px rgba(0,0,0,0.3);">
+            <h3 style="margin-bottom:12px;color:#1e293b;font-size:18px;">🕹 Yêu cầu Đấu lại</h3>
+            <p style="margin-bottom:18px;color:#475569;font-size:14px;"><b>${requesterName} (${requesterRole})</b> muốn đấu lại ván mới với cùng luật chơi.</p>
+            <div style="display:flex;gap:12px;justify-content:center;">
+                <button onclick="handleRematchResponse(true)" style="padding:10px 20px;background:#16a34a;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px;">🟢 Đồng ý</button>
+                <button onclick="handleRematchResponse(false)" style="padding:10px 20px;background:#ef4444;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px;">❌ Từ chối</button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
+}
+
+function handleRematchResponse(approved) {
+    const modal = document.getElementById('rematch-confirm-modal');
+    if (modal) modal.style.display = 'none';
+    if (!currentRoomId) return;
+
+    if (approved) {
+        db.ref(`rooms/${currentRoomId}`).update({
+            rematchXReady: true,
+            rematchOReady: true,
+            updatedAt: Date.now()
+        }).then(() => {
+            db.ref(`rooms/${currentRoomId}`).once('value').then(snap => {
+                const room = snap.val();
+                if (room && typeof maybeAutoStartRematch === 'function') {
+                    maybeAutoStartRematch(room);
+                }
+            });
+        });
     } else {
-        undoModal.style.display = 'flex';
+        db.ref(`rooms/${currentRoomId}`).update({
+            rematchRequested: false,
+            updatedAt: Date.now()
+        }).then(() => {
+            if (typeof thongBaoHeThong === 'function') {
+                thongBaoHeThong('❌ Bạn đã từ chối đấu lại.');
+            }
+        });
     }
 }
+window.handleRematchResponse = handleRematchResponse;
 // Hàm nội bộ: chỉ X gọi — đẩy status = playing lên Firebase
 // Guard chống gọi 2 lần trong cùng 1 phiên
 let _dangBatDauGame = false;
@@ -2456,6 +2511,73 @@ window.setReady = setReady;
 // ══════════════════════════════════════════════════════════════════
 // Map lưu timeout tự dọn ghế khi offline
 const _offlineCleanupTimers = {};
+const ONLINE_AFK_TIMEOUT_SEC = 150;
+const _onlineBattleCountdown = {
+    interval: null,
+    secondsLeft: ONLINE_AFK_TIMEOUT_SEC,
+    activeTurn: null
+};
+
+function _formatBattleCountdown(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+function _updateBattleTimerDisplay(role, seconds, isActive) {
+    const el = document.getElementById(`battle-timer-${role.toLowerCase()}`);
+    if (!el) return;
+    el.textContent = _formatBattleCountdown(seconds);
+    el.style.background = isActive ? 'rgba(16, 185, 129, 0.18)' : 'rgba(255, 255, 255, 0.08)';
+    el.style.color = isActive ? '#16a34a' : '#94a3b8';
+}
+
+function _renderBattleCountdown() {
+    const active = _onlineBattleCountdown.activeTurn;
+    _updateBattleTimerDisplay('X', active === 'X' ? _onlineBattleCountdown.secondsLeft : ONLINE_AFK_TIMEOUT_SEC, active === 'X');
+    _updateBattleTimerDisplay('O', active === 'O' ? _onlineBattleCountdown.secondsLeft : ONLINE_AFK_TIMEOUT_SEC, active === 'O');
+}
+
+function _resetBattleCountdown() {
+    if (_onlineBattleCountdown.interval) {
+        clearInterval(_onlineBattleCountdown.interval);
+        _onlineBattleCountdown.interval = null;
+    }
+    _onlineBattleCountdown.secondsLeft = ONLINE_AFK_TIMEOUT_SEC;
+    _onlineBattleCountdown.activeTurn = null;
+    _renderBattleCountdown();
+}
+
+function _startBattleCountdown(turn) {
+    if (!turn) return;
+    if (_onlineBattleCountdown.interval) {
+        clearInterval(_onlineBattleCountdown.interval);
+        _onlineBattleCountdown.interval = null;
+    }
+    _onlineBattleCountdown.activeTurn = turn;
+    _onlineBattleCountdown.secondsLeft = ONLINE_AFK_TIMEOUT_SEC;
+    _renderBattleCountdown();
+    _onlineBattleCountdown.interval = setInterval(() => {
+        _onlineBattleCountdown.secondsLeft = Math.max(0, _onlineBattleCountdown.secondsLeft - 1);
+        _renderBattleCountdown();
+        if (_onlineBattleCountdown.secondsLeft <= 0) {
+            clearInterval(_onlineBattleCountdown.interval);
+            _onlineBattleCountdown.interval = null;
+        }
+    }, 1000);
+}
+
+function _updateBattleCountdown(room) {
+    if (!room || room.status !== 'playing') {
+        _resetBattleCountdown();
+        return;
+    }
+    const turn = room.turn || 'X';
+    if (turn !== _onlineBattleCountdown.activeTurn) {
+        _startBattleCountdown(turn);
+    }
+}
+
 // Theo dõi đối thủ để thông báo vào phòng / rời phòng / mất kết nối
 let _prevOppId = '', _prevOppStatus = '';
 // BUG 3 FIX: Track previous status to detect when game just ended
@@ -2474,6 +2596,8 @@ function langNgheThayDoiPhong(roomId) {
     roomListener = db.ref(`rooms/${roomId}`).on('value', snap => {
         const room = snap.val();
         if (!room) return; // Phòng cố định không bao giờ null
+        // Keep a quick-access copy of last room snapshot for UI helpers
+        window._lastRoomSnapshot = room;
         
         // BUG 1 DEBUG: Log event when Firebase room data received
         if (typeof Bug1DebugLogger !== 'undefined') {
@@ -2538,6 +2662,17 @@ function langNgheThayDoiPhong(roomId) {
             if (undoModal) undoModal.style.display = 'none';
             window.undoRequestPending = false;
         }
+
+        // Xử lý rematch request - hiển thị UI xác nhận cho đối thủ
+        if (room.rematchRequested && room.status === 'ended') {
+            const requesterRole = room.rematchRequestedBy;
+            if (requesterRole && requesterRole !== myRole && myRole !== 'viewer') {
+                _showRematchModal(room);
+            }
+        } else {
+            const rematchModal = document.getElementById('rematch-confirm-modal');
+            if (rematchModal) rematchModal.style.display = 'none';
+        }
         // Kiểm tra bị kick (ghế của mình bị reset)
         if (myRole !== 'viewer' && isOnlineMode) {
             const wasX = (myRole === 'X' && myId !== room.playerX_id && daXoaBanCoTranNay);
@@ -2587,8 +2722,12 @@ function langNgheThayDoiPhong(roomId) {
         currentRule     = room.chan2Dau ? 'chan_2_dau' : 'tu_do';
         currentWinCount = room.winCount || 5;
         if (typeof winCount !== 'undefined') winCount = currentWinCount;
+        _updateBattleCountdown(room);
         const gameInfo = document.getElementById('game-info');
         if (room.status === 'playing') {
+            if (typeof _updateBattleBottomBar === 'function') _updateBattleBottomBar(false);
+            const rematchModal = document.getElementById('rematch-confirm-modal');
+            if (rematchModal) rematchModal.style.display = 'none';
             console.log('[DEBUG-BOARD] Room status changed to playing, setting isGameActive = true');
             if (typeof isGameActive !== 'undefined') isGameActive = true;
             // Lần đầu vào trận HOẶC ván mới bắt đầu (daXoaBanCoTranNay = false)
@@ -2842,6 +2981,7 @@ function langNgheThayDoiPhong(roomId) {
             }
         }
         if (room.status === 'ended' || room.winner) {
+            if (typeof _updateBattleBottomBar === 'function') _updateBattleBottomBar(true);
             // BUG 3 FIX: Detect if this is a new status change from playing to ended
             const justEnded = _prevRoomStatus === 'playing' && room.status === 'ended';
             _prevRoomStatus = room.status;
@@ -3526,25 +3666,14 @@ function oSanSangVaQuayVePhong() {
 function xemLaiBanCo() {
     const old = document.getElementById('van-moi-overlay');
     if (old) old.remove();
-    // Nút nhỏ góc trên phải để quay lại kết quả
-    const existing = document.getElementById('btn-back-to-result');
-    if (existing) return;
-    const btn = document.createElement('button');
-    btn.id = 'btn-back-to-result';
-    btn.textContent = '↩ Kết quả ván';
-    btn.style.cssText = `
-        position:fixed; top:12px; right:12px; z-index:99998;
-        padding:8px 14px; background:#6366f1; color:white;
-        border:none; border-radius:8px; cursor:pointer;
-        font-size:13px; font-weight:bold;
-        box-shadow:0 2px 8px rgba(0,0,0,0.25);
-    `;
-    btn.onclick = () => {
-        btn.remove();
-        const turnEl = document.getElementById('turn-indicator');
-        hienUIVanMoi(turnEl ? turnEl.textContent : '');
-    };
-    document.body.appendChild(btn);
+    const winOv = document.getElementById('win-overlay');
+    if (winOv) winOv.classList.remove('show');
+    const rematchModal = document.getElementById('rematch-confirm-modal');
+    if (rematchModal) rematchModal.style.display = 'none';
+    const btnBack = document.getElementById('btn-back-to-result');
+    if (btnBack) btnBack.remove();
+
+    if (typeof _updateBattleBottomBar === 'function') _updateBattleBottomBar(true);
 }
 window.xemLaiBanCo = xemLaiBanCo;
 function batDauVanMoi() {
@@ -3575,7 +3704,8 @@ function batDauVanMoi() {
             moves:     { init: true },
             lastMove:  { row: -1, col: -1, by: '' },
             endedAt:   null,
-            undoUsed:  false,
+            // Per-player undo usage: reset for new match
+            undoUsed:  { X: false, O: false },
             updatedAt: Date.now()
         };
 
@@ -3588,7 +3718,7 @@ function batDauVanMoi() {
             updates.firstTurn = rematchConfig.firstTurn;
             updates.isVip = rematchConfig.isVip;
             updates.rematchConfig = rematchConfig;
-            updates.rematchRequested = room.rematchRequested || true;
+            updates.rematchRequested = !!room.rematchRequested;
             // Preserve rematch-related flags if the guest already accepted
             updates.guestReady = room.guestReady || false;
             updates.playerOConfirmed = room.playerOConfirmed || null;
@@ -3671,6 +3801,14 @@ window.quayLaiPhongChinhO = quayLaiPhongChinhO;
 function thoatPhongSauVan() {
     const old = document.getElementById('van-moi-overlay');
     if (old) old.remove();
+    const winOv = document.getElementById('win-overlay');
+    if (winOv) winOv.classList.remove('show');
+    const rmModal = document.getElementById('rematch-confirm-modal');
+    if (rmModal) rmModal.style.display = 'none';
+    const udModal = document.getElementById('undo-request-modal');
+    if (udModal) udModal.style.display = 'none';
+    const btnBack = document.getElementById('btn-back-to-result');
+    if (btnBack) btnBack.remove();
     xuLyThoatPhong();
 }
 window.thoatPhongSauVan = thoatPhongSauVan;
