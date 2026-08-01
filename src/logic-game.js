@@ -654,33 +654,39 @@ function getWinningLine(row, col, player, winCount, blockBothEndsEnabled) {
     return null;
 }
 
-function checkWin(r, c) {
+// Resolve room rules from parameter, GameState.roomRules, or fallback
+function _resolveRoomRules(passedRules) {
+    if (passedRules && typeof passedRules.winCount === 'number') return passedRules;
+    if (typeof GameState !== 'undefined' && GameState.roomRules) return GameState.roomRules;
+    if (typeof window !== 'undefined' && window.roomRules && typeof window.roomRules.winCount === 'number') return window.roomRules;
+    // Fallback to GameState.board.winCount if available
+    const fallbackWin = (typeof GameState !== 'undefined' && GameState.board && typeof GameState.board.winCount === 'number') ? GameState.board.winCount : (typeof winCount === 'number' ? winCount : undefined);
+    const fallbackChan = (typeof document !== 'undefined') ? !!document.getElementById('block-both-ends')?.checked : true;
+    if (typeof fallbackWin === 'undefined') {
+        console.warn('[checkWin] roomRules missing; unable to determine winCount reliably');
+    }
+    return { winCount: fallbackWin, chan2Dau: fallbackChan, firstTurn: (typeof window !== 'undefined' && window.firstTurn) ? window.firstTurn : 'X' };
+}
+
+function checkWin(r, c, roomRules) {
     const player = getCell(r, c);
     if (!player) return false;
-    const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
-    const blockBothEndsEnabled = isOnline
-        ? (typeof currentRule !== 'undefined' && currentRule === 'chan_2_dau')
-        : (window.isBotVsBotMode
-            ? !!document.getElementById('bot-vs-bot-block-both')?.checked
-            : !!document.getElementById('block-both-ends')?.checked);
-    const countRequired = typeof currentWinCount !== 'undefined' ? currentWinCount : winCount;
+    const rules = _resolveRoomRules(roomRules);
+    const blockBothEndsEnabled = !!rules.chan2Dau;
+    const countRequired = rules.winCount;
     const winningLine = getWinningLine(r, c, player, countRequired, blockBothEndsEnabled);
     if (!winningLine) return false;
     highlightWinners(winningLine);
     return true;
 }
 
-// checkWinSilent: dùng cho AI
-function checkWinSilent(r, c) {
+// checkWinSilent: dùng cho AI — nhận roomRules optional
+function checkWinSilent(r, c, roomRules) {
     const player = getCell(r, c);
     if (!player) return false;
-    const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
-    const blockBothEndsEnabled = isOnline
-        ? (typeof currentRule !== 'undefined' && currentRule === 'chan_2_dau')
-        : (window.isBotVsBotMode
-            ? !!document.getElementById('bot-vs-bot-block-both')?.checked
-            : !!document.getElementById('block-both-ends')?.checked);
-    const countRequired = typeof currentWinCount !== 'undefined' ? currentWinCount : winCount;
+    const rules = _resolveRoomRules(roomRules);
+    const blockBothEndsEnabled = !!rules.chan2Dau;
+    const countRequired = rules.winCount;
     return !!getWinningLine(r, c, player, countRequired, blockBothEndsEnabled);
 }
 

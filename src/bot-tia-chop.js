@@ -32,7 +32,16 @@ const BotTiaChop = {
 
         const playerStr   = options.player   ?? (typeof botPiece   !== 'undefined' ? botPiece   : 'O');
         const opponentStr = options.opponent ?? (typeof humanPiece !== 'undefined' ? humanPiece : 'X');
-        const winCount    = options.winCount ?? (typeof window.winCount !== 'undefined' ? window.winCount : 5);
+        // Resolve room rules: options.roomRules -> GameState.roomRules -> window.roomRules -> options.winCount
+        const resolved = options.roomRules ?? (typeof GameState !== 'undefined' ? GameState.roomRules : undefined) ?? (typeof window !== 'undefined' ? window.roomRules : undefined);
+        let winCount;
+        if (resolved && typeof resolved.winCount === 'number') winCount = resolved.winCount;
+        else if (typeof options.winCount === 'number') winCount = options.winCount;
+        else if (typeof GameState !== 'undefined' && GameState.board && typeof GameState.board.winCount === 'number') winCount = GameState.board.winCount;
+        else {
+            console.warn('[BotTiaChop] winCount not found in roomRules/options/GameState; pass roomRules to getBotMove to avoid ambiguous behavior.');
+            winCount = typeof window.winCount !== 'undefined' ? window.winCount : undefined;
+        }
 
         // Chuyển 'X'/'O' → số nguyên như gốc mevivu
         // Bot = machSq = -1, người = userSq = 1 (gốc dùng userSq cho người)
@@ -311,7 +320,10 @@ const BotTiaChop = {
         // Use Rule Engine to check win
         let isWin = false;
         if (typeof checkWinSilent === 'function') {
-            isWin = checkWinSilent(absR, absC);
+            // Prefer passing explicit roomRules so Rule Engine evaluates with correct winCount/chan2Dau
+            const resolvedBR = (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : (typeof window !== 'undefined' ? window.roomRules : undefined);
+            const passRules = resolvedBR ? resolvedBR : { winCount: winCount };
+            isWin = checkWinSilent(absR, absC, passRules);
         } else {
             // Fallback to simple count-based check if Rule Engine not available
             isWin = this.simpleWinCheck(i, j, mySq, board, rows, cols, winCount);

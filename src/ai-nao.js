@@ -1981,7 +1981,7 @@ function godEngineMove(bp, hp, validCands, isGod) {
             const tiaChopMove = BotTiaChop.getBotMove({
                 player: bp,
                 opponent: hp,
-                winCount: wc
+                roomRules: { winCount: wc, chan2Dau: bbe }
             });
             if (tiaChopMove && tiaChopMove.r !== undefined && tiaChopMove.c !== undefined) {
                 console.log('[godEngineMove] BotTiaChop recommended move:', tiaChopMove);
@@ -2264,7 +2264,7 @@ function getBotMove() {
             const move = BotTiaChop.getBotMove({
                 player: bp,
                 opponent: hp,
-                winCount: winCount
+                roomRules: { winCount: winCount, chan2Dau: getBlockBothEnds() }
             });
             console.log('[ai-nao] BotTiaChop returned move:', move);
             if (move) {
@@ -2280,7 +2280,7 @@ function getBotMove() {
     if (isSuper) {
         if (typeof BotSuper !== 'undefined' && typeof BotSuper.getBotMove === 'function') {
             console.log('[ai-nao] Bot Siêu Phàm mode detected - calling BotSuper');
-            const move = BotSuper.getBotMove({ player: bp, opponent: hp, winCount, depth: 6 });
+            const move = BotSuper.getBotMove({ player: bp, opponent: hp, roomRules: (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : (typeof window !== 'undefined' ? window.roomRules : { winCount, chan2Dau: getBlockBothEnds() }), depth: 6 });
             if (move) {
                 updateBotThinking('Bot Siêu Phàm ⚔️');
                 return move;

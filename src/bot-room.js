@@ -9,7 +9,7 @@ const BotRoomManager = {
         { id: 3, name: 'Bot Khó',        emoji: '🟠', color: '#f97316', gameMode: 'ai-hard',        description: 'Thử thách thật sự' },
         { id: 4, name: 'Bot Tối Thượng', emoji: '💀', color: '#ef4444', gameMode: 'bot-toi-thuong', description: 'Cấp Tinh Anh' },
         { id: 5, name: 'Bot Tia Chớp',  emoji: '⚡', color: '#3b82f6', gameMode: 'bot-tia-chop',   description: 'Tốc độ siêu nhanh' },
-        { id: 6, name: 'Bot Siêu Phàm',  emoji: '🌟', color: '#8b5cf6', gameMode: 'bot-super',       description: 'Thách thức đặc biệt (mở theo nhiệm vụ)' },
+        { id: 6, name: 'Bot Siêu Phẩm',  emoji: '🌟', color: '#8b5cf6', gameMode: 'bot-super',       description: 'Thách thức đặc biệt (mở theo nhiệm vụ)' },
         { id: 7, name: 'Bot vs Bot',     emoji: '🤖', color: '#8b5cf6', gameMode: 'bot-vs-bot',      description: 'Chọn 2 bot cho X/O, trận đấu tự động' },
         { id: 8, name: 'Sắp ra mắt',    emoji: '🔒', color: '#94a3b8', gameMode: null,             description: 'Mở khóa theo nhiệm vụ' },
         { id: 9, name: 'Sắp ra mắt',    emoji: '🔒', color: '#94a3b8', gameMode: null,             description: 'Mở khóa theo nhiệm vụ' }
@@ -248,6 +248,18 @@ const BotRoomManager = {
 
         window.isBotRoomMode    = true;
         window.currentBotConfig = this.currentBotRoom;
+
+        // Sync bot room rules into GameState.roomRules so AI uses the correct rules
+        try {
+            const parsedWc = parseInt(wc, 10);
+            const rules = { winCount: isNaN(parsedWc) ? undefined : parsedWc, chan2Dau: !!bb, firstTurn: fm };
+            if (typeof GameState !== 'undefined') {
+                GameState.roomRules = rules;
+                if (!GameState.board) GameState.board = {};
+                if (typeof rules.winCount === 'number') GameState.board.winCount = rules.winCount;
+            }
+            window.roomRules = rules;
+        } catch (e) { console.warn('[BotRoom] failed to sync roomRules to GameState', e); }
 
         // Áp cài đặt vào engine
         const modeEl = document.getElementById('game-mode');

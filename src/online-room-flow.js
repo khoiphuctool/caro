@@ -77,7 +77,7 @@
 
   function buildStartPayload(options) {
     const room = options && options.room ? options.room : {};
-    const winCount = typeof options.winCount === 'number' ? options.winCount : (room.winCount || 5);
+    const winCount = typeof options.winCount === 'number' ? options.winCount : (typeof resolveRoomWinCount === 'function' ? resolveRoomWinCount(room) : (room.winCount || 5));
     const chan2Dau = typeof options.chan2Dau === 'boolean' ? options.chan2Dau : (room.chan2Dau ?? true);
     const firstTurn = options.firstTurn || room.firstTurn || 'X';
     return {

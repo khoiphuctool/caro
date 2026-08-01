@@ -31,7 +31,16 @@ const BotSuper = {
     getBotMove(options = {}) {
         const player = options.player || botPiece || 'O';
         const opponent = options.opponent || humanPiece || 'X';
-        const wc = options.winCount || winCount || 5;
+        // Resolve rules: prefer options.roomRules, then GameState.roomRules, then options.winCount or global
+        const resolved = options.roomRules ?? (typeof GameState !== 'undefined' ? GameState.roomRules : undefined) ?? (typeof window !== 'undefined' ? window.roomRules : undefined);
+        let wc;
+        if (resolved && typeof resolved.winCount === 'number') wc = resolved.winCount;
+        else if (typeof options.winCount === 'number') wc = options.winCount;
+        else if (typeof GameState !== 'undefined' && GameState.board && typeof GameState.board.winCount === 'number') wc = GameState.board.winCount;
+        else {
+            console.warn('[BotSuper] winCount not found in roomRules/options/GameState; bot may behave unexpectedly. Pass roomRules to getBotMove.');
+            wc = typeof winCount !== 'undefined' ? winCount : undefined;
+        }
         const depth = options.depth || this.config.searchDepth;
 
         console.log('[BotSuper Ultimate] getBotMove', { player, opponent, winCount: wc, depth });
@@ -190,7 +199,7 @@ const BotSuper = {
                 const tiaChopMove = BotTiaChop.getBotMove({
                     player: player,
                     opponent: opponent,
-                    winCount: wc
+                    roomRules: { winCount: wc, chan2Dau: (resolved && typeof resolved.chan2Dau !== 'undefined') ? !!resolved.chan2Dau : true }
                 });
                 if (tiaChopMove && tiaChopMove.r !== undefined && tiaChopMove.c !== undefined) {
                     if (getCell(tiaChopMove.r, tiaChopMove.c) === '') {

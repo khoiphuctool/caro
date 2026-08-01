@@ -314,8 +314,9 @@ const PracticeMode = (function() {
         if (event === 'player-win') {
             // Cập nhật thống kê winBot
             if (typeof window.updateUserStats === 'function') {
-                const wc = parseInt(document.getElementById('win-count')?.value || '5');
-                if (wc >= 5) {
+                // Resolve win count from GameState.roomRules if available, otherwise DOM fallback
+                const resolvedWc = (typeof GameState !== 'undefined' && GameState.roomRules && typeof GameState.roomRules.winCount === 'number') ? GameState.roomRules.winCount : parseInt(document.getElementById('win-count')?.value || '5');
+                if (resolvedWc >= 5) {
                     window.updateUserStats('winBot', 1);
                 }
             }
@@ -493,7 +494,7 @@ window.addEventListener('load', () => {
                     }
                     if (typeof currentPlayer !== 'undefined') currentPlayer = config.currentPlayer || 'X';
                     if (typeof isGameActive !== 'undefined') isGameActive = config.isGameActive !== false;
-                    if (typeof winCount !== 'undefined') winCount = config.winCount || 5;
+                    if (typeof winCount !== 'undefined') winCount = config.winCount ?? 5;
                     if (typeof lastMoveR !== 'undefined') lastMoveR = config.lastMoveR;
                     if (typeof lastMoveC !== 'undefined') lastMoveC = config.lastMoveC;
                     
@@ -541,7 +542,7 @@ window.addEventListener('load', () => {
                 }
                 if (typeof currentPlayer !== 'undefined') currentPlayer = config.currentPlayer || 'X';
                 if (typeof isGameActive !== 'undefined') isGameActive = config.isGameActive !== false;
-                if (typeof winCount !== 'undefined') winCount = config.winCount || 5;
+                if (typeof winCount !== 'undefined') winCount = config.winCount ?? 5;
                 if (typeof lastMoveR !== 'undefined') lastMoveR = config.lastMoveR;
                 if (typeof lastMoveC !== 'undefined') lastMoveC = config.lastMoveC;
                 

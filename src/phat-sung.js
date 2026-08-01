@@ -275,7 +275,7 @@ function requestRematchFromWinOverlay() {
 
         const rematchConfig = room.rematchConfig || {
             betAmount: room.betAmount || null,
-            winCount:  room.winCount || 5,
+            winCount:  room.winCount ?? 5,
             chan2Dau:  room.chan2Dau ?? true,
             firstTurn: room.firstTurn || 'X',
             isVip:     room.isVip || false

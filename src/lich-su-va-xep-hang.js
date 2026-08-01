@@ -20,10 +20,14 @@ function recordMatch(result, winner) {
     const actualMode      = isAutoplayRunning ? 'autoplay' : gameMode;
     const actualModeLabel = isAutoplayRunning ? '🤖 Autoplay (Bot Tự Học)' : (MODE_LABELS[gameMode] || gameMode);
 
+    const resolvedRules = (typeof window !== 'undefined' && window.roomRules) ? window.roomRules : (typeof GameState !== 'undefined' ? GameState.roomRules : undefined);
     const entry = {
         result, winner,
         mode: actualMode, modeLabel: actualModeLabel,
-        winCount, boardLabel,
+        winCount: resolvedRules && typeof resolvedRules.winCount === 'number' ? resolvedRules.winCount : winCount,
+        chan2Dau: resolvedRules ? !!resolvedRules.chan2Dau : undefined,
+        firstTurn: resolvedRules ? (resolvedRules.firstTurn || 'X') : undefined,
+        boardLabel,
         moves: moveCount,
         humanPiece, botPiece,
         time: new Date()
@@ -285,6 +289,17 @@ function loadRankHistory(index) {
     const { winCnt, boardLabel } = parseRankKey(currentRankTab);
     initGameWithConfig(winCnt, boardLabel);
     moveHistory = [...entry.moveHistory];
+    // Restore stored room rules for this history entry so replay matches original rules
+    if (entry.roomRules) {
+        try {
+            if (typeof GameState !== 'undefined') {
+                GameState.roomRules = entry.roomRules;
+                if (!GameState.board) GameState.board = {};
+                if (typeof entry.roomRules.winCount === 'number') GameState.board.winCount = entry.roomRules.winCount;
+            }
+            window.roomRules = entry.roomRules;
+        } catch (e) { console.warn('[History] failed to restore roomRules from history entry', e); }
+    }
     statusPanel.innerHTML = `📺 Đang xem lại trận đấu · ${entry.name} · ${entry.score.toLocaleString('vi-VN')} điểm &nbsp;|&nbsp; <button onclick="closeHistoryView()" style="padding:4px 12px;border-radius:6px;border:none;cursor:pointer;font-weight:bold;font-size:0.85rem;background:#dc2626;color:#fff;">❌ Đóng</button>`;
     renderBoardFromHistory();
 }
@@ -301,7 +316,9 @@ function renderBoardFromHistory() {
         moves: moveHistory,
         mode: gameMode,
         winCount: winCount,
-        isInfinite: isInfinite
+        isInfinite: isInfinite,
+        // Include room rules so replay uses the same rule set as the original match
+        roomRules: (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : (typeof window !== 'undefined' ? window.roomRules : undefined)
     }));
     
     // DISABLED Shared Board Engine - use old system only
@@ -372,8 +389,19 @@ window.addEventListener('load', () => {
                     
                     moveHistory = config.moves || [];
                     gameMode = config.mode || 'ai-god';
-                    winCount = config.winCount || 5;
+                    winCount = config.winCount ?? 5;
                     isInfinite = config.isInfinite !== false;
+                    // Restore room rules for accurate replay behavior
+                    if (config.roomRules) {
+                        try {
+                            if (typeof GameState !== 'undefined') {
+                                GameState.roomRules = config.roomRules;
+                                if (!GameState.board) GameState.board = {};
+                                if (typeof config.roomRules.winCount === 'number') GameState.board.winCount = config.roomRules.winCount;
+                            }
+                            window.roomRules = config.roomRules;
+                        } catch (e) { console.warn('[History] failed to restore roomRules from replay_config', e); }
+                    }
                     
                     setTimeout(() => {
                         if (typeof switchView === 'function') {
@@ -407,8 +435,18 @@ window.addEventListener('load', () => {
                 
                 moveHistory = config.moves || [];
                 gameMode = config.mode || 'ai-god';
-                winCount = config.winCount || 5;
+                winCount = config.winCount ?? 5;
                 isInfinite = config.isInfinite !== false;
+                if (config.roomRules) {
+                    try {
+                        if (typeof GameState !== 'undefined') {
+                            GameState.roomRules = config.roomRules;
+                            if (!GameState.board) GameState.board = {};
+                            if (typeof config.roomRules.winCount === 'number') GameState.board.winCount = config.roomRules.winCount;
+                        }
+                        window.roomRules = config.roomRules;
+                    } catch (e) { console.warn('[History] failed to restore roomRules from replay_config', e); }
+                }
                 
                 setTimeout(() => {
                     if (typeof switchView === 'function') {

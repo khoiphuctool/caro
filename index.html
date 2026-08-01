@@ -2618,24 +2618,41 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
         </div>
 
         <!-- Luật chơi (chỉ chủ phòng) -->
-        <div id="room-rules-panel" style="display:none; background:#f0f8ff; border:1px solid #b8d4f0; border-radius:8px; padding:12px 16px; font-size:13px;">
-            <span style="font-weight:bold; margin-right:12px;">⚙️ Luật phòng:</span>
-            <label style="margin-right:14px;">Số quân thắng:
-                <select id="room-win-count" onchange="capNhatLuatPhong()" style="padding:3px 7px; border-radius:4px; border:1px solid #ccc; margin-left:4px;">
-                    <option value="3">3</option><option value="4">4</option><option value="5" selected>5</option>
-                    <option value="6">6</option><option value="7">7</option>
-                </select>
+        <div id="room-rules-panel" style="display:none; background:#f0f8ff; border:1px solid #b8d4f0; border-radius:8px; padding:14px 16px; font-size:13px;">
+          <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:center;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-weight:bold;">⚙️ Luật phòng:</span>
+              <span title="Luật phòng được lưu cho cả ván đấu. Sau khi trận đấu bắt đầu, không thay đổi được." style="font-size:0.95rem; color:#2563eb; cursor:help;">(?)</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <label style="font-weight:600;">Số quân thắng:</label>
+              <select id="room-win-count" onchange="capNhatLuatPhong()" style="padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1; background:#fff; min-width:80px;">
+                <option value="3">3</option><option value="4">4</option><option value="5" selected>5</option>
+                <option value="6">6</option><option value="7">7</option>
+              </select>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <label style="font-weight:600;">Đi trước:</label>
+              <select id="room-first-turn" onchange="capNhatLuatPhong()" style="padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1; background:#fff; min-width:120px;">
+                <option value="X" selected>X (Chủ phòng)</option>
+                <option value="O">O (Khách)</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top:12px; display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+            <div style="font-weight:600; min-width:110px;">Luật thắng:</div>
+            <label style="display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border:1px solid #cbd5e1; border-radius:999px; cursor:pointer; background:#ffffff;">
+              <input type="radio" name="room-blocked-two-ends" id="room-chan-2-dau-yes" value="true" onchange="capNhatLuatPhong()" checked>
+              <span>Chặn 2 đầu (mặc định)</span>
             </label>
-            <label style="margin-right:14px;">Đi trước:
-                <select id="room-first-turn" onchange="capNhatLuatPhong()" style="padding:3px 7px; border-radius:4px; border:1px solid #ccc; margin-left:4px;">
-                    <option value="X" selected>X (Chủ phòng)</option>
-                    <option value="O">O (Khách)</option>
-                </select>
+            <label style="display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border:1px solid #cbd5e1; border-radius:999px; cursor:pointer; background:#ffffff;">
+              <input type="radio" name="room-blocked-two-ends" id="room-chan-2-dau-no" value="false" onchange="capNhatLuatPhong()">
+              <span>Không chặn 2 đầu</span>
             </label>
-            <label style="cursor:pointer;">
-                <input type="checkbox" id="room-chan-2-dau" onchange="capNhatLuatPhong()" checked>
-                <b> Chặn 2 đầu không thắng</b>
-            </label>
+          </div>
+          <div style="margin-top:10px; color:#475569; font-size:12px; line-height:1.4;">
+            <strong>Ghi chú:</strong> Luật chặn 2 đầu sẽ không tính chuỗi 5 nếu bị chặn hai đầu. Luật được lưu cho ván đấu và không đổi khi bắt đầu.
+          </div>
         </div>
 
         <!-- Versus -->
@@ -4454,10 +4471,11 @@ function _syncBattleRoomInfo() {
     const infoEl = document.getElementById('battle-room-info');
     if (!infoEl) return;
     // Đọc luật từ DOM room-rules-panel (giá trị đã được firebase cập nhật)
-    const wcEl  = document.getElementById('room-win-count');
-    const c2dEl = document.getElementById('room-chan-2-dau');
+    const wcEl   = document.getElementById('room-win-count');
+    const c2dYes = document.getElementById('room-chan-2-dau-yes');
+    const c2dNo  = document.getElementById('room-chan-2-dau-no');
     const wc  = wcEl  ? parseInt(wcEl.value)  : 5;
-    const c2d = c2dEl ? c2dEl.checked          : true;
+    const c2d = c2dYes ? c2dYes.checked : true;
     // Đọc bet pot từ #bet-info-o text nếu đang hiện
     const betSrc = document.getElementById('bet-info-o');
     const hasBet = betSrc && betSrc.style.display !== 'none' && betSrc.style.display !== '';

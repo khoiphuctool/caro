@@ -17,9 +17,24 @@ const AIController = {
         const player = options.player ?? (typeof botPiece !== 'undefined' ? botPiece : 'O');
         const opponent = options.opponent ?? (typeof humanPiece !== 'undefined' ? humanPiece : 'X');
         const gameMode = options.gameMode ?? document.getElementById('game-mode')?.value ?? 'ai-god';
-        const winCount = options.winCount ?? 5;
-        const blockBothEnds = options.blockBothEnds ??
-            (typeof document !== 'undefined' ? document.getElementById('block-both-ends')?.checked : true);
+        // Resolve room rules: prefer explicit options.roomRules, then GameState.roomRules, then window.roomRules
+        const resolvedRules = options.roomRules ?? (typeof GameState !== 'undefined' ? GameState.roomRules : undefined) ?? (typeof window !== 'undefined' ? window.roomRules : undefined);
+        let winCount, blockBothEnds;
+        if (resolvedRules && typeof resolvedRules.winCount === 'number') {
+            winCount = resolvedRules.winCount;
+            blockBothEnds = !!resolvedRules.chan2Dau;
+        } else {
+            // Fallback: allow options.winCount if explicitly provided, otherwise try legacy globals
+            if (typeof options.winCount === 'number') {
+                winCount = options.winCount;
+            } else if (typeof winCount !== 'undefined') {
+                winCount = winCount; // leave existing global if present
+            } else if (typeof GameState !== 'undefined' && GameState.board && typeof GameState.board.winCount === 'number') {
+                winCount = GameState.board.winCount;
+            }
+            blockBothEnds = (typeof options.blockBothEnds === 'boolean') ? options.blockBothEnds : (typeof document !== 'undefined' ? !!document.getElementById('block-both-ends')?.checked : true);
+            console.warn('[AIController] roomRules not found in options/GameState/window — using fallback values; prefer passing roomRules to getBotMove()');
+        }
 
         // Sử dụng kiến trúc mới nếu được bật
         if (this.config.useNewArchitecture) {

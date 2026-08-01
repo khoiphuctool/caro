@@ -45,7 +45,13 @@ const CouncilAI = {
     decide(candidates, options = {}) {
         const player = options.player || botPiece || 'O';
         const opponent = options.opponent || humanPiece || 'X';
-        const wc = options.winCount || winCount || 5;
+        // Resolve winCount: prefer explicit options.roomRules, then options.winCount,
+        // then GameState.roomRules, then GameState.board.winCount, then legacy globals
+        const wc = (options.roomRules && typeof options.roomRules.winCount === 'number') ? options.roomRules.winCount :
+               (typeof options.winCount === 'number' ? options.winCount :
+               (typeof GameState !== 'undefined' && GameState.roomRules && typeof GameState.roomRules.winCount === 'number') ? GameState.roomRules.winCount :
+               (typeof GameState !== 'undefined' && GameState.board && typeof GameState.board.winCount === 'number') ? GameState.board.winCount :
+               (typeof winCount !== 'undefined' ? winCount : 5));
         const depth = options.depth || 5;
 
         console.log('[CouncilAI] Starting decision with', candidates.length, 'candidates');
