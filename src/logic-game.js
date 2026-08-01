@@ -330,6 +330,13 @@ function updateStatus() {
 
 // ===== MAKE MOVE =====
 function makeMove(r, c) {
+    if (typeof isGameActive !== 'undefined' && !isGameActive) {
+        return;
+    }
+    if (typeof getCell === 'function' && getCell(r, c) !== '') {
+        return;
+    }
+
     console.log('[DEBUG-BOARD] makeMove called:', {
         r, c,
         isGameActive,
@@ -667,9 +674,12 @@ function checkWin(r, c) {
 function checkWinSilent(r, c) {
     const player = getCell(r, c);
     if (!player) return false;
-    const blockBothEndsEnabled = window.isBotVsBotMode
-        ? !!document.getElementById('bot-vs-bot-block-both')?.checked
-        : !!document.getElementById('block-both-ends')?.checked;
+    const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
+    const blockBothEndsEnabled = isOnline
+        ? (typeof currentRule !== 'undefined' && currentRule === 'chan_2_dau')
+        : (window.isBotVsBotMode
+            ? !!document.getElementById('bot-vs-bot-block-both')?.checked
+            : !!document.getElementById('block-both-ends')?.checked);
     const countRequired = typeof currentWinCount !== 'undefined' ? currentWinCount : winCount;
     return !!getWinningLine(r, c, player, countRequired, blockBothEndsEnabled);
 }
@@ -787,7 +797,11 @@ window.checkWinLogicOld = function(row, col, playerRole, customRule, customWinCo
     let currentWinCount = winCount;
 
     if (window.isOnlineModeActive && window.isOnlineModeActive()) {
-        blockBothEndsEnabled = (customRule === 'chan_2_dau');
+        if (typeof customRule === 'string') {
+            blockBothEndsEnabled = (customRule === 'chan_2_dau');
+        } else if (typeof currentRule !== 'undefined') {
+            blockBothEndsEnabled = currentRule === 'chan_2_dau';
+        }
         if (typeof customWinCount === 'number') currentWinCount = customWinCount;
     } else {
         const checkboxCu = document.getElementById('block-both-ends');

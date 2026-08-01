@@ -109,8 +109,6 @@
             currentMode = GameModes.NONE;
             modeContext = null;
             clearModeFromStorage();
-            
-            console.log('[GameModeManager] Mode cleared, was:', previousMode);
             return previousMode;
         },
 
@@ -124,11 +122,9 @@
             if (loadModeFromStorage()) {
                 // YC.TXT FIX: Skip BOT mode restore to prevent "Phòng Ma" and mode conflicts
                 if (currentMode === GameModes.BOT_ROOM) {
-                    console.log('[GameModeManager] Skipping BOT mode restore - disabled to prevent conflicts');
                     clearMode();
                     return GameModes.NONE;
                 }
-                console.log('[GameModeManager] Mode restored:', currentMode, 'with context:', modeContext);
                 return currentMode;
             }
             return GameModes.NONE;

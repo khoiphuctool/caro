@@ -415,6 +415,9 @@ function oSanSang() {
 
         if (room.status === 'ended') {
             updates.rematchRequested = true;
+            if (myRole === 'X' || myRole === 'O') {
+                updates.rematchRequestedBy = myRole;
+            }
             updates.rematchOReady = true;
             if (!room.rematchConfig) {
                 updates.rematchConfig = {

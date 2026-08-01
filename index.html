@@ -216,7 +216,11 @@ a { text-decoration: none; transition: color var(--transition-fast); }
    ================================================================ */
 #app-header {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 14px;
   background: var(--bg-secondary);
   color: var(--text-primary);
   position: static;
@@ -233,12 +237,11 @@ a { text-decoration: none; transition: color var(--transition-fast); }
   100% { background-position: 0% 50%; }
 }
 
-/* Dòng 1: Tiêu đề căn giữa, hiệu ứng màu */
+/* Dòng 1: Tiêu đề */
 .header-row-title {
-  width: 100%;
-  text-align: center;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid rgba(255,255,255,.05);
+  flex: 0 1 100%;
+  text-align: left;
+  padding: 0;
 }
 .header-logo {
   font-size: var(--font-2xl) !important;
@@ -254,29 +257,30 @@ a { text-decoration: none; transition: color var(--transition-fast); }
   animation: textGradientMove 6s ease infinite;
 }
 
-/* Dòng 2: Thanh menu nút bấm to hơn, xuống dòng riêng */
+/* Dòng 2: Thanh menu điều hướng */
 .header-row-nav {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  padding: var(--space-2) var(--space-4);
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border);
-  transition: background var(--transition-normal);
-}
-.header-nav {
+  order: 2;
+  flex: 1 1 100%;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--space-3) !important;
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 0;
+  background: transparent;
+}
+.header-row-nav .header-nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
   flex-wrap: wrap;
 }
-/* Phóng to các nút bấm */
 .nav-btn {
-  padding: var(--space-2) var(--space-5) !important;
-  font-size: var(--font-md) !important;
-  border-radius: var(--radius-md) !important;
-  font-weight: 800 !important;
+  padding: 8px 12px !important;
+  font-size: 0.95rem !important;
+  border-radius: 999px !important;
+  font-weight: 700 !important;
   background: var(--bg-primary);
   color: var(--text-primary);
   border: 1px solid var(--border);
@@ -291,17 +295,17 @@ a { text-decoration: none; transition: color var(--transition-fast); }
   box-shadow: var(--shadow-md);
 }
 
-/* Dòng 3: Thông tin nhân vật xuống dòng riêng */
+/* Dòng 3: Thông tin nhân vật */
 .header-row-user {
-  width: 100%;
+  order: 3;
+  flex: 1 1 100%;
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: var(--space-3) var(--space-4);
-  min-height: 56px;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border);
-  transition: background var(--transition-normal);
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  background: transparent;
+  min-height: auto;
 }
 .user-bar {
   display: flex;
@@ -4457,7 +4461,7 @@ function _syncBattleRoomInfo() {
     // Đọc bet pot từ #bet-info-o text nếu đang hiện
     const betSrc = document.getElementById('bet-info-o');
     const hasBet = betSrc && betSrc.style.display !== 'none' && betSrc.style.display !== '';
-    let html = `⚙️ ${wc} quân${c2d ? ' · Chặn 2 đầu' : ''}`;
+    let html = `⚙️ ${wc} quân · ${c2d ? 'Chặn 2 đầu' : 'Không chặn 2 đầu'}`;
     if (hasBet && window.currentBetPot && window.currentBetPot > 0) {
         html += `<br>🎲 Cược: <b style="color:#fbbf24">${Number(window.currentBetPot).toLocaleString('vi-VN')} Xu</b>`;
     }

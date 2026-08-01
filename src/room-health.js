@@ -199,76 +199,65 @@ function _healthCheckRoom(roomId, room) {
     const xAlive = hasX && isPlayerAlive(room, 'X');
     const oAlive = hasO && isPlayerAlive(room, 'O');
 
-    // Không có ghost → không làm gì
     const hasGhostX = hasX && !xAlive;
     const hasGhostO = hasO && !oAlive;
     if (!hasGhostX && !hasGhostO) return;
 
     const updates = { updatedAt: now };
 
-    // Xóa ghost X
     if (hasGhostX) {
-        console.log(`[HealthCheck] Phòng ${roomId}: Ghost X "${room.playerX_name}" → xóa`);
-        updates.playerX_id     = '';
-        updates.playerX_name   = '';
-        updates.playerX_status = 'offline';
-        updates.playerX_avatar = '';
-        updates.playerX_skin   = 'skin_default';
+        updates.playerX_id       = '';
+        updates.playerX_name     = '';
+        updates.playerX_status   = 'offline';
+        updates.playerX_avatar   = '';
+        updates.playerX_skin     = 'skin_default';
         updates.playerX_lastPing = null;
     }
 
-    // Xóa ghost O
     if (hasGhostO) {
-        console.log(`[HealthCheck] Phòng ${roomId}: Ghost O "${room.playerO_name}" → xóa`);
-        updates.playerO_id     = '';
-        updates.playerO_name   = '';
-        updates.playerO_status = 'offline';
-        updates.playerO_avatar = '';
-        updates.playerO_skin   = 'skin_default';
+        updates.playerO_id       = '';
+        updates.playerO_name     = '';
+        updates.playerO_status   = 'offline';
+        updates.playerO_avatar   = '';
+        updates.playerO_skin     = 'skin_default';
         updates.playerO_lastPing = null;
     }
 
-    // Tính lại trạng thái sau khi xóa ghost
     const remainX = hasGhostX ? false : xAlive;
     const remainO = hasGhostO ? false : oAlive;
 
     if (!remainX && !remainO) {
-        // Không còn ai → reset hoàn toàn
-        updates.status    = 'empty';
-        updates.winner    = '';
-        updates.endReason = '';
-        updates.moves     = { init: true };
-        updates.lastMove  = { row: -1, col: -1, by: '' };
-        updates.betAmount = null;
-        updates.betPot    = null;
-        updates.guestReady = false;
-        // DO7.TXT: OLD STATE MACHINE - DEPRECATED (use guestReady instead)
+        updates.status         = 'empty';
+        updates.winner         = '';
+        updates.endReason      = '';
+        updates.moves          = { init: true };
+        updates.lastMove       = { row: -1, col: -1, by: '' };
+        updates.betAmount      = null;
+        updates.betPot         = null;
+        updates.guestReady     = false;
         updates.playerXConfirmed = null;
         updates.playerOConfirmed = null;
     } else if (remainO && !remainX && hasGhostX) {
-        // Chỉ còn O → O lên làm X (chủ phòng mới)
-        console.log(`[HealthCheck] Phòng ${roomId}: chỉ còn O → O thành chủ phòng mới`);
-        updates.playerX_id     = room.playerO_id;
-        updates.playerX_name   = room.playerO_name;
-        updates.playerX_status = room.playerO_status;
-        updates.playerX_avatar = room.playerO_avatar || '';
-        updates.playerX_skin   = room.playerO_skin   || 'skin_default';
+        updates.playerX_id       = room.playerO_id;
+        updates.playerX_name     = room.playerO_name;
+        updates.playerX_status   = room.playerO_status;
+        updates.playerX_avatar   = room.playerO_avatar || '';
+        updates.playerX_skin     = room.playerO_skin   || 'skin_default';
         updates.playerX_lastPing = room.playerO_lastPing || null;
-        updates.playerO_id     = '';
-        updates.playerO_name   = '';
-        updates.playerO_status = 'offline';
-        updates.playerO_avatar = '';
-        updates.playerO_skin   = 'skin_default';
+        updates.playerO_id       = '';
+        updates.playerO_name     = '';
+        updates.playerO_status   = 'offline';
+        updates.playerO_avatar   = '';
+        updates.playerO_skin     = 'skin_default';
         updates.playerO_lastPing = null;
-        updates.status         = 'waiting';
-        updates.winner         = '';
-        updates.endReason      = '';
-        updates.guestReady     = false;  // slot O mới trống, reset
+        updates.status           = 'waiting';
+        updates.winner           = '';
+        updates.endReason        = '';
+        updates.guestReady       = false;
     } else {
-        // Vẫn còn người chơi hợp lệ
         updates.status = (remainX && remainO) ? (room.status || 'waiting') : 'waiting';
         if (updates.status === 'playing' && (!remainX || !remainO)) {
-            updates.status = 'waiting'; // không thể chơi nếu thiếu người
+            updates.status = 'waiting';
         }
     }
 
