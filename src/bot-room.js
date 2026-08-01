@@ -17,7 +17,6 @@ const BotRoomManager = {
 
     currentBotRoom: null,
     isBotRoomMode:  false,
-    isStarting:     false,
     botVsBotState:  null,
     isBotVsBotMode: false,
 
@@ -60,11 +59,6 @@ const BotRoomManager = {
     enterBotRoom: function(botConfig) {
         this.currentBotRoom = botConfig;
         this.isBotRoomMode  = true;
-        this.isStarting    = false;
-
-        if (typeof isGameActive !== 'undefined') {
-            isGameActive = false;
-        }
 
         // YC.TXT FIX: DISABLED - Do NOT save BOT mode to GameModeManager
         // BOT mode restore is disabled to prevent "Phòng Ma" and mode conflicts
@@ -241,31 +235,8 @@ const BotRoomManager = {
     },
 
     // ══ Chuyển sang bot room view và khởi game (YC.TXT Board First) ═════════════════════
-    setStartButtonState: function(enabled) {
-        const startButtons = document.querySelectorAll('#btn-bot-start');
-        startButtons.forEach(btn => {
-            btn.disabled = enabled ? false : true;
-            btn.style.pointerEvents = enabled ? '' : 'none';
-            btn.style.opacity = enabled ? '' : '0.6';
-        });
-    },
-
     startBotBattle: function() {
-        if (this.isStarting) {
-            console.warn('[BotRoom] startBotBattle ignored: already starting');
-            return;
-        }
-        if (this.isBotRoomMode && typeof isGameActive !== 'undefined' && isGameActive) {
-            console.warn('[BotRoom] startBotBattle ignored: game already active');
-            return;
-        }
-        if (!this.currentBotRoom) {
-            console.warn('[BotRoom] startBotBattle failed: no currentBotRoom');
-            return;
-        }
-
-        this.isStarting = true;
-        this.setStartButtonState(false);
+        if (!this.currentBotRoom) return;
 
         // Đọc cài đặt người dùng đã chọn
         const wcEl = document.getElementById('bot-room-win-count');
@@ -328,13 +299,6 @@ const BotRoomManager = {
         // Hide navigation during battle
         if (typeof hideTopNavigation === 'function') {
             hideTopNavigation();
-        } else {
-            if (typeof isGamePlaying !== 'undefined') isGamePlaying = true;
-            document.body.classList.add('game-playing');
-            const appHeader = document.getElementById('app-header');
-            if (appHeader) appHeader.style.display = 'none';
-            const topBar = document.getElementById('top-bar');
-            if (topBar) topBar.style.display = 'none';
         }
 
         // Initialize canvas in the new bot room container
@@ -362,11 +326,7 @@ const BotRoomManager = {
         }
 
         // Update overlay UI
-        setTimeout(() => {
-            this.updateBotRoomOverlays();
-            this.setStartButtonState(true);
-            this.isStarting = false;
-        }, 120);
+        setTimeout(() => this.updateBotRoomOverlays(), 120);
     },
 
     // ══ Initialize canvas for BOT ROOM (YC.TXT - SharedBoardUI Migration) ═════════════════════
@@ -435,14 +395,21 @@ const BotRoomManager = {
         }
 
         // BUG.TXT FIX: Reset viewport offset to center (0,0) at middle of screen
-        if (typeof Camera !== 'undefined' && typeof infCanvasW !== 'undefined' && typeof infCanvasH !== 'undefined') {
-            Camera.setPosition(-Math.floor(infCanvasW / INF_CS / 2), -Math.floor(infCanvasH / INF_CS / 2));
-            syncCameraToViewport();
+        if (typeof vRowF !== 'undefined' && typeof vColF !== 'undefined' &&
+            typeof infCanvasW !== 'undefined' && typeof infCanvasH !== 'undefined') {
+            vRowF = -Math.floor(infCanvasH / INF_CS / 2);
+            vColF = -Math.floor(infCanvasW / INF_CS / 2);
         }
 
         // Initialize canvas with fullscreen size - pass canvas element to avoid hardcode
         if (typeof initInfCanvas === 'function') {
             initInfCanvas(canvas);
+        }
+
+        // Initialize camera to center of viewport
+        if (typeof camera !== 'undefined') {
+            camera.x = canvas.width / 2;
+            camera.y = canvas.height / 2;
         }
 
         // Add resize listener for bot room
@@ -870,12 +837,6 @@ const BotRoomManager = {
         if (typeof showTopNavigation === 'function') {
             console.log('[BotRoom] Showing top navigation');
             showTopNavigation();
-        } else {
-            document.body.classList.remove('game-playing');
-            const appHeader = document.getElementById('app-header');
-            if (appHeader) appHeader.style.display = '';
-            const topBar = document.getElementById('top-bar');
-            if (topBar) topBar.style.display = 'flex';
         }
 
         // YC.TXT FIX: Reset game state (same as Online Room)

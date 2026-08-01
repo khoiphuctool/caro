@@ -34,16 +34,19 @@ const BotSuper = {
         const wc = options.winCount || winCount || 5;
         const depth = options.depth || this.config.searchDepth;
 
+        console.log('[BotSuper Ultimate] getBotMove', { player, opponent, winCount: wc, depth });
+
         // ══════════════════════════════════════════════════════════════════
-        // LAYER 0: Nước đầu và nước thứ 2 — dùng random thật sự khi board còn rất nhỏ
-        // ═══════════════════════════════════════════════════════════════════
+        // LAYER 0: Nước đầu - random trung tâm
+        // ══════════════════════════════════════════════════════════════════
         const moveCount = typeof moveHistory !== 'undefined' ? moveHistory.length : 0;
         if (moveCount <= 2) {
-            const validCands = typeof getSearchCandidates === 'function' ? getSearchCandidates() : [];
-            if (validCands.length > 0) {
-                const randomIndex = Math.floor(Math.random() * validCands.length);
-                const earlyMove = validCands[randomIndex];
-                return earlyMove;
+            const allCands = typeof getSearchCandidates === 'function' ? getSearchCandidates() : [];
+            if (allCands.length > 0) {
+                const pool = allCands.slice(0, Math.max(1, Math.ceil(allCands.length / 2)));
+                const randomMove = pool[Math.floor(Math.random() * pool.length)];
+                console.log('[BotSuper Ultimate] Early random move:', randomMove);
+                return randomMove;
             }
         }
 
@@ -59,6 +62,7 @@ const BotSuper = {
             const win = checkWinSilent(r, c);
             setCell(r, c, '');
             if (win) {
+                console.log('[BotSuper Ultimate] Win now:', { r, c });
                 return { r, c };
             }
         }
@@ -70,40 +74,30 @@ const BotSuper = {
             const win = checkWinSilent(r, c);
             setCell(r, c, '');
             if (win) {
+                console.log('[BotSuper Ultimate] Block win:', { r, c });
                 return { r, c };
             }
         }
 
         // ══════════════════════════════════════════════════════════════════
-        // 1c. CHECK ENEMY CRITICAL THREATS - Phải chặn nguy hiểm trước mọi đòn tấn công
-        // Nếu đối thủ có FOUR_OPEN, THREE_OPEN hoặc special pattern → chặn ngay
+        // 1c. CHECK ENEMY THREE_OPEN - Phải chặn THREE_OPEN nguy hiểm trước
+        // Nếu đối thủ có THREE_OPEN → 2 nước nữa là FOUR_OPEN → phải chặn ngay
         // ══════════════════════════════════════════════════════════════════
         if (typeof ThreatDetector !== 'undefined') {
             for (const { r, c } of allEmpty) {
                 const t = ThreatDetector.evaluateDefenseThreat(r, c, opponent, wc, true);
-                const hasDangerousSpecial = t.specialPatterns && (
-                    t.specialPatterns.doubleThree ||
-                    t.specialPatterns.fourThree ||
-                    t.specialPatterns.doubleFour
+                const hasThreeOpen = t.patternScores.some(p => 
+                    p.pattern === PatternDetector.PATTERN.THREE_OPEN
                 );
-                if (t.maxThreat >= ThreatDetector.THREAT.CRITICAL || hasDangerousSpecial) {
+                if (hasThreeOpen) {
+                    console.log('[BotSuper Ultimate] BLOCKING THREE_OPEN (dangerous):', { r, c });
                     return { r, c };
-                }
-            }
-
-            // 1d. Smart Blocking (Ưu tiên đầu mở + Đánh giá lợi thế chiến lược)
-            // Với luật chặn 2 đầu, đối thủ sẽ không thắng → ưu tiên chặn tạo thế cờ tốt
-            if (typeof ThreatDetector.analyzeBlockPositions === 'function') {
-                const blockPositions = ThreatDetector.analyzeBlockPositions(allEmpty, opponent, wc, true);
-                if (blockPositions.length > 0) {
-                    const bestBlock = blockPositions[0];
-                    return { r: bestBlock.r, c: bestBlock.c };
                 }
             }
         }
 
         // ══════════════════════════════════════════════════════════════════
-        // 1e. CHECK BOT WIN OPPORTUNITY - Ưu tiên thắng trước nếu có thể
+        // 1d. CHECK BOT WIN OPPORTUNITY - Ưu tiên thắng trước nếu có thể
         // Nếu đối thủ chưa thắng ngay nhưng bot có thể tạo thế cờ thắng trước → tấn công
         // ══════════════════════════════════════════════════════════════════
         
@@ -130,6 +124,7 @@ const BotSuper = {
             }
         }
         if (bestForced) {
+            console.log('[BotSuper Ultimate] Win opportunity - Forced four:', bestForced);
             return bestForced;
         }
 
@@ -146,6 +141,7 @@ const BotSuper = {
                         }
                     }
                     if (threatCount >= 2) {
+                        console.log('[BotSuper Ultimate] Win opportunity - Fork:', { r, c });
                         return { r, c };
                     }
                 }
@@ -160,21 +156,26 @@ const BotSuper = {
                     p.pattern === PatternDetector.PATTERN.FOUR_OPEN
                 );
                 if (hasFourOpen) {
+                    console.log('[BotSuper Ultimate] Win opportunity - FOUR_OPEN:', { r, c });
                     return { r, c };
                 }
             }
         }
 
-        // Early phase fast move when board vẫn rất nhỏ
-        if (moveCount <= 4 && allEmpty.length > 0) {
-            const earlyScores = allEmpty.map(({ r, c }) => ({
-                r,
-                c,
-                score: (typeof quickScore === 'function') ? quickScore(r, c, player) : 0
-            }));
-            earlyScores.sort((a, b) => b.score - a.score);
-            if (earlyScores[0] && earlyScores[0].score > -Infinity) {
-                return { r: earlyScores[0].r, c: earlyScores[0].c };
+        // 1d. Smart Blocking (Ưu tiên đầu mở + Đánh giá lợi thế chiến lược)
+        // Với luật chặn 2 đầu, đối thủ sẽ không thắng → ưu tiên chặn tạo thế cờ tốt
+        if (typeof ThreatDetector !== 'undefined' && typeof ThreatDetector.analyzeBlockPositions === 'function') {
+            const blockPositions = ThreatDetector.analyzeBlockPositions(allEmpty, opponent, wc, true);
+            if (blockPositions.length > 0) {
+                // analyzeBlockPositions đã sắp xếp theo điểm giảm dần
+                // Điểm bao gồm: chặn đầu mở + tạo đòn tấn công + vị trí chiến lược
+                const bestBlock = blockPositions[0];
+                console.log('[BotSuper Ultimate] Strategic block selected:', {
+                    position: { r: bestBlock.r, c: bestBlock.c },
+                    score: bestBlock.score,
+                    analysis: bestBlock.analysis
+                });
+                return { r: bestBlock.r, c: bestBlock.c };
             }
         }
 
@@ -260,6 +261,7 @@ const BotSuper = {
         // LAYER 3: Council AI Decision Engine
         // ══════════════════════════════════════════════════════════════════
         if (typeof CouncilAI !== 'undefined' && candidates.length > 0) {
+            console.log('[BotSuper Ultimate] Passing', candidates.length, 'candidates to Council AI');
             try {
                 const finalDecision = CouncilAI.decide(candidates, {
                     player: player,
@@ -267,6 +269,7 @@ const BotSuper = {
                     winCount: wc,
                     depth: depth
                 });
+                console.log('[BotSuper Ultimate] Council AI decision:', finalDecision);
                 return finalDecision.move;
             } catch (e) {
                 console.warn('[BotSuper Ultimate] Council AI failed, fallback:', e);
@@ -279,6 +282,7 @@ const BotSuper = {
         // LAYER 4: Fallback - Direct return nếu Council không khả dụng
         // ══════════════════════════════════════════════════════════════════
         if (candidates.length > 0) {
+            console.log('[BotSuper Ultimate] Council unavailable, returning best candidate');
             return candidates[0].move;
         }
     }

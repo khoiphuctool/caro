@@ -188,15 +188,7 @@ function initGame() {
     if (groupFirst) groupFirst.style.display  = 'flex';
 
     const playerPiece = isSolo ? 'X' : (document.getElementById('player-piece')?.value || 'X');
-    let firstMove   = document.getElementById('first-move')?.value || 'X';
-
-    if (!isSolo && window.isBotRoomMode && window.currentBotConfig && window.currentBotConfig.gameMode !== 'bot-vs-bot') {
-        const fmEl = document.getElementById('bot-room-first-move');
-        if (fmEl && fmEl.value) {
-            firstMove = fmEl.value;
-            console.log('[initGame] bot room first move selected from bot-room-first-move:', firstMove);
-        }
-    }
+    const firstMove   = document.getElementById('first-move')?.value || 'X';
 
     humanPiece = isSolo ? null : playerPiece;
     botPiece   = isSolo ? null : (playerPiece === 'X' ? 'O' : 'X');
@@ -285,8 +277,7 @@ function initGame() {
 
     // BUG.TXT FIX: Don't reset vRowF/vColF in Bot Room mode (viewport already set by initBotRoomCanvas)
     if (!window.isBotRoomMode) {
-        Camera.reset();
-        syncCameraToViewport();
+        vRowF = 0; vColF = 0;
     }
 
     infHoverR = null; infHoverC = null;
@@ -396,10 +387,8 @@ function makeMove(r, c) {
         if (isInfinite) {
             lastMoveR = r; lastMoveC = c;
             const cols = infCanvasW / INF_CS, rows = infCanvasH / INF_CS;
-            syncCameraToViewport(); // Sync before using vRowF/vColF
             if (Math.abs((r - vRowF) - rows / 2) > rows * 0.35 || Math.abs((c - vColF) - cols / 2) > cols * 0.35) {
-                Camera.setPosition(c - cols / 2, r - rows / 2);
-                syncCameraToViewport();
+                vRowF = r - rows / 2; vColF = c - cols / 2;
             }
             renderInfiniteBoard();
         } else {
@@ -482,12 +471,11 @@ function makeMove(r, c) {
         lastMoveR = r; lastMoveC = c;
         const cols  = infCanvasW / INF_CS;
         const rows  = infCanvasH / INF_CS;
-        syncCameraToViewport(); // Sync before using vRowF/vColF
         const distR = Math.abs((r - vRowF) - rows / 2);
         const distC = Math.abs((c - vColF) - cols / 2);
         if (distR > rows * 0.35 || distC > cols * 0.35) {
-            Camera.setPosition(c - cols / 2, r - rows / 2);
-            syncCameraToViewport();
+            vRowF = r - rows / 2;
+            vColF = c - cols / 2;
         }
         renderInfiniteBoard();
     } else {
@@ -615,46 +603,18 @@ function makeMove(r, c) {
     }
 }
 
-function getBlockBothEndsEnabled() {
-    const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
-    if (isOnline) {
-        return typeof currentRule !== 'undefined' && currentRule === 'chan_2_dau';
-    }
-    if (window.isBotVsBotMode) {
-        return !!document.getElementById('bot-vs-bot-block-both')?.checked;
-    }
-    return !!document.getElementById('block-both-ends')?.checked;
-}
-window.getBlockBothEndsEnabled = getBlockBothEndsEnabled;
-
-function isDirectionBlockedBothEnds(r, c, dr, dc, player) {
-    const opp = player === 'X' ? 'O' : 'X';
-    const maxDist = 50;
-
-    let headBlocked = false;
-    for (let step = 1; step <= maxDist; step++) {
-        const val = getCell(r + dr * step, c + dc * step);
-        if (val === opp) { headBlocked = true; break; }
-        if (val === player || val === '') continue;
-        break;
-    }
-
-    let tailBlocked = false;
-    for (let step = 1; step <= maxDist; step++) {
-        const val = getCell(r - dr * step, c - dc * step);
-        if (val === opp) { tailBlocked = true; break; }
-        if (val === player || val === '') continue;
-        break;
-    }
-
-    return headBlocked && tailBlocked;
-}
-
 // ===== CHECK WIN =====
 function checkWin(r, c) {
     const directions = [{ dr:0,dc:1 },{ dr:1,dc:0 },{ dr:1,dc:1 },{ dr:1,dc:-1 }];
     const player = getCell(r, c);
-    const blockBothEndsEnabled = getBlockBothEndsEnabled();
+    const opp    = player === "X" ? "O" : "X";
+    // Online phải tuân theo luật đã lưu trong phòng, không dùng checkbox local.
+    const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
+    const blockBothEndsEnabled = isOnline
+        ? (typeof currentRule !== 'undefined' && currentRule === 'chan_2_dau')
+        : (window.isBotVsBotMode
+            ? !!document.getElementById('bot-vs-bot-block-both')?.checked
+            : !!document.getElementById('block-both-ends')?.checked);
 
     for (let { dr, dc } of directions) {
         const cells = [[r, c]];
@@ -663,8 +623,22 @@ function checkWin(r, c) {
         while (getCell(r-dr*(bwd+1), c-dc*(bwd+1)) === player) { bwd++; cells.push([r-dr*bwd, c-dc*bwd]); }
         if (cells.length < winCount) continue;
 
-        if (blockBothEndsEnabled && isDirectionBlockedBothEnds(r, c, dr, dc, player)) {
-            continue;
+        if (blockBothEndsEnabled) {
+            let headBlocked = false, headDist = 1;
+            while (!headBlocked && headDist <= 50) {
+                const val = getCell(r + dr*(fwd+headDist), c + dc*(fwd+headDist));
+                if (val === opp) { headBlocked = true; break; }
+                if (val === player) break;
+                headDist++;
+            }
+            let tailBlocked = false, tailDist = 1;
+            while (!tailBlocked && tailDist <= 50) {
+                const val = getCell(r - dr*(bwd+tailDist), c - dc*(tailDist+bwd));
+                if (val === opp) { tailBlocked = true; break; }
+                if (val === player) break;
+                tailDist++;
+            }
+            if (headBlocked && tailBlocked) continue;
         }
         highlightWinners(cells);
         return true;
@@ -675,7 +649,10 @@ function checkWin(r, c) {
 // checkWinSilent: dùng cho AI
 function checkWinSilent(r, c) {
     const player = getCell(r, c);
-    const blockBothEndsEnabled = getBlockBothEndsEnabled();
+    const opp    = player === "X" ? "O" : "X";
+    const blockBothEndsEnabled = window.isBotVsBotMode
+        ? !!document.getElementById('bot-vs-bot-block-both')?.checked
+        : !!document.getElementById('block-both-ends')?.checked;
 
     for (let { dr, dc } of DIRECTIONS) {
         let fwd = 0, bwd = 0;
@@ -684,8 +661,22 @@ function checkWinSilent(r, c) {
         const count = 1 + fwd + bwd;
         if (count < winCount) continue;
 
-        if (blockBothEndsEnabled && isDirectionBlockedBothEnds(r, c, dr, dc, player)) {
-            continue;
+        if (blockBothEndsEnabled) {
+            let headBlocked = false, headDist = 1;
+            while (!headBlocked && headDist <= 50) {
+                const val = getCell(r + dr*(fwd+headDist), c + dc*(fwd+headDist));
+                if (val === opp) { headBlocked = true; break; }
+                if (val === player) break;
+                headDist++;
+            }
+            let tailBlocked = false, tailDist = 1;
+            while (!tailBlocked && tailDist <= 50) {
+                const val = getCell(r - dr*(bwd+tailDist), c - dc*(tailDist+bwd));
+                if (val === opp) { tailBlocked = true; break; }
+                if (val === player) break;
+                tailDist++;
+            }
+            if (headBlocked && tailBlocked) continue;
         }
         return true;
     }

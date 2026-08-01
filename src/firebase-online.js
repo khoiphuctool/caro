@@ -930,9 +930,9 @@ function setupEventListeners() {
         console.log('[Room] Header hidden for battle');
                     }
                     // YC.TXT FIX: Restore camera position and zoom level after refresh
-                    if (typeof Camera !== 'undefined') {
-                        Camera.reset();
-                        syncCameraToViewport();
+                    if (typeof vRowF !== 'undefined' && typeof vColF !== 'undefined') {
+                        vRowF = 0;
+                        vColF = 0;
                     }
                     if (typeof renderInfiniteBoard === 'function') {
                         renderInfiniteBoard();
@@ -1641,10 +1641,8 @@ function batDauGiaoDienOnline() {
     // Ẩn navigation khi vào trận
     if (typeof hideTopNavigation === 'function') {
         hideTopNavigation();
-    } else {
-        document.body.classList.add('game-playing');
+        console.log('[Room] Header hidden for battle');
     }
-    console.log('[Room] Header hidden for battle');
     // Khởi tạo chat state (minimized trên mobile, expanded trên desktop)
     if (typeof initBattleChatState === 'function') {
         initBattleChatState();
@@ -1731,8 +1729,6 @@ function thoatGiaoDienOnline() {
     // Hiện lại navigation khi thoát trận
     if (typeof showTopNavigation === 'function') {
         showTopNavigation();
-    } else {
-        document.body.classList.remove('game-playing');
     }
     const botAv = document.getElementById('bot-avatar');
     if (botAv) {
@@ -2715,11 +2711,11 @@ function langNgheThayDoiPhong(roomId) {
                 }
                 
                 // YC.TXT FIX: Reset viewport to center AFTER canvas has correct size (like Bot Room)
-                if (typeof Camera !== 'undefined' && typeof INF_CS !== 'undefined' &&
-                    typeof infCanvasW !== 'undefined' && typeof infCanvasH !== 'undefined') {
-                    Camera.setPosition(-Math.floor(infCanvasW / INF_CS / 2), -Math.floor(infCanvasH / INF_CS / 2));
-                    syncCameraToViewport();
-                    console.log('[DEBUG-BOARD] Viewport reset to center after canvas resize:', { Camera, infCanvasW, infCanvasH, INF_CS });
+                if (typeof vRowF !== 'undefined' && typeof vColF !== 'undefined' &&
+                    typeof INF_CS !== 'undefined' && typeof infCanvasW !== 'undefined' && typeof infCanvasH !== 'undefined') {
+                    vRowF = -Math.floor(infCanvasH / INF_CS / 2);
+                    vColF = -Math.floor(infCanvasW / INF_CS / 2);
+                    console.log('[DEBUG-BOARD] Viewport reset to center after canvas resize:', { vRowF, vColF, infCanvasW, infCanvasH, INF_CS });
                 }
                 
                 if (typeof fitCanvasToContainer === 'function') fitCanvasToContainer();
@@ -3290,10 +3286,8 @@ function thucHienVeNuocDi(row, col, role) {
     if (typeof lastMoveR   !== 'undefined') { lastMoveR = row; lastMoveC = col; }
     if (typeof infCanvasW !== 'undefined' && typeof INF_CS !== 'undefined') {
         const cols = infCanvasW / INF_CS, rows = infCanvasH / INF_CS;
-        syncCameraToViewport(); // Sync before using vRowF/vColF
         if (Math.abs((row - vRowF) - rows / 2) > rows * 0.35 || Math.abs((col - vColF) - cols / 2) > cols * 0.35) {
-            Camera.setPosition(col - cols / 2, row - rows / 2);
-            syncCameraToViewport();
+            vRowF = row - rows / 2; vColF = col - cols / 2;
         }
     }
     if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();

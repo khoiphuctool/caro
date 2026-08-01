@@ -4059,11 +4059,6 @@ window.switchView = function(name) {
     _origSwitchView(name);
 
     if (name === 'battle') {
-        if (typeof hideTopNavigation === 'function') {
-            hideTopNavigation();
-        } else {
-            document.body.classList.add('game-playing');
-        }
         // YC.TXT FIX: Check GameModeManager before rendering Online UI
         const currentMode = typeof GameModeManager !== 'undefined' ? GameModeManager.getCurrentMode() : null;
         

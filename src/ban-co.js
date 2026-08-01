@@ -193,60 +193,7 @@ let infCanvas = null, infCtx = null;
 let infCanvasW = 0, infCanvasH = 0;
 let panStartX = 0, panStartY = 0, panStartVRow = 0, panStartVCol = 0;
 let infPanning = false;
-
-// ══════════════════════════════════════════════════════════════════
-// CAMERA SYSTEM - Chuẩn hóa từ shared-board-engine
-// Thay thế vRowF/vColF bằng Camera.x/y để đồng bộ hệ thống
-// ══════════════════════════════════════════════════════════════════
-const Camera = {
-    x: 0,           // Camera center X in world coordinates (tương đương vColF)
-    y: 0,           // Camera center Y in world coordinates (tương đương vRowF)
-    zoom: 1,        // Zoom level (tương đương INF_CS scale)
-    minZoom: 0.5,   // Minimum zoom
-    maxZoom: 3.0,   // Maximum zoom
-
-    // Reset camera to center
-    reset() {
-        this.x = 0;
-        this.y = 0;
-        this.zoom = 1;
-    },
-
-    // Set camera position
-    setPosition(x, y) {
-        this.x = x;
-        this.y = y;
-    },
-
-    // Set zoom level (clamped)
-    setZoom(zoom) {
-        this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, zoom));
-    },
-
-    // Move camera by delta
-    move(dx, dy) {
-        this.x += dx;
-        this.y += dy;
-    }
-};
-
-// ══════════════════════════════════════════════════════════════════
-// COMPATIBILITY LAYER - vRowF/vColF ↔ Camera.x/y
-// Giữ lại vRowF/vColF để tương thích với code cũ, nhưng sync với Camera
-// ══════════════════════════════════════════════════════════════════
 let vRowF = 0, vColF = 0;
-
-// Sync Camera → vRowF/vColF (để renderInfiniteBoard dùng được)
-function syncCameraToViewport() {
-    vRowF = Camera.y;
-    vColF = Camera.x;
-}
-
-// Sync vRowF/vColF → Camera (để các file cũ có thể set vRowF/vColF)
-function syncViewportToCamera() {
-    Camera.x = vColF;
-    Camera.y = vRowF;
-}
 
 // BUG 3 FIX: Flag to prevent multiple listener registrations
 let infCanvasInitialized = false;
@@ -260,8 +207,8 @@ const DPAD_PAN_INTERVAL = 50;   // ms giữa các tick khi giữ nút
 function dpadPanStart(dr, dc) {
     dpadPanStop();
     const tick = () => {
-        Camera.move(dr * DPAD_PAN_STEP, dc * DPAD_PAN_STEP);
-        syncCameraToViewport();
+        vRowF += dr * DPAD_PAN_STEP;
+        vColF += dc * DPAD_PAN_STEP;
         // Gọi render trực tiếp — scheduleRender bị chặn khi fullscreen không pan chuột
         renderInfiniteBoard();
     };
@@ -1020,12 +967,11 @@ function canvasPixelToCell(px, py) {
     const rect = infCanvas.getBoundingClientRect();
     const scaleX = infCanvas.width / rect.width;
     const scaleY = infCanvas.height / rect.height;
-
+    
     // Adjust pixel coordinates for scaling
     const adjustedPx = px * scaleX;
     const adjustedPy = py * scaleY;
-
-    syncCameraToViewport(); // Ensure vRowF/vColF synced with Camera
+    
     const offX = -((vColF % 1 + 1) % 1) * INF_CS;
     const offY = -((vRowF % 1 + 1) % 1) * INF_CS;
     const c0 = Math.floor(vColF), r0 = Math.floor(vRowF);
@@ -1040,8 +986,7 @@ function infOnMouseDown(e) {
         e.preventDefault();
         infPanning = true; panMoved = false;
         panStartX = e.clientX; panStartY = e.clientY;
-        syncCameraToViewport(); // Sync before saving start position
-        panStartVRow = Camera.y; panStartVCol = Camera.x;
+        panStartVRow = vRowF; panStartVCol = vColF;
         if (infCanvas) infCanvas.style.cursor = 'grabbing';
     }
 }
@@ -1053,8 +998,8 @@ function infOnMouseMove(e) {
         e.preventDefault();
         const dx = e.clientX - panStartX, dy = e.clientY - panStartY;
         if (Math.abs(dx) > 3 || Math.abs(dy) > 3) panMoved = true;
-        Camera.setPosition(panStartVCol - dx / INF_CS, panStartVRow - dy / INF_CS);
-        syncCameraToViewport();
+        vColF = panStartVCol - dx / INF_CS;
+        vRowF = panStartVRow - dy / INF_CS;
         scheduleRender();
         return;
     }
@@ -1174,8 +1119,7 @@ function infOnTouchStart(e) {
     const t = e.touches[0];
     infPanning = true; panMoved = false;
     panStartX = t.clientX; panStartY = t.clientY;
-    syncCameraToViewport(); // Sync before saving start position
-    panStartVRow = Camera.y; panStartVCol = Camera.x;
+    panStartVRow = vRowF; panStartVCol = vColF;
     touchStartX = t.clientX; touchStartY = t.clientY;
 }
 function infOnTouchMove(e) {
@@ -1184,8 +1128,8 @@ function infOnTouchMove(e) {
     if (Math.abs(dx) > 5 || Math.abs(dy) > 5) panMoved = true;
     // Luôn preventDefault để xử lý pan trong canvas (cả ngang và dọc)
     e.preventDefault();
-    Camera.setPosition(panStartVCol - dx / INF_CS, panStartVRow - dy / INF_CS);
-    syncCameraToViewport();
+    vColF = panStartVCol - dx / INF_CS;
+    vRowF = panStartVRow - dy / INF_CS;
     scheduleRender();
 }
 function infOnTouchEnd(e) {
@@ -1224,13 +1168,12 @@ function infOnWheel(e) {
     e.preventDefault();
     const rect = infCanvas.getBoundingClientRect();
     const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-    syncCameraToViewport(); // Sync before using vRowF/vColF
     const worldR = vRowF + my / INF_CS, worldC = vColF + mx / INF_CS;
     const factor = e.deltaY < 0 ? 1.15 : (1 / 1.15);
     const newCS  = Math.min(INF_CS_MAX, Math.max(INF_CS_MIN, INF_CS * factor));
     INF_CS = Math.round(newCS);
-    Camera.setPosition(worldC - mx / INF_CS, worldR - my / INF_CS);
-    syncCameraToViewport();
+    vRowF  = worldR - my / INF_CS;
+    vColF  = worldC - mx / INF_CS;
     // Lưu zoom riêng theo mode
     if (window.isOnlineModeActive && window.isOnlineModeActive()) {
         localStorage.setItem('caro_zoom_online', INF_CS);
@@ -1245,11 +1188,10 @@ function zoomBoard(direction) {
     const newCS  = Math.min(INF_CS_MAX, Math.max(INF_CS_MIN, INF_CS * factor));
     if (newCS === INF_CS) return;
     const mx = infCanvasW / 2, my = infCanvasH / 2;
-    syncCameraToViewport(); // Sync before using vRowF/vColF
     const worldR = vRowF + my / INF_CS, worldC = vColF + mx / INF_CS;
     INF_CS = Math.round(newCS);
-    Camera.setPosition(worldC - mx / INF_CS, worldR - my / INF_CS);
-    syncCameraToViewport();
+    vRowF  = worldR - my / INF_CS;
+    vColF  = worldC - mx / INF_CS;
     saveZoom();
     renderInfiniteBoard();
 }
@@ -1293,16 +1235,17 @@ function undoMove() {
 // ===== JUMP =====
 function jumpToCenter() {
     if (lastMoveR !== null) {
-        Camera.setPosition(lastMoveC - Math.floor(infCanvasW / INF_CS / 2), lastMoveR - Math.floor(infCanvasH / INF_CS / 2));
+        vRowF = lastMoveR - Math.floor(infCanvasH / INF_CS / 2);
+        vColF = lastMoveC - Math.floor(infCanvasW / INF_CS / 2);
     } else {
-        Camera.setPosition(-Math.floor(infCanvasW / INF_CS / 2), -Math.floor(infCanvasH / INF_CS / 2));
+        vRowF = -Math.floor(infCanvasH / INF_CS / 2);
+        vColF = -Math.floor(infCanvasW / INF_CS / 2);
     }
-    syncCameraToViewport();
     renderInfiniteBoard();
 }
 function jumpToOrigin() {
-    Camera.setPosition(-Math.floor(infCanvasW / INF_CS / 2), -Math.floor(infCanvasH / INF_CS / 2));
-    syncCameraToViewport();
+    vRowF = -Math.floor(infCanvasH / INF_CS / 2);
+    vColF = -Math.floor(infCanvasW / INF_CS / 2);
     renderInfiniteBoard();
 }
 

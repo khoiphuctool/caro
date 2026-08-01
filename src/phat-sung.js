@@ -328,10 +328,11 @@ function reviewGame() {
     requestAnimationFrame(() => {
         if (isInfinite && winningCellCoords.length > 0) {
             const [wr, wc] = winningCellCoords[Math.floor(winningCellCoords.length / 2)];
-            if (typeof Camera !== 'undefined' && typeof infCanvasH !== 'undefined' && typeof INF_CS !== 'undefined' &&
+            if (typeof vRowF !== 'undefined' && typeof vColF !== 'undefined' && 
+                typeof infCanvasH !== 'undefined' && typeof INF_CS !== 'undefined' &&
                 typeof infCanvasW !== 'undefined' && typeof renderInfiniteBoard === 'function') {
-                Camera.setPosition(wc - (infCanvasW / INF_CS) / 2, wr - (infCanvasH / INF_CS) / 2);
-                syncCameraToViewport();
+                vRowF = wr - (infCanvasH / INF_CS) / 2;
+                vColF = wc - (infCanvasW / INF_CS) / 2;
                 renderInfiniteBoard();
             }
         }

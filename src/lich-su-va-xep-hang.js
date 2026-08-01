@@ -334,8 +334,8 @@ function renderBoardFromHistory() {
         renderInfiniteBoard();
         if (moveHistory.length > 0) {
             const lastMove = moveHistory[moveHistory.length - 1];
-            Camera.setPosition(lastMove.c - (infCanvasW / INF_CS) / 2, lastMove.r - (infCanvasH / INF_CS) / 2);
-            syncCameraToViewport();
+            vRowF = lastMove.r - (infCanvasH / INF_CS) / 2;
+            vColF = lastMove.c - (infCanvasW / INF_CS) / 2;
             renderInfiniteBoard();
         }
     } else {

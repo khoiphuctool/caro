@@ -403,12 +403,6 @@ function getSearchCandidates() {
     return cells;
 }
 
-function getEarlyOpeningMove(validCands) {
-    if (!validCands || validCands.length === 0) return null;
-    const pool = validCands.slice(0, Math.max(1, Math.ceil(validCands.length / 2)));
-    return pool[Math.floor(Math.random() * pool.length)];
-}
-
 // ════════════════════════════════════════════════════════════════════════════
 // getAllTacticalCells — KHÔNG giới hạn 50, dùng cho Tactical Scan
 // Trả về tất cả ô trống lân cận quân đang trên bàn (margin 2).
@@ -457,19 +451,15 @@ let _cachedBlockBothEnds = false;
 let _blockBothEndsDirty = true;
 function getBlockBothEnds() {
     if (_blockBothEndsDirty) {
-        if (typeof getBlockBothEndsEnabled === 'function') {
-            _cachedBlockBothEnds = getBlockBothEndsEnabled();
+        let checked = false;
+        if (window.isBotVsBotMode) {
+            const el = document.getElementById('bot-vs-bot-block-both');
+            checked = el ? el.checked : false;
         } else {
-            let checked = false;
-            if (window.isBotVsBotMode) {
-                const el = document.getElementById('bot-vs-bot-block-both');
-                checked = el ? el.checked : false;
-            } else {
-                const el = document.getElementById('block-both-ends');
-                checked = el ? el.checked : false;
-            }
-            _cachedBlockBothEnds = checked;
+            const el = document.getElementById('block-both-ends');
+            checked = el ? el.checked : false;
         }
+        _cachedBlockBothEnds = checked;
         _blockBothEndsDirty = false;
     }
     return _cachedBlockBothEnds;
@@ -1761,7 +1751,7 @@ function makeAIMove() {
     console.log('[makeAIMove] called', { gameMode, currentPlayer, botPiece, humanPiece, isBotMode: isBotMode(), isBotVsBotMode: window.isBotVsBotMode, isGameActive });
     // AIController là điểm vào chính. Giữ engine cũ làm fallback cho chế độ God
     // và trường hợp controller chưa tải được.
-    if (typeof AIController !== 'undefined') {
+    if (typeof AIController !== 'undefined' && AIController.config.useNewArchitecture) {
         return AIController.makeAIMove({
             player: botPiece,
             opponent: humanPiece,
@@ -2011,12 +2001,8 @@ function godEngineMove(bp, hp, validCands, isGod) {
 
     // ── LAYER 0: Nước đầu — random ──
     if (moveCount <= 2) {
-        const earlyMove = typeof getEarlyOpeningMove === 'function'
-            ? getEarlyOpeningMove(validCands)
-            : null;
-        if (earlyMove) {
-            return { move: earlyMove, reason: 'early_random' };
-        }
+        const pool = validCands.slice(0, Math.max(1, Math.ceil(validCands.length / 2)));
+        return { move: pool[Math.floor(Math.random() * pool.length)], reason: 'early_random' };
     }
 
     // ── LAYER 1: Immediate Tactical Scan (dùng ThreatDetector) ──

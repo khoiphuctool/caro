@@ -111,12 +111,9 @@ const ThreatDetector = {
             }
         }
 
-        const specialPatterns = this.detectSpecialPatterns(r, c, opponent, winCount);
-
         return {
             maxThreat,
             patternScores,
-            specialPatterns,
             isUrgent: maxThreat >= this.THREAT.CRITICAL
         };
     },
@@ -223,14 +220,14 @@ const ThreatDetector = {
 
         for (const { r, c } of candidates) {
             const threat = this.evaluateDefenseThreat(r, c, opponent, winCount, blockBothEnds);
-
-            // Quan tâm mọi pattern có mức CRITICAL (ví dụ: FOUR_OPEN hoặc THREE_OPEN)
+            
+            // Chỉ quan tâm FOUR_OPEN
             if (threat.maxThreat !== this.THREAT.CRITICAL) continue;
-
-            const hasFourOpen = threat.patternScores.some(p => p.pattern === PatternDetector.PATTERN.FOUR_OPEN);
-            const hasThreeOpen = threat.patternScores.some(p => p.pattern === PatternDetector.PATTERN.THREE_OPEN);
-            // Nếu không phải FOUR_OPEN hay THREE_OPEN thì bỏ qua
-            if (!hasFourOpen && !hasThreeOpen) continue;
+            
+            const hasFourOpen = threat.patternScores.some(p => 
+                p.pattern === PatternDetector.PATTERN.FOUR_OPEN
+            );
+            if (!hasFourOpen) continue;
 
             // Phân tích chi tiết vị trí chặn
             const analysis = this.analyzeBlockPosition(r, c, opponent, winCount);
@@ -521,127 +518,7 @@ const ThreatDetector = {
     }
 };
 
-const ThreatEngine = {
-    getForcedMove(player, opponent, winCount, blockBothEnds) {
-        const cells = this.getTacticalCells();
-        if (!cells || cells.length === 0) return null;
-
-        const empties = cells.filter(({ r, c }) => getCell(r, c) === '');
-        if (empties.length === 0) return null;
-
-        const checks = [
-            { fn: this.findWinningMove, reason: 'Win Now' },
-            { fn: this.findBlockingWinMove, reason: 'Block Win' },
-            { fn: this.findBlockThreeOpenMove, reason: 'Block THREE_OPEN' },
-            { fn: this.findForcedFourMove, reason: 'Forced Four' },
-            { fn: this.findBlockForcedFourMove, reason: 'Block Forced Four' },
-            { fn: this.findDoubleThreatMove, reason: 'Double Threat' }
-        ];
-
-        for (const check of checks) {
-            const move = check.fn.call(this, empties, player, opponent, winCount, blockBothEnds);
-            if (move) {
-                return { move, reason: check.reason };
-            }
-        }
-
-        return null;
-    },
-
-    getTacticalCells() {
-        if (typeof getAllTacticalCells === 'function') {
-            return getAllTacticalCells();
-        }
-        return [];
-    },
-
-    isForbiddenMove(r, c, player, winCount) {
-        if (typeof PatternDetector === 'undefined') return false;
-        if (typeof PatternDetector.detectDoubleThree === 'function' && PatternDetector.detectDoubleThree(r, c, player, winCount)) return true;
-        if (typeof PatternDetector.detectDoubleFour === 'function' && PatternDetector.detectDoubleFour(r, c, player, winCount)) return true;
-        return false;
-    },
-
-    filterForbiddenMoves(candidates, player, winCount) {
-        return candidates.filter(({ r, c }) => !this.isForbiddenMove(r, c, player, winCount));
-    },
-
-    findWinningMove(cells, player) {
-        for (const { r, c } of cells) {
-            setCell(r, c, player);
-            const win = typeof checkWinSilent === 'function' ? checkWinSilent(r, c) : false;
-            setCell(r, c, '');
-            if (win) return { r, c };
-        }
-        return null;
-    },
-
-    findBlockingWinMove(cells, player, opponent) {
-        for (const { r, c } of cells) {
-            setCell(r, c, opponent);
-            const win = typeof checkWinSilent === 'function' ? checkWinSilent(r, c) : false;
-            setCell(r, c, '');
-            if (win) return { r, c };
-        }
-        return null;
-    },
-
-    findBlockThreeOpenMove(cells, player, opponent, winCount, blockBothEnds) {
-        for (const { r, c } of cells) {
-            const threat = ThreatDetector.evaluateDefenseThreat(r, c, opponent, winCount, blockBothEnds);
-            if (threat.maxThreat >= ThreatDetector.THREAT.HIGH) {
-                const hasThreeOpen = threat.patternScores.some(p => p.pattern === PatternDetector.PATTERN.THREE_OPEN);
-                const hasDangerousSpecial = threat.specialPatterns && (
-                    threat.specialPatterns.doubleThree ||
-                    threat.specialPatterns.fourThree ||
-                    threat.specialPatterns.doubleFour
-                );
-
-                if (hasThreeOpen || hasDangerousSpecial) {
-                    return { r, c };
-                }
-            }
-        }
-        return null;
-    },
-
-    findForcedFourMove(cells, player, opponent, winCount) {
-        if (typeof countWinningCompletionEnds !== 'function') return null;
-        for (const { r, c } of cells) {
-            if (countWinningCompletionEnds(r, c, player) >= 2) {
-                return { r, c };
-            }
-        }
-        return null;
-    },
-
-    findBlockForcedFourMove(cells, player, opponent, winCount, blockBothEnds) {
-        for (const { r, c } of cells) {
-            const threat = ThreatDetector.evaluateDefenseThreat(r, c, opponent, winCount, blockBothEnds);
-            if (threat.maxThreat >= ThreatDetector.THREAT.CRITICAL) {
-                return { r, c };
-            }
-        }
-        return null;
-    },
-
-    findDoubleThreatMove(cells, player, opponent, winCount) {
-        for (const { r, c } of cells) {
-            const threat = ThreatDetector.evaluateAttackThreat(r, c, player, winCount, true);
-            if (threat.specialPatterns.doubleFour || threat.specialPatterns.fourThree || threat.specialPatterns.doubleThree) {
-                return { r, c };
-            }
-        }
-        return null;
-    }
-};
-
-if (typeof window !== 'undefined') {
-    window.ThreatEngine = ThreatEngine;
-}
-
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = ThreatDetector;
-    module.exports.ThreatEngine = ThreatEngine;
 }
