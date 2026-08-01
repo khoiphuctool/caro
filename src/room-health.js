@@ -524,14 +524,21 @@ function _patchNgoimVaoPhong() {
 // Đã gộp vào window.addEventListener('load' chính (dòng 27)
 
 function _hookOnlineEvents() {
+    if (window._roomHealthHooksInstalled) {
+        return;
+    }
+    window._roomHealthHooksInstalled = true;
+
     // Patch batDauGiaoDienOnline → bắt đầu heartbeat + AFK
     // Dùng event-style thay vì override trực tiếp để tránh conflict với index.html bridge
     const _origBat = window.batDauGiaoDienOnline;
     window.batDauGiaoDienOnline = function() {
         if (typeof _origBat === 'function') _origBat.apply(this, arguments);
-        startHeartbeat();
-        startAfkDetection();
-        _touchActivity();
+        if (window.isOnlineMode) {
+            startHeartbeat();
+            startAfkDetection();
+            _touchActivity();
+        }
     };
 
     // Patch thoatGiaoDienOnline: thêm cleanup vào TRƯỚC khi các override khác chạy

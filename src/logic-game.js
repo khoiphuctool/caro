@@ -406,20 +406,37 @@ function makeMove(r, c) {
         const isWinningMove = checkWin(r, c);
         if (window.guiNuocDiLenFirebase) {
             window.onlineMovePending = true;
-            Promise.resolve(window.guiNuocDiLenFirebase(r, c))
+            return Promise.resolve(window.guiNuocDiLenFirebase(r, c))
                 .then(hopLe => {
-                    if (hopLe) {
-                        if (isWinningMove) {
-                            isGameActive = false;
-                            statusPanel.innerHTML = `🏆 <strong>${quanToi}</strong> chiến thắng!`;
-                            if (gameTotalTimer) clearInterval(gameTotalTimer);
-                            if (playerTurnTimer) clearInterval(playerTurnTimer);
+                    if (!hopLe) {
+                        // Firebase từ chối nước đi (sai lượt/ô đã có quân/kết nối lỗi).
+                        // Hoàn tác nước optimistic để bàn cờ local luôn khớp server.
+                        setCell(r, c, '');
+                        moveHistory.pop();
+                        moveCount--;
+                        if (isInfinite) renderInfiniteBoard();
+                        else {
+                            const rollbackCell = document.querySelector(`[data-row='${r}'][data-col='${c}']`);
+                            if (rollbackCell) rollbackCell.classList.remove(quanToi, 'last-move');
                         }
+                        if (typeof currentPlayer !== 'undefined') currentPlayer = quanToi;
+                        updateCursorByTurn();
+                        updateStatus();
                         return;
                     }
-
-                    // Firebase từ chối nước đi (sai lượt/ô đã có quân/kết nối lỗi).
-                    // Hoàn tác nước optimistic để bàn cờ local luôn khớp server.
+                    if (isWinningMove) {
+                        isGameActive = false;
+                        statusPanel.innerHTML = `🏆 <strong>${quanToi}</strong> chiến thắng!`;
+                        if (gameTotalTimer) clearInterval(gameTotalTimer);
+                        if (playerTurnTimer) clearInterval(playerTurnTimer);
+                        return;
+                    }
+                    // Chuyển lượt local chỉ khi Firebase xác nhận nước đi hợp lệ và không phải nước thắng.
+                    currentPlayer = quanToi === 'X' ? 'O' : 'X';
+                    updateCursorByTurn();
+                    updateStatus();
+                })
+                .catch(() => {
                     setCell(r, c, '');
                     moveHistory.pop();
                     moveCount--;
@@ -428,12 +445,9 @@ function makeMove(r, c) {
                         const rollbackCell = document.querySelector(`[data-row='${r}'][data-col='${c}']`);
                         if (rollbackCell) rollbackCell.classList.remove(quanToi, 'last-move');
                     }
-                })
-                .catch(() => {
-                    setCell(r, c, '');
-                    moveHistory.pop();
-                    moveCount--;
-                    if (isInfinite) renderInfiniteBoard();
+                    if (typeof currentPlayer !== 'undefined') currentPlayer = quanToi;
+                    updateCursorByTurn();
+                    updateStatus();
                 })
                 .finally(() => { window.onlineMovePending = false; });
         }
@@ -441,7 +455,7 @@ function makeMove(r, c) {
         // Nước thắng chờ Firebase xác nhận; tránh hiển thị thắng giả khi transaction bị từ chối.
         if (isWinningMove) return;
 
-        // Chuyển lượt local (Firebase sẽ sync lại đúng)
+        // Nếu không ở chế độ online thì chuyển lượt như bình thường
         currentPlayer = quanToi === 'X' ? 'O' : 'X';
         updateCursorByTurn();
         updateStatus();
@@ -608,63 +622,56 @@ function makeMove(r, c) {
 }
 
 // ===== CHECK WIN =====
+function getWinningLine(row, col, player, winCount, blockBothEndsEnabled) {
+    const opp = player === 'X' ? 'O' : 'X';
+    for (let { dr, dc } of DIRECTIONS) {
+        const cells = [[row, col]];
+        let fwd = 0, bwd = 0;
+        while (getCell(row + dr * (fwd + 1), col + dc * (fwd + 1)) === player) {
+            fwd++; cells.push([row + dr * fwd, col + dc * fwd]);
+        }
+        while (getCell(row - dr * (bwd + 1), col - dc * (bwd + 1)) === player) {
+            bwd++; cells.push([row - dr * bwd, col - dc * bwd]);
+        }
+        if (cells.length < winCount) continue;
+
+        if (blockBothEndsEnabled) {
+            const headCell = getCell(row + dr * (fwd + 1), col + dc * (fwd + 1));
+            const tailCell = getCell(row - dr * (bwd + 1), col - dc * (bwd + 1));
+            const headBlocked = headCell === opp;
+            const tailBlocked = tailCell === opp;
+            if (headBlocked && tailBlocked) continue;
+        }
+        return cells;
+    }
+    return null;
+}
+
 function checkWin(r, c) {
-    const directions = [{ dr:0,dc:1 },{ dr:1,dc:0 },{ dr:1,dc:1 },{ dr:1,dc:-1 }];
     const player = getCell(r, c);
-    const opp    = player === "X" ? "O" : "X";
-    // Online phải tuân theo luật đã lưu trong phòng, không dùng checkbox local.
+    if (!player) return false;
     const isOnline = window.isOnlineModeActive && window.isOnlineModeActive();
     const blockBothEndsEnabled = isOnline
         ? (typeof currentRule !== 'undefined' && currentRule === 'chan_2_dau')
         : (window.isBotVsBotMode
             ? !!document.getElementById('bot-vs-bot-block-both')?.checked
             : !!document.getElementById('block-both-ends')?.checked);
-
-    for (let { dr, dc } of directions) {
-        const cells = [[r, c]];
-        let fwd = 0, bwd = 0;
-        while (getCell(r+dr*(fwd+1), c+dc*(fwd+1)) === player) { fwd++; cells.push([r+dr*fwd, c+dc*fwd]); }
-        while (getCell(r-dr*(bwd+1), c-dc*(bwd+1)) === player) { bwd++; cells.push([r-dr*bwd, c-dc*bwd]); }
-        if (cells.length < winCount) continue;
-
-        if (blockBothEndsEnabled) {
-            const headCell = getCell(r + dr*(fwd+1), c + dc*(fwd+1));
-            const tailCell = getCell(r - dr*(bwd+1), c - dc*(bwd+1));
-            const headBlocked = headCell === opp;
-            const tailBlocked = tailCell === opp;
-            if (headBlocked && tailBlocked) continue;
-        }
-        highlightWinners(cells);
-        return true;
-    }
-    return false;
+    const countRequired = typeof currentWinCount !== 'undefined' ? currentWinCount : winCount;
+    const winningLine = getWinningLine(r, c, player, countRequired, blockBothEndsEnabled);
+    if (!winningLine) return false;
+    highlightWinners(winningLine);
+    return true;
 }
 
 // checkWinSilent: dùng cho AI
 function checkWinSilent(r, c) {
     const player = getCell(r, c);
-    const opp    = player === "X" ? "O" : "X";
+    if (!player) return false;
     const blockBothEndsEnabled = window.isBotVsBotMode
         ? !!document.getElementById('bot-vs-bot-block-both')?.checked
         : !!document.getElementById('block-both-ends')?.checked;
-
-    for (let { dr, dc } of DIRECTIONS) {
-        let fwd = 0, bwd = 0;
-        while (getCell(r+dr*(fwd+1), c+dc*(fwd+1)) === player) fwd++;
-        while (getCell(r-dr*(bwd+1), c-dc*(bwd+1)) === player) bwd++;
-        const count = 1 + fwd + bwd;
-        if (count < winCount) continue;
-
-        if (blockBothEndsEnabled) {
-            const headCell = getCell(r + dr*(fwd+1), c + dc*(fwd+1));
-            const tailCell = getCell(r - dr*(bwd+1), c - dc*(bwd+1));
-            const headBlocked = headCell === opp;
-            const tailBlocked = tailCell === opp;
-            if (headBlocked && tailBlocked) continue;
-        }
-        return true;
-    }
-    return false;
+    const countRequired = typeof currentWinCount !== 'undefined' ? currentWinCount : winCount;
+    return !!getWinningLine(r, c, player, countRequired, blockBothEndsEnabled);
 }
 
 // ĐỊNH NGHĨA HÀM XÓA SẠCH BÀN CỜ CHO VÁN MỚI TINH
@@ -773,39 +780,24 @@ window.undoSoloBotMove = function() {
 
 // checkWinLogicOld: Hàm kiểm tra thắng thua hỗ trợ cả Online và Offline với tham số luật chơi tùy chỉnh
 window.checkWinLogicOld = function(row, col, playerRole, customRule, customWinCount) {
-    const directions = [{ dr:0,dc:1 },{ dr:1,dc:0 },{ dr:1,dc:1 },{ dr:1,dc:-1 }];
     const player = playerRole || getCell(row, col);
-    const opp    = player === "X" ? "O" : "X";
-    
-    // 1. Xác định luật chơi đang áp dụng
+    if (!player) return false;
+
     let blockBothEndsEnabled = false;
-    let currentWinCount = winCount; // Mặc định dùng biến global
-    
+    let currentWinCount = winCount;
+
     if (window.isOnlineModeActive && window.isOnlineModeActive()) {
-        // Nếu đang chơi Online: Lấy luật từ Firebase truyền sang
         blockBothEndsEnabled = (customRule === 'chan_2_dau');
-        if (customWinCount) currentWinCount = customWinCount
+        if (typeof customWinCount === 'number') currentWinCount = customWinCount;
     } else {
-        // Nếu đang đấu Bot: Lấy luật từ ô Checkbox trên giao diện cũ của anh
         const checkboxCu = document.getElementById('block-both-ends');
         blockBothEndsEnabled = checkboxCu ? checkboxCu.checked : false;
+        if (typeof customWinCount === 'number') currentWinCount = customWinCount;
     }
 
-    for (let { dr, dc } of directions) {
-        const cells = [[row, col]];
-        let fwd = 0, bwd = 0;
-        while (getCell(row+dr*(fwd+1), col+dc*(fwd+1)) === player) { fwd++; cells.push([row+dr*fwd, col+dc*fwd]); }
-        while (getCell(row-dr*(bwd+1), col-dc*(bwd+1)) === player) { bwd++; cells.push([row-dr*bwd, col-dc*bwd]); }
-        if (cells.length < currentWinCount) continue;
-
-        if (blockBothEndsEnabled) {
-            const headCell = getCell(row + dr*(fwd+1), col + dc*(fwd+1));
-            const tailCell = getCell(row - dr*(bwd+1), col - dc*(bwd+1));
-            const headBlocked = headCell === opp;
-            const tailBlocked = tailCell === opp;
-            if (headBlocked && tailBlocked) continue;
-        }
-        highlightWinners(cells);
+    const winningLine = getWinningLine(row, col, player, currentWinCount, blockBothEndsEnabled);
+    if (winningLine) {
+        highlightWinners(winningLine);
         return true;
     }
     return false;

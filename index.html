@@ -219,8 +219,7 @@ a { text-decoration: none; transition: color var(--transition-fast); }
   flex-direction: column;
   background: var(--bg-secondary);
   color: var(--text-primary);
-  position: sticky;
-  top: 0;
+  position: static;
   z-index: 200;
   box-shadow: var(--shadow-md);
   border-bottom: 1px solid var(--border);
@@ -307,9 +306,43 @@ a { text-decoration: none; transition: color var(--transition-fast); }
 .user-bar {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: var(--space-3) !important;
   flex-wrap: wrap;
+}
+.user-bar > * {
+  flex: 0 1 auto;
+}
+.user-bar .user-info-card {
+  min-width: 220px;
+  max-width: 360px;
+}
+.user-info-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.user-bar .btn-settings,
+.user-bar .btn-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 96px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+}
+.user-bar .user-xu {
+  min-width: 120px;
+}
+.user-bar .btn-settings,
+.user-bar .btn-logout {
+  min-width: 56px;
+  padding: 8px 10px;
+  font-size: 0.95rem;
+}
+.user-bar .user-xu {
+  min-width: 110px;
 }
 /* Avatar với gradient border đẹp hơn */
 .user-avatar-mini {
@@ -2186,14 +2219,10 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                         <span id="my-rank">🐣 Gà Con</span>
                     </span>
                 </div>
-                <div style="display:flex; gap:4px; flex-wrap:wrap;">
-                    <span class="u-skin-current" id="user-skin-display">Skin: Mặc định</span>
-                    <span class="u-skin-current" id="user-board-display">Bàn: Mặc định</span>
-                </div>
             </div>
             <span class="user-xu" id="xu-balance" onclick="moNhiemVu()">💰 0 Xu</span>
-            <button class="btn-settings" onclick="moCapNhatTaiKhoan()">⚙️</button>
-            <button class="btn-logout" id="btn-logout">🚪</button>
+            <button class="btn-settings" onclick="moCapNhatTaiKhoan()">⚙️ <span>Cài đặt</span></button>
+            <button class="btn-logout" id="btn-logout">🚪 <span>Đăng xuất</span></button>
         </div>
 
         <!-- Mini stats (chỉ hiện khi đăng nhập) - Solo stats hidden per DO6.TXT -->
@@ -3211,10 +3240,20 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
         </div>
         <div style="margin-bottom:14px;">
             <label style="font-size:13px; font-weight:bold; display:block; margin-bottom:4px;">Tên hiển thị</label>
-            <div style="display:flex; gap:6px;">
+            <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
                 <input type="text" id="settings-display-name" placeholder="Tên hiển thị..." maxlength="20"
-                    style="flex:1; padding:8px 10px; border:1px solid #ddd; border-radius:6px; font-size:14px;">
+                    style="flex:1 1 180px; min-width:140px; padding:8px 10px; border:1px solid #ddd; border-radius:6px; font-size:14px;">
                 <button onclick="luuTenHienThi()" style="padding:8px 14px; background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:bold;">Lưu</button>
+            </div>
+        </div>
+        <div style="margin-bottom:14px; display:flex; gap:10px; flex-wrap:wrap;">
+            <div style="flex:1 1 45%; min-width:140px; background:#f8f9fa; border-radius:8px; padding:10px; border:1px solid #ddd;">
+                <div style="font-size:12px; color:#888; margin-bottom:4px;">Skin đang dùng</div>
+                <div id="settings-skin-display" style="font-size:14px; font-weight:700; color:#1d4ed8;">Mặc định</div>
+            </div>
+            <div style="flex:1 1 45%; min-width:140px; background:#f8f9fa; border-radius:8px; padding:10px; border:1px solid #ddd;">
+                <div style="font-size:12px; color:#888; margin-bottom:4px;">Bàn cờ đang dùng</div>
+                <div id="settings-board-display" style="font-size:14px; font-weight:700; color:#1d4ed8;">Mặc định</div>
             </div>
         </div>
         <div style="margin-bottom:14px;">

@@ -2,7 +2,6 @@
 // FIREBASE ONLINE - HỆ THỐNG 20 PHÒNG CỐ ĐỊNH
 // Phòng không bao giờ bị xóa — chỉ reset trạng thái khi trống
 // ══════════════════════════════════════════════════════════════════
-console.log('[FILE LOAD] firebase-online.js loaded');
 (function() {
     // Firebase SDK đã được load tĩnh trong <head> của index.html
     // Chỉ cần gọi initFirebase khi DOM sẵn sàng
@@ -114,6 +113,7 @@ const TOTAL_VIP_ROOMS = 20;
 const TOTAL_ROOMS = TOTAL_NORMAL_ROOMS + TOTAL_VIP_ROOMS;
 // Tab phòng đang chọn: 'normal' hoặc 'vip'
 let currentRoomTab = 'normal';
+function debugLog() {}
 function cleanupBotRoomBeforeOnlineTransition() {
     const currentMode = typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrentMode === 'function'
         ? GameModeManager.getCurrentMode()
@@ -133,7 +133,6 @@ function cleanupBotRoomBeforeOnlineTransition() {
 
 // Chuyển tab phòng
 function switchRoomTab(tab) {
-    console.log('[DEBUG] switchRoomTab called with:', tab);
     currentRoomTab = tab;
     const tabNormal = document.getElementById('tab-normal');
     const tabVip    = document.getElementById('tab-vip');
@@ -153,7 +152,6 @@ function switchRoomTab(tab) {
         if (tabBot) { tabBot.style.background = '#10b981'; tabBot.style.color = 'white'; }
     }
 
-    console.log('[DEBUG] Tab switched to:', currentRoomTab, 'Calling renderRoomListImmediate');
     renderRoomListImmediate();
 }
 window.switchRoomTab = switchRoomTab;
@@ -263,17 +261,13 @@ function renderRoomListImmediate() {
         }
         return;
     }
-
-    console.log('[DEBUG] renderRoomListImmediate - Current tab:', currentRoomTab);
     
     // Fetch current rooms data from Firebase
     db.ref('rooms').once('value').then(snap => {
         const rooms = snap.val();
-        console.log('[DEBUG] renderRoomListImmediate - Rooms data:', rooms);
         container.innerHTML = '';
         // Render rooms based on current tab
         if (currentRoomTab === 'normal') {
-            console.log('[DEBUG] Rendering normal rooms 1-', TOTAL_NORMAL_ROOMS);
             for (let i = 1; i <= TOTAL_NORMAL_ROOMS; i++) {
                 const roomId = `phong_${i}`;
                 const room   = (rooms && rooms[roomId]) || taoDataPhongRong(i, false);
@@ -282,11 +276,9 @@ function renderRoomListImmediate() {
             }
         } else {
             // VIP tab
-            console.log('[DEBUG] Rendering VIP rooms 1-', TOTAL_VIP_ROOMS, 'as phong_21-40');
             for (let i = 1; i <= TOTAL_VIP_ROOMS; i++) {
                 const roomNum = TOTAL_NORMAL_ROOMS + i;
                 const roomId = `phong_${roomNum}`;
-                console.log('[DEBUG] Checking VIP room:', roomId, 'Data:', rooms ? rooms[roomId] : 'null');
                 const room   = (rooms && rooms[roomId]) || taoDataPhongRong(roomNum, true);
                 const el = renderRoomCard(room, roomId, 'vip');
                 container.appendChild(el);
@@ -308,6 +300,12 @@ function initFirebase() {
         appId: "1:809520185498:web:905b110905104c81071f23"
     });
     db = firebase.database();
+    db.ref('.info/serverTimeOffset').on('value', snap => {
+        _firebaseServerTimeOffset = parseInt(snap.val(), 10) || 0;
+        if (window._lastRoomSnapshot && window._lastRoomSnapshot.status === 'playing') {
+            _updateBattleCountdown(window._lastRoomSnapshot);
+        }
+    });
     khoiTao20Phong();
     setupAuthListeners();
     setupEventListeners();
@@ -324,14 +322,12 @@ function initFirebase() {
 // Chỉ tạo nếu chưa có — không bao giờ xóa phòng
 // ══════════════════════════════════════════════════════════════════
 function khoiTao20Phong() {
-    console.log('[DEBUG] Creating rooms - Normal:', TOTAL_NORMAL_ROOMS, 'VIP:', TOTAL_VIP_ROOMS);
     // Chỉ tạo phòng chưa tồn tại — KHÔNG bao giờ ghi đè phòng đang có dữ liệu
     // Normal rooms 1-20
     for (let i = 1; i <= TOTAL_NORMAL_ROOMS; i++) {
         const roomRef = db.ref(`rooms/phong_${i}`);
         roomRef.once('value').then(snap => {
             if (!snap.exists() || snap.val() === null) {
-                console.log('[DEBUG] Creating normal room:', i);
                 roomRef.set(taoDataPhongRong(i, false));
             }
         });
@@ -342,21 +338,17 @@ function khoiTao20Phong() {
         const roomRef = db.ref(`rooms/phong_${roomNum}`);
         roomRef.once('value').then(snap => {
             if (!snap.exists() || snap.val() === null) {
-                console.log('[DEBUG] Creating VIP room:', i, 'as phong_' + roomNum);
                 roomRef.set(taoDataPhongRong(roomNum, true));
             } else {
                 // Sync existing VIP rooms to new betting limits and ensure isVip flag is set
                 const room = snap.val();
                 const needsUpdate = room.betAmount < XU_CONFIG.VIP_BET_MIN || room.isVip !== true;
                 if (needsUpdate) {
-                    console.log('[DEBUG] Syncing VIP room:', roomNum, 'isVip:', room.isVip, 'betAmount:', room.betAmount);
                     roomRef.update({
                         isVip: true,
                         betAmount: XU_CONFIG.VIP_BET_MIN,
                         betPot: XU_CONFIG.VIP_BET_MIN * 2
                     });
-                } else {
-                    console.log('[DEBUG] VIP room already synced:', roomNum);
                 }
             }
         });
@@ -369,7 +361,6 @@ function khoiTao20Phong() {
 // Đồng bộ tất cả phòng VIP để đảm bảo isVip=true
 // KHÔNG ghi đè betAmount khi phòng đang waiting/playing (tránh reset cược đang hoạt động)
 function dongBoTatCaPhongVIP() {
-    console.log('[DEBUG] Force syncing all VIP rooms...');
     for (let i = 1; i <= TOTAL_VIP_ROOMS; i++) {
         const roomNum = TOTAL_NORMAL_ROOMS + i;
         const roomRef = db.ref(`rooms/phong_${roomNum}`);
@@ -383,9 +374,7 @@ function dongBoTatCaPhongVIP() {
                 update.betAmount = XU_CONFIG.VIP_BET_MIN;
                 update.betPot    = XU_CONFIG.VIP_BET_MIN * 2;
             }
-            roomRef.update(update).then(() => {
-                console.log('[DEBUG] Force synced VIP room:', roomNum, '| status:', room.status);
-            }).catch(err => {
+            roomRef.update(update).catch(err => {
                 console.error('[DEBUG] Error syncing VIP room:', roomNum, err);
             });
         });
@@ -393,7 +382,6 @@ function dongBoTatCaPhongVIP() {
 }
 function taoDataPhongRong(so, isVip = false) {
     const defaultBet = isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
-    console.log('[DEBUG] Creating room data:', { so, isVip, defaultBet });
     return {
         roomNumber: so,
         name: isVip ? `VIP ${so}` : `Phòng ${so}`,
@@ -580,6 +568,18 @@ function fetchUserData(userId) {
                 boardDisplayEl.textContent = 'Bàn: Mặc định';
             }
         }
+        const settingsSkinDisplay = document.getElementById('settings-skin-display');
+        if (settingsSkinDisplay) {
+            const equippedSkinId = data.equippedSkin || 'skin_default';
+            const skin = (typeof SHOP_SKIN_LIST !== 'undefined') ? SHOP_SKIN_LIST.find(s => s.id === equippedSkinId) : null;
+            settingsSkinDisplay.textContent = skin ? skin.name : 'Mặc định';
+        }
+        const settingsBoardDisplay = document.getElementById('settings-board-display');
+        if (settingsBoardDisplay) {
+            const equippedBoardId = data.equippedBoardSkin || 'board_default';
+            const board = (typeof SHOP_BOARD_SKIN_LIST !== 'undefined') ? SHOP_BOARD_SKIN_LIST.find(b => b.id === equippedBoardId) : null;
+            settingsBoardDisplay.textContent = board ? board.name : 'Mặc định';
+        }
         // Cập nhật số dư Xu trên header
         if (typeof updateCoinDisplay === 'function') updateCoinDisplay(data.coins || 0);
         // Chỉ setup listeners lần đầu
@@ -679,7 +679,6 @@ function setMyOnlineStatus(state) {
         });
         ref.onDisconnect().remove();
     }
-    console.log('[OnlineStatus] Set status to:', state, 'for user:', userId);
 }
 // ══════════════════════════════════════════════════════════════════
 // 👥 DANH SÁCH ONLINE & LỜI MỜI
@@ -875,28 +874,69 @@ function setupEventListeners() {
     });
     // Reconnect khi load lại trang
     window.addEventListener('load', () => {
-        // YC.TXT FIX: Use centralized GameModeManager to check current mode
-        if (typeof GameModeManager !== 'undefined' && GameModeManager.isActive()) {
-            const currentMode = GameModeManager.getCurrentMode();
-            if (currentMode !== GameModes.ONLINE) {
-                console.log('[Firebase Online] Skipping Online reconnect - another mode is active:', currentMode);
+        let restoredMode = null;
+        let reconnectRoomId = null;
+
+        if (typeof GameModeManager !== 'undefined') {
+            restoredMode = GameModeManager.restoreMode();
+            if (restoredMode !== GameModes.NONE && restoredMode !== GameModes.ONLINE) {
+                localStorage.removeItem('current_room_id');
                 return;
             }
-            console.log('[Firebase Online] Online mode restored on load, proceeding with reconnect');
+            if (restoredMode === GameModes.ONLINE) {
+                const context = GameModeManager.getContext();
+                if (context && context.roomId) {
+                    reconnectRoomId = context.roomId;
+                }
+            }
         }
-        
+
         const savedRoom = localStorage.getItem('current_room_id');
         const savedUser = localStorage.getItem('current_user_id');
-        if (!savedRoom || !savedUser) return;
-        db.ref(`rooms/${savedRoom}`).once('value').then(snap => {
+        if (!savedUser) return;
+
+        if (restoredMode !== GameModes.NONE && restoredMode !== GameModes.ONLINE) {
+            if (!savedRoom) {
+                localStorage.removeItem('current_room_id');
+                return;
+            }
+            console.warn('[Firebase Online] Restored mode mismatch but current_room_id exists; attempting online reconnect anyway:', {
+                restoredMode,
+                savedRoom
+            });
+            reconnectRoomId = savedRoom;
+        }
+
+        const roomId = savedRoom || reconnectRoomId;
+        if (!roomId) return;
+        if (!savedRoom && reconnectRoomId) {
+            localStorage.setItem('current_room_id', roomId);
+        }
+        if (savedRoom && reconnectRoomId && savedRoom !== reconnectRoomId) {
+            console.warn('[Firebase Online] current_room_id and GameModeManager context mismatch, using current_room_id:', {
+                savedRoom,
+                contextRoom: reconnectRoomId
+            });
+        }
+        db.ref(`rooms/${roomId}`).once('value').then(snap => {
             const room = snap.val();
             if (!room || room.status === 'empty' || room.status === 'ended') {
-                localStorage.removeItem('current_room_id'); return;
+                localStorage.removeItem('current_room_id');
+                if (typeof GameModeManager !== 'undefined' && GameModeManager.getCurrentMode() === GameModes.ONLINE) {
+                    GameModeManager.clearMode();
+                }
+                return;
             }
             const isX = savedUser === room.playerX_id;
             const isO = savedUser === room.playerO_id;
-            if (!isX && !isO) { localStorage.removeItem('current_room_id'); return; }
-            currentRoomId     = savedRoom;
+            if (!isX && !isO) {
+                localStorage.removeItem('current_room_id');
+                if (typeof GameModeManager !== 'undefined' && GameModeManager.getCurrentMode() === GameModes.ONLINE) {
+                    GameModeManager.clearMode();
+                }
+                return;
+            }
+            currentRoomId     = roomId;
             myRole            = isX ? 'X' : 'O';
             daXoaBanCoTranNay = true;
             currentTurn       = room.turn || 'X';
@@ -905,48 +945,52 @@ function setupEventListeners() {
             if (typeof winCount !== 'undefined') winCount = currentWinCount;
             const sf = myRole === 'X' ? 'playerX_status' : 'playerO_status';
             const startReconnectOnline = () => {
-                db.ref(`rooms/${savedRoom}/${sf}`).set('online');
-                setupOnDisconnect(savedRoom, myRole);
+                db.ref(`rooms/${roomId}/${sf}`).set('online');
+                setupOnDisconnect(roomId, myRole);
                 if (typeof GameModeManager !== 'undefined') {
-                    GameModeManager.setMode(GameModes.ONLINE, { roomId: savedRoom, role: myRole });
+                    GameModeManager.setMode(GameModes.ONLINE, { roomId, role: myRole });
                 }
                 batDauGiaoDienOnline();
                 // Cập nhật UI ngay lập tức với thông tin phòng hiện tại
                 capNhatUIPhongOnline(room);
+
+                const restoreRoomState = () => {
+                    if (room.status === 'playing') {
+                        phucHoiBanCo(roomId, () => {
+                            langNgheThayDoiPhong(roomId);
+                            langNgheTinNhan(roomId);
+                            setMyOnlineStatus('playing');
+                            // BUG 5 FIX: Switch to battle view when reconnecting to a playing game
+                            if (typeof switchView === 'function') {
+                                switchView('battle');
+                            }
+                            // Hide navigation during battle
+                            if (typeof hideTopNavigation === 'function') {
+                                hideTopNavigation();
+                            }
+                            // YC.TXT FIX: Restore camera position and zoom level after refresh
+                            if (typeof vRowF !== 'undefined' && typeof vColF !== 'undefined') {
+                                vRowF = 0;
+                                vColF = 0;
+                            }
+                            if (typeof renderInfiniteBoard === 'function') {
+                                renderInfiniteBoard();
+                            }
+                        });
+                    } else {
+                        langNgheThayDoiPhong(roomId);
+                        langNgheTinNhan(roomId);
+                        setMyOnlineStatus('free');
+                        // BUG 5 FIX: Switch to room view when reconnecting to a waiting game
+                        if (typeof switchView === 'function') {
+                            switchView('room');
+                        }
+                    }
+                };
+
+                restoreRoomState();
             };
-            prepareOnlineSessionForFirebase(savedRoom, 'reconnect', myRole).then(startReconnectOnline).catch(startReconnectOnline);
-            if (room.status === 'playing') {
-                phucHoiBanCo(savedRoom, () => {
-                    langNgheThayDoiPhong(savedRoom);
-                    langNgheTinNhan(savedRoom);
-                    setMyOnlineStatus('playing');
-                    // BUG 5 FIX: Switch to battle view when reconnecting to a playing game
-                    if (typeof switchView === 'function') {
-                        switchView('battle');
-                    }
-                    // Hide navigation during battle
-                    if (typeof hideTopNavigation === 'function') {
-                        hideTopNavigation();
-        console.log('[Room] Header hidden for battle');
-                    }
-                    // YC.TXT FIX: Restore camera position and zoom level after refresh
-                    if (typeof vRowF !== 'undefined' && typeof vColF !== 'undefined') {
-                        vRowF = 0;
-                        vColF = 0;
-                    }
-                    if (typeof renderInfiniteBoard === 'function') {
-                        renderInfiniteBoard();
-                    }
-                });
-            } else {
-                langNgheThayDoiPhong(savedRoom);
-                langNgheTinNhan(savedRoom);
-                setMyOnlineStatus('free');
-                // BUG 5 FIX: Switch to room view when reconnecting to a waiting game
-                if (typeof switchView === 'function') {
-                    switchView('room');
-                }
-            }
+            prepareOnlineSessionForFirebase(roomId, 'reconnect', myRole).then(startReconnectOnline).catch(startReconnectOnline);
         }).catch(() => localStorage.removeItem('current_room_id'));
     });
 }
@@ -955,7 +999,6 @@ function prepareOnlineSessionForFirebase(roomId, actionDesc, role) {
     if (typeof cleanupBotRoomBeforeOnlineTransition === 'function') {
         cleanupBotRoomBeforeOnlineTransition();
     }
-    console.log('[ONLINE-SESSION] prepareOnlineSessionForFirebase', { roomId, actionDesc, role });
     const prepareFn = (typeof window !== 'undefined' && typeof window.prepareOnlineSession === 'function')
         ? window.prepareOnlineSession
         : null;
@@ -991,11 +1034,9 @@ function hienDanhSachPhong() {
         // Tab Bot không cần Firebase — BotRoomManager đã xử lý
         if (currentRoomTab === 'bot') return;
         const rooms = snap.val();
-        console.log('[DEBUG] Current tab:', currentRoomTab, 'Rooms data:', rooms);
         container.innerHTML = '';
         // Render rooms based on current tab
         if (currentRoomTab === 'normal') {
-            console.log('[DEBUG] Rendering normal rooms 1-', TOTAL_NORMAL_ROOMS);
             for (let i = 1; i <= TOTAL_NORMAL_ROOMS; i++) {
                 const roomId = `phong_${i}`;
                 const room   = (rooms && rooms[roomId]) || taoDataPhongRong(i, false);
@@ -1004,11 +1045,9 @@ function hienDanhSachPhong() {
             }
         } else {
             // VIP tab
-            console.log('[DEBUG] Rendering VIP rooms 1-', TOTAL_VIP_ROOMS, 'as phong_21-40');
             for (let i = 1; i <= TOTAL_VIP_ROOMS; i++) {
                 const roomNum = TOTAL_NORMAL_ROOMS + i;
                 const roomId = `phong_${roomNum}`;
-                console.log('[DEBUG] Checking VIP room:', roomId, 'Data:', rooms ? rooms[roomId] : 'null');
                 const room   = (rooms && rooms[roomId]) || taoDataPhongRong(roomNum, true);
                 const el = renderRoomCard(room, roomId, 'vip');
                 container.appendChild(el);
@@ -1020,8 +1059,6 @@ function hienDanhSachPhong() {
 // 🪑 VÀO PHÒNG (NGỒi GHẾ X HOẶC O)
 // ══════════════════════════════════════════════════════════════════
 function ngoimVaoPhong(roomId) {
-    console.log('[Room] Join Start - roomId:', roomId);
-    console.log('[DEBUG-ENTER] ngoimVaoPhong called with roomId:', roomId);
     if (!currentUsername) { alert('Vui lòng đăng nhập trước!'); return; }
     const myId   = localStorage.getItem('current_user_id');
     const myName = tenCuaToi();
@@ -1054,16 +1091,12 @@ function ngoimVaoPhong(roomId) {
     }
     
     const roomRef = db.ref(`rooms/${roomId}`);
-    console.log('[DEBUG-ENTER] User info:', { myId, myName, currentUsername });
     roomRef.transaction(room => {
-        console.log('[DEBUG-ENTER] Transaction - current room data:', room);
         // Firebase gọi lần đầu với null — trả null để retry với dữ liệu thực
         if (!room) {
-            console.log('[DEBUG-ENTER] Room is null, returning null to retry');
             return null;
         }
         if (room.status === 'playing') {
-            console.log('[DEBUG-ENTER] Room is playing, aborting');
             return; // abort — đang chơi
         }
         // Kiểm tra phòng "ma": status=waiting nhưng playerX offline lâu và không có O
@@ -1072,13 +1105,11 @@ function ngoimVaoPhong(roomId) {
         const xOffline = room.playerX_status !== 'online';
         if (room.status === 'waiting' && room.playerX_id && !room.playerO_id && xOffline && isStale) {
             // Phòng bỏ hoang — coi như empty, cho người mới vào làm X
-            console.log('[DEBUG-ENTER] Room is stale, cleaning up ghost');
             room.playerX_id = ''; room.playerX_name = ''; room.playerX_status = 'offline';
             room.status = 'empty';
         }
         if (!room.playerX_id || room.status === 'empty' || room.status === 'ended') {
             // Ngồi ghế X — reset phòng về waiting sạch
-            console.log('[DEBUG-ENTER] Taking X seat');
             room.playerX_id     = myId;
             room.playerX_name   = myName;
             room.playerX_status = 'online';
@@ -1098,7 +1129,6 @@ function ngoimVaoPhong(roomId) {
             return room;
         } else if (!room.playerO_id && room.playerX_id !== myId) {
             // Ngồi ghế O
-            console.log('[DEBUG-ENTER] Taking O seat');
             room.playerO_id     = myId;
             room.playerO_name   = myName;
             room.playerO_status = 'online';
@@ -1110,19 +1140,14 @@ function ngoimVaoPhong(roomId) {
             return room;
         }
         // Cả 2 ghế đầy hoặc mình đã ngồi — abort
-        console.log('[DEBUG-ENTER] Room full or already seated, aborting');
         return;
     }).then(result => {
-        console.log('[DEBUG-ENTER] Transaction result:', result);
         if (!result.committed) { 
-            console.log('[DEBUG-ENTER] Transaction not committed');
             alert('Phòng đã đầy hoặc không thể vào!'); 
             return; 
         }
         const room = result.snapshot.val();
-        console.log('[DEBUG-ENTER] Room after transaction:', room);
         currentRoomId     = roomId;
-        console.log('[Room] Join Success - roomId:', roomId, 'role:', myRole);
         // YC.TXT FIX: Create new session ID for this join
         if (typeof currentSessionId !== 'undefined') currentSessionId = Date.now().toString();
         myRole            = room.playerX_id === myId ? 'X' : 'O';
@@ -1155,7 +1180,6 @@ function ngoimVaoPhong(roomId) {
 }
 window.ngoimVaoPhong = ngoimVaoPhong;
 function vaoLaiPhong(roomId) {
-    console.log('[Room] Rejoin Start - roomId:', roomId);
     const myId = localStorage.getItem('current_user_id');
     const myName = tenCuaToi();
     cleanupBotRoomBeforeOnlineTransition();
@@ -1181,7 +1205,6 @@ function vaoLaiPhong(roomId) {
             
             db.ref(`rooms/${roomId}`).update(pfUpdate).then(() => {
                 currentRoomId     = roomId;
-                console.log('[Room] Rejoin Success - roomId:', roomId, 'role:', (isX ? 'X' : 'O'));
                 // YC.TXT FIX: Create new session ID for this rejoin
                 if (typeof currentSessionId !== 'undefined') currentSessionId = Date.now().toString();
                 myRole            = isX ? 'X' : 'O';
@@ -1455,7 +1478,6 @@ function _cleanupStaleRoom(roomId, room) {
         }
         if (room.playerX_id && !xOnline && isStale && !room.playerO_id) {
             // playerX bỏ hoang, không có O → dọn về empty
-            console.log(`[Cleanup] Phòng ${roomId} bỏ hoang (X offline > 5 phút) → reset empty`);
             return db.ref(`rooms/${roomId}`).update({
                 status: 'empty', playerX_id: '', playerX_name: '', playerX_status: 'offline',
                 playerO_id: '', playerO_name: '', playerO_status: 'offline',
@@ -1465,7 +1487,6 @@ function _cleanupStaleRoom(roomId, room) {
         }
         if (room.playerX_id && !xOnline && isStale && room.playerO_id && oOnline) {
             // X bỏ hoang nhưng O vẫn online → cho O lên làm X, chờ đối thủ
-            console.log(`[Cleanup] Phòng ${roomId}: X offline, O online → O thành chủ phòng`);
             return db.ref(`rooms/${roomId}`).update({
                 playerX_id: room.playerO_id, playerX_name: room.playerO_name,
                 playerX_status: room.playerO_status,
@@ -1475,7 +1496,6 @@ function _cleanupStaleRoom(roomId, room) {
         }
         if (isStale && !xOnline && !oOnline) {
             // Cả hai offline lâu → dọn về empty
-            console.log(`[Cleanup] Phòng ${roomId}: cả hai offline lâu → reset empty`);
             return db.ref(`rooms/${roomId}`).update({
                 status: 'empty', playerX_id: '', playerX_name: '', playerX_status: 'offline',
                 playerO_id: '', playerO_name: '', playerO_status: 'offline',
@@ -1489,7 +1509,6 @@ function _cleanupStaleRoom(roomId, room) {
         const xOnline = _isPlayerReallyOnline(room.playerX_status);
         const oOnline = _isPlayerReallyOnline(room.playerO_status);
         if (!xOnline && !oOnline && isStale) {
-            console.log(`[Cleanup] Phòng ${roomId}: đang chơi nhưng cả hai mất kết nối lâu → reset`);
             return db.ref(`rooms/${roomId}`).update({
                 status: 'empty', playerX_id: '', playerX_name: '', playerX_status: 'offline',
                 playerO_id: '', playerO_name: '', playerO_status: 'offline',
@@ -1506,7 +1525,6 @@ function _cleanupStaleRoom(roomId, room) {
         const oOnline = _isPlayerReallyOnline(room.playerO_status);
         if (!xOnline && !oOnline) {
             const newStatus = (xHere || oHere) ? 'waiting' : 'empty';
-            console.log(`[Cleanup] Phòng ${roomId}: ended lâu → reset ${newStatus}`);
             const upd = {
                 status: newStatus, winner: '', endReason: '',
                 moves: { init: true }, lastMove: { row: -1, col: -1, by: '' }, updatedAt: now
@@ -1584,19 +1602,11 @@ function tenCuaToi() {
     return tenHienThi(currentUserData, fb);
 }
 function batDauGiaoDienOnline() {
-    console.log('[Room] Battle UI Init Start');
     // YC.TXT FIX: Force full Battle Lifecycle on each join
     // Destroy any existing SharedBoardUI instance to ensure clean state
     if (typeof SharedBoardUI !== 'undefined' && SharedBoardUI.Lifecycle.state === 'running') {
-        console.log('[Room] Destroying existing SharedBoardUI before re-init');
         SharedBoardUI.destroy();
     }
-    console.log('[DEBUG-BOARD] batDauGiaoDienOnline called', {
-        infCanvasInitialized: typeof infCanvasInitialized !== 'undefined' ? infCanvasInitialized : 'undefined',
-        infCanvasId: typeof infCanvas !== 'undefined' && infCanvas ? infCanvas.id : 'null',
-        isGameActive: typeof isGameActive !== 'undefined' ? isGameActive : 'undefined',
-        onlineBoardExists: !!document.getElementById('inf-canvas-online')
-    });
     
     // YC.TXT FIX: Only render Online UI if in ONLINE mode
     const currentMode = typeof GameModeManager !== 'undefined' ? GameModeManager.getCurrentMode() : null;
@@ -1615,13 +1625,11 @@ function batDauGiaoDienOnline() {
     //     const isAlreadyOnlineCanvas = (typeof infCanvas !== 'undefined' && infCanvas && infCanvas.id === 'inf-canvas-online');
     //     if (!isAlreadyOnlineCanvas) {
     //         infCanvasInitialized = false;
-    //         console.log('[DEBUG-BOARD] Reset infCanvasInitialized to force re-init for online canvas');
     //     }
     // }
     // Online luôn dùng infinite canvas
     if (typeof isInfinite !== 'undefined') {
         isInfinite = true;
-        console.log('[DEBUG-BOARD] Set isInfinite = true for online mode');
     }
     const onlineBanner = document.getElementById('online-status-banner');
     if (onlineBanner) onlineBanner.style.display = 'block';
@@ -1641,7 +1649,6 @@ function batDauGiaoDienOnline() {
     // Ẩn navigation khi vào trận
     if (typeof hideTopNavigation === 'function') {
         hideTopNavigation();
-        console.log('[Room] Header hidden for battle');
     }
     // Khởi tạo chat state (minimized trên mobile, expanded trên desktop)
     if (typeof initBattleChatState === 'function') {
@@ -1765,6 +1772,18 @@ function cleanupOnlineMode() {
             db.ref(`rooms/${currentRoomId}`).off();
         }
     }
+    if (roomListener && currentRoomId) {
+        if (typeof db !== 'undefined') {
+            db.ref(`rooms/${currentRoomId}`).off('value', roomListener);
+        }
+        roomListener = null;
+    }
+    _currentListeningRoomId = null;
+
+    // Reset battle countdown UI / timer in case online mode exits mid-game
+    if (typeof _resetBattleCountdown === 'function') {
+        _resetBattleCountdown();
+    }
 
     // Clear Online state
     currentRoomId = null;
@@ -1824,9 +1843,7 @@ function surrenderOnlineGame() {
 }
 window.surrenderOnlineGame = surrenderOnlineGame;
 function roiKhoiPhong(onDone) {
-    console.log('[Room] Leave Start - roomId:', currentRoomId, 'role:', myRole);
     if (!currentRoomId) { 
-        console.log('[Room] Leave - No currentRoomId, skipping');
         if (onDone) onDone(); 
         return; 
     }
@@ -1834,10 +1851,8 @@ function roiKhoiPhong(onDone) {
     const role = myRole;
     const myId = localStorage.getItem('current_user_id');
     const done = () => {
-        console.log('[Room] Firebase Leave Success - Removing user currentRoomId');
         // Xóa currentRoomId khỏi Firebase khi thoát
         db.ref(`users/${myId}/currentRoomId`).remove().then(() => {
-            console.log('[Room] User currentRoomId removed from Firebase');
             _resetSauThoat(rid);
             // YC.TXT FIX: Force render room list after leave to ensure UI updates
             setTimeout(() => {
@@ -1902,12 +1917,10 @@ function roiKhoiPhong(onDone) {
     }).catch(() => { done(); });
 }
 function _resetSauThoat(rid) {
-    console.log('[Room] Cleanup Start - roomId:', rid);
     // Dọn listener TRƯỚC khi null currentRoomId
     if (roomListener && rid) {
         db.ref(`rooms/${rid}`).off('value', roomListener);
         roomListener = null;
-        console.log('[Room] Room listener removed');
     }
     // BUG 1 FIX: Reset listening room ID
     _currentListeningRoomId = null;
@@ -1969,7 +1982,6 @@ function _resetSauThoat(rid) {
     if (typeof cachedRoomData !== 'undefined') cachedRoomData = null;
     if (typeof opponent !== 'undefined') opponent = null;
     
-    console.log('[Room] Session Destroyed - All state variables reset');
     
     // Clear board state to prevent conflicts when returning to lobby
     if (typeof infiniteMap !== 'undefined') {
@@ -1983,7 +1995,6 @@ function _resetSauThoat(rid) {
     }
     
     thoatGiaoDienOnline();
-    console.log('[Room] Cleanup Complete - UI returned to Lobby');
 }
 // ══════════════════════════════════════════════════════════════════
 // ▶️ BẮT ĐẦU / KICK / READY
@@ -2005,14 +2016,14 @@ function chuPhongBatDauGame() {
         // Dùng ngưỡng cược đúng theo loại phòng (VIP vs thường)
         const _betMin = room.isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
         const hasBet = room.betAmount && room.betAmount >= _betMin;
+        // Always require guest to press READY before host can start, regardless of bet
+        const oReady = room.guestReady || room.playerOConfirmed;
+        if (!oReady) {
+            alert('⏳ Cần đợi khách bấm SẴN SÀNG trước khi bắt đầu!');
+            return;
+        }
+        // If guest is ready, proceed: for bets set confirmed state, otherwise start game
         if (hasBet) {
-            // Có cược → kiểm tra O đã sẵn sàng chưa
-            const oReady = room.guestReady || room.playerOConfirmed;
-            if (!oReady) {
-                alert('⏳ Cần đợi khách bấm SẴN SÀNG xác nhận cược trước khi bắt đầu!');
-                return;
-            }
-            // O đã sẵn sàng → đặt cả 2 confirmed rồi bắt đầu ngay
             db.ref(`rooms/${currentRoomId}`).update({
                 status:             'bet_confirm',
                 winCount,  chan2Dau, firstTurn,
@@ -2023,7 +2034,6 @@ function chuPhongBatDauGame() {
                 updatedAt:          Date.now()
             });
         } else {
-            // Không cược → bắt đầu ngay
             _thucSuBatDauGame(room, winCount, chan2Dau, firstTurn);
         }
     });
@@ -2059,11 +2069,27 @@ function _updateBattleBottomBar(isEnded) {
             </button>
         `;
     } else {
-        // Hide undo button for players who already used their undo in this match
+        // Determine undo/button state from latest room snapshot
         const lastRoom = (typeof window._lastRoomSnapshot !== 'undefined') ? window._lastRoomSnapshot : null;
         const myUndoUsed = lastRoom && lastRoom.undoUsed && (typeof myRole !== 'undefined') && lastRoom.undoUsed[myRole];
+        const undoPending = (typeof window.undoRequestPending !== 'undefined' && window.undoRequestPending) || (lastRoom && lastRoom.undoRequest);
+        let undoBtnAttrs = 'class="battle-control-btn" id="btn-battle-undo"';
+        let undoBtnText = '↶ Undo';
+        let undoTitle = 'Hoàn tác';
+        if (undoPending) {
+            undoBtnAttrs += ' disabled';
+            undoTitle = 'Đang chờ xác nhận rút nước từ đối thủ';
+            undoBtnText = '↶ Undo (chờ)';
+        } else if (myUndoUsed) {
+            undoBtnAttrs += ' disabled';
+            undoTitle = 'Bạn đã dùng quyền Undo của ván này';
+            undoBtnText = '↶ Undo';
+        } else {
+            undoBtnAttrs += ' onclick="if(typeof undoOnlineMove === \'function\') undoOnlineMove();"';
+        }
+
         bar.innerHTML = `
-            ${myUndoUsed ? '' : `<button class="battle-control-btn" id="btn-battle-undo" onclick="if(typeof undoOnlineMove === 'function') undoOnlineMove();" title="Hoàn tác">↶ Undo</button>`}
+            <button ${undoBtnAttrs} title="${undoTitle}">${undoBtnText}</button>
             <button class="battle-control-btn battle-surrender-btn" id="btn-battle-surrender" onclick="if(typeof surrenderOnlineGame === 'function') surrenderOnlineGame();" title="Đầu hàng">
                 🏳️ Đầu hàng
             </button>
@@ -2173,10 +2199,7 @@ function undoOnlineMove() {
 
 // Xử lý approve/reject undo request
 function handleUndoResponse(approved) {
-    console.log('[DEBUG-UNDO] handleUndoResponse called:', { approved, currentRoomId, myRole });
-    
     if (!currentRoomId || !myRole) {
-        console.log('[DEBUG-UNDO] Missing currentRoomId or myRole');
         return;
     }
     
@@ -2184,7 +2207,6 @@ function handleUndoResponse(approved) {
         const room = snap.val();
         
         if (!room || !room.undoRequest) {
-            console.log('[DEBUG-UNDO] No room or no undoRequest');
             return;
         }
         
@@ -2287,15 +2309,29 @@ function _performUndo(room, movesToRemove, requesterRole) {
     const newUndo = Object.assign({}, prevUndo);
     newUndo[requesterRole] = true;
 
-    const updateData = {
-        moves: newMovesObject,
-        turn: newTurn,
-        lastMove: newLastMove,
-        undoUsed: newUndo,
-        updatedAt: Date.now()
-    };
-    
-    db.ref(`rooms/${currentRoomId}`).update(updateData).then(() => {
+    const roomRef = db.ref(`rooms/${currentRoomId}`);
+    // Use transaction to apply undo atomically and avoid race conditions
+    roomRef.transaction(data => {
+        if (!data) return data;
+        // Ensure there is still an undoRequest by this requester (safety check)
+        if (!data.undoRequest || data.undoRequest.requester !== requesterRole) return;
+        // Ensure requester hasn't used undo already
+        if (data.undoUsed && data.undoUsed[requesterRole]) return;
+
+        data.moves = newMovesObject;
+        data.turn = newTurn;
+        data.turnStartedAt = firebase.database.ServerValue.TIMESTAMP;
+        data.lastMove = newLastMove;
+        if (!data.undoUsed) data.undoUsed = { X: false, O: false };
+        data.undoUsed[requesterRole] = true;
+        data.updatedAt = Date.now();
+        return data;
+    }).then(result => {
+        if (!result.committed) {
+            console.warn('[DEBUG-UNDO] Undo transaction not committed or aborted');
+            return;
+        }
+
         if (typeof moveHistory !== 'undefined') {
             moveHistory.length = 0;
             newMoves.forEach(m => {
@@ -2306,7 +2342,7 @@ function _performUndo(room, movesToRemove, requesterRole) {
                 });
             });
         }
-        
+
         if (typeof infiniteMap !== 'undefined') {
             infiniteMap.clear();
             newMoves.forEach(m => {
@@ -2316,7 +2352,7 @@ function _performUndo(room, movesToRemove, requesterRole) {
                 infiniteMap.set(`${r},${c}`, player);
             });
         }
-        
+
         if (typeof lastMoveR !== 'undefined') {
             lastMoveR = newLastMove.row === -1 ? null : newLastMove.row;
             lastMoveC = newLastMove.col === -1 ? null : newLastMove.col;
@@ -2327,10 +2363,12 @@ function _performUndo(room, movesToRemove, requesterRole) {
         if (typeof currentTurn !== 'undefined') {
             currentTurn = newTurn;
         }
-        
+
         if (typeof renderInfiniteBoard === 'function') {
             renderInfiniteBoard();
         }
+    }).catch(err => {
+        console.error('[DEBUG-UNDO] Undo transaction error:', err);
     });
 }
 window.undoOnlineMove = undoOnlineMove;
@@ -2390,11 +2428,11 @@ function handleRematchResponse(approved) {
     if (!currentRoomId) return;
 
     if (approved) {
-        db.ref(`rooms/${currentRoomId}`).update({
-            rematchXReady: true,
-            rematchOReady: true,
-            updatedAt: Date.now()
-        }).then(() => {
+        const updates = { updatedAt: Date.now() };
+        if (myRole === 'X') updates.rematchXReady = true;
+        if (myRole === 'O') updates.rematchOReady = true;
+
+        db.ref(`rooms/${currentRoomId}`).update(updates).then(() => {
             db.ref(`rooms/${currentRoomId}`).once('value').then(snap => {
                 const room = snap.val();
                 if (room && typeof maybeAutoStartRematch === 'function') {
@@ -2405,6 +2443,8 @@ function handleRematchResponse(approved) {
     } else {
         db.ref(`rooms/${currentRoomId}`).update({
             rematchRequested: false,
+            rematchXReady: false,
+            rematchOReady: false,
             updatedAt: Date.now()
         }).then(() => {
             if (typeof thongBaoHeThong === 'function') {
@@ -2420,24 +2460,27 @@ let _dangBatDauGame = false;
 function _thucSuBatDauGame(room, winCount, chan2Dau, firstTurn) {
     if (_dangBatDauGame) return;
     _dangBatDauGame = true;
-    console.log('[DEBUG-BOARD] _thucSuBatDauGame called:', {
-        roomId: currentRoomId,
-        winCount,
-        chan2Dau,
-        firstTurn
-    });
     db.ref(`rooms/${currentRoomId}`).update({
         status:           'playing',
         turn:             firstTurn,
+        turnStartedAt:    firebase.database.ServerValue.TIMESTAMP,
         winCount,  chan2Dau, firstTurn,
         winner:           '',
         endReason:        '',
         moves:            { init: true },
         lastMove:         { row: -1, col: -1, by: '' },
         endedAt:          null,
+        rematchRequested: false,
+        rematchXReady:    false,
+        rematchOReady:    false,
+        guestReady:       false,
         playerXConfirmed: null,
         playerOConfirmed: null,
-        updatedAt:        Date.now()
+        // Reset per-player undo usage when a new game actually starts
+        undoUsed:         { X: false, O: false },
+        // Clear any pending undo request
+        undoRequest:      null,
+        updatedAt:        firebase.database.ServerValue.TIMESTAMP
     }).then(() => {
         _dangBatDauGame = false;
         
@@ -2446,7 +2489,6 @@ function _thucSuBatDauGame(room, winCount, chan2Dau, firstTurn) {
             Bug1DebugLogger.logEvent('Game.start', 'online');
         }
         
-        console.log('[DEBUG-BOARD] Game started successfully, Firebase updated');
         if (typeof batDauCuoc === 'function' && room.playerX_id && room.playerO_id) {
             batDauCuoc(currentRoomId, room.playerX_id, room.playerO_id);
         }
@@ -2511,12 +2553,19 @@ window.setReady = setReady;
 // ══════════════════════════════════════════════════════════════════
 // Map lưu timeout tự dọn ghế khi offline
 const _offlineCleanupTimers = {};
+let _firebaseServerTimeOffset = 0;
 const ONLINE_AFK_TIMEOUT_SEC = 150;
 const _onlineBattleCountdown = {
     interval: null,
     secondsLeft: ONLINE_AFK_TIMEOUT_SEC,
-    activeTurn: null
+    activeTurn: null,
+    turnStartMs: null,
+    timeoutAttempted: false
 };
+
+function getServerTimeMs() {
+    return Date.now() + (_firebaseServerTimeOffset || 0);
+}
 
 function _formatBattleCountdown(seconds) {
     const mins = Math.floor(seconds / 60);
@@ -2545,26 +2594,59 @@ function _resetBattleCountdown() {
     }
     _onlineBattleCountdown.secondsLeft = ONLINE_AFK_TIMEOUT_SEC;
     _onlineBattleCountdown.activeTurn = null;
+    _onlineBattleCountdown.turnStartMs = null;
+    _onlineBattleCountdown.timeoutAttempted = false;
     _renderBattleCountdown();
 }
 
-function _startBattleCountdown(turn) {
+function _startBattleCountdown(turn, turnStartedAt) {
     if (!turn) return;
     if (_onlineBattleCountdown.interval) {
         clearInterval(_onlineBattleCountdown.interval);
         _onlineBattleCountdown.interval = null;
     }
     _onlineBattleCountdown.activeTurn = turn;
-    _onlineBattleCountdown.secondsLeft = ONLINE_AFK_TIMEOUT_SEC;
+    _onlineBattleCountdown.turnStartMs = turnStartedAt || null;
+    _onlineBattleCountdown.timeoutAttempted = false;
     _renderBattleCountdown();
     _onlineBattleCountdown.interval = setInterval(() => {
-        _onlineBattleCountdown.secondsLeft = Math.max(0, _onlineBattleCountdown.secondsLeft - 1);
+        const now = getServerTimeMs();
+        const turnStartMs = _onlineBattleCountdown.turnStartMs;
+        let remainingMs = ONLINE_AFK_TIMEOUT_SEC * 1000;
+        if (turnStartMs) {
+            remainingMs = (turnStartMs + ONLINE_AFK_TIMEOUT_SEC * 1000) - now;
+        }
+        _onlineBattleCountdown.secondsLeft = Math.max(0, Math.ceil(remainingMs / 1000));
         _renderBattleCountdown();
-        if (_onlineBattleCountdown.secondsLeft <= 0) {
+        if (remainingMs <= 0) {
             clearInterval(_onlineBattleCountdown.interval);
             _onlineBattleCountdown.interval = null;
+            _handleOnlineBattleTimeout(_onlineBattleCountdown.activeTurn);
         }
-    }, 1000);
+    }, 250);
+}
+
+function _handleOnlineBattleTimeout(timedOutRole) {
+    if (!timedOutRole || !currentRoomId || !db) return;
+    if (_onlineBattleCountdown.timeoutAttempted) {
+        return;
+    }
+    _onlineBattleCountdown.timeoutAttempted = true;
+    currentTurn = null;
+    const winner = timedOutRole === 'X' ? 'O' : 'X';
+    const roomRef = db.ref(`rooms/${currentRoomId}`);
+    roomRef.transaction(room => {
+        if (!room || room.status !== 'playing' || room.turn !== timedOutRole) return;
+        // Only end the game once if the turn still belongs to the timed-out player
+        room.status     = 'ended';
+        room.winner     = winner;
+        room.endReason  = `${timedOutRole} hết giờ`;
+        room.endedAt    = firebase.database.ServerValue.TIMESTAMP;
+        room.updatedAt  = firebase.database.ServerValue.TIMESTAMP;
+        return room;
+    }).catch(err => {
+        console.error('[DEBUG-ONLINE] Failed to commit online timeout:', err);
+    });
 }
 
 function _updateBattleCountdown(room) {
@@ -2573,8 +2655,24 @@ function _updateBattleCountdown(room) {
         return;
     }
     const turn = room.turn || 'X';
-    if (turn !== _onlineBattleCountdown.activeTurn) {
-        _startBattleCountdown(turn);
+    const turnStartedAt = room.turnStartedAt || null;
+    const now = getServerTimeMs();
+    let remainingMs = ONLINE_AFK_TIMEOUT_SEC * 1000;
+    if (turnStartedAt) {
+        remainingMs = (turnStartedAt + ONLINE_AFK_TIMEOUT_SEC * 1000) - now;
+    }
+    const secondsLeft = Math.max(0, Math.ceil(remainingMs / 1000));
+    const shouldRestart = turn !== _onlineBattleCountdown.activeTurn || _onlineBattleCountdown.turnStartMs !== turnStartedAt;
+    _onlineBattleCountdown.secondsLeft = secondsLeft;
+    _renderBattleCountdown();
+    if (shouldRestart) {
+        _startBattleCountdown(turn, turnStartedAt);
+    }
+    if (turnStartedAt && remainingMs <= 0) {
+        clearInterval(_onlineBattleCountdown.interval);
+        _onlineBattleCountdown.interval = null;
+        _handleOnlineBattleTimeout(turn);
+        return;
     }
 }
 
@@ -2587,7 +2685,6 @@ let _currentListeningRoomId = null;
 function langNgheThayDoiPhong(roomId) {
     // BUG 1 FIX: Prevent duplicate listeners for the same room
     if (_currentListeningRoomId === roomId && roomListener) {
-        console.log('[Firebase] Already listening to room:', roomId, '- skipping duplicate listener');
         return;
     }
     
@@ -2603,19 +2700,6 @@ function langNgheThayDoiPhong(roomId) {
         if (typeof Bug1DebugLogger !== 'undefined') {
             Bug1DebugLogger.logEvent('Firebase.room.data-received', 'online');
         }
-        
-        console.log('[DEBUG-BOARD] Firebase room data received:', {
-            roomId,
-            status: room.status,
-            turn: room.turn,
-            playerX_id: room.playerX_id,
-            playerO_id: room.playerO_id,
-            winCount: room.winCount,
-            chan2Dau: room.chan2Dau,
-            moves: room.moves ? Object.keys(room.moves).length : 0,
-            lastMove: room.lastMove,
-            undoRequest: room.undoRequest
-        });
         const myId = localStorage.getItem('current_user_id');
         // Cập nhật role theo Firebase (đảm bảo đúng)
         if (myId === room.playerX_id)      myRole = 'X';
@@ -2728,7 +2812,6 @@ function langNgheThayDoiPhong(roomId) {
             if (typeof _updateBattleBottomBar === 'function') _updateBattleBottomBar(false);
             const rematchModal = document.getElementById('rematch-confirm-modal');
             if (rematchModal) rematchModal.style.display = 'none';
-            console.log('[DEBUG-BOARD] Room status changed to playing, setting isGameActive = true');
             if (typeof isGameActive !== 'undefined') isGameActive = true;
             // Lần đầu vào trận HOẶC ván mới bắt đầu (daXoaBanCoTranNay = false)
             if (!daXoaBanCoTranNay) {
@@ -2754,54 +2837,16 @@ function langNgheThayDoiPhong(roomId) {
             // Resize lại canvas sau khi player card xuất hiện làm thay đổi layout
             // Dùng timeout dài hơn để đảm bảo layout CSS đã paint xong
             const _doInitOnlineCanvas = () => {
-                console.log('[DEBUG-BOARD] Auto-calling renderInfiniteBoard after Firebase data received - Using SharedBoardUI');
-
-                // Log before SharedBoardUI.init
-                const onlineContainer = document.getElementById('shared-board-online');
-                const onlineCanvas = document.getElementById('inf-canvas-online');
-                console.log('[ONLINE] BEFORE SharedBoardUI.init', {
-                    time: performance.now(),
-                    containerWidth: onlineContainer ? onlineContainer.clientWidth : 'undefined',
-                    containerHeight: onlineContainer ? onlineContainer.clientHeight : 'undefined',
-                    canvasWidth: onlineCanvas ? onlineCanvas.width : 'undefined',
-                    canvasHeight: onlineCanvas ? onlineCanvas.height : 'undefined',
-                    windowWidth: window.innerWidth,
-                    windowHeight: window.innerHeight
-                });
-
                 // Use SharedBoardUI for unified canvas initialization
                 if (typeof SharedBoardUI !== 'undefined') {
                     const success = SharedBoardUI.init('online');
-                    console.log('[ONLINE] INIT RESULT =>', success);
-
-                    // Log after SharedBoardUI.init
-                    console.log('[ONLINE] AFTER SharedBoardUI.init', {
-                        containerWidth: onlineContainer ? onlineContainer.clientWidth : 'undefined',
-                        containerHeight: onlineContainer ? onlineContainer.clientHeight : 'undefined',
-                        canvasWidth: onlineCanvas ? onlineCanvas.width : 'undefined',
-                        canvasHeight: onlineCanvas ? onlineCanvas.height : 'undefined'
-                    });
-
-                    // Log in requestAnimationFrame to catch layout changes
-                    requestAnimationFrame(() => {
-                        console.log('[ONLINE] RAF', {
-                            containerWidth: onlineContainer ? onlineContainer.clientWidth : 'undefined',
-                            containerHeight: onlineContainer ? onlineContainer.clientHeight : 'undefined',
-                            canvasWidth: onlineCanvas ? onlineCanvas.width : 'undefined',
-                            canvasHeight: onlineCanvas ? onlineCanvas.height : 'undefined'
-                        });
-                    });
-
                     if (!success) {
                         console.error('[DEBUG-BOARD] SharedBoardUI.init failed, falling back to old logic');
                         _doInitOnlineCanvasFallback();
                     } else {
                         // SharedBoardUI.init already calls renderInfiniteBoard
-                        console.log('[DEBUG-BOARD] SharedBoardUI.init succeeded');
-                        // YC.TXT FIX: Call renderInfiniteBoard after SharedBoardUI.init to ensure canvas renders immediately
                         if (typeof renderInfiniteBoard === 'function') {
                             renderInfiniteBoard();
-                            console.log('[DEBUG-BOARD] renderInfiniteBoard called after SharedBoardUI.init');
                         }
                     }
                 } else {
@@ -2812,7 +2857,6 @@ function langNgheThayDoiPhong(roomId) {
 
             // Fallback canvas initialization (old logic)
             const _doInitOnlineCanvasFallback = () => {
-                console.log('[DEBUG-BOARD] Using fallback canvas initialization');
                 const cvOnline = document.getElementById('inf-canvas-online');
                 const sbOnline = document.getElementById('shared-board-online');
                 
@@ -2827,13 +2871,6 @@ function langNgheThayDoiPhong(roomId) {
                     cvOnline.height = containerHeight;
                     cvOnline.style.width = '100%';
                     cvOnline.style.height = '100%';
-
-                    console.log('[DEBUG-BOARD] Canvas dimensions set:', {
-                        containerWidth: containerRect.width,
-                        containerHeight: containerRect.height,
-                        canvasWidth: cvOnline.width,
-                        canvasHeight: cvOnline.height
-                    });
                 } else {
                     console.warn('[DEBUG-BOARD] inf-canvas-online or shared-board-online NOT found in DOM!');
                 }
@@ -2854,7 +2891,6 @@ function langNgheThayDoiPhong(roomId) {
                     typeof INF_CS !== 'undefined' && typeof infCanvasW !== 'undefined' && typeof infCanvasH !== 'undefined') {
                     vRowF = -Math.floor(infCanvasH / INF_CS / 2);
                     vColF = -Math.floor(infCanvasW / INF_CS / 2);
-                    console.log('[DEBUG-BOARD] Viewport reset to center after canvas resize:', { vRowF, vColF, infCanvasW, infCanvasH, INF_CS });
                 }
                 
                 if (typeof fitCanvasToContainer === 'function') fitCanvasToContainer();
@@ -2892,7 +2928,6 @@ function langNgheThayDoiPhong(roomId) {
                         const w = rect.width;
                         const h = rect.height;
                         
-                        console.log('[DEBUG-BOARD] Container size measured:', { w, h });
                         
                         // BUG 1 DEBUG: Log event before canvas init
                         if (typeof Bug1DebugLogger !== 'undefined') {
@@ -2949,21 +2984,15 @@ function langNgheThayDoiPhong(roomId) {
                     const player = m.by !== undefined ? m.by : (m.player !== undefined ? m.player : '');
                     infiniteMap.set(`${r},${c}`, player);
                 });
-                console.log('[DEBUG-BOARD] Synced infiniteMap from Firebase:', {
-                    size: infiniteMap.size,
-                    movesCount: movesArray.length
-                });
                 
                 // YC.TXT FIX: Render AFTER Firebase sync moves completes (like Bot Room renders after GameState)
                 if (typeof renderInfiniteBoard === 'function') {
                     renderInfiniteBoard();
-                    console.log('[DEBUG-BOARD] renderInfiniteBoard called after Firebase sync moves');
                 }
             }
             // Vẽ nước đi mới nhất (cả của mình lẫn đối thủ)
             if (room.lastMove && room.lastMove.by) {
                 if (room.lastMove.row !== locallyAppliedLastMove.row || room.lastMove.col !== locallyAppliedLastMove.col) {
-                    console.log('[DEBUG-BOARD] Drawing move:', room.lastMove, 'myRole:', myRole);
                     locallyAppliedLastMove.row = room.lastMove.row;
                     locallyAppliedLastMove.col = room.lastMove.col;
                     thucHienVeNuocDi(room.lastMove.row, room.lastMove.col, room.lastMove.by);
@@ -3191,17 +3220,16 @@ function capNhatUIPhong(room) {
     }
     // Nút Bắt đầu & Kick — chỉ X khi waiting có đối thủ
     const showControls = laChuX && coDoiThu && room.status === 'waiting';
+    const oReady = room.guestReady || room.playerOConfirmed;
     if (btnKick)  btnKick.style.display  = showControls ? 'inline-block' : 'none';
     if (btnStart) {
         btnStart.style.display = showControls ? 'inline-block' : 'none';
         if (showControls) {
-            const hasBetPending = room.betAmount && room.betAmount >= 100
-                                  && !(room.guestReady || room.playerOConfirmed);
-            btnStart.textContent = hasBetPending
-                ? '⏳ Chờ khách SẴN SÀNG...'
-                : '▶ Bắt đầu';
-            btnStart.disabled    = hasBetPending;
-            btnStart.style.opacity = hasBetPending ? '0.55' : '1';
+            btnStart.textContent = oReady
+                ? '▶ Bắt đầu'
+                : '⏳ Chờ khách SẴN SÀNG...';
+            btnStart.disabled    = !oReady;
+            btnStart.style.opacity = !oReady ? '0.55' : '1';
         }
     }
     // Panel cược — X thấy ô nhập khi waiting
@@ -3309,30 +3337,24 @@ function loadPlayerInfo(userId, role) {
             const roomSkinField = role === 'X' ? 'playerX_skin' : 'playerO_skin';
             if (room[roomSkinField]) {
                 skinId = room[roomSkinField];
-                console.log('[loadPlayerInfo] Using skin from room data:', roomSkinField, '=', skinId);
             } else {
                 skinId = u.equippedSkin || 'skin_default';
-                console.log('[loadPlayerInfo] Room skin not found, using user profile skin:', skinId);
             }
         } else {
             skinId = u.equippedSkin || 'skin_default';
-            console.log('[loadPlayerInfo] Room not found, using user profile skin:', skinId);
         }
         
         if (role === 'X') {
             window._onlineSkinX = skinId;
-            console.log('[loadPlayerInfo] Set _onlineSkinX:', skinId, 'for user:', userId);
         }
         if (role === 'O') {
             window._onlineSkinO = skinId;
-            console.log('[loadPlayerInfo] Set _onlineSkinO:', skinId, 'for user:', userId);
         }
         // Cập nhật cursor ngay sau khi skin load xong
         if (typeof updateCursorByTurn === 'function') updateCursorByTurn();
         
         // Re-render bàn cờ sau khi skin load xong để áp dụng skin mới
         if (typeof renderInfiniteBoard === 'function') {
-            console.log('[loadPlayerInfo] Re-rendering board after skin load');
             renderInfiniteBoard();
         }
         // Avatar đối thủ lên thanh thông báo hệ thống
@@ -3405,12 +3427,15 @@ window.guiNuocDiLenFirebase = function(row, col) {
         if (!data) return null; // retry
         if (data.turn !== myRole) return null;
         if (data.status !== 'playing') return null;
+        // Block move submission while an undo request is pending
+        if (data.undoRequest) return null;
         // Kiểm tra ô đã bị đánh chưa — O(1) lookup thay vì O(n) loop
         if (data.moves && data.moves[moveKey]) return null;
         data.turn     = nextTurn;
         data.status   = isWin ? 'ended' : 'playing';
         data.winner   = isWin ? myRole  : '';
         data.lastMove = { row, col, by: myRole, ts: Date.now() };
+        if (!isWin) data.turnStartedAt = firebase.database.ServerValue.TIMESTAMP;
         if (isWin) data.endedAt = Date.now();
         data.updatedAt = Date.now();
         // Ghi nước đi vào moves với key tọa độ
@@ -3449,14 +3474,8 @@ function thucHienVeNuocDi(row, col, role) {
     if (typeof updateStatus       === 'function') updateStatus();
 }
 function phucHoiBanCo(roomId, callback) {
-    console.log('[DEBUG-BOARD] phucHoiBanCo called for room:', roomId);
     db.ref(`rooms/${roomId}/moves`).once('value').then(snap => {
         const movesData = snap.val();
-        console.log('[DEBUG-BOARD] phucHoiBanCo moves data:', {
-            roomId,
-            movesData: movesData ? Object.keys(movesData).length + ' entries' : 'null/undefined',
-            sample: movesData ? Object.values(movesData).slice(0, 2) : null
-        });
         if (!movesData) {
             console.warn('[DEBUG-BOARD] No moves data found in Firebase, using fallback — board will be empty');
             if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
@@ -3698,17 +3717,23 @@ function batDauVanMoi() {
             isVip:     room.isVip || false
         };
         const updates = {
-            status:    'waiting',
-            winner:    '',
-            endReason: '',
-            moves:     { init: true },
-            lastMove:  { row: -1, col: -1, by: '' },
-            endedAt:   null,
+            status:            'waiting',
+            winner:            '',
+            endReason:         '',
+            moves:             { init: true },
+            lastMove:          { row: -1, col: -1, by: '' },
+            endedAt:           null,
+            turnStartedAt:     null,
+            rematchRequested:  false,
+            rematchXReady:     false,
+            rematchOReady:     false,
+            guestReady:        false,
+            playerXConfirmed:  null,
+            playerOConfirmed:  null,
             // Per-player undo usage: reset for new match
-            undoUsed:  { X: false, O: false },
-            updatedAt: Date.now()
+            undoUsed:          { X: false, O: false },
+            updatedAt:         firebase.database.ServerValue.TIMESTAMP
         };
-
         const isRematch = Boolean(room.rematchConfig || room.status === 'ended');
         if (isRematch) {
             updates.betAmount = rematchConfig.betAmount || null;
@@ -3774,6 +3799,10 @@ function maybeAutoStartRematch(room) {
             rematchXReady:    false,
             rematchOReady:    false,
             rematchConfig,
+            // Reset undo usage when preparing rematch with bet
+            undoUsed:         { X: false, O: false },
+            // Clear pending undo requests
+            undoRequest:      null,
             updatedAt:        Date.now()
         });
     } else {

@@ -284,8 +284,8 @@ function requestRematchFromWinOverlay() {
             rematchRequested: true,
             rematchRequestedBy: role,
             rematchConfig,
-            rematchXReady: role === 'X' ? true : (room.rematchXReady || false),
-            rematchOReady: role === 'O' ? true : (room.rematchOReady || false),
+            rematchXReady: role === 'X',
+            rematchOReady: role === 'O',
             updatedAt: Date.now()
         };
         if (role === 'O') {

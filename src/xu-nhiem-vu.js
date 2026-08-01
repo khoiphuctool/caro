@@ -203,13 +203,14 @@ function processWinBot(modeDiff) {
             // Tăng counter bằng transaction để tránh race condition
             return limitsRef.child(limitKey).transaction(cur => {
                 const c = cur || 0;
-                if (c >= maxAllowed) return c; // vẫn check lại trong transaction
+                if (c >= maxAllowed) return; // abort transaction nếu đã đạt giới hạn
                 return c + 1;
             }).then(res => {
                 if (!res.committed) return 0;
                 const newUsed = res.snapshot.val() || 0;
-                // Nếu transaction thực sự tăng (newUsed = used+1) → cộng xu
-                if (newUsed !== used + 1) return 0;
+
+                // Nếu transaction thực sự tăng (newUsed > used) → cộng xu
+                if (newUsed <= used) return 0;
 
                 // Nếu đạt max limit, cộng thêm bonus
                 const totalReward = (newUsed === maxAllowed) ? (reward + bonusReward) : reward;
@@ -518,7 +519,9 @@ function batDauCuoc(roomId, playerXId, playerOId) {
             database.ref(`rooms/${roomId}/betPlayerO`).set(playerOId)
         ]).then(() => {
             // Popup thông báo cược đã kích hoạt
-            showXuPopup(0, `Cược ${bet.toLocaleString('vi-VN')} Xu 🎲`);
+            if (typeof thongBaoHeThong === 'function') {
+                thongBaoHeThong(`🎲 Cược ${bet.toLocaleString('vi-VN')} Xu đã kích hoạt. Người thắng sẽ nhận từ người thua.`);
+            }
             if (typeof enqueueNotification === 'function') {
                 enqueueNotification('system_events', { type: 'win', message: `🎲 Cược kích hoạt! Người thắng nhận ${bet.toLocaleString('vi-VN')} Xu từ người thua!` });
             }
@@ -726,6 +729,8 @@ let _coinBurstAnimationActive = false;
 let _coinBurstResolveCallback = null;
 
 function playCoinBurst(amount, label) {
+    // Nếu amount === 0 thì không chạy hiệu ứng đồng xu (tránh +0 Xu gây nhầm lẫn)
+    if (amount === 0) return;
     // Popup +xu vàng với label tùy chỉnh
     showXuPopup(amount, label || 'Nhận thưởng! 🎉');
 
@@ -975,12 +980,19 @@ window.dongBxhDaiGia = dongBxhDaiGia;
 function onWinBotXu(modeName) {
     const uid = _getUid();
     if (!uid) return;
-    const diff = DIFF_KEY[modeName] || 'easy';
+    // modeName may be either a bot gameMode (e.g. 'bot-tia-chop') or a diff key (e.g. 'lightning')
+    const validKeys = ['easy','medium','hard','god','lightning','super'];
+    let diff = 'easy';
+    if (DIFF_KEY[modeName]) diff = DIFF_KEY[modeName];
+    else if (validKeys.includes(modeName)) diff = modeName;
+    else diff = 'easy';
+
     if (diff !== 'super' && modeName === 'bot-super') {
         console.warn('[onWinBotXu] Unexpected mapping for bot-super, diff=', diff);
     }
-    console.log('[onWinBotXu] modeName=', modeName, 'diff=', diff);
+    console.log('[onWinBotXu] modeName=', modeName, 'resolvedDiff=', diff);
     processWinBot(diff).then(earned => {
+        console.log('[onWinBotXu] earned=', earned, 'for diff=', diff);
         if (earned > 0) {
             playCoinBurst(earned, 'Thắng Bot! 🏆');
             if (typeof enqueueNotification === 'function') {
