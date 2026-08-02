@@ -2,6 +2,257 @@
 // BOT ROOM MANAGER - Quản lý phòng Bot Offline
 // ══════════════════════════════════════════════════════════════════
 
+const BOT_PROFILE_SEED = {
+    'ai-easy': {
+        id: 'ai-easy',
+        name: 'Bot Dễ',
+        avatar: '🟢',
+        difficulty: 'easy',
+        level: 12,
+        elo: 1200,
+        rank: 80,
+        title: 'Tốc độ',
+        wins: 820,
+        losses: 180,
+        draws: 24,
+        winRate: 78,
+        thinkingSpeed: 'Chậm',
+        openingBook: 'An toàn',
+        style: 'Khai cuộc ổn định',
+        description: 'Dành cho người mới',
+        isBot: true,
+    },
+    'ai-medium': {
+        id: 'ai-medium',
+        name: 'Bot Trung Bình',
+        avatar: '🟡',
+        difficulty: 'medium',
+        level: 24,
+        elo: 1450,
+        rank: 40,
+        title: 'Luyện phản xạ',
+        wins: 1984,
+        losses: 612,
+        draws: 58,
+        winRate: 76,
+        thinkingSpeed: 'Trung bình',
+        openingBook: 'Khá linh hoạt',
+        style: 'Phòng thủ – phản công',
+        description: 'Luyện phản xạ',
+        isBot: true,
+    },
+    'ai-hard': {
+        id: 'ai-hard',
+        name: 'Bot Khó',
+        avatar: '🟠',
+        difficulty: 'hard',
+        level: 36,
+        elo: 1750,
+        rank: 15,
+        title: 'Thử thách thật sự',
+        wins: 3184,
+        losses: 864,
+        draws: 76,
+        winRate: 78,
+        thinkingSpeed: 'Nhanh',
+        openingBook: 'Mở nhiều biến',
+        style: 'Tấn công gọn',
+        description: 'Thử thách thật sự',
+        isBot: true,
+    },
+    'bot-toi-thuong': {
+        id: 'bot-toi-thuong',
+        name: 'Bot Tối Thượng',
+        avatar: '💀',
+        difficulty: 'god',
+        level: 50,
+        elo: 2200,
+        rank: 1,
+        title: 'BHX #1',
+        wins: 9684,
+        losses: 316,
+        draws: 42,
+        winRate: 96,
+        thinkingSpeed: 'Rất nhanh',
+        openingBook: 'Cao cấp',
+        style: 'Tối ưu chiến thuật',
+        description: 'Cấp Tinh Anh',
+        isBot: true,
+    },
+    'bot-tia-chop': {
+        id: 'bot-tia-chop',
+        name: 'Bot Tia Chớp',
+        avatar: '⚡',
+        difficulty: 'speed',
+        level: 42,
+        elo: 2050,
+        rank: 3,
+        title: 'Tốc độ siêu nhanh',
+        wins: 5984,
+        losses: 968,
+        draws: 64,
+        winRate: 85,
+        thinkingSpeed: 'Siêu nhanh',
+        openingBook: 'Bắn tốc độ',
+        style: 'Lập tức tấn công',
+        description: 'Tốc độ siêu nhanh',
+        isBot: true,
+    },
+    'bot-super': {
+        id: 'bot-super',
+        name: 'Bot Siêu Phẩm',
+        avatar: '🌟',
+        difficulty: 'super',
+        level: 48,
+        elo: 2800,
+        rank: 2,
+        title: 'BHX #2',
+        wins: 8024,
+        losses: 482,
+        draws: 52,
+        winRate: 93,
+        thinkingSpeed: 'Tối ưu',
+        openingBook: 'Đa dạng',
+        style: 'Biến đổi chiến thuật',
+        description: 'Thách thức đặc biệt (mở theo nhiệm vụ)',
+        isBot: true,
+    },
+};
+
+const PlayerCard = {
+    normalizeProfile(profile = {}) {
+        const rawWin = Number(profile.wins ?? profile.win ?? profile.totalWins ?? 0);
+        const rawLose = Number(profile.losses ?? profile.lose ?? profile.totalLosses ?? 0);
+        const rawDraw = Number(profile.draws ?? profile.draw ?? profile.totalDraws ?? 0);
+        const totalGames = rawWin + rawLose + rawDraw;
+        const derivedWinRate = totalGames > 0 ? Math.round((rawWin / totalGames) * 100) : null;
+        const providedWinRate = profile.winRate ?? profile.winRatePct ?? profile.winrate;
+        const displayWinRate = providedWinRate === null || providedWinRate === undefined || providedWinRate === '' || providedWinRate === '—'
+            ? derivedWinRate
+            : providedWinRate;
+        const parsedWinRate = typeof displayWinRate === 'number'
+            ? displayWinRate
+            : (typeof displayWinRate === 'string'
+                ? Number(String(displayWinRate).replace(/%/g, '').trim())
+                : NaN);
+
+        const eloValue = profile.elo ?? profile.eloRating ?? profile.rating ?? profile.eloScore ?? '—';
+        const levelValue = profile.level ?? profile.rankLevel ?? '—';
+        const titleValue = profile.title || profile.rank || profile.bhx || profile.difficulty || (profile.isBot ? 'Bot AI' : 'Người chơi');
+        const hasAnyProfileStats = [eloValue, levelValue, providedWinRate, rawWin, rawLose, rawDraw].some(value => {
+            if (value === undefined || value === null || value === '' || value === '—') return false;
+            return true;
+        });
+
+        return {
+            id: profile.id ?? profile.name ?? 'player',
+            name: profile.name || '—',
+            avatar: profile.avatar || (profile.isBot ? '🤖' : '🧑'),
+            level: levelValue,
+            elo: eloValue,
+            win: rawWin,
+            lose: rawLose,
+            draw: rawDraw,
+            winRate: Number.isFinite(parsedWinRate) ? Math.max(0, Math.min(100, parsedWinRate)) : null,
+            coin: profile.coin ?? 0,
+            title: titleValue,
+            status: profile.status || (profile.isBot ? 'Đang tính nước đi' : 'Đang suy nghĩ'),
+            isBot: !!profile.isBot,
+            difficulty: profile.difficulty || '—',
+            hasStats: hasAnyProfileStats,
+        };
+    },
+
+    valueOrDash(value, fallback = '—') {
+        if (value === null || value === undefined || value === '') return fallback;
+        return value;
+    },
+
+    winRateBarColor(percent) {
+        if (percent >= 95) return '#f59e0b';
+        if (percent >= 80) return '#8b5cf6';
+        if (percent >= 60) return '#3b82f6';
+        return '#10b981';
+    },
+
+    render(profile = {}, options = {}) {
+        const p = this.normalizeProfile(profile);
+        const badge = this.valueOrDash(options.badge || (p.isBot ? 'Bot' : 'Human'), 'Human');
+        const status = this.valueOrDash(options.status || p.status, '—');
+        const avatar = this.valueOrDash(p.avatar, '—');
+        const level = this.valueOrDash(p.level, '—');
+        const elo = this.valueOrDash(p.elo, '—');
+        const winRate = Number.isFinite(p.winRate) ? Math.max(0, Math.min(100, p.winRate)) : null;
+        const title = this.valueOrDash(p.title, '—');
+        const statusTone = status && status.toLowerCase().includes('đang đánh') ? '#f59e0b' : '#10b981';
+        const normalizedName = this.valueOrDash(p.name, '—');
+        const hasStats = !!p.hasStats && Number.isFinite(winRate) && Number.isFinite(Number(p.elo)) && Number.isFinite(Number(p.level));
+        const statMarkup = hasStats ? `
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:12px;color:#e2e8f0;min-width:0;">
+                        <div style="min-width:0;"><strong style="color:#fff;">🏆 Elo</strong> <span style="display:inline-block;min-width:0;">${elo}</span></div>
+                        <div style="min-width:0;"><strong style="color:#fff;">📈 Win</strong> <span style="display:inline-block;min-width:0;">${winRate}%</span></div>
+                    </div>
+
+                    <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                        <div style="flex:1;height:10px;border-radius:999px;background:rgba(255,255,255,.14);overflow:hidden;border:1px solid rgba(255,255,255,.15);min-width:0;">
+                            <div style="width:${winRate}%;height:100%;background:linear-gradient(90deg,${this.winRateBarColor(winRate)},rgba(255,255,255,.92));border-radius:999px;"></div>
+                        </div>
+                        <span style="font-size:11px;color:#f8fafc;font-weight:700;white-space:nowrap;">${winRate}%</span>
+                    </div>
+        ` : '';
+
+        return `
+            <div class="player-card-shell" style="display:grid;grid-template-columns:82px minmax(0,1fr);align-items:start;gap:12px;min-width:0;width:100%;max-width:100%;padding:10px 12px;border-radius:16px;background:linear-gradient(135deg,rgba(79,70,229,.22),rgba(99,102,241,.09));border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(8px);box-sizing:border-box;">
+                <div class="player-card-avatar" style="width:82px;height:82px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(135deg,rgba(56,189,248,.35),rgba(167,139,250,.4));border:2px solid rgba(255,255,255,.45);font-size:30px;flex-shrink:0;box-shadow:0 8px 20px rgba(0,0,0,.18);">${avatar}</div>
+
+                <div class="player-card-body" style="min-width:0;display:flex;flex-direction:column;gap:6px;">
+                    <div class="player-card-name" style="font-weight:800;color:#fff;font-size:15px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">${normalizedName}</div>
+
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;">
+                        <span style="font-size:10px;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.14);color:#e5e7eb;white-space:nowrap;">${badge}</span>
+                        <span style="font-size:11px;color:#dbeafe;white-space:nowrap;">Lv.${level}</span>
+                    </div>
+
+                    <div style="font-size:12px;color:#fef08a;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">${title}</div>
+
+                    ${statMarkup}
+
+                    <div style="padding:6px 10px;border-radius:10px;background:rgba(15,23,42,.45);color:${statusTone};font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid rgba(255,255,255,.1);">${status}</div>
+                </div>
+            </div>
+        `;
+    },
+
+    hydrate(target, profile = {}, options = {}) {
+        const el = typeof target === 'string' ? document.querySelector(target) : target;
+        if (!el) return;
+        el.innerHTML = this.render(profile, options);
+    }
+};
+
+const UIStateManager = {
+    currentMode: 'HOME',
+    apply(mode) {
+        this.currentMode = mode;
+        const appHeader = document.getElementById('app-header');
+        const botView = document.getElementById('view-bot-room');
+        const roomView = document.getElementById('view-room');
+
+        if (mode === 'BOT_VS_BOT') {
+            if (appHeader) appHeader.style.display = 'none';
+            if (typeof hideTopNavigation === 'function') hideTopNavigation();
+            if (botView) botView.classList.add('active');
+            if (roomView) roomView.classList.remove('active');
+            return;
+        }
+
+        if (appHeader) appHeader.style.display = '';
+        if (typeof showTopNavigation === 'function') showTopNavigation();
+    }
+};
+
+window.UIStateManager = UIStateManager;
+
 const BotRoomManager = {
     BOT_ROOMS: [
         { id: 1, name: 'Bot Dễ',        emoji: '🟢', color: '#10b981', gameMode: 'ai-easy',        description: 'Dành cho người mới' },
@@ -15,10 +266,82 @@ const BotRoomManager = {
         { id: 9, name: 'Sắp ra mắt',    emoji: '🔒', color: '#94a3b8', gameMode: null,             description: 'Mở khóa theo nhiệm vụ' }
     ],
 
+    resolveBotMetaByMode: function(gameMode) {
+        const roomMeta = this.BOT_ROOMS.find(room => room.gameMode === gameMode) || {
+            id: -1,
+            name: gameMode || 'Bot',
+            emoji: '🤖',
+            color: '#6366f1',
+            gameMode,
+            description: 'Bot tùy chọn'
+        };
+
+        const profileSeed = BOT_PROFILE_SEED[gameMode] || {};
+        return {
+            ...roomMeta,
+            ...profileSeed,
+            id: profileSeed.id || roomMeta.id,
+            name: profileSeed.name || roomMeta.name,
+            avatar: profileSeed.avatar || roomMeta.emoji,
+            description: profileSeed.description || roomMeta.description,
+            difficulty: profileSeed.difficulty || roomMeta.description,
+            gameMode,
+        };
+    },
+
     currentBotRoom: null,
     isBotRoomMode:  false,
     botVsBotState:  null,
     isBotVsBotMode: false,
+    // ══ Thống kê Bot vs Bot ══════════════════════════════════════════════════════════════════
+    botVsBotStats: null,
+
+    // ══ Hiển thị thống kê Bot vs Bot ══════════════════════════════════════════════════════════════════
+    displayBotVsBotStats: function() {
+        if (!this.botVsBotStats) return;
+        
+        const state = this.botVsBotState;
+        if (!state) return;
+        
+        const statsKey = `${state.botXMode}_vs_${state.botOMode}`;
+        const stats = this.botVsBotStats[statsKey];
+        
+        if (!stats) return;
+        
+        // Tính tỷ lệ thắng
+        const winRateX = stats.totalMatches > 0 ? ((stats.winsX / stats.totalMatches) * 100).toFixed(1) : 0;
+        const winRateO = stats.totalMatches > 0 ? ((stats.winsO / stats.totalMatches) * 100).toFixed(1) : 0;
+        const drawRate = stats.totalMatches > 0 ? ((stats.draws / stats.totalMatches) * 100).toFixed(1) : 0;
+        
+        console.log(`[BotVsBot] ${stats.botXLabel} vs ${stats.botOLabel}:`);
+        console.log(`  Tổng trận: ${stats.totalMatches}`);
+        console.log(`  ${stats.botXLabel} thắng: ${stats.winsX} (${winRateX}%)`);
+        console.log(`  ${stats.botOLabel} thắng: ${stats.winsO} (${winRateO}%)`);
+        console.log(`  Hòa: ${stats.draws} (${drawRate}%)`);
+        
+        // Hiển thị UI thống kê (nếu có container)
+        const statsContainer = document.getElementById('bot-vs-bot-stats');
+        if (statsContainer) {
+            statsContainer.innerHTML = `
+                <div style="background:#f8fafc;border-radius:8px;padding:12px;margin-top:12px;font-size:13px;">
+                    <div style="font-weight:bold;margin-bottom:8px;color:#64748b;">📊 Thống kê Bot vs Bot</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                        <div style="background:#e0f2fe;padding:8px;border-radius:6px;">
+                            <div style="font-weight:bold;color:#0284c7;">${stats.botXLabel}</div>
+                            <div style="color:#0369a1;">Thắng: ${stats.winsX} (${winRateX}%)</div>
+                        </div>
+                        <div style="background:#fce7f3;padding:8px;border-radius:6px;">
+                            <div style="font-weight:bold;color:#be185d;">${stats.botOLabel}</div>
+                            <div style="color:#9d174d;">Thắng: ${stats.winsO} (${winRateO}%)</div>
+                        </div>
+                    </div>
+                    <div style="margin-top:8px;color:#64748b;">
+                        Tổng: ${stats.totalMatches} trận | Hòa: ${stats.draws} (${drawRate}%)
+                    </div>
+                </div>
+            `;
+        }
+    },
 
     // ══ Danh sách phòng bot trong lobby ══════════════════════════
     openBotLobby: function() {
@@ -146,9 +469,11 @@ const BotRoomManager = {
                                style="width:16px;height:16px;accent-color:#6366f1;">
                         🛡️ Chặn 2 đầu
                     </label>
-                    <div style="margin-top:12px;color:#4b5563;font-size:13px;">Chọn 2 bot và bắt đầu, trận đấu sẽ diễn ra tự động trên bàn cờ BOT hiện tại.</div>
                 </div>
             </div>
+
+            <!-- Container thống kê -->
+            <div id="bot-vs-bot-stats"></div>
 
             <button id="btn-bot-start"
                     onclick="BotRoomManager.startBotBattle()"
@@ -308,10 +633,7 @@ const BotRoomManager = {
             viewBotRoom.classList.add('active');
         }
 
-        // Hide navigation during battle
-        if (typeof hideTopNavigation === 'function') {
-            hideTopNavigation();
-        }
+        UIStateManager.apply('BOT_VS_BOT');
 
         // Initialize canvas in the new bot room container
         this.initBotRoomCanvas();
@@ -494,13 +816,50 @@ const BotRoomManager = {
         const winCount = wcEl ? parseInt(wcEl.value, 10) : 5;
         const blockBoth = bbEl ? bbEl.checked : true;
 
+        const botXMeta = this.resolveBotMetaByMode(botXMode);
+        const botOMeta = this.resolveBotMetaByMode(botOMode);
+
         this.botVsBotState = {
             botXMode,
             botOMode,
+            botXLabel: `${botXMeta.emoji} ${botXMeta.name}`,
+            botOLabel: `${botOMeta.emoji} ${botOMeta.name}`,
             winCount,
             blockBoth,
             currentPlayer: 'X'
         };
+
+        // ══════════════════════════════════════════════════════════════════
+        // Khởi tạo thống kê cho cặp bot này
+        // ══════════════════════════════════════════════════════════════════
+        const statsKey = `${botXMode}_vs_${botOMode}`;
+        
+        // Load thống kê từ localStorage
+        const savedStats = localStorage.getItem('botVsBotStats');
+        if (savedStats) {
+            try {
+                this.botVsBotStats = JSON.parse(savedStats);
+            } catch (e) {
+                console.warn('[BotVsBot] Failed to load stats from localStorage:', e);
+                this.botVsBotStats = {};
+            }
+        } else {
+            this.botVsBotStats = {};
+        }
+        
+        if (!this.botVsBotStats[statsKey]) {
+            this.botVsBotStats[statsKey] = {
+                botXMode,
+                botOMode,
+                botXLabel: `${botXMeta.emoji} ${botXMeta.name}`,
+                botOLabel: `${botOMeta.emoji} ${botOMeta.name}`,
+                totalMatches: 0,
+                winsX: 0,
+                winsO: 0,
+                draws: 0,
+                matchHistory: []
+            };
+        }
 
         // Khởi tạo game mode và cài đặt board
         if (typeof modeSelect !== 'undefined') modeSelect.value = botXMode;
@@ -576,50 +935,116 @@ const BotRoomManager = {
     // ══ Update BOT ROOM overlay UI (YC.TXT) ═════════════════════
     updateBotRoomOverlays: function() {
         const username = localStorage.getItem('current_username') || 'Bạn';
-
-        // Update player info
-        const playerName = document.getElementById('bot-player-name');
-        if (playerName) playerName.textContent = username;
-
-        // Update bot info
-        const botName = document.getElementById('bot-bot-name');
-        if (botName) botName.textContent = this.currentBotRoom.name;
-
-        const botDifficulty = document.getElementById('bot-difficulty');
-        if (botDifficulty) botDifficulty.textContent = this.currentBotRoom.description;
-
-        // Update player stats (mock data for now)
-        const playerLevel = document.getElementById('bot-player-level');
-        if (playerLevel) playerLevel.textContent = '25';
-
-        const playerElo = document.getElementById('bot-player-elo');
-        if (playerElo) playerElo.textContent = '1500';
-
-        const playerWins = document.getElementById('bot-player-wins');
-        if (playerWins) playerWins.textContent = '0';
-
-        const playerXu = document.getElementById('bot-player-xu');
-        if (playerXu) playerXu.textContent = '25000';
-
-        // Update bot stats
-        const botElo = document.getElementById('bot-elo');
-        if (botElo) botElo.textContent = '1800';
-
-        const botWinrate = document.getElementById('bot-winrate');
-        if (botWinrate) botWinrate.textContent = '65%';
-
-        // Update turn indicators
         const playerIndicator = document.getElementById('bot-player-indicator');
         const botIndicator = document.getElementById('bot-bot-indicator');
 
+        const playerDetails = document.querySelector('#bot-player-overlay .bot-player-details');
+        const botDetails = document.querySelector('#bot-bot-overlay .bot-player-details');
+
+        const humanProfile = PlayerCard.normalizeProfile({
+            id: 'human',
+            name: username,
+            avatar: '🧑',
+            level: 25,
+            elo: 1500,
+            win: 0,
+            lose: 0,
+            draw: 0,
+            winRate: '—',
+            coin: 25000,
+            title: 'Người chơi',
+            status: 'Đang suy nghĩ',
+            isBot: false,
+        });
+
+        const botMeta = this.resolveBotMetaByMode(this.currentBotRoom?.gameMode);
+        const botProfile = PlayerCard.normalizeProfile({
+            id: botMeta.id || 'bot',
+            name: botMeta.name || 'Bot',
+            avatar: botMeta.avatar || botMeta.emoji || '🤖',
+            level: botMeta.level,
+            elo: botMeta.elo,
+            wins: botMeta.wins,
+            losses: botMeta.losses,
+            draws: botMeta.draws,
+            winRate: botMeta.winRate,
+            coin: botMeta.coin || 0,
+            title: botMeta.title || botMeta.description || 'Bot AI',
+            status: 'Đang tính nước đi',
+            isBot: true,
+            difficulty: botMeta.difficulty || botMeta.description || 'Bot AI',
+        });
+
+        if (playerDetails) {
+            PlayerCard.hydrate(playerDetails, humanProfile, {
+                badge: 'Human',
+                status: this.currentBotRoom && this.currentBotRoom.gameMode === 'bot-vs-bot' && this.botVsBotState
+                    ? (this.botVsBotState.currentPlayer === 'X' ? 'Đang đánh' : 'Đang chờ')
+                    : 'Đang suy nghĩ'
+            });
+        }
+
+        if (botDetails) {
+            PlayerCard.hydrate(botDetails, botProfile, {
+                badge: 'Bot',
+                status: this.currentBotRoom && this.currentBotRoom.gameMode === 'bot-vs-bot' && this.botVsBotState
+                    ? (this.botVsBotState.currentPlayer === 'O' ? 'Đang đánh' : 'Đang chờ')
+                    : 'Đang tính nước đi'
+            });
+        }
+
+        if (playerIndicator) playerIndicator.textContent = this.currentBotRoom && this.currentBotRoom.gameMode === 'bot-vs-bot' && this.botVsBotState
+            ? (this.botVsBotState.currentPlayer === 'X' ? 'Đang đánh • Bot X' : 'Đang chờ • Bot X')
+            : 'Lượt của bạn';
+
+        if (botIndicator) botIndicator.textContent = this.currentBotRoom && this.currentBotRoom.gameMode === 'bot-vs-bot' && this.botVsBotState
+            ? (this.botVsBotState.currentPlayer === 'O' ? 'Đang đánh • Bot O' : 'Đang chờ • Bot O')
+            : 'Đang chờ';
+
         if (this.currentBotRoom && this.currentBotRoom.gameMode === 'bot-vs-bot' && this.botVsBotState) {
-            if (playerName) playerName.textContent = 'Bot X';
-            if (botName) botName.textContent = 'Bot O';
-            if (playerIndicator) playerIndicator.textContent = this.botVsBotState.currentPlayer === 'X' ? 'Đang đánh' : 'Đang chờ';
-            if (botIndicator) botIndicator.textContent = this.botVsBotState.currentPlayer === 'O' ? 'Đang đánh' : 'Đang chờ';
-        } else {
-            if (playerIndicator) playerIndicator.textContent = 'Lượt của bạn';
-            if (botIndicator) botIndicator.textContent = 'Đang chờ';
+            const xMeta = this.resolveBotMetaByMode(this.botVsBotState.botXMode || 'bot-toi-thuong');
+            const oMeta = this.resolveBotMetaByMode(this.botVsBotState.botOMode || 'bot-tia-chop');
+
+            const botXProfile = PlayerCard.normalizeProfile({
+                id: xMeta.id || xMeta.gameMode,
+                name: `${xMeta.avatar || xMeta.emoji} ${xMeta.name}`,
+                avatar: xMeta.avatar || xMeta.emoji,
+                level: xMeta.level,
+                elo: xMeta.elo,
+                wins: xMeta.wins,
+                losses: xMeta.losses,
+                draws: xMeta.draws,
+                winRate: xMeta.winRate,
+                coin: xMeta.coin || 0,
+                title: xMeta.title || xMeta.description,
+                status: this.botVsBotState.currentPlayer === 'X' ? 'Đang đánh' : 'Đang chờ',
+                isBot: true,
+                difficulty: xMeta.difficulty || xMeta.description,
+            });
+
+            const botOProfile = PlayerCard.normalizeProfile({
+                id: oMeta.id || oMeta.gameMode,
+                name: `${oMeta.avatar || oMeta.emoji} ${oMeta.name}`,
+                avatar: oMeta.avatar || oMeta.emoji,
+                level: oMeta.level,
+                elo: oMeta.elo,
+                wins: oMeta.wins,
+                losses: oMeta.losses,
+                draws: oMeta.draws,
+                winRate: oMeta.winRate,
+                coin: oMeta.coin || 0,
+                title: oMeta.title || oMeta.description,
+                status: this.botVsBotState.currentPlayer === 'O' ? 'Đang đánh' : 'Đang chờ',
+                isBot: true,
+                difficulty: oMeta.difficulty || oMeta.description,
+            });
+
+            if (playerDetails) {
+                PlayerCard.hydrate(playerDetails, botXProfile, { badge: 'Bot', status: this.botVsBotState.currentPlayer === 'X' ? 'Đang đánh' : 'Đang chờ' });
+            }
+            if (botDetails) {
+                PlayerCard.hydrate(botDetails, botOProfile, { badge: 'Bot', status: this.botVsBotState.currentPlayer === 'O' ? 'Đang đánh' : 'Đang chờ' });
+            }
         }
     },
 
@@ -632,7 +1057,9 @@ const BotRoomManager = {
         localStorage.removeItem('bot_room_mode');
         localStorage.removeItem('bot_room_config');
 
-        // Re-initialize game
+        UIStateManager.apply('BOT_VS_BOT');
+
+        // Re-initialize board/game state only; do not reset UI mode
         if (typeof initGame === 'function') initGame();
 
         if (this.currentBotRoom.gameMode === 'bot-vs-bot') {
@@ -845,11 +1272,8 @@ const BotRoomManager = {
         const pl = document.querySelector('.practice-layout');
         if (pl) { pl.style.visibility = ''; pl.style.display = ''; }
 
-        // YC.TXT FIX: Show navigation when exiting battle (same as Online Room)
-        if (typeof showTopNavigation === 'function') {
-            console.log('[BotRoom] Showing top navigation');
-            showTopNavigation();
-        }
+        // YC.TXT FIX: Exit bot room must return to normal home UI once
+        UIStateManager.apply('HOME');
 
         // YC.TXT FIX: Reset game state (same as Online Room)
         if (typeof isGameActive !== 'undefined') {

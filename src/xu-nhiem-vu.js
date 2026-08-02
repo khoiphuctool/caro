@@ -10,7 +10,7 @@ const XU_CONFIG = {
     DAILY_CHECKIN: 5000,
     AVATAR_PRICE: 3000,
     BOT_REWARD: { easy: 700, medium: 900, hard: 1200, god: 2000, lightning: 2000, super: 5000 },
-    BOT_DAILY_LIMIT: { easy: 10, medium: 12, hard: 10, god: 10, lightning: 10, super: 5 },
+    BOT_DAILY_LIMIT: { easy: 10, medium: 12, hard: 10, god: 10, lightning: 10, super: 15 },
     BOT_BONUS_REWARD: { easy: 10000, medium: 15000, hard: 20000, god: 30000, lightning: 25000, super: 50000 }, // Thưởng khi đạt max limit
     SOLO_WIN_REWARD: 200,      // Thưởng thắng PvP Solo Online
     SOLO_WIN_DAILY_LIMIT: 20,  // Tối đa 20 trận/ngày
@@ -538,7 +538,7 @@ window.batDauCuoc = batDauCuoc;
 // Guard để tránh gọi nhiều lần từ cả 2 client
 let _lastProcessedBetEndRoom = '';
 let _lastProcessedBetEndTime = 0;
-function ketThucCuoc(roomId, winnerRole, isDraw) {
+async function ketThucCuoc(roomId, winnerRole, isDraw) {
     const database = _getDb();
     if (!database) return;
     
@@ -549,63 +549,65 @@ function ketThucCuoc(roomId, winnerRole, isDraw) {
         return;
     }
     
-    database.ref(`rooms/${roomId}`).once('value').then(snap => {
-        const room = snap.val();
-        if (!room || !room.betAmount) return;
-        const bet = room.betAmount || 0;
-        const xId = room.betPlayerX;
-        const oId = room.betPlayerO;
-        if (!xId || !oId) return;
-        const myId = localStorage.getItem('current_user_id');
-        
-        // Đánh dấu đã xử lý
-        _lastProcessedBetEndRoom = roomId;
-        _lastProcessedBetEndTime = now;
+    const snap = await database.ref(`rooms/${roomId}`).once('value');
+    const room = snap.val();
+    if (!room || !room.betAmount) return;
+    const bet = room.betAmount || 0;
+    const xId = room.betPlayerX;
+    const oId = room.betPlayerO;
+    if (!xId || !oId) return;
+    const myId = localStorage.getItem('current_user_id');
+    
+    // Đánh dấu đã xử lý
+    _lastProcessedBetEndRoom = roomId;
+    _lastProcessedBetEndTime = now;
 
-        if (isDraw) {
-            // Hòa: hoàn lại xu cho cả 2 (không đổi gì)
-            setTimeout(() => {
-                showXuPopup(0, 'Hòa cược 🤝');
-            }, 500); // Delay để bàn cờ kịp render
-            if (typeof enqueueNotification === 'function') enqueueNotification('system_events', { type: 'win', message: `🤝 Hòa! Không đổi xu.` });
-        } else {
-            const winnerId = winnerRole === 'X' ? xId : oId;
-            const loserId  = winnerRole === 'X' ? oId  : xId;
-            
-            // Winner +bet
-            database.ref(`users/${winnerId}/coins`).transaction(c => (c || 0) + bet)
-                .then(() => {
-                    if (myId === winnerId) {
-                        setTimeout(() => {
-                            playCoinBurst(bet, 'Thắng cược! 🏆💰');
-                        }, 500); // Delay để bàn cờ kịp render nước cuối
-                    }
-                });
-            
-            // Loser -bet
-            database.ref(`users/${loserId}/coins`).transaction(c => {
-                const cur = c || 0;
-                if (cur < bet) return 0; // Không âm
-                return cur - bet;
-            }).then(() => {
-                if (myId === loserId) {
+    if (isDraw) {
+        // Hòa: hoàn lại xu cho cả 2 (không đổi gì)
+        setTimeout(() => {
+            showXuPopup(0, 'Hòa cược 🤝');
+        }, 500); // Delay để bàn cờ kịp render
+        if (typeof enqueueNotification === 'function') enqueueNotification('system_events', { type: 'win', message: `🤝 Hòa! Không đổi xu.` });
+    } else {
+        const winnerId = winnerRole === 'X' ? xId : oId;
+        const loserId  = winnerRole === 'X' ? oId  : xId;
+        
+        // Winner +bet
+        const winnerPromise = database.ref(`users/${winnerId}/coins`).transaction(c => (c || 0) + bet)
+            .then(() => {
+                if (myId === winnerId) {
                     setTimeout(() => {
-                        // BUG 2 Fix: Add coin loss animation for loser
-                        playCoinBurst(-bet, 'Thua cược -Xu 😔');
+                        playCoinBurst(bet, 'Thắng cược! 🏆💰');
                     }, 500); // Delay để bàn cờ kịp render nước cuối
                 }
             });
-            
-            if (typeof enqueueNotification === 'function') {
-                enqueueNotification('system_events', { type: 'win', message: `🏆 Người thắng nhận ${bet.toLocaleString('vi-VN')} Xu từ người thua!` });
+        
+        // Loser -bet
+        const loserPromise = database.ref(`users/${loserId}/coins`).transaction(c => {
+            const cur = c || 0;
+            if (cur < bet) return 0; // Không âm
+            return cur - bet;
+        }).then(() => {
+            if (myId === loserId) {
+                setTimeout(() => {
+                    // BUG 2 Fix: Add coin loss animation for loser
+                    playCoinBurst(-bet, 'Thua cược -Xu 😔');
+                }, 500); // Delay để bàn cờ kịp render nước cuối
             }
+        });
+        
+        await Promise.all([winnerPromise, loserPromise]);
+        if (typeof enqueueNotification === 'function') {
+            enqueueNotification('system_events', { type: 'win', message: `🏆 Người thắng nhận ${bet.toLocaleString('vi-VN')} Xu từ người thua!` });
         }
-        // Xóa dữ liệu cược khỏi phòng
-        database.ref(`rooms/${roomId}/betPot`).remove();
-        database.ref(`rooms/${roomId}/betAmount`).remove();
-        database.ref(`rooms/${roomId}/betPlayerX`).remove();
-        database.ref(`rooms/${roomId}/betPlayerO`).remove();
-    });
+    }
+    // Xóa dữ liệu cược khỏi phòng
+    await Promise.all([
+        database.ref(`rooms/${roomId}/betPot`).remove(),
+        database.ref(`rooms/${roomId}/betAmount`).remove(),
+        database.ref(`rooms/${roomId}/betPlayerX`).remove(),
+        database.ref(`rooms/${roomId}/betPlayerO`).remove()
+    ]);
 }
 window.ketThucCuoc = ketThucCuoc;
 
@@ -842,35 +844,41 @@ window.playCoinBurst = playCoinBurst;
 // BUG 3 & 4 FIX: Promise-based wrapper to wait for animation completion
 let _coinBurstPromise = null;
 function playCoinBurstAsync(amount, label) {
+    // Reuse the current in-flight animation promise to prevent duplicate queue entries.
     if (_coinBurstPromise) return _coinBurstPromise;
-    
-    return new Promise((resolve) => {
-        // If animation is already active, wait for it to complete
+
+    const promise = new Promise((resolve) => {
+        // If animation is already active, wait for it to complete.
         if (_coinBurstAnimationActive) {
             _coinBurstResolveCallback = resolve;
             return;
         }
-        
-        // BUG 1 FIX: If called with amount 0, don't start new animation
-        // This is used only to wait for existing animations
+
+        // BUG 1 FIX: If called with amount 0, don't start new animation.
+        // This is used only to wait for an existing animation.
         if (amount === 0) {
             resolve();
             return;
         }
-        
+
         // Call original animation
         playCoinBurst(amount, label);
-        
-        // Set callback to resolve when animation actually completes
+
+        // Set callback to resolve when animation completes.
         _coinBurstResolveCallback = resolve;
-        
+
         // Fallback timeout in case animation never completes (safety net)
         setTimeout(() => {
             if (_coinBurstResolveCallback) {
                 _coinBurstResolveCallback();
                 _coinBurstResolveCallback = null;
             }
-        }, 3000); // 3 second safety net
+        }, 3000);
+    });
+
+    _coinBurstPromise = promise;
+    return promise.finally(() => {
+        _coinBurstPromise = null;
     });
 }
 window.playCoinBurstAsync = playCoinBurstAsync;
@@ -1023,36 +1031,35 @@ let _lastProcessedSoloWinTime = 0;
 function onWinSoloXu() {
     const uid = _getUid();
     const database = _getDb();
-    if (!uid || !database) return;
+    if (!uid || !database) return Promise.resolve();
 
     // Guard để tránh gọi nhiều lần
     const now = Date.now();
     const roomId = (typeof currentRoomId !== 'undefined') ? currentRoomId : null;
     if (roomId && _lastProcessedSoloWinRoom === roomId && (now - _lastProcessedSoloWinTime) < 5000) {
         console.log('[SoloXu] Skipping duplicate solo win reward for room:', roomId);
-        return;
+        return Promise.resolve();
     }
 
     // Không thưởng Solo xu nếu ván này đang có cược (tránh double reward)
     if (roomId) {
-        database.ref(`rooms/${roomId}/betPot`).once('value').then(snap => {
+        return database.ref(`rooms/${roomId}/betPot`).once('value').then(snap => {
             if (snap.val() > 0) return; // có cược → skip solo reward
             _lastProcessedSoloWinRoom = roomId || '';
             _lastProcessedSoloWinTime = now;
-            _runOnWinSoloXu(uid, database);
+            return _runOnWinSoloXu(uid, database);
         });
-        return;
     }
     _lastProcessedSoloWinRoom = '';
     _lastProcessedSoloWinTime = now;
-    _runOnWinSoloXu(uid, database);
+    return _runOnWinSoloXu(uid, database);
 }
 
 function _runOnWinSoloXu(uid, database) {
     const today = getTodayStr();
     const limitsRef = database.ref(`users/${uid}/soloDailyWins`);
 
-    limitsRef.once('value').then(snap => {
+    return limitsRef.once('value').then(snap => {
         const data = snap.val() || {};
         // Reset nếu sang ngày mới
         const used = (data.date === today) ? (data.count || 0) : 0;

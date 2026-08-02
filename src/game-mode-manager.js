@@ -24,6 +24,7 @@
     // ══════════════════════════════════════════════════════════════════
     let currentMode = GameModes.NONE;
     let modeContext = null; // Stores mode-specific data (bot config, room id, etc.)
+    let modeChangeCallbacks = []; // Callbacks when mode changes
 
     // ══════════════════════════════════════════════════════════════════
     // PRIVATE FUNCTIONS
@@ -90,6 +91,8 @@
                 return false;
             }
 
+            const previousMode = currentMode;
+            
             // If switching from one mode to another, cleanup first
             if (currentMode !== GameModes.NONE && currentMode !== mode) {
                 console.warn('[GameModeManager] Switching from', currentMode, 'to', mode, '- cleanup required');
@@ -100,6 +103,16 @@
             saveModeToStorage();
             
             console.log('[GameModeManager] Mode set to:', mode, 'with context:', context);
+            
+            // Trigger mode change callbacks
+            modeChangeCallbacks.forEach(callback => {
+                try {
+                    callback(mode, previousMode, context);
+                } catch (e) {
+                    console.error('[GameModeManager] Mode change callback error:', e);
+                }
+            });
+            
             return true;
         },
 
@@ -109,7 +122,25 @@
             currentMode = GameModes.NONE;
             modeContext = null;
             clearModeFromStorage();
+            
+            // Trigger mode change callbacks
+            modeChangeCallbacks.forEach(callback => {
+                try {
+                    callback(GameModes.NONE, previousMode, null);
+                } catch (e) {
+                    console.error('[GameModeManager] Mode change callback error:', e);
+                }
+            });
+            
             return previousMode;
+        },
+        
+        // Register callback for mode changes
+        onModeChange: function(callback) {
+            if (typeof callback === 'function') {
+                modeChangeCallbacks.push(callback);
+                console.log('[GameModeManager] Mode change callback registered');
+            }
         },
 
         // Get mode context

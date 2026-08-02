@@ -348,6 +348,10 @@ function makeMove(r, c) {
     });
 
     // NẾU ĐANG CHƠI ONLINE
+    if (typeof GameModeManager !== 'undefined' && GameModeManager.isReplay && GameModeManager.isReplay()) {
+        console.warn('[DEBUG-BOARD] makeMove blocked: replay mode active');
+        return;
+    }
     if (window.isOnlineModeActive && window.isOnlineModeActive()) {
         // Chỉ cho gửi một nước đi tại một thời điểm. Nếu không, người chơi có
         // thể click nhanh nhiều ô trước khi Firebase phản hồi và làm lệch bàn cờ local.
@@ -410,7 +414,7 @@ function makeMove(r, c) {
 
         // Gửi lên Firebase SAU KHI đã setCell (để kiểm tra thắng đọc đúng board).
         // Kết quả thắng chỉ được chốt sau khi transaction được Firebase xác nhận.
-        const isWinningMove = checkWin(r, c);
+        const isWinningMove = (typeof checkWinSilent === 'function') ? checkWinSilent(r, c) : false;
         if (window.guiNuocDiLenFirebase) {
             window.onlineMovePending = true;
             return Promise.resolve(window.guiNuocDiLenFirebase(r, c))
@@ -632,24 +636,44 @@ function makeMove(r, c) {
 function getWinningLine(row, col, player, winCount, blockBothEndsEnabled) {
     const opp = player === 'X' ? 'O' : 'X';
     for (let { dr, dc } of DIRECTIONS) {
-        const cells = [[row, col]];
-        let fwd = 0, bwd = 0;
-        while (getCell(row + dr * (fwd + 1), col + dc * (fwd + 1)) === player) {
-            fwd++; cells.push([row + dr * fwd, col + dc * fwd]);
-        }
-        while (getCell(row - dr * (bwd + 1), col - dc * (bwd + 1)) === player) {
-            bwd++; cells.push([row - dr * bwd, col - dc * bwd]);
-        }
-        if (cells.length < winCount) continue;
+        const line = [[row, col]];
+        let r = row;
+        let c = col;
 
-        if (blockBothEndsEnabled) {
-            const headCell = getCell(row + dr * (fwd + 1), col + dc * (fwd + 1));
-            const tailCell = getCell(row - dr * (bwd + 1), col - dc * (bwd + 1));
+        while (getCell(r + dr, c + dc) === player) {
+            r += dr;
+            c += dc;
+            line.push([r, c]);
+        }
+
+        r = row;
+        c = col;
+        while (getCell(r - dr, c - dc) === player) {
+            r -= dr;
+            c -= dc;
+            line.unshift([r, c]);
+        }
+
+        if (line.length < winCount) continue;
+
+        if (!blockBothEndsEnabled) {
+            return line;
+        }
+
+        const segmentCount = line.length - winCount + 1;
+        for (let startIndex = 0; startIndex < segmentCount; startIndex++) {
+            const segment = line.slice(startIndex, startIndex + winCount);
+            const startCell = segment[0];
+            const endCell = segment[segment.length - 1];
+            const headCell = getCell(endCell[0] + dr, endCell[1] + dc);
+            const tailCell = getCell(startCell[0] - dr, startCell[1] - dc);
             const headBlocked = headCell === opp;
             const tailBlocked = tailCell === opp;
-            if (headBlocked && tailBlocked) continue;
+
+            if (!(headBlocked && tailBlocked)) {
+                return segment;
+            }
         }
-        return cells;
     }
     return null;
 }

@@ -763,60 +763,346 @@ function guiLoiMoiThachDau(targetUid, targetName) {
     const myId   = localStorage.getItem('current_user_id');
     const myName = currentUserData ? currentUserData.displayName : currentUsername;
     
+    console.log('[Solo Invite] ===== CHECKING SOLO INVITE =====');
+    console.log('[Solo Invite] From:', myId, myName);
+    console.log('[Solo Invite] To:', targetUid, targetName);
+    
     // Kiểm tra xem người nhận có bận không
     db.ref(`users/${targetUid}/currentRoomId`).once('value').then(snap => {
         const targetRoomId = snap.val();
         
+        console.log('[Solo Invite] Checking target currentRoomId:', targetRoomId);
+        
         // Nếu người chơi đang trong phòng nào đó → báo bận
         if (targetRoomId) {
-            alert(`[${targetName}] đang bận trong phòng khác! Vui lòng thử lại sau.`);
+            // ══════════════════════════════════════════════════════════════════
+            // LOG CHI TIẾT: Tại sao báo bận?
+            // ══════════════════════════════════════════════════════════════════
+            db.ref(`rooms/${targetRoomId}`).once('value').then(roomSnap => {
+                const room = roomSnap.val();
+                console.log('[Solo Invite] Checking room state...');
+                console.log('[Solo Invite] Target:', targetName);
+                console.log('[Solo Invite] Presence: Checking online status...');
+                console.log('[Solo Invite] CurrentRoomId:', targetRoomId);
+                console.log('[Solo Invite] Room Status:', room ? room.status : 'null');
+                console.log('[Solo Invite] Room PlayerX:', room ? room.playerX_id : 'null');
+                console.log('[Solo Invite] Room PlayerO:', room ? room.playerO_id : 'null');
+                console.log('[Solo Invite] Room Winner:', room ? room.winner : 'null');
+                console.log('[Solo Invite] Room EndReason:', room ? room.endReason : 'null');
+                console.log('[Solo Invite] Room EndedAt:', room ? room.endedAt : 'null');
+                
+                // ══════════════════════════════════════════════════════════════════
+                // GHOST ROOM FIX: Nếu room empty hoặc ended và không có player nào
+                // thì coi như user không bận (ignore currentRoomId)
+                // ══════════════════════════════════════════════════════════════════
+                if (room && (room.status === 'empty' || room.status === 'ended')) {
+                    const hasPlayerX = room.playerX_id && room.playerX_id !== '';
+                    const hasPlayerO = room.playerO_id && room.playerO_id !== '';
+                    
+                    if (!hasPlayerX && !hasPlayerO) {
+                        console.log('[Solo Invite] GHOST ROOM DETECTED - Room is empty/ended with no players');
+                        console.log('[Solo Invite] Auto-cleaning ghost currentRoomId for target:', targetUid);
+                        
+                        // Auto cleanup ghost currentRoomId
+                        db.ref(`users/${targetUid}/currentRoomId`).remove().then(() => {
+                            console.log('[Solo Invite] ✓ Ghost currentRoomId cleaned up');
+                        }).catch(err => {
+                            console.error('[Solo Invite] ✗ Error cleaning ghost currentRoomId:', err);
+                        });
+                        
+                        // Cho phép mời (coi như user không bận)
+                        console.log('[Solo Invite] Proceeding with invite (ghost room ignored)');
+                        proceedWithInvite(targetUid, targetName, myId, myName, currentRoomId);
+                        return;
+                    }
+                }
+                
+                console.log('[Solo Invite] Reason: busy because currentRoomId still active');
+                alert(`[${targetName}] đang bận trong phòng khác! Vui lòng thử lại sau.`);
+            }).catch(err => {
+                console.error('[Solo Invite] Error checking room:', err);
+                console.log('[Solo Invite] Target:', targetName);
+                console.log('[Solo Invite] CurrentRoomId:', targetRoomId);
+                console.log('[Solo Invite] Reason: busy (room check failed)');
+                alert(`[${targetName}] đang bận trong phòng khác! Vui lòng thử lại sau.`);
+            });
             return;
         }
         
-        // Kiểm tra xem người nhận có online không
-        db.ref(`online_users/${targetUid}`).once('value').then(snap => {
-            const isOnline = snap.exists();
+        console.log('[Solo Invite] Target currentRoomId is null - ALLOWED');
+        proceedWithInvite(targetUid, targetName, myId, myName, currentRoomId);
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// HELPER: Gửi lời mời sau khi đã kiểm tra busy
+// ══════════════════════════════════════════════════════════════════
+function proceedWithInvite(targetUid, targetName, myId, myName, fromRoomId) {
+    // Kiểm tra xem người nhận có online không
+    db.ref(`online_users/${targetUid}`).once('value').then(snap => {
+        const isOnline = snap.exists();
+        console.log('[Solo Invite] Target online status:', isOnline);
+        
+        const inviteData = {
+            fromRoomId:     fromRoomId,
+            fromPlayerId:   myId,
+            fromPlayerName: myName,
+            timestamp:      Date.now()
+        };
+        
+        console.log('[Solo Invite] ===== CREATING INVITE =====');
+        console.log('[Solo Invite] Firebase Path: invitations/' + targetUid);
+        console.log('[Solo Invite] Sender:', myId, myName);
+        console.log('[Solo Invite] Receiver:', targetUid, targetName);
+        console.log('[Solo Invite] Timestamp:', inviteData.timestamp);
+        console.log('[Solo Invite] Invite Data:', inviteData);
+        
+        // Gửi lời mời realtime (nếu người đang online sẽ nhận ngay)
+        db.ref(`invitations/${targetUid}`).set(inviteData).then(() => {
+            console.log('[Solo Invite] ✓ Invite created successfully');
+            console.log('[Solo Invite] Firebase node: invitations/' + targetUid + ' should exist now');
             
-            // Gửi lời mời realtime (nếu người đang online sẽ nhận ngay)
-            db.ref(`invitations/${targetUid}`).set({
-                fromRoomId:     currentRoomId,
+            // Verify node was created
+            db.ref(`invitations/${targetUid}`).once('value').then(verifySnap => {
+                const verifyData = verifySnap.val();
+                console.log('[Solo Invite] Verification - Node exists:', !!verifyData);
+                console.log('[Solo Invite] Verification - Node data:', verifyData);
+                if (verifyData) {
+                    console.log('[Solo Invite] Verification - Timestamp matches:', verifyData.timestamp === inviteData.timestamp);
+                    console.log('[Solo Invite] Verification - Sender matches:', verifyData.fromPlayerId === myId);
+                }
+            });
+            
+            alert(`Đã gửi lời mời tới [${targetName}]!${isOnline ? '' : ' (Người này hiện offline, sẽ nhận khi online)'}`);
+            
+            // Luôn lưu lời mời vào danh sách chờ (để họ xem lại khi online)
+            db.ref(`pending_invites/${targetUid}`).push({
+                fromRoomId:     fromRoomId,
                 fromPlayerId:   myId,
                 fromPlayerName: myName,
-                timestamp:      Date.now()
+                timestamp:      Date.now(),
+                status:         'pending'
             }).then(() => {
-                alert(`Đã gửi lời mời tới [${targetName}]!${isOnline ? '' : ' (Người này hiện offline, sẽ nhận khi online)'}`);
-                
-                // Luôn lưu lời mời vào danh sách chờ (để họ xem lại khi online)
-                db.ref(`pending_invites/${targetUid}`).push({
-                    fromRoomId:     currentRoomId,
-                    fromPlayerId:   myId,
-                    fromPlayerName: myName,
-                    timestamp:      Date.now(),
-                    status:         'pending'
-                });
-            }).catch(err => {
-                alert('Lỗi gửi lời mời: ' + err.message);
+                console.log('[Solo Invite] ✓ Pending invite stored');
             });
+        }).catch(err => {
+            console.error('[Solo Invite] ✗ Error sending invitation:', err);
+            alert('Lỗi gửi lời mời: ' + err.message);
         });
     });
 }
 window.guiLoiMoiThachDau = guiLoiMoiThachDau;
+
+// ══════════════════════════════════════════════════════════════════
+// MODE CHANGE CALLBACK - Re-attach invite listener when returning to lobby
+// ══════════════════════════════════════════════════════════════════
+if (typeof GameModeManager !== 'undefined') {
+    GameModeManager.onModeChange(function(newMode, previousMode, context) {
+        console.log('[Invite Listener] ===== MODE CHANGE CALLBACK =====');
+        console.log('[Invite Listener] Previous mode:', previousMode);
+        console.log('[Invite Listener] New mode:', newMode);
+        console.log('[Invite Listener] Context:', context);
+        
+        // When switching to NONE (lobby), re-attach invite listener
+        if (newMode === GameModes.NONE && previousMode !== GameModes.NONE) {
+            console.log('[Invite Listener] Switching to lobby, re-attaching invite listener...');
+            langNgheLoiMoiDen();
+        }
+        
+        // When switching to ONLINE mode, listener should already be attached
+        if (newMode === GameModes.ONLINE) {
+            console.log('[Invite Listener] Switching to ONLINE mode, listener should be active');
+        }
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 🧪 REGRESSION TEST: Ghost Room Detection
+// ══════════════════════════════════════════════════════════════════
+// Test để kiểm tra xem sau khi kết thúc trận và thoát phòng,
+// Firebase có được cleanup đúng không (không còn ghost room)
+window.testGhostRoomCleanup = async function() {
+    console.log('[Ghost Room Test] ===== STARTING GHOST ROOM REGRESSION TEST =====');
+    
+    const myId = localStorage.getItem('current_user_id');
+    if (!myId) {
+        console.error('[Ghost Room Test] No user ID found');
+        return;
+    }
+    
+    // 1. Kiểm tra currentRoomId của user
+    console.log('[Ghost Room Test] Step 1: Checking user currentRoomId...');
+    const userRoomSnap = await db.ref(`users/${myId}/currentRoomId`).once('value');
+    const userRoomId = userRoomSnap.val();
+    console.log('[Ghost Room Test] User currentRoomId:', userRoomId);
+    
+    if (!userRoomId) {
+        console.log('[Ghost Room Test] ✓ PASS: User currentRoomId is null (clean)');
+        return { passed: true, reason: 'User currentRoomId is null' };
+    }
+    
+    // 2. Kiểm tra room state
+    console.log('[Ghost Room Test] Step 2: Checking room state...');
+    const roomSnap = await db.ref(`rooms/${userRoomId}`).once('value');
+    const room = roomSnap.val();
+    
+    if (!room) {
+        console.log('[Ghost Room Test] ⚠️ WARNING: Room not found but user currentRoomId still exists');
+        console.log('[Ghost Room Test] Reason: Ghost room detected (room deleted but user.currentRoomId not cleared)');
+        return { passed: false, reason: 'Ghost room: user.currentRoomId exists but room not found' };
+    }
+    
+    console.log('[Ghost Room Test] Room Status:', room.status);
+    console.log('[Ghost Room Test] Room PlayerX:', room.playerX_id);
+    console.log('[Ghost Room Test] Room PlayerO:', room.playerO_id);
+    console.log('[Ghost Room Test] Room Winner:', room.winner);
+    console.log('[Ghost Room Test] Room EndedAt:', room.endedAt);
+    
+    // 3. Kiểm tra xem user có còn trong room không
+    const isPlayerX = room.playerX_id === myId;
+    const isPlayerO = room.playerO_id === myId;
+    
+    if (!isPlayerX && !isPlayerO) {
+        console.log('[Ghost Room Test] ⚠️ WARNING: User not in room but currentRoomId still exists');
+        console.log('[Ghost Room Test] Reason: Ghost room detected (user not in room but currentRoomId not cleared)');
+        return { passed: false, reason: 'Ghost room: user not in room but currentRoomId exists' };
+    }
+    
+    // 4. Kiểm tra xem room đã kết thúc chưa
+    if (room.status === 'ended') {
+        const timeSinceEnd = Date.now() - (room.endedAt || 0);
+        console.log('[Ghost Room Test] Room ended', timeSinceEnd, 'ms ago');
+        
+        if (timeSinceEnd > 60000) { // 1 phút
+            console.log('[Ghost Room Test] ⚠️ WARNING: Room ended > 1 min ago but user.currentRoomId not cleared');
+            console.log('[Ghost Room Test] Reason: Ghost room detected (room ended long ago but currentRoomId not cleared)');
+            return { passed: false, reason: 'Ghost room: room ended > 1 min ago but currentRoomId not cleared' };
+        }
+    }
+    
+    // 5. Kiểm tra presence
+    console.log('[Ghost Room Test] Step 3: Checking presence...');
+    const presenceSnap = await db.ref(`online_users/${myId}`).once('value');
+    const isOnline = presenceSnap.exists();
+    console.log('[Ghost Room Test] User online:', isOnline);
+    
+    if (isOnline && room.status === 'ended') {
+        console.log('[Ghost Room Test] ⚠️ WARNING: User online but room ended');
+        console.log('[Ghost Room Test] Reason: Possible ghost room (user online but in ended room)');
+        return { passed: false, reason: 'Possible ghost room: user online but in ended room' };
+    }
+    
+    console.log('[Ghost Room Test] ✓ PASS: No ghost room detected');
+    return { passed: true, reason: 'No ghost room detected' };
+};
+
+// ══════════════════════════════════════════════════════════════════
+// 🧪 REGRESSION TEST: Solo Invite Pipeline
+// ══════════════════════════════════════════════════════════════════
+// Test để kiểm tra pipeline mời Solo có hoạt động đúng không
+window.testSoloInvitePipeline = async function(targetUid, targetName) {
+    console.log('[Solo Invite Test] ===== STARTING SOLO INVITE PIPELINE TEST =====');
+    console.log('[Solo Invite Test] Target:', targetUid, targetName);
+    
+    const myId = localStorage.getItem('current_user_id');
+    if (!myId) {
+        console.error('[Solo Invite Test] No user ID found');
+        return { passed: false, reason: 'No user ID' };
+    }
+    
+    // 1. Kiểm tra target currentRoomId
+    console.log('[Solo Invite Test] Step 1: Checking target currentRoomId...');
+    const targetRoomSnap = await db.ref(`users/${targetUid}/currentRoomId`).once('value');
+    const targetRoomId = targetRoomSnap.val();
+    console.log('[Solo Invite Test] Target currentRoomId:', targetRoomId);
+    
+    if (targetRoomId) {
+        // 2. Kiểm tra room state
+        console.log('[Solo Invite Test] Step 2: Checking target room state...');
+        const roomSnap = await db.ref(`rooms/${targetRoomId}`).once('value');
+        const room = roomSnap.val();
+        
+        console.log('[Solo Invite Test] Room Status:', room ? room.status : 'null');
+        console.log('[Solo Invite Test] Room PlayerX:', room ? room.playerX_id : 'null');
+        console.log('[Solo Invite Test] Room PlayerO:', room ? room.playerO_id : 'null');
+        console.log('[Solo Invite Test] Room Winner:', room ? room.winner : 'null');
+        console.log('[Solo Invite Test] Room EndedAt:', room ? room.endedAt : 'null');
+        
+        // 3. Kiểm tra presence
+        console.log('[Solo Invite Test] Step 3: Checking target presence...');
+        const presenceSnap = await db.ref(`online_users/${targetUid}`).once('value');
+        const isOnline = presenceSnap.exists();
+        console.log('[Solo Invite Test] Target online:', isOnline);
+        
+        if (isOnline && room && room.status === 'ended') {
+            console.log('[Solo Invite Test] ⚠️ WARNING: Ghost room detected');
+            console.log('[Solo Invite Test] Reason: Target online but in ended room');
+            return { passed: false, reason: 'Ghost room: target online but in ended room' };
+        }
+        
+        console.log('[Solo Invite Test] Result: Target is busy (in room)');
+        return { passed: true, reason: 'Target is busy (correctly detected)', isBusy: true };
+    }
+    
+    console.log('[Solo Invite Test] Result: Target is free');
+    return { passed: true, reason: 'Target is free (can invite)', isBusy: false };
+};
 function langNgheLoiMoiDen() {
     const userId = localStorage.getItem('current_user_id');
     if (!userId) return;
-    if (invitationListener) db.ref(`invitations/${userId}`).off('value', invitationListener);
+    
+    console.log('[Invite Listener] ===== ATTACHING LISTENER =====');
+    console.log('[Invite Listener] Firebase Path: invitations/' + userId);
+    console.log('[Invite Listener] Current currentRoomId:', currentRoomId);
+    console.log('[Invite Listener] Current isOnlineMode:', isOnlineMode);
+    
+    if (invitationListener) {
+        console.log('[Invite Listener] Removing old listener before attaching new one');
+        db.ref(`invitations/${userId}`).off('value', invitationListener);
+        invitationListener = null;
+    }
+    
     invitationListener = db.ref(`invitations/${userId}`).on('value', snap => {
+        console.log('[Invite Listener] ===== EVENT RECEIVED =====');
+        console.log('[Invite Listener] Firebase Path: invitations/' + userId);
+        console.log('[Invite Listener] Snapshot exists:', snap.exists());
+        
         const invite = snap.val();
-        if (!invite) return;
-        if (Date.now() - invite.timestamp > 30000) { db.ref(`invitations/${userId}`).remove(); return; }
+        if (!invite) {
+            console.log('[Invite Listener] Invite data is null/undefined');
+            return;
+        }
+        
+        console.log('[Invite Listener] Invite Data:', invite);
+        console.log('[Invite Listener] Invite ID:', userId);
+        console.log('[Invite Listener] Sender:', invite.fromPlayerId, invite.fromPlayerName);
+        console.log('[Invite Listener] Timestamp:', invite.timestamp);
+        console.log('[Invite Listener] Age (ms):', Date.now() - invite.timestamp);
+        
+        if (Date.now() - invite.timestamp > 30000) { 
+            console.log('[Invite Listener] Invite expired (>30s), removing');
+            db.ref(`invitations/${userId}`).remove(); 
+            return; 
+        }
+        
         // Đang trong phòng rồi thì bỏ qua lời mời, xóa đi
         if (currentRoomId && isOnlineMode) {
+            console.log('[Invite Listener] User in room, ignoring invite');
             db.ref(`invitations/${userId}`).remove();
             return;
         }
+        
+        console.log('[Invite Listener] Showing confirm dialog');
         const dongY = confirm(`🎮 [${invite.fromPlayerName}] mời bạn vào phòng solo! Chấp nhận?`);
+        console.log('[Invite Listener] User response:', dongY ? 'ACCEPTED' : 'DECLINED');
+        
         db.ref(`invitations/${userId}`).remove();
-        if (!dongY) return;
+        if (!dongY) {
+            console.log('[Invite Listener] Invite declined');
+            return;
+        }
+        
+        console.log('[Invite Listener] Invite accepted, joining room:', invite.fromRoomId);
         // Đóng lobby screen nếu đang mở
         const lobbyScreen = document.getElementById('lobby-screen');
         if (lobbyScreen) lobbyScreen.style.display = 'none';
@@ -1881,28 +2167,57 @@ function roiKhoiPhong(onDone) {
     const rid  = currentRoomId;
     const role = myRole;
     const myId = localStorage.getItem('current_user_id');
+    
+    console.log('[Room Cleanup] ===== LEAVING ROOM =====');
+    console.log('[Room Cleanup] RoomId:', rid);
+    console.log('[Room Cleanup] Role:', role);
+    console.log('[Room Cleanup] UserId:', myId);
+    
     const done = () => {
         // Xóa currentRoomId khỏi Firebase khi thoát
+        console.log('[Room Cleanup] Removing currentRoomId from Firebase...');
         db.ref(`users/${myId}/currentRoomId`).remove().then(() => {
+            console.log('[Room Cleanup] ✓ currentRoomId removed successfully');
+            // Xóa localStorage để tránh auto rejoin
+            localStorage.removeItem('current_room_id');
+            console.log('[Room Cleanup] ✓ localStorage current_room_id removed');
             _resetSauThoat(rid);
+            // Re-attach invite listener after leaving room
+            console.log('[Room Cleanup] Re-attaching invite listener...');
+            langNgheLoiMoiDen();
             // YC.TXT FIX: Force render room list after leave to ensure UI updates
             setTimeout(() => {
                 hienDanhSachPhong();
             }, 100);
             if (onDone) onDone();
         }).catch(err => {
-            console.error('[Room] Error removing user currentRoomId:', err);
+            console.error('[Room Cleanup] ✗ Error removing user currentRoomId:', err);
+            // Vẫn xóa localStorage ngay cả khi Firebase lỗi
+            localStorage.removeItem('current_room_id');
+            console.log('[Room Cleanup] ✓ localStorage current_room_id removed (fallback)');
             _resetSauThoat(rid);
+            // Re-attach invite listener even on error
+            console.log('[Room Cleanup] Re-attaching invite listener (fallback)...');
+            langNgheLoiMoiDen();
             if (onDone) onDone();
         });
     };
     db.ref(`rooms/${rid}`).once('value').then(snap => {
         const room = snap.val();
-        if (!room) { done(); return; }
+        console.log('[Room Cleanup] Current room status:', room ? room.status : 'null');
+        console.log('[Room Cleanup] Room playerX_id:', room ? room.playerX_id : 'null');
+        console.log('[Room Cleanup] Room playerO_id:', room ? room.playerO_id : 'null');
+        
+        if (!room) { 
+            console.log('[Room Cleanup] Room not found, cleaning up anyway');
+            done(); 
+            return; 
+        }
         if (room.status === 'playing') {
             if (role === 'viewer') { done(); return; }
             if (!confirm('Bạn đang đánh. Thoát sẽ bị tính THUA. Tiếp tục?')) return;
             const winner = role === 'X' ? 'O' : 'X';
+            console.log('[Room Cleanup] Forcing end due to surrender, winner:', winner);
             db.ref(`rooms/${rid}`).update({
                 status: 'ended', winner, endReason: `${role} bỏ cuộc`,
                 endedAt: Date.now(), updatedAt: Date.now()
@@ -1910,6 +2225,7 @@ function roiKhoiPhong(onDone) {
         } else if (room.status === 'waiting' || room.status === 'empty') {
             if (role === 'X' && myId === room.playerX_id) {
                 if (room.playerO_id) {
+                    console.log('[Room Cleanup] Host leaving, transferring to guest');
                     db.ref(`rooms/${rid}`).update({
                         playerX_id: room.playerO_id, playerX_name: room.playerO_name,
                         playerX_status: room.playerO_status || 'offline',
@@ -1919,6 +2235,7 @@ function roiKhoiPhong(onDone) {
                         status: 'waiting', updatedAt: Date.now()
                     }).then(done);
                 } else {
+                    console.log('[Room Cleanup] Host leaving, resetting room to empty');
                     // Không xóa phòng, chỉ reset về empty để có thể vào lại
                     db.ref(`rooms/${rid}`).update({
                         playerX_id: '', playerX_name: '', playerX_status: 'offline',
@@ -1931,6 +2248,7 @@ function roiKhoiPhong(onDone) {
                     }).then(done);
                 }
             } else if (role === 'O' && myId === room.playerO_id) {
+                console.log('[Room Cleanup] Guest leaving, resetting guest slot');
                 // Khách O thoát → reset guestReady và playerOConfirmed
                 db.ref(`rooms/${rid}`).update({
                     playerO_id: '', playerO_name: '', playerO_status: 'offline',
@@ -1939,13 +2257,26 @@ function roiKhoiPhong(onDone) {
                     playerOConfirmed: null,
                     status: 'waiting', updatedAt: Date.now()
                 }).then(done);
+            } else if (role === 'X' && myId !== room.playerX_id) {
+                // Host đã chuyển quyền cho người khác, nhưng user cũ vẫn có currentRoomId
+                console.log('[Room Cleanup] Host transferred, cleaning up old host currentRoomId');
+                done();
+            } else if (role === 'O' && myId !== room.playerO_id) {
+                // Guest đã bị thay thế, nhưng user cũ vẫn có currentRoomId
+                console.log('[Room Cleanup] Guest replaced, cleaning up old guest currentRoomId');
+                done();
             } else {
+                console.log('[Room Cleanup] Not a player, just cleaning up');
                 done();
             }
         } else {
+            console.log('[Room Cleanup] Room status:', room.status, '- cleaning up');
             done();
         }
-    }).catch(() => { done(); });
+    }).catch(err => {
+        console.error('[Room Cleanup] Error checking room:', err);
+        done(); 
+    });
 }
 function _resetSauThoat(rid) {
     // Dọn listener TRƯỚC khi null currentRoomId
@@ -1970,7 +2301,10 @@ function _resetSauThoat(rid) {
     if (invitationListener) {
         const userId = localStorage.getItem('current_user_id');
         if (userId) {
+            console.log('[Invite Listener] ===== REMOVING LISTENER (room cleanup) =====');
+            console.log('[Invite Listener] Firebase Path: invitations/' + userId);
             db.ref(`invitations/${userId}`).off('value', invitationListener);
+            console.log('[Invite Listener] ✓ Listener removed');
         }
         invitationListener = null;
     }
@@ -3083,6 +3417,7 @@ function langNgheThayDoiPhong(roomId) {
             }
         }
         if (room.status === 'ended' || room.winner) {
+            _syncRoomBoardState(room);
             if (typeof _updateBattleBottomBar === 'function') _updateBattleBottomBar(true);
             // BUG 3 FIX: Detect if this is a new status change from playing to ended
             const justEnded = _prevRoomStatus === 'playing' && room.status === 'ended';
@@ -3101,7 +3436,7 @@ function langNgheThayDoiPhong(roomId) {
                         if (typeof renderInfiniteBoardAsync === 'function') {
                             await renderInfiniteBoardAsync();
                         }
-                        xuLyKetThucVan(room);
+                        await xuLyKetThucVan(room);
                     })();
                 } else {
                     xuLyKetThucVan(room);
@@ -3595,8 +3930,18 @@ function phucHoiBanCo(roomId, callback) {
 // ══════════════════════════════════════════════════════════════════
 // Guard tránh cập nhật rank nhiều lần cho cùng 1 ván
 let _lastProcessedWinner = '';
-function xuLyKetThucVan(room) {
+async function xuLyKetThucVan(room) {
     if (!room.winner) return;
+    
+    console.log('[Game End] ===== GAME ENDED =====');
+    console.log('[Game End] RoomId:', currentRoomId);
+    console.log('[Game End] Winner:', room.winner);
+    console.log('[Game End] EndReason:', room.endReason);
+    console.log('[Game End] EndedAt:', room.endedAt);
+    console.log('[Game End] Room Status:', room.status);
+    console.log('[Game End] PlayerX_id:', room.playerX_id);
+    console.log('[Game End] PlayerO_id:', room.playerO_id);
+    
     const vanId = room.endedAt
         ? `${currentRoomId}_${room.winner || ''}_${room.endedAt}`
         : `${currentRoomId}_${room.winner || ''}_${room.updatedAt || ''}`;
@@ -3623,22 +3968,16 @@ function xuLyKetThucVan(room) {
     const myIdKetThuc = localStorage.getItem('current_user_id');
     const isPlayer = myRole === 'X' || myRole === 'O' ||
                      myIdKetThuc === room.playerX_id || myIdKetThuc === room.playerO_id;
+    const minBetCheck = room.isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
+    const hasBet = Number(room.betAmount || 0) >= minBetCheck;
     if (isPlayer) {
-        // BUG 1 FIX (REAL ROOT CAUSE): Don't call playCoinBurstAsync(0) here
-        // Animation is already called by:
-        // - ketThucCuoc() if there's a bet
-        // - onWinSoloXu() if there's no bet
-        // Calling it here causes duplicate animation
-        
-        // BUG 4 FIX: Wait for any running animation to complete before showing popup
-        (async () => {
-            if (typeof playCoinBurstAsync === 'function') {
-                // If animation is already running (from ketThucCuoc or onWinSoloXu), wait for it
-                // If not running, this will resolve immediately (no animation started)
-                await playCoinBurstAsync(0, '');
-            }
-            hienUIVanMoi(msg);
-        })();
+        // BUG 1 FIX (REAL ROOT CAUSE): Don't call playCoinBurstAsync(0) here.
+        // The coin reward animation is fired by the reward/settlement code itself,
+        // so only wait for that in-flight animation and then show the rematch popup.
+        if (typeof playCoinBurstAsync === 'function') {
+            await playCoinBurstAsync(0, '');
+        }
+        hienUIVanMoi(msg);
     }
     const winnerId  = room.winner === 'X' ? room.playerX_id : room.playerO_id;
     const loserId   = room.winner === 'X' ? room.playerO_id : room.playerX_id;
@@ -3647,16 +3986,13 @@ function xuLyKetThucVan(room) {
     const thangThucSu = !endReason.includes('bỏ cuộc');
     // Chỉ người thắng ghi rank — ưu tiên người thắng ghi để tránh trùng
     if (myId === winnerId) {
-        // Kiểm tra có cược không
-        const minBetCheck = room.isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
-        const hasBet = room.betAmount && room.betAmount >= minBetCheck;
         
         // Chỉ +winSolo khi thắng bằng nước cờ thực sự
         if (thangThucSu) {
-            db.ref(`users/${winnerId}/winSolo`).transaction(c => (c || 0) + 1);
+            await db.ref(`users/${winnerId}/winSolo`).transaction(c => (c || 0) + 1);
             capNhatBXH(winName, winnerId);
             // Thưởng xu thắng Solo Online (có giới hạn ngày) - chỉ khi KHÔNG có cược
-            if (!hasBet && typeof onWinSoloXu === 'function') onWinSoloXu();
+            if (!hasBet && typeof onWinSoloXu === 'function') await onWinSoloXu();
             // Broadcast kết quả lên ticker toàn server
             const _roomNum = room.roomNumber || (currentRoomId ? currentRoomId.replace('phong_', '') : '?');
             db.ref('match_results').push({
@@ -3682,10 +4018,8 @@ function xuLyKetThucVan(room) {
     }
     // Xử lý cược: chỉ gọi từ winner và chỉ khi có cược
     // Loser sẽ nhận xu popup qua transaction của winner
-    const minBetCheck = room.isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
-    const hasBet = room.betAmount && room.betAmount >= minBetCheck;
     if (myId === winnerId && hasBet && typeof ketThucCuoc === 'function') {
-        ketThucCuoc(currentRoomId, room.winner, false);
+        await ketThucCuoc(currentRoomId, room.winner, false);
     }
 
     // Preserve rematch configuration so O can confirm keep-cược/luật

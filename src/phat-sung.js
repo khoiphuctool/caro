@@ -178,6 +178,48 @@ function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
         titleEl.textContent = `BOT ${winner} THẮNG!`;
         titleEl.style.color = '#2563eb';
         subEl.textContent = `Trận đấu Bot vs Bot đã kết thúc. ${winnerLabel} giành chiến thắng!`;
+
+        // ══════════════════════════════════════════════════════════════════
+        // Cập nhật thống kê Bot vs Bot
+        // ══════════════════════════════════════════════════════════════════
+        if (window.BotRoomManager && window.BotRoomManager.botVsBotState) {
+            const state = window.BotRoomManager.botVsBotState;
+            const statsKey = `${state.botXMode}_vs_${state.botOMode}`;
+            
+            if (window.BotRoomManager.botVsBotStats && window.BotRoomManager.botVsBotStats[statsKey]) {
+                const stats = window.BotRoomManager.botVsBotStats[statsKey];
+                stats.totalMatches++;
+                
+                if (winner === 'X') {
+                    stats.winsX++;
+                } else if (winner === 'O') {
+                    stats.winsO++;
+                } else {
+                    stats.draws++;
+                }
+                
+                // Lưu lịch sử trận đấu
+                stats.matchHistory.push({
+                    timestamp: Date.now(),
+                    winner,
+                    winCount: state.winCount,
+                    blockBoth: state.blockBoth
+                });
+                
+                // Giữ tối đa 100 trận lịch sử
+                if (stats.matchHistory.length > 100) {
+                    stats.matchHistory.shift();
+                }
+                
+                // Lưu vào localStorage
+                localStorage.setItem('botVsBotStats', JSON.stringify(window.BotRoomManager.botVsBotStats));
+                
+                console.log('[BotVsBot] Stats updated:', stats);
+                
+                // Hiển thị thống kê
+                window.BotRoomManager.displayBotVsBotStats();
+            }
+        }
     } else if (isOnline) {
         if (localWon) {
             emojiEl.textContent = '🏆';

@@ -263,7 +263,12 @@ const ThreatDetector = {
             createsThreeOpen: false,
             createsFourOpen: false,
             createsFork: false,
-            distanceFromCenter: 0
+            distanceFromCenter: 0,
+            // ══════════════════════════════════════════════════════════════════
+            // THÊM: Kiểm tra chặn đầu mở cách 1 ô (quan trọng cho luật chặn 2 đầu)
+            // ══════════════════════════════════════════════════════════════════
+            blocksOpenEndGap1: false,
+            openEndGap1Count: 0
         };
 
         // Kiểm tra xem chặn này có ngăn được nhiều đe dọa khác không
@@ -316,6 +321,88 @@ const ThreatDetector = {
             if (tailBlocked) {
                 analysis.blocksBlockedEnd = true;
                 analysis.blockedEndCount++;
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // KIỂM TRA CHẶN ĐẦU MỞ CÁCH 1 Ô (QUAN TRỌNG CHO LUẬT CHẶN 2 ĐẦU)
+        // ══════════════════════════════════════════════════════════════════
+        // Với luật chặn 2 đầu, nếu đầu bị chặn cách 1 ô trống, nên chặn đầu kia
+        // Ví dụ: X X X _ _ (đầu mở ở vị trí _ cách 1 ô)
+        const directions = [
+            { dr: 0, dc: 1 },
+            { dr: 1, dc: 0 },
+            { dr: 1, dc: 1 },
+            { dr: 1, dc: -1 }
+        ];
+        
+        for (const { dr, dc } of directions) {
+            // Check forward direction
+            let gap1Open = false;
+            let gap1Blocked = false;
+            
+            // Check ô ngay cạnh
+            const nr1 = r + dr;
+            const nc1 = c + dc;
+            const cell1 = PatternDetector.getCell(nr1, nc1);
+            
+            if (cell1 === '') {
+                // Ô trống ngay cạnh → check ô cách 1 ô
+                const nr2 = r + dr * 2;
+                const nc2 = c + dc * 2;
+                const cell2 = PatternDetector.getCell(nr2, nc2);
+                
+                if (cell2 === '') {
+                    // Cả 2 ô đều trống → đây là đầu mở cách 1 ô
+                    gap1Open = true;
+                } else if (cell2 !== '' && cell2 !== opponent) {
+                    // Ô cách 1 ô bị chặn bởi quân khác → đây là đầu mở cách 1 ô
+                    gap1Open = true;
+                }
+            } else if (cell1 === opponent) {
+                // Ô ngay cạnh đã có quân đối thủ → check ô cách 1 ô
+                const nr2 = r + dr * 2;
+                const nc2 = c + dc * 2;
+                const cell2 = PatternDetector.getCell(nr2, nc2);
+                
+                if (cell2 === '') {
+                    // Ô cách 1 ô trống → đây là đầu mở cách 1 ô
+                    gap1Open = true;
+                }
+            }
+            
+            if (gap1Open) {
+                analysis.blocksOpenEndGap1 = true;
+                analysis.openEndGap1Count++;
+            }
+            
+            // Check backward direction
+            gap1Open = false;
+            const br1 = r - dr;
+            const bc1 = c - dc;
+            const bcell1 = PatternDetector.getCell(br1, bc1);
+            
+            if (bcell1 === '') {
+                const br2 = r - dr * 2;
+                const bc2 = c - dc * 2;
+                const bcell2 = PatternDetector.getCell(br2, bc2);
+                
+                if (bcell2 === '' || (bcell2 !== '' && bcell2 !== opponent)) {
+                    gap1Open = true;
+                }
+            } else if (bcell1 === opponent) {
+                const br2 = r - dr * 2;
+                const bc2 = c - dc * 2;
+                const bcell2 = PatternDetector.getCell(br2, bc2);
+                
+                if (bcell2 === '') {
+                    gap1Open = true;
+                }
+            }
+            
+            if (gap1Open) {
+                analysis.blocksOpenEndGap1 = true;
+                analysis.openEndGap1Count++;
             }
         }
 
@@ -397,8 +484,19 @@ const ThreatDetector = {
             score += analysis.openEndCount * 5000;
         }
         
+        // ══════════════════════════════════════════════════════════════════
+        // ƯU TIÊN CAO: Chặn đầu mở cách 1 ô (quan trọng cho luật chặn 2 đầu)
+        // ══════════════════════════════════════════════════════════════════
+        if (analysis.blocksOpenEndGap1) {
+            // Chặn đầu mở cách 1 ô → multiplier cực cao
+            score *= 5.0;
+            
+            // Bonus rất lớn cho mỗi đầu mở cách 1 ô chặn được
+            score += analysis.openEndGap1Count * 10000;
+        }
+        
         // Chặn đầu đã chặn → penalty (ít quan trọng)
-        if (analysis.blocksBlockedEnd && !analysis.blocksOpenEnd) {
+        if (analysis.blocksBlockedEnd && !analysis.blocksOpenEnd && !analysis.blocksOpenEndGap1) {
             // Nếu chỉ chặn đầu đã chặn → giảm điểm mạnh
             score *= 0.3;
             score -= analysis.blockedEndCount * 2000;

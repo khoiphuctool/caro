@@ -1,67 +1,192 @@
 // ══════════════════════════════════════════════════════════════════
-// BOT SIÊU PHÀM - Ultimate Bot (Kết hợp logic tốt nhất từ 3 bot)
+// BOT SIÊU PHÀM V2 - Refactored Architecture
 // ══════════════════════════════════════════════════════════════════
-// Logic từ Bot Tia Chớp:
-//   - Scoring system: winningMove (9999999) > openFour (8888888) > twoThrees (7777777)
-//   - Weights: [0, 20, 17, 15.4, 14, 10]
-//   - Tự động cân bằng attack/defense
-//
-// Logic từ Bot Tối Thượng:
-//   - Pipeline đầy đủ: win now → block win → check enemy FOUR → forced four → block forced four → double threat
-//   - Smart blocking (makesDeadFour)
-//   - PVS Search depth 5
-//   - Neural-sort candidates
-//
-// Logic từ Bot Siêu Phàm cũ:
-//   - Threat assessment
-//   - Minimax fallback
+// Kiến trúc mới: Fast Path + Deep Path
+// - Fast Path: Intent Router → Context Builder → Quick Evaluator → Response Optimizer
+// - Deep Path: Intent Router → Context Builder → Dynamic Planner → Tool Executor → Reflection → Response Optimizer
 // ══════════════════════════════════════════════════════════════════
 
-const BotSuper = {
+const BotSuperV2 = {
     // ===== CONFIGURATION =====
     config: {
-        winningMove: 9999999,
-        openFour: 8888888,
-        twoThrees: 7777777,
-        weights: [0, 20, 17, 15.4, 14, 10],
+        // Search depth cho Deep Path
         searchDepth: 5,
-        topCandidates: 15
+        
+        // Enable/disable new architecture
+        useNewArchitecture: true
     },
 
+    // ===== MAIN GET BOT MOVE =====
     getBotMove(options = {}) {
         const player = options.player || botPiece || 'O';
         const opponent = options.opponent || humanPiece || 'X';
-        // Resolve rules: prefer options.roomRules, then GameState.roomRules, then options.winCount or global
+        
+        console.log('[BotSuperV2] getBotMove called', { player, opponent });
+
+        // ══════════════════════════════════════════════════════════════════
+        // NEW ARCHITECTURE: Intent Router → Context Builder → ...
+        // ══════════════════════════════════════════════════════════════════
+        if (this.config.useNewArchitecture) {
+            return this.getBotMoveNewArchitecture(options);
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // FALLBACK: Old architecture (original BotSuper)
+        // ══════════════════════════════════════════════════════════════════
+        return this.getBotMoveOldArchitecture(options);
+    },
+
+    // ===== NEW ARCHITECTURE =====
+    getBotMoveNewArchitecture(options) {
+        console.log('[BotSuperV2] Using new architecture');
+
+        // Step 1: Context Builder
+        const context = ContextBuilder.build(options);
+        
+        // Check cache hit
+        if (context.cacheHit) {
+            console.log('[BotSuperV2] Cache hit, returning cached move');
+            SemanticCache.recordHit();
+            return context.cacheHit.move;
+        }
+        SemanticCache.recordMiss();
+
+        // Step 2: Intent Router
+        const pipeline = IntentRouter.route(context);
+        console.log('[BotSuperV2] Pipeline selected:', pipeline);
+
+        // Step 3: Execute based on pipeline
+        let result;
+        if (pipeline === 'FAST') {
+            result = this.executeFastPath(context);
+        } else {
+            result = this.executeDeepPath(context, options);
+        }
+
+        // Step 4: Response Optimizer
+        if (result && result.move) {
+            const optimized = ResponseOptimizer.optimize(result.move, context, result.reason);
+            if (optimized) {
+                return optimized;
+            }
+        }
+
+        // Fallback
+        console.warn('[BotSuperV2] New architecture failed, using fallback');
+        return this.getBotMoveOldArchitecture(options);
+    },
+
+    // ===== FAST PATH =====
+    executeFastPath(context) {
+        console.log('[BotSuperV2] Executing Fast Path');
+
+        // Quick Evaluator
+        const result = QuickEvaluator.evaluate(context);
+        
+        if (result) {
+            console.log('[BotSuperV2] Fast Path found move:', result);
+            return result;
+        }
+
+        // Fast Path không tìm được move -> cần Deep Path
+        console.log('[BotSuperV2] Fast Path no move, switching to Deep Path');
+        return null;
+    },
+
+    // ===== DEEP PATH =====
+    executeDeepPath(context, options) {
+        console.log('[BotSuperV2] Executing Deep Path');
+
+        // Deep Path implementation (simplified for now)
+        // Sử dụng existing Ultimate engine
+        const { player, opponent, rules } = context;
+        const depth = options.depth || this.config.searchDepth;
+
+        // Get candidates
+        const allEmpty = typeof getAllTacticalCells === 'function' ? getAllTacticalCells() : [];
+        const validCands = allEmpty.filter(({ r, c }) => getCell(r, c) === '');
+
+        if (validCands.length === 0) {
+            // Fallback: random move
+            const randomMove = validCands[Math.floor(Math.random() * validCands.length)];
+            return { move: randomMove, reason: 'Random fallback' };
+        }
+
+        // Use Ultimate engine (PVS Search or Quick Scoring)
+        let ultimateMove = null;
+        let ultimateScore = 0;
+        let ultimateReason = '';
+
+        // Try deep search
+        if (typeof getBestMoveWithMinimax === 'function') {
+            try {
+                const minimaxMove = getBestMoveWithMinimax(depth, player);
+                if (minimaxMove && getCell(minimaxMove.r, minimaxMove.c) === '') {
+                    ultimateMove = minimaxMove;
+                    ultimateScore = typeof quickScore === 'function' ? quickScore(minimaxMove.r, minimaxMove.c, player) : 8000;
+                    ultimateReason = 'PVS Deep Search';
+                }
+            } catch (e) {
+                console.warn('[BotSuperV2] Minimax failed:', e);
+            }
+        }
+
+        // Fallback to quick scoring
+        if (!ultimateMove) {
+            const scored = [];
+            for (const { r, c } of validCands.slice(0, 15)) {
+                const res = typeof evalCellFull === 'function' ? evalCellFull(r, c, player, true) : null;
+                const atk = res ? res.score : (typeof quickScore === 'function' ? quickScore(r, c, player) : 0);
+                scored.push({ r, c, atk });
+            }
+            if (scored.length > 0) {
+                scored.sort((a, b) => b.atk - a.atk);
+                ultimateMove = scored[0];
+                ultimateScore = scored[0].atk;
+                ultimateReason = 'Quick Scoring';
+            }
+        }
+
+        if (ultimateMove) {
+            return { move: ultimateMove, reason: ultimateReason };
+        }
+
+        // Final fallback
+        return { move: validCands[0], reason: 'Final fallback' };
+    },
+
+    // ===== OLD ARCHITECTURE (Fallback) =====
+    getBotMoveOldArchitecture(options) {
+        console.log('[BotSuperV2] Using old architecture (fallback)');
+
+        const player = options.player || botPiece || 'O';
+        const opponent = options.opponent || humanPiece || 'X';
         const resolved = options.roomRules ?? (typeof GameState !== 'undefined' ? GameState.roomRules : undefined) ?? (typeof window !== 'undefined' ? window.roomRules : undefined);
         let wc;
         if (resolved && typeof resolved.winCount === 'number') wc = resolved.winCount;
         else if (typeof options.winCount === 'number') wc = options.winCount;
         else if (typeof GameState !== 'undefined' && GameState.board && typeof GameState.board.winCount === 'number') wc = GameState.board.winCount;
         else {
-            console.warn('[BotSuper] winCount not found in roomRules/options/GameState; bot may behave unexpectedly. Pass roomRules to getBotMove.');
+            console.warn('[BotSuperV2] winCount not found in roomRules/options/GameState; bot may behave unexpectedly. Pass roomRules to getBotMove.');
             wc = typeof winCount !== 'undefined' ? winCount : undefined;
         }
         const depth = options.depth || this.config.searchDepth;
 
-        console.log('[BotSuper Ultimate] getBotMove', { player, opponent, winCount: wc, depth });
+        console.log('[BotSuperV2 Old] getBotMove', { player, opponent, winCount: wc, depth });
 
-        // ══════════════════════════════════════════════════════════════════
-        // LAYER 0: Nước đầu - random trung tâm
-        // ══════════════════════════════════════════════════════════════════
+        // Layer 0: Nước đầu - random trung tâm
         const moveCount = typeof moveHistory !== 'undefined' ? moveHistory.length : 0;
         if (moveCount <= 2) {
             const allCands = typeof getSearchCandidates === 'function' ? getSearchCandidates() : [];
             if (allCands.length > 0) {
                 const pool = allCands.slice(0, Math.max(1, Math.ceil(allCands.length / 2)));
                 const randomMove = pool[Math.floor(Math.random() * pool.length)];
-                console.log('[BotSuper Ultimate] Early random move:', randomMove);
+                console.log('[BotSuperV2 Old] Early random move:', randomMove);
                 return randomMove;
             }
         }
 
-        // ══════════════════════════════════════════════════════════════════
-        // LAYER 1: Immediate Tactical Scan (Win/Block)
-        // ══════════════════════════════════════════════════════════════════
+        // Layer 1: Immediate Tactical Scan
         const allEmpty = typeof getAllTacticalCells === 'function' ? getAllTacticalCells() : [];
         
         // 1a. Win Now
@@ -71,7 +196,7 @@ const BotSuper = {
             const win = checkWinSilent(r, c);
             setCell(r, c, '');
             if (win) {
-                console.log('[BotSuper Ultimate] Win now:', { r, c });
+                console.log('[BotSuperV2 Old] Win now:', { r, c });
                 return { r, c };
             }
         }
@@ -83,15 +208,12 @@ const BotSuper = {
             const win = checkWinSilent(r, c);
             setCell(r, c, '');
             if (win) {
-                console.log('[BotSuper Ultimate] Block win:', { r, c });
+                console.log('[BotSuperV2 Old] Block win:', { r, c });
                 return { r, c };
             }
         }
 
-        // ══════════════════════════════════════════════════════════════════
-        // 1c. CHECK ENEMY THREE_OPEN - Phải chặn THREE_OPEN nguy hiểm trước
-        // Nếu đối thủ có THREE_OPEN → 2 nước nữa là FOUR_OPEN → phải chặn ngay
-        // ══════════════════════════════════════════════════════════════════
+        // 1c. CHECK ENEMY THREE_OPEN
         if (typeof ThreatDetector !== 'undefined') {
             for (const { r, c } of allEmpty) {
                 const t = ThreatDetector.evaluateDefenseThreat(r, c, opponent, wc, true);
@@ -99,18 +221,13 @@ const BotSuper = {
                     p.pattern === PatternDetector.PATTERN.THREE_OPEN
                 );
                 if (hasThreeOpen) {
-                    console.log('[BotSuper Ultimate] BLOCKING THREE_OPEN (dangerous):', { r, c });
+                    console.log('[BotSuperV2 Old] BLOCKING THREE_OPEN:', { r, c });
                     return { r, c };
                 }
             }
         }
 
-        // ══════════════════════════════════════════════════════════════════
-        // 1d. CHECK BOT WIN OPPORTUNITY - Ưu tiên thắng trước nếu có thể
-        // Nếu đối thủ chưa thắng ngay nhưng bot có thể tạo thế cờ thắng trước → tấn công
-        // ══════════════════════════════════════════════════════════════════
-        
-        // Check Forced Four (bot) - FOUR không thể chặn → thắng chắc lượt sau
+        // 1d. CHECK BOT WIN OPPORTUNITY
         let bestForced = null, bestForcedS = -Infinity;
         for (const { r, c } of allEmpty) {
             setCell(r, c, player);
@@ -133,16 +250,15 @@ const BotSuper = {
             }
         }
         if (bestForced) {
-            console.log('[BotSuper Ultimate] Win opportunity - Forced four:', bestForced);
+            console.log('[BotSuperV2 Old] Win opportunity - Forced four:', bestForced);
             return bestForced;
         }
 
-        // Check Fork/Double Threat (bot) - nhiều đe dọa cùng lúc
+        // Check Fork/Double Threat
         if (typeof ThreatDetector !== 'undefined') {
             for (const { r, c } of allEmpty) {
                 const t = ThreatDetector.evaluateAttackThreat(r, c, player, wc, true);
                 if (t.maxThreat >= ThreatDetector.THREAT.HIGH) {
-                    // Check nếu có fork (nhiều đe dọa)
                     let threatCount = 0;
                     for (const { pattern } of t.patternScores) {
                         if (pattern !== PatternDetector.PATTERN.NONE) {
@@ -150,14 +266,14 @@ const BotSuper = {
                         }
                     }
                     if (threatCount >= 2) {
-                        console.log('[BotSuper Ultimate] Win opportunity - Fork:', { r, c });
+                        console.log('[BotSuperV2 Old] Win opportunity - Fork:', { r, c });
                         return { r, c };
                     }
                 }
             }
         }
 
-        // Check FOUR_OPEN (bot) - 1 nước nữa là thắng
+        // Check FOUR_OPEN
         if (typeof ThreatDetector !== 'undefined') {
             for (const { r, c } of allEmpty) {
                 const t = ThreatDetector.evaluateAttackThreat(r, c, player, wc, true);
@@ -165,35 +281,26 @@ const BotSuper = {
                     p.pattern === PatternDetector.PATTERN.FOUR_OPEN
                 );
                 if (hasFourOpen) {
-                    console.log('[BotSuper Ultimate] Win opportunity - FOUR_OPEN:', { r, c });
+                    console.log('[BotSuperV2 Old] Win opportunity - FOUR_OPEN:', { r, c });
                     return { r, c };
                 }
             }
         }
 
-        // 1d. Smart Blocking (Ưu tiên đầu mở + Đánh giá lợi thế chiến lược)
-        // Với luật chặn 2 đầu, đối thủ sẽ không thắng → ưu tiên chặn tạo thế cờ tốt
+        // Smart Blocking
         if (typeof ThreatDetector !== 'undefined' && typeof ThreatDetector.analyzeBlockPositions === 'function') {
             const blockPositions = ThreatDetector.analyzeBlockPositions(allEmpty, opponent, wc, true);
             if (blockPositions.length > 0) {
-                // analyzeBlockPositions đã sắp xếp theo điểm giảm dần
-                // Điểm bao gồm: chặn đầu mở + tạo đòn tấn công + vị trí chiến lược
                 const bestBlock = blockPositions[0];
-                console.log('[BotSuper Ultimate] Strategic block selected:', {
-                    position: { r: bestBlock.r, c: bestBlock.c },
-                    score: bestBlock.score,
-                    analysis: bestBlock.analysis
-                });
+                console.log('[BotSuperV2 Old] Strategic block selected:', bestBlock);
                 return { r: bestBlock.r, c: bestBlock.c };
             }
         }
 
-        // ══════════════════════════════════════════════════════════════════
-        // LAYER 2: Collect Candidates từ Multiple Engines
-        // ══════════════════════════════════════════════════════════════════
+        // Layer 2: Collect Candidates
         const candidates = [];
 
-        // Candidate từ BotTiaChop (Lightning)
+        // Candidate từ BotTiaChop
         if (typeof BotTiaChop !== 'undefined' && typeof BotTiaChop.getBotMove === 'function') {
             try {
                 const tiaChopMove = BotTiaChop.getBotMove({
@@ -203,29 +310,27 @@ const BotSuper = {
                 });
                 if (tiaChopMove && tiaChopMove.r !== undefined && tiaChopMove.c !== undefined) {
                     if (getCell(tiaChopMove.r, tiaChopMove.c) === '') {
-                        candidates.push(CouncilAI.createCandidate(
-                            tiaChopMove,
-                            'Lightning',
-                            9500,  // High score từ TiaChop
-                            85,    // High confidence
-                            'BotTiaChop scoring system'
-                        ));
+                        candidates.push({
+                            move: tiaChopMove,
+                            source: 'Lightning',
+                            score: 9500,
+                            confidence: 85,
+                            reason: 'BotTiaChop scoring system'
+                        });
                     }
                 }
             } catch (e) {
-                console.warn('[BotSuper Ultimate] BotTiaChop failed:', e);
+                console.warn('[BotSuperV2 Old] BotTiaChop failed:', e);
             }
         }
 
-        // Candidate từ Ultimate (Pipeline + Deep Search)
+        // Candidate từ Ultimate
         const validCands = allEmpty.filter(({ r, c }) => getCell(r, c) === '');
         if (validCands.length > 0) {
-            // Get best move from pipeline
             let ultimateMove = null;
             let ultimateScore = 0;
             let ultimateReason = '';
 
-            // Try deep search first
             if (typeof getBestMoveWithMinimax === 'function') {
                 try {
                     const minimaxMove = getBestMoveWithMinimax(depth, player);
@@ -235,11 +340,10 @@ const BotSuper = {
                         ultimateReason = 'PVS Deep Search';
                     }
                 } catch (e) {
-                    console.warn('[BotSuper Ultimate] Minimax failed:', e);
+                    console.warn('[BotSuperV2 Old] Minimax failed:', e);
                 }
             }
 
-            // Fallback to quick scoring
             if (!ultimateMove) {
                 const scored = [];
                 for (const { r, c } of validCands.slice(0, 15)) {
@@ -256,45 +360,33 @@ const BotSuper = {
             }
 
             if (ultimateMove) {
-                candidates.push(CouncilAI.createCandidate(
-                    ultimateMove,
-                    'Ultimate',
-                    ultimateScore,
-                    90,
-                    ultimateReason
-                ));
-            }
-        }
-
-        // ══════════════════════════════════════════════════════════════════
-        // LAYER 3: Council AI Decision Engine
-        // ══════════════════════════════════════════════════════════════════
-        if (typeof CouncilAI !== 'undefined' && candidates.length > 0) {
-            console.log('[BotSuper Ultimate] Passing', candidates.length, 'candidates to Council AI');
-            try {
-                const finalDecision = CouncilAI.decide(candidates, {
-                    player: player,
-                    opponent: opponent,
-                    winCount: wc,
-                    depth: depth
+                candidates.push({
+                    move: ultimateMove,
+                    source: 'Ultimate',
+                    score: ultimateScore,
+                    confidence: 90,
+                    reason: ultimateReason
                 });
-                console.log('[BotSuper Ultimate] Council AI decision:', finalDecision);
-                return finalDecision.move;
-            } catch (e) {
-                console.warn('[BotSuper Ultimate] Council AI failed, fallback:', e);
-                // Fallback to first candidate
-                return candidates[0].move;
             }
         }
 
-        // ══════════════════════════════════════════════════════════════════
-        // LAYER 4: Fallback - Direct return nếu Council không khả dụng
-        // ══════════════════════════════════════════════════════════════════
+        // Layer 3: Simple decision (không dùng CouncilAI)
         if (candidates.length > 0) {
-            console.log('[BotSuper Ultimate] Council unavailable, returning best candidate');
+            // Sort by score
+            candidates.sort((a, b) => b.score - a.score);
+            console.log('[BotSuperV2 Old] Selected best candidate:', candidates[0]);
             return candidates[0].move;
         }
+
+        // Layer 4: Fallback
+        if (candidates.length > 0) {
+            return candidates[0].move;
+        }
+
+        console.warn('[BotSuperV2 Old] No candidates found, returning null');
+        return null;
     }
 };
 
-window.BotSuper = BotSuper;
+// Export
+window.BotSuperV2 = BotSuperV2;
