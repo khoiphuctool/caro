@@ -9,13 +9,22 @@ const XU_CONFIG = {
     WELCOME_BONUS: 40000,
     DAILY_CHECKIN: 5000,
     AVATAR_PRICE: 3000,
+    // Nhiệm vụ 5 quân
+    BOT_REWARD_5: { easy: 700, medium: 900, hard: 1200, god: 2000, lightning: 2000, super: 5000 },
+    BOT_DAILY_LIMIT_5: { easy: 10, medium: 12, hard: 10, god: 10, lightning: 10, super: 15 },
+    BOT_BONUS_REWARD_5: { easy: 10000, medium: 15000, hard: 20000, god: 30000, lightning: 25000, super: 50000 },
+    // Nhiệm vụ 6 quân
+    BOT_REWARD_6: { easy: 8000, medium: 10000, hard: 12000, god: 15000, lightning: 15000, super: 20000 },
+    BOT_DAILY_LIMIT_6: { easy: 8, medium: 10, hard: 8, god: 8, lightning: 8, super: 12 },
+    BOT_BONUS_REWARD_6: { easy: 20000, medium: 25000, hard: 30000, god: 40000, lightning: 35000, super: 60000 },
+    // Nhiệm vụ 7 quân
+    BOT_REWARD_7: { easy: 15000, medium: 18000, hard: 20000, god: 25000, lightning: 25000, super: 30000 },
+    BOT_DAILY_LIMIT_7: { easy: 5, medium: 7, hard: 5, god: 5, lightning: 5, super: 8 },
+    BOT_BONUS_REWARD_7: { easy: 30000, medium: 35000, hard: 40000, god: 50000, lightning: 45000, super: 80000 },
+    // Legacy config (để tương thích)
     BOT_REWARD: { easy: 700, medium: 900, hard: 1200, god: 2000, lightning: 2000, super: 5000 },
     BOT_DAILY_LIMIT: { easy: 10, medium: 12, hard: 10, god: 10, lightning: 10, super: 15 },
-    BOT_BONUS_REWARD: { easy: 10000, medium: 15000, hard: 20000, god: 30000, lightning: 25000, super: 50000 }, // Thưởng khi đạt max limit
-    // Nhiệm vụ theo số quân thắng
-    WINCOUNT_REWARD: { 5: 700, 6: 1000, 7: 1500 },  // Xu thưởng khi thắng với số quân tương ứng
-    WINCOUNT_DAILY_LIMIT: { 5: 20, 6: 15, 7: 10 },  // Giới hạn lượt mỗi ngày theo số quân
-    WINCOUNT_BONUS_REWARD: { 5: 5000, 6: 8000, 7: 12000 },  // Thưởng bonus khi đạt max limit
+    BOT_BONUS_REWARD: { easy: 10000, medium: 15000, hard: 20000, god: 30000, lightning: 25000, super: 50000 },
     SOLO_WIN_REWARD: 200,      // Thưởng thắng PvP Solo Online
     SOLO_WIN_DAILY_LIMIT: 20,  // Tối đa 20 trận/ngày
     BET_MIN: 100,
@@ -167,7 +176,7 @@ function getBotLimits() {
     return database.ref(`users/${uid}/botDailyLimits`).once('value').then(snap => snap.val());
 }
 
-function resetBotLimitsIfNeeded(limitsRef) {
+function resetBotLimitsIfNeeded(limitsRef, winCount) {
     const today = getTodayStr();
     return limitsRef.once('value').then(snap => {
         const data = snap.val();
@@ -181,7 +190,7 @@ function resetBotLimitsIfNeeded(limitsRef) {
 }
 
 // Gọi sau khi người chơi thắng bot — trả về số xu thưởng (0 nếu hết lượt)
-function processWinBot(modeDiff) {
+function processWinBot(modeDiff, winCount) {
     const uid = _getUid();
     const database = _getDb();
     if (!uid || !database) return Promise.resolve(0);
@@ -193,13 +202,21 @@ function processWinBot(modeDiff) {
         limitKey = 'easy';
     }
 
-    const maxAllowed = XU_CONFIG.BOT_DAILY_LIMIT[limitKey] || 5;
-    const reward = XU_CONFIG.BOT_REWARD[limitKey] || 300;
-    const bonusReward = XU_CONFIG.BOT_BONUS_REWARD[limitKey] || 0;
-    console.log('[processWinBot] limitKey=', limitKey, 'used/max=', maxAllowed, 'reward=', reward, 'bonus=', bonusReward);
+    // Xác định cấu hình dựa trên winCount (5, 6, 7)
+    const validWinCounts = [5, 6, 7];
+    const wc = validWinCounts.includes(winCount) ? winCount : 5; // default 5 nếu không hợp lệ
 
-    const limitsRef = database.ref(`users/${uid}/botDailyLimits`);
-    return resetBotLimitsIfNeeded(limitsRef).then(() => {
+    const rewardConfig = XU_CONFIG[`BOT_REWARD_${wc}`] || XU_CONFIG.BOT_REWARD;
+    const limitConfig = XU_CONFIG[`BOT_DAILY_LIMIT_${wc}`] || XU_CONFIG.BOT_DAILY_LIMIT;
+    const bonusConfig = XU_CONFIG[`BOT_BONUS_REWARD_${wc}`] || XU_CONFIG.BOT_BONUS_REWARD;
+
+    const maxAllowed = limitConfig[limitKey] || 5;
+    const reward = rewardConfig[limitKey] || 300;
+    const bonusReward = bonusConfig[limitKey] || 0;
+    console.log('[processWinBot] limitKey=', limitKey, 'winCount=', wc, 'used/max=', maxAllowed, 'reward=', reward, 'bonus=', bonusReward);
+
+    const limitsRef = database.ref(`users/${uid}/botDailyLimits_${wc}`);
+    return resetBotLimitsIfNeeded(limitsRef, wc).then(() => {
         // Đọc giá trị hiện tại trước
         return limitsRef.child(limitKey).once('value').then(snap => {
             const used = snap.val() || 0;
@@ -223,9 +240,9 @@ function processWinBot(modeDiff) {
                     .then(coinsRes => {
                         if (coinsRes.committed) {
                             if (newUsed === maxAllowed && bonusReward > 0) {
-                                showXuPopup(bonusReward, `🎉 Hoàn thành ${maxAllowed} trận!`);
+                                showXuPopup(bonusReward, `🎉 Hoàn thành ${maxAllowed} trận ${wc} quân!`);
                                 if (typeof enqueueNotification === 'function') {
-                                    enqueueNotification('system_events', { type: 'win', message: `🎉 Chúc mừng! Hoàn thành ${maxAllowed} trận, thưởng thêm ${bonusReward} Xu!` });
+                                    enqueueNotification('system_events', { type: 'win', message: `🎉 Chúc mừng! Hoàn thành ${maxAllowed} trận ${wc} quân, thưởng thêm ${bonusReward} Xu!` });
                                 }
                             }
                             return totalReward;
@@ -241,98 +258,15 @@ window.processWinBot = processWinBot;
 // ──────────────────────────────────────────────
 // GIỚI HẠN NHIỆM VỤ THEO SỐ QUÂN THẮNG HÀNG NGÀY
 // ──────────────────────────────────────────────
-function getWinCountLimits() {
-    const database = _getDb();
-    const uid = _getUid();
-    if (!uid || !database) return Promise.resolve(null);
-    return database.ref(`users/${uid}/winCountDailyLimits`).once('value').then(snap => snap.val());
-}
-
-function resetWinCountLimitsIfNeeded(limitsRef) {
-    const today = getTodayStr();
-    return limitsRef.once('value').then(snap => {
-        const data = snap.val();
-        if (!data || data.lastResetDate !== today) {
-            return limitsRef.set({
-                lastResetDate: today,
-                5: 0, 6: 0, 7: 0
-            });
-        }
-    });
-}
-
-// Gọi sau khi người chơi thắng với số quân cụ thể — trả về số xu thưởng (0 nếu hết lượt)
-function processWinCountMission(winCount) {
-    const uid = _getUid();
-    const database = _getDb();
-    if (!uid || !database) return Promise.resolve(0);
-
-    const validCounts = [5, 6, 7];
-    if (!validCounts.includes(winCount)) {
-        console.warn('[processWinCountMission] invalid winCount, only 5,6,7 supported:', winCount);
-        return Promise.resolve(0);
-    }
-
-    const maxAllowed = XU_CONFIG.WINCOUNT_DAILY_LIMIT[winCount] || 5;
-    const reward = XU_CONFIG.WINCOUNT_REWARD[winCount] || 300;
-    const bonusReward = XU_CONFIG.WINCOUNT_BONUS_REWARD[winCount] || 0;
-    console.log('[processWinCountMission] winCount=', winCount, 'used/max=', maxAllowed, 'reward=', reward, 'bonus=', bonusReward);
-
-    const limitsRef = database.ref(`users/${uid}/winCountDailyLimits`);
-    return resetWinCountLimitsIfNeeded(limitsRef).then(() => {
-        return limitsRef.child(winCount).once('value').then(snap => {
-            const used = snap.val() || 0;
-            if (used >= maxAllowed) return 0; // hết lượt
-
-            return limitsRef.child(winCount).transaction(cur => {
-                const c = cur || 0;
-                if (c >= maxAllowed) return;
-                return c + 1;
-            }).then(res => {
-                if (!res.committed) return 0;
-                const newUsed = res.snapshot.val() || 0;
-
-                if (newUsed <= used) return 0;
-
-                const totalReward = (newUsed === maxAllowed) ? (reward + bonusReward) : reward;
-                return database.ref(`users/${uid}/coins`).transaction(cur => (cur || 0) + totalReward)
-                    .then(coinsRes => {
-                        if (coinsRes.committed) {
-                            if (newUsed === maxAllowed && bonusReward > 0) {
-                                showXuPopup(bonusReward, `🎉 Hoàn thành ${maxAllowed} trận ${winCount} quân!`);
-                                if (typeof enqueueNotification === 'function') {
-                                    enqueueNotification('system_events', { type: 'win', message: `🎉 Hoàn thành ${maxAllowed} trận ${winCount} quân, thưởng thêm ${bonusReward} Xu!` });
-                                }
-                            }
-                            return totalReward;
-                        }
-                        return 0;
-                    });
-            });
-        });
-    });
-}
-window.processWinCountMission = processWinCountMission;
-
 // Lấy trạng thái giới hạn để hiển thị UI
-function getWinCountLimitStatus(cb) {
+function getBotLimitStatus(cb, winCount) {
     const uid = _getUid();
     const database = _getDb();
     if (!uid || !database) { cb(null); return; }
-    const limitsRef = database.ref(`users/${uid}/winCountDailyLimits`);
-    resetWinCountLimitsIfNeeded(limitsRef).then(() => {
-        limitsRef.once('value').then(snap => cb(snap.val()));
-    });
-}
-window.getWinCountLimitStatus = getWinCountLimitStatus;
-
-// Lấy trạng thái giới hạn để hiển thị UI
-function getBotLimitStatus(cb) {
-    const uid = _getUid();
-    const database = _getDb();
-    if (!uid || !database) { cb(null); return; }
-    const limitsRef = database.ref(`users/${uid}/botDailyLimits`);
-    resetBotLimitsIfNeeded(limitsRef).then(() => {
+    const validWinCounts = [5, 6, 7];
+    const wc = validWinCounts.includes(winCount) ? winCount : 5;
+    const limitsRef = database.ref(`users/${uid}/botDailyLimits_${wc}`);
+    resetBotLimitsIfNeeded(limitsRef, wc).then(() => {
         limitsRef.once('value').then(snap => cb(snap.val()));
     });
 }
@@ -1019,78 +953,75 @@ function renderNhiemVuTab() {
         </div>
         <div class="nv-item">
             <div class="nv-info">
-                <span class="nv-icon">🤖</span>
+                <span class="nv-icon">🎯</span>
                 <div>
                     <div class="nv-title">Thắng Bot nhận Xu (Giới hạn ngày)</div>
-                    <div class="nv-desc">Thắng Bot nhận Xu. Xem giới hạn lượt bên dưới.</div>
+                    <div class="nv-desc">Thắng 5, 6, 7 quân nhận Xu theo độ khó bot. 3-4 quân không tính.</div>
                 </div>
             </div>
         </div>
-        <div id="bot-limit-display" style="background:#f0fdf4;border-radius:8px;padding:10px;margin-top:8px;font-size:13px;"></div>
-        <div class="nv-item" style="margin-top:15px;">
-            <div class="nv-info">
-                <span class="nv-icon">🎯</span>
-                <div>
-                    <div class="nv-title">Thắng theo số quân (Giới hạn ngày)</div>
-                    <div class="nv-desc">Thắng 5, 6, 7 quân nhận Xu. 3-4 quân không tính.</div>
-                </div>
-            </div>
+        <div id="wincount-tabs" style="display:flex;gap:5px;margin-top:8px;">
+            <button class="wc-tab-btn active" data-wc="5" style="flex:1;padding:8px;border:1px solid #e5e7eb;border-radius:6px;background:#fef3c7;cursor:pointer;">5 Quân</button>
+            <button class="wc-tab-btn" data-wc="6" style="flex:1;padding:8px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer;">6 Quân</button>
+            <button class="wc-tab-btn" data-wc="7" style="flex:1;padding:8px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer;">7 Quân</button>
         </div>
         <div id="wincount-limit-display" style="background:#fef3c7;border-radius:8px;padding:10px;margin-top:8px;font-size:13px;"></div>
     `;
-    // Render giới hạn bot
-    getBotLimitStatus(limits => {
-        const el = document.getElementById('bot-limit-display');
-        if (!el) return;
-        if (!limits) { el.innerHTML = '<span style="color:#aaa">Đăng nhập để xem lượt.</span>'; return; }
-        const rows = [
-            { key:'easy',   label:'Bot Dễ',       max: XU_CONFIG.BOT_DAILY_LIMIT.easy,   reward: XU_CONFIG.BOT_REWARD.easy,   bonus: XU_CONFIG.BOT_BONUS_REWARD.easy },
-            { key:'medium', label:'Bot Trung Bình',max: XU_CONFIG.BOT_DAILY_LIMIT.medium, reward: XU_CONFIG.BOT_REWARD.medium, bonus: XU_CONFIG.BOT_BONUS_REWARD.medium },
-            { key:'hard',   label:'Bot Khó',       max: XU_CONFIG.BOT_DAILY_LIMIT.hard,   reward: XU_CONFIG.BOT_REWARD.hard,   bonus: XU_CONFIG.BOT_BONUS_REWARD.hard },
-            { key:'god',    label:'Bot Tối Thượng',max: XU_CONFIG.BOT_DAILY_LIMIT.god,    reward: XU_CONFIG.BOT_REWARD.god,    bonus: XU_CONFIG.BOT_BONUS_REWARD.god },
-            { key:'lightning', label:'Bot Tia Chớp',max: XU_CONFIG.BOT_DAILY_LIMIT.lightning, reward: XU_CONFIG.BOT_REWARD.lightning, bonus: XU_CONFIG.BOT_BONUS_REWARD.lightning },
-            { key:'super', label:'Bot Siêu Phàm', max: XU_CONFIG.BOT_DAILY_LIMIT.super, reward: XU_CONFIG.BOT_REWARD.super, bonus: XU_CONFIG.BOT_BONUS_REWARD.super }
-        ];
-        el.innerHTML = rows.map(r => {
-            const used = limits[r.key] || 0;
-            const rem = Math.max(0, r.max - used);
-            const pct = Math.round((used / r.max) * 100);
-            const bonusText = r.bonus > 0 ? ` (+${r.bonus} Xu khi hoàn thành ${r.max} trận)` : '';
-            return `<div style="margin-bottom:6px">
-                <div style="display:flex;justify-content:space-between;font-size:12px">
-                    <span>${r.label}: <b style="color:${rem>0?'#16a34a':'#dc2626'}">${rem > 0 ? `Hoàn thành ${used}/${r.max} (+${r.reward} Xu${bonusText})` : 'Hết lượt hôm nay'}</b></span>
-                </div>
-                <div style="height:5px;background:#e5e7eb;border-radius:3px;overflow:hidden;">
-                    <div style="height:100%;width:${pct}%;background:${rem>0?'#22c55e':'#dc2626'};border-radius:3px;transition:width .3s"></div>
-                </div>
-            </div>`;
-        }).join('');
-    });
-    // Render giới hạn theo số quân thắng
-    getWinCountLimitStatus(limits => {
-        const el = document.getElementById('wincount-limit-display');
-        if (!el) return;
-        if (!limits) { el.innerHTML = '<span style="color:#aaa">Đăng nhập để xem lượt.</span>'; return; }
-        const rows = [
-            { key:5, label:'Thắng 5 quân', max: XU_CONFIG.WINCOUNT_DAILY_LIMIT[5], reward: XU_CONFIG.WINCOUNT_REWARD[5], bonus: XU_CONFIG.WINCOUNT_BONUS_REWARD[5] },
-            { key:6, label:'Thắng 6 quân', max: XU_CONFIG.WINCOUNT_DAILY_LIMIT[6], reward: XU_CONFIG.WINCOUNT_REWARD[6], bonus: XU_CONFIG.WINCOUNT_BONUS_REWARD[6] },
-            { key:7, label:'Thắng 7 quân', max: XU_CONFIG.WINCOUNT_DAILY_LIMIT[7], reward: XU_CONFIG.WINCOUNT_REWARD[7], bonus: XU_CONFIG.WINCOUNT_BONUS_REWARD[7] }
-        ];
-        el.innerHTML = rows.map(r => {
-            const used = limits[r.key] || 0;
-            const rem = Math.max(0, r.max - used);
-            const pct = Math.round((used / r.max) * 100);
-            const bonusText = r.bonus > 0 ? ` (+${r.bonus} Xu khi hoàn thành ${r.max} trận)` : '';
-            return `<div style="margin-bottom:6px">
-                <div style="display:flex;justify-content:space-between;font-size:12px">
-                    <span>${r.label}: <b style="color:${rem>0?'#d97706':'#dc2626'}">${rem > 0 ? `Hoàn thành ${used}/${r.max} (+${r.reward} Xu${bonusText})` : 'Hết lượt hôm nay'}</b></span>
-                </div>
-                <div style="height:5px;background:#e5e7eb;border-radius:3px;overflow:hidden;">
-                    <div style="height:100%;width:${pct}%;background:${rem>0?'#f59e0b':'#dc2626'};border-radius:3px;transition:width .3s"></div>
-                </div>
-            </div>`;
-        }).join('');
-    });
+    // Render giới hạn bot (5 quân mặc định)
+    let currentWinCount = 5;
+    const renderWinCountLimits = (wc) => {
+        currentWinCount = wc;
+        getBotLimitStatus(limits => {
+            const el = document.getElementById('wincount-limit-display');
+            if (!el) return;
+            if (!limits) { el.innerHTML = '<span style="color:#aaa">Đăng nhập để xem lượt.</span>'; return; }
+            
+            const rewardConfig = XU_CONFIG[`BOT_REWARD_${wc}`];
+            const limitConfig = XU_CONFIG[`BOT_DAILY_LIMIT_${wc}`];
+            const bonusConfig = XU_CONFIG[`BOT_BONUS_REWARD_${wc}`];
+            
+            const rows = [
+                { key:'easy',   label:'Bot Dễ',       max: limitConfig.easy,   reward: rewardConfig.easy,   bonus: bonusConfig.easy },
+                { key:'medium', label:'Bot Trung Bình',max: limitConfig.medium, reward: rewardConfig.medium, bonus: bonusConfig.medium },
+                { key:'hard',   label:'Bot Khó',       max: limitConfig.hard,   reward: rewardConfig.hard,   bonus: bonusConfig.hard },
+                { key:'god',    label:'Bot Tối Thượng',max: limitConfig.god,    reward: rewardConfig.god,    bonus: bonusConfig.god },
+                { key:'lightning', label:'Bot Tia Chớp',max: limitConfig.lightning, reward: rewardConfig.lightning, bonus: bonusConfig.lightning },
+                { key:'super', label:'Bot Siêu Phàm', max: limitConfig.super, reward: rewardConfig.super, bonus: bonusConfig.super }
+            ];
+            el.innerHTML = rows.map(r => {
+                const used = limits[r.key] || 0;
+                const rem = Math.max(0, r.max - used);
+                const pct = Math.round((used / r.max) * 100);
+                const bonusText = r.bonus > 0 ? ` (+${r.bonus} Xu khi hoàn thành ${r.max} trận)` : '';
+                return `<div style="margin-bottom:6px">
+                    <div style="display:flex;justify-content:space-between;font-size:12px">
+                        <span>${r.label}: <b style="color:${rem>0?'#d97706':'#dc2626'}">${rem > 0 ? `Hoàn thành ${used}/${r.max} (+${r.reward} Xu${bonusText})` : 'Hết lượt hôm nay'}</b></span>
+                    </div>
+                    <div style="height:5px;background:#e5e7eb;border-radius:3px;overflow:hidden;">
+                        <div style="height:100%;width:${pct}%;background:${rem>0?'#f59e0b':'#dc2626'};border-radius:3px;transition:width .3s"></div>
+                    </div>
+                </div>`;
+            }).join('');
+        }, wc);
+    };
+    
+    // Tab switching
+    setTimeout(() => {
+        const tabs = document.querySelectorAll('.wc-tab-btn');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => {
+                    t.classList.remove('active');
+                    t.style.background = '#fff';
+                });
+                tab.classList.add('active');
+                tab.style.background = '#fef3c7';
+                const wc = parseInt(tab.dataset.wc);
+                renderWinCountLimits(wc);
+            });
+        });
+        renderWinCountLimits(5);
+    }, 100);
 }
 window.renderNhiemVuTab = renderNhiemVuTab;
 
@@ -1128,19 +1059,6 @@ function onWinBotXu(modeName, winCount) {
         return;
     }
     
-    // Xử lý nhiệm vụ theo số quân thắng (5, 6, 7 quân)
-    if (typeof winCount === 'number' && [5, 6, 7].includes(winCount)) {
-        processWinCountMission(winCount).then(earned => {
-            console.log('[onWinBotXu] winCount mission earned=', earned);
-            if (earned > 0) {
-                playCoinBurst(earned, `Thắng ${winCount} quân! 🎯`);
-                if (typeof enqueueNotification === 'function') {
-                    enqueueNotification('system_events', { type: 'win', message: `🎯 Thắng ${winCount} quân! +${earned} Xu` });
-                }
-            }
-        });
-    }
-    
     // modeName may be either a bot gameMode (e.g. 'bot-tia-chop') or a diff key (e.g. 'lightning')
     const validKeys = ['easy','medium','hard','god','lightning','super'];
     let diff = 'easy';
@@ -1152,12 +1070,17 @@ function onWinBotXu(modeName, winCount) {
         console.warn('[onWinBotXu] Unexpected mapping for bot-super, diff=', diff);
     }
     console.log('[onWinBotXu] modeName=', modeName, 'winCount=', winCount, 'resolvedDiff=', diff);
-    processWinBot(diff).then(earned => {
-        console.log('[onWinBotXu] bot difficulty earned=', earned, 'for diff=', diff);
+    
+    // Xác định winCount (5, 6, 7)
+    const validWinCounts = [5, 6, 7];
+    const wc = validWinCounts.includes(winCount) ? winCount : 5;
+    
+    processWinBot(diff, wc).then(earned => {
+        console.log('[onWinBotXu] earned=', earned, 'for diff=', diff, 'winCount=', wc);
         if (earned > 0) {
-            playCoinBurst(earned, 'Thắng Bot! 🏆');
+            playCoinBurst(earned, `Thắng ${wc} quân! �`);
             if (typeof enqueueNotification === 'function') {
-                enqueueNotification('system_events', { type: 'win', message: `🏆 Thắng Bot! +${earned} Xu` });
+                enqueueNotification('system_events', { type: 'win', message: `� Thắng ${wc} quân! +${earned} Xu` });
             }
         } else {
             if (typeof enqueueNotification === 'function') {
