@@ -156,6 +156,35 @@ function cleanupBotRoomBeforeOnlineTransition() {
     return false;
 }
 
+// ── Network Mode (Cloud/LAN) ──
+let networkMode = localStorage.getItem('caro_network_mode') || 'cloud';
+const LAN_EMULATOR_HOST = 'localhost';
+const LAN_EMULATOR_PORT = 9000;
+
+function getNetworkModeLabel() {
+    return networkMode === 'lan' ? 'Nội bộ' : 'Thế giới';
+}
+
+function updateNetworkModeButton() {
+    const btn = document.getElementById('btn-network-mode');
+    if (!btn) return;
+    btn.innerHTML = `🌐 <span>Mạng: ${getNetworkModeLabel()}</span>`;
+}
+
+function setNetworkMode(mode) {
+    if (mode !== 'cloud' && mode !== 'lan') return;
+    networkMode = mode;
+    localStorage.setItem('caro_network_mode', mode);
+    updateNetworkModeButton();
+}
+
+function toggleNetworkMode() {
+    setNetworkMode(networkMode === 'cloud' ? 'lan' : 'cloud');
+    // Reload trang để áp dụng databaseURL mới
+    window.location.reload();
+}
+window.toggleNetworkMode = toggleNetworkMode;
+
 // Chuyển tab phòng
 function switchRoomTab(tab) {
     currentRoomTab = tab;
@@ -315,16 +344,25 @@ function renderRoomListImmediate() {
 // 🔥 KHỞI TẠO FIREBASE
 // ══════════════════════════════════════════════════════════════════
 function initFirebase() {
+    // Xác định databaseURL dựa trên networkMode
+    const networkMode = localStorage.getItem('caro_network_mode') || 'cloud';
+    const databaseURL = networkMode === 'lan' 
+        ? 'http://192.168.1.64:9000/?ns=fake-server'  // IP LAN + namespace fake-server
+        : 'https://caro-fa824-default-rtdb.asia-southeast1.firebasedatabase.app';
+    
+    console.log('[Firebase] Khởi tạo với mode:', networkMode, 'databaseURL:', databaseURL);
+    
     firebase.initializeApp({
         apiKey: "AIzaSyAM2qB0WixXi-QEPKEvfrpcVPbBqL7FVeU",
         authDomain: "caro-fa824.firebaseapp.com",
-        databaseURL: "https://caro-fa824-default-rtdb.asia-southeast1.firebasedatabase.app",
+        databaseURL: databaseURL,
         projectId: "caro-fa824",
         storageBucket: "caro-fa824.firebasedatabase.app",
         messagingSenderId: "809520185498",
         appId: "1:809520185498:web:905b110905104c81071f23"
     });
     db = firebase.database();
+    updateNetworkModeButton();
     db.ref('.info/serverTimeOffset').on('value', snap => {
         _firebaseServerTimeOffset = parseInt(snap.val(), 10) || 0;
         if (window._lastRoomSnapshot && window._lastRoomSnapshot.status === 'playing') {
