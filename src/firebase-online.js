@@ -179,11 +179,48 @@ function setNetworkMode(mode) {
 }
 
 function toggleNetworkMode() {
-    setNetworkMode(networkMode === 'cloud' ? 'lan' : 'cloud');
-    // Reload trang để áp dụng databaseURL mới
-    window.location.reload();
+    const newMode = networkMode === 'cloud' ? 'lan' : 'cloud';
+    setNetworkMode(newMode);
+    
+    // Khi chuyển sang LAN, clear Firebase cache và reload
+    if (newMode === 'lan') {
+        console.log('[Firebase] Clearing Firebase cache before switching to LAN...');
+        // Clear localStorage Firebase cache
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('firebase')) {
+                localStorage.removeItem(key);
+            }
+        });
+        // Clear sessionStorage
+        sessionStorage.clear();
+        console.log('[Firebase] Cache cleared, reloading...');
+        setTimeout(() => {
+            window.location.reload();
+        }, 1000);
+    } else {
+        // Khi chuyển sang Thế giới, reload bình thường
+        window.location.reload();
+    }
 }
 window.toggleNetworkMode = toggleNetworkMode;
+
+// Export dữ liệu Firebase thủ công
+function exportFirebaseData() {
+    const networkMode = localStorage.getItem('caro_network_mode') || 'cloud';
+    if (networkMode !== 'lan') {
+        alert('Chỉ có thể lưu dữ liệu khi ở mode Nội bộ (LAN)');
+        return;
+    }
+    
+    if (!confirm('Bạn có muốn lưu dữ liệu server vào disk không?')) {
+        return;
+    }
+    
+    // Gửi request tới server để export data
+    // Vì web không thể gọi firebase CLI trực tiếp, cần dùng API hoặc backend
+    // Hiện tại chỉ hiển thị thông báo
+    alert('Đang lưu dữ liệu...\n\nLưu ý: Để export data thực tế, cần:\n1. Stop server bằng file bat (chọn 2)\n2. Hoặc dùng Firebase CLI: firebase emulators:export firebase-data --project fake-server');
+}
 
 // Chuyển tab phòng
 function switchRoomTab(tab) {
@@ -344,24 +381,27 @@ function renderRoomListImmediate() {
 // 🔥 KHỞI TẠO FIREBASE
 // ══════════════════════════════════════════════════════════════════
 function initFirebase() {
-    // Xác định databaseURL dựa trên networkMode
-    const networkMode = localStorage.getItem('caro_network_mode') || 'cloud';
-    const databaseURL = networkMode === 'lan' 
-        ? 'http://192.168.1.64:9000/?ns=fake-server'  // IP LAN + namespace fake-server
-        : 'https://caro-fa824-default-rtdb.asia-southeast1.firebasedatabase.app';
-    
-    console.log('[Firebase] Khởi tạo với mode:', networkMode, 'databaseURL:', databaseURL);
-    
+    // Luôn dùng Firebase Cloud databaseURL
     firebase.initializeApp({
         apiKey: "AIzaSyAM2qB0WixXi-QEPKEvfrpcVPbBqL7FVeU",
         authDomain: "caro-fa824.firebaseapp.com",
-        databaseURL: databaseURL,
+        databaseURL: "https://caro-fa824-default-rtdb.asia-southeast1.firebasedatabase.app",
         projectId: "caro-fa824",
         storageBucket: "caro-fa824.firebasedatabase.app",
         messagingSenderId: "809520185498",
         appId: "1:809520185498:web:905b110905104c81071f23"
     });
     db = firebase.database();
+    
+    // Gọi useEmulator() với IP LAN nếu mode là lan
+    const networkMode = localStorage.getItem('caro_network_mode') || 'cloud';
+    if (networkMode === 'lan') {
+        db.useEmulator('192.168.1.64', 9000);
+        console.log('[Firebase] Sử dụng LAN emulator 192.168.1.64:9000');
+    } else {
+        console.log('[Firebase] Sử dụng Firebase Cloud');
+    }
+    
     updateNetworkModeButton();
     db.ref('.info/serverTimeOffset').on('value', snap => {
         _firebaseServerTimeOffset = parseInt(snap.val(), 10) || 0;
