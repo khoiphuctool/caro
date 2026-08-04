@@ -216,10 +216,28 @@ function exportFirebaseData() {
         return;
     }
     
-    // Gửi request tới server để export data
-    // Vì web không thể gọi firebase CLI trực tiếp, cần dùng API hoặc backend
-    // Hiện tại chỉ hiển thị thông báo
-    alert('Đang lưu dữ liệu...\n\nLưu ý: Để export data thực tế, cần:\n1. Stop server bằng file bat (chọn 2)\n2. Hoặc dùng Firebase CLI: firebase emulators:export firebase-data --project fake-server');
+    // Gọi API export server
+    fetch('http://localhost:3001/api/export-data', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            project: 'fake-server',
+            dataDir: 'firebase-data'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Đã lưu dữ liệu thành công!');
+        } else {
+            alert('❌ Lỗi lưu dữ liệu: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('❌ Không thể kết nối tới export server. Hãy chắc chắn export-server.js đang chạy.\n\nLỗi: ' + error.message);
+    });
 }
 
 // Chuyển tab phòng
