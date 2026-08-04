@@ -322,7 +322,9 @@ const PracticeMode = (function() {
             }
             // Cộng Xu khi thắng bot (có giới hạn ngày) - dùng hệ thống thống nhất từ xu-nhiem-vu.js
             if (typeof window.onWinBotXu === 'function') {
-                window.onWinBotXu(_state.botLevel);
+                // Resolve win count from GameState.roomRules if available, otherwise DOM fallback
+                const resolvedWc = (typeof GameState !== 'undefined' && GameState.roomRules && typeof GameState.roomRules.winCount === 'number') ? GameState.roomRules.winCount : parseInt(document.getElementById('win-count')?.value || '5');
+                window.onWinBotXu(_state.botLevel, resolvedWc);
             }
         }
     }

@@ -30,7 +30,7 @@ const ThreatDetector = {
 
     // ===== EVALUATE ATTACK THREAT =====
     evaluateAttackThreat(r, c, player, winCount, blockBothEnds) {
-        const patterns = PatternDetector.evalCell(r, c, player, winCount);
+        const patterns = PatternDetector.evalCell(r, c, player, winCount, blockBothEnds);
         
         let maxThreat = this.THREAT.NONE;
         let patternScores = [];
@@ -42,7 +42,7 @@ const ThreatDetector = {
             let isDead = false;
             if (blockBothEnds && pattern !== PatternDetector.PATTERN.FIVE) {
                 const { blockedBoth } = PatternDetector.countLineAndBlocked(
-                    r, c, direction.dr, direction.dc, player
+                    r, c, direction.dr, direction.dc, player, blockBothEnds
                 );
                 if (blockedBoth) isDead = true;
             }
@@ -77,7 +77,7 @@ const ThreatDetector = {
 
     // ===== EVALUATE DEFENSE THREAT =====
     evaluateDefenseThreat(r, c, opponent, winCount, blockBothEnds) {
-        const patterns = PatternDetector.evalCell(r, c, opponent, winCount);
+        const patterns = PatternDetector.evalCell(r, c, opponent, winCount, blockBothEnds);
         
         let maxThreat = this.THREAT.NONE;
         let patternScores = [];
@@ -89,7 +89,7 @@ const ThreatDetector = {
             let isDead = false;
             if (blockBothEnds && pattern !== PatternDetector.PATTERN.FIVE) {
                 const { blockedBoth } = PatternDetector.countLineAndBlocked(
-                    r, c, direction.dr, direction.dc, opponent
+                    r, c, direction.dr, direction.dc, opponent, blockBothEnds
                 );
                 if (blockedBoth) isDead = true;
             }
@@ -119,12 +119,12 @@ const ThreatDetector = {
     },
 
     // ===== DETECT SPECIAL PATTERNS =====
-    detectSpecialPatterns(r, c, player, winCount) {
+    detectSpecialPatterns(r, c, player, winCount, blockBothEnds = false) {
         return {
-            fork: PatternDetector.detectFork(r, c, player, winCount),
-            doubleThree: PatternDetector.detectDoubleThree(r, c, player, winCount),
-            fourThree: PatternDetector.detectFourThree(r, c, player, winCount),
-            doubleFour: PatternDetector.detectDoubleFour(r, c, player, winCount)
+            fork: PatternDetector.detectFork(r, c, player, winCount, blockBothEnds),
+            doubleThree: PatternDetector.detectDoubleThree(r, c, player, winCount, blockBothEnds),
+            fourThree: PatternDetector.detectFourThree(r, c, player, winCount, blockBothEnds),
+            doubleFour: PatternDetector.detectDoubleFour(r, c, player, winCount, blockBothEnds)
         };
     },
 
@@ -230,7 +230,7 @@ const ThreatDetector = {
             if (!hasFourOpen) continue;
 
             // Phân tích chi tiết vị trí chặn
-            const analysis = this.analyzeBlockPosition(r, c, opponent, winCount);
+            const analysis = this.analyzeBlockPosition(r, c, opponent, winCount, blockBothEnds);
             blockPositions.push({
                 r, c,
                 threat,
@@ -245,7 +245,7 @@ const ThreatDetector = {
     },
 
     // ===== ANALYZE SINGLE BLOCK POSITION =====
-    analyzeBlockPosition(r, c, opponent, winCount) {
+    analyzeBlockPosition(r, c, opponent, winCount, blockBothEnds = false) {
         const analysis = {
             blocksMultipleThreats: false,
             createsAttack: false,
@@ -272,7 +272,7 @@ const ThreatDetector = {
         };
 
         // Kiểm tra xem chặn này có ngăn được nhiều đe dọa khác không
-        const patterns = PatternDetector.evalCell(r, c, opponent, winCount);
+        const patterns = PatternDetector.evalCell(r, c, opponent, winCount, blockBothEnds);
         let threatCount = 0;
         for (const { pattern } of patterns) {
             if (pattern !== PatternDetector.PATTERN.NONE) {
@@ -283,7 +283,7 @@ const ThreatDetector = {
 
         // Kiểm tra xem chặn này có tạo đe dọa cho đối thủ không
         const player = opponent === 'X' ? 'O' : 'X';
-        const attackPatterns = PatternDetector.evalCell(r, c, player, winCount);
+        const attackPatterns = PatternDetector.evalCell(r, c, player, winCount, blockBothEnds);
         for (const { pattern } of attackPatterns) {
             if (pattern === PatternDetector.PATTERN.THREE_OPEN || 
                 pattern === PatternDetector.PATTERN.FOUR_OPEN) {
@@ -299,7 +299,7 @@ const ThreatDetector = {
             if (pattern === PatternDetector.PATTERN.NONE) continue;
             
             const { headBlocked, tailBlocked } = PatternDetector.countLineAndBlocked(
-                r, c, direction.dr, direction.dc, opponent
+                r, c, direction.dr, direction.dc, opponent, blockBothEnds
             );
             
             // Nếu chặn ở đầu mở (chưa bị chặn) → rất quan trọng

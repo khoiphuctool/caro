@@ -38,16 +38,62 @@ const TL = {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
+// Helper: Kiểm tra xem hướng có bị chặn bởi đối thủ không (bỏ qua ô trống)
+// Đồng bộ với logic-game.js isBlocked
+function isBlockedAI(startR, startC, dr, dc, player) {
+    const opp = player === 'X' ? 'O' : 'X';
+    let r = startR + dr;
+    let c = startC + dc;
+    
+    while (true) {
+        const cell = getCell(r, c);
+        if (cell === opp) {
+            return true; // Bị chặn bởi đối thủ
+        }
+        if (cell === player) {
+            return false; // Gặp quân của mình → không bị chặn
+        }
+        if (cell === '') {
+            // Ô trống, tiếp tục tìm
+            r += dr;
+            c += dc;
+            // Giới hạn tìm kiếm để tránh loop vô hạn
+            if (Math.abs(r - startR) > 20 || Math.abs(c - startC) > 20) {
+                return false; // Quá xa, coi như không bị chặn
+            }
+        } else {
+            return false; // Gặp quân khác
+        }
+    }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // evalLine — trả về TL.* (giữ nguyên để tương thích các hàm khác)
+// Đã cập nhật để bỏ qua ô trống khi blockBothEnds = true
 // ════════════════════════════════════════════════════════════════════════════
 function evalLine(r, c, dr, dc, p) {
     let count = 1;
     let nr = r + dr, nc = c + dc;
     while (getCell(nr, nc) === p) { count++; nr += dr; nc += dc; }
-    const hB = (getCell(nr, nc) !== "" && getCell(nr, nc) !== p);
-    nr = r - dr; nc = c - dc;
-    while (getCell(nr, nc) === p) { count++; nr -= dr; nc -= dc; }
-    const tB = (getCell(nr, nc) !== "" && getCell(nr, nc) !== p);
+    
+    let hB, tB;
+    const blockBothEnds = getBlockBothEnds();
+    
+    if (blockBothEnds) {
+        // Dùng logic mới: bỏ qua ô trống để tìm đối thủ chặn
+        hB = isBlockedAI(nr, nc, dr, dc, p);
+        
+        nr = r - dr; nc = c - dc;
+        while (getCell(nr, nc) === p) { count++; nr -= dr; nc -= dc; }
+        tB = isBlockedAI(nr, nc, -dr, -dc, p);
+    } else {
+        // Logic cũ: chỉ kiểm tra ô ngay cạnh
+        hB = (getCell(nr, nc) !== "" && getCell(nr, nc) !== p);
+        
+        nr = r - dr; nc = c - dc;
+        while (getCell(nr, nc) === p) { count++; nr -= dr; nc -= dc; }
+        tB = (getCell(nr, nc) !== "" && getCell(nr, nc) !== p);
+    }
 
     if (count >= winCount) {
         if (hB && tB) return TL.NONE;
@@ -1427,6 +1473,7 @@ function findLiveThreats(p, targetCount) {
 
 // ════════════════════════════════════════════════════════════════════════════
 // countLineAndBlocked — giữ lại cho các hàm khác dùng
+// Đã cập nhật để bỏ qua ô trống khi blockBothEnds = true
 // ════════════════════════════════════════════════════════════════════════════
 function countLineAndBlocked(r, c, dr, dc, p) {
     const opp = p === 'X' ? 'O' : 'X';
@@ -1434,10 +1481,25 @@ function countLineAndBlocked(r, c, dr, dc, p) {
     while (getCell(r + dr*(fwd+1), c + dc*(fwd+1)) === p) fwd++;
     while (getCell(r - dr*(bwd+1), c - dc*(bwd+1)) === p) bwd++;
 
-    const headCell    = getCell(r + dr*(fwd+1), c + dc*(fwd+1));
-    const tailCell    = getCell(r - dr*(bwd+1), c - dc*(bwd+1));
-    const headBlocked = (headCell === opp);
-    const tailBlocked = (tailCell === opp);
+    let headBlocked, tailBlocked;
+    const blockBothEnds = getBlockBothEnds();
+    
+    if (blockBothEnds) {
+        // Dùng logic mới: bỏ qua ô trống để tìm đối thủ chặn
+        const headR = r + dr*(fwd+1);
+        const headC = c + dc*(fwd+1);
+        headBlocked = isBlockedAI(headR, headC, dr, dc, p);
+        
+        const tailR = r - dr*(bwd+1);
+        const tailC = c - dc*(bwd+1);
+        tailBlocked = isBlockedAI(tailR, tailC, -dr, -dc, p);
+    } else {
+        // Logic cũ: chỉ kiểm tra ô ngay cạnh
+        const headCell = getCell(r + dr*(fwd+1), c + dc*(fwd+1));
+        const tailCell = getCell(r - dr*(bwd+1), c - dc*(bwd+1));
+        headBlocked = (headCell === opp);
+        tailBlocked = (tailCell === opp);
+    }
 
     return {
         count: 1 + fwd + bwd,

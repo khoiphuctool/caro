@@ -15,9 +15,38 @@ const PatternDetector = {
         TWO_BLOCKED: 7,
     },
 
+    // ===== HELPER: Check if direction is blocked by opponent (skip empty cells) =====
+    // Đồng bộ với logic-game.js isBlocked
+    isBlocked(startR, startC, dr, dc, player) {
+        const opp = player === 'X' ? 'O' : 'X';
+        let r = startR + dr;
+        let c = startC + dc;
+        
+        while (true) {
+            const cell = this.getCell(r, c);
+            if (cell === opp) {
+                return true; // Bị chặn bởi đối thủ
+            }
+            if (cell === player) {
+                return false; // Gặp quân của mình → không bị chặn
+            }
+            if (cell === '') {
+                // Ô trống, tiếp tục tìm
+                r += dr;
+                c += dc;
+                // Giới hạn tìm kiếm để tránh loop vô hạn
+                if (Math.abs(r - startR) > 20 || Math.abs(c - startC) > 20) {
+                    return false; // Quá xa, coi như không bị chặn
+                }
+            } else {
+                return false; // Gặp quân khác
+            }
+        }
+    },
+
     // ===== EVALUATE A SINGLE LINE =====
     // Returns pattern type for a line starting at (r,c) in direction (dr,dc)
-    evalLine(r, c, dr, dc, player, winCount) {
+    evalLine(r, c, dr, dc, player, winCount, blockBothEndsEnabled = false) {
         let count = 1;
         let nr = r + dr, nc = c + dc;
         
@@ -28,18 +57,35 @@ const PatternDetector = {
             nc += dc;
         }
         
-        const headBlocked = (this.getCell(nr, nc) !== "" && this.getCell(nr, nc) !== player);
+        let headBlocked, tailBlocked;
         
-        // Count backward
-        nr = r - dr;
-        nc = c - dc;
-        while (this.getCell(nr, nc) === player) {
-            count++;
-            nr -= dr;
-            nc -= dc;
+        if (blockBothEndsEnabled) {
+            // Dùng logic mới: bỏ qua ô trống để tìm đối thủ chặn
+            headBlocked = this.isBlocked(nr, nc, dr, dc, player);
+            
+            // Count backward
+            nr = r - dr;
+            nc = c - dc;
+            while (this.getCell(nr, nc) === player) {
+                count++;
+                nr -= dr;
+                nc -= dc;
+            }
+            tailBlocked = this.isBlocked(nr, nc, -dr, -dc, player);
+        } else {
+            // Logic cũ: chỉ kiểm tra ô ngay cạnh
+            headBlocked = (this.getCell(nr, nc) !== "" && this.getCell(nr, nc) !== player);
+            
+            // Count backward
+            nr = r - dr;
+            nc = c - dc;
+            while (this.getCell(nr, nc) === player) {
+                count++;
+                nr -= dr;
+                nc -= dc;
+            }
+            tailBlocked = (this.getCell(nr, nc) !== "" && this.getCell(nr, nc) !== player);
         }
-        
-        const tailBlocked = (this.getCell(nr, nc) !== "" && this.getCell(nr, nc) !== player);
 
         // Determine pattern type
         if (count >= winCount) {
@@ -67,7 +113,7 @@ const PatternDetector = {
 
     // ===== EVALUATE ALL DIRECTIONS FOR A CELL =====
     // Returns array of patterns in all 4 directions
-    evalCell(r, c, player, winCount) {
+    evalCell(r, c, player, winCount, blockBothEndsEnabled = false) {
         const directions = [
             { dr: 0, dc: 1 },   // Horizontal
             { dr: 1, dc: 0 },   // Vertical
@@ -79,7 +125,7 @@ const PatternDetector = {
         for (const { dr, dc } of directions) {
             patterns.push({
                 direction: { dr, dc },
-                pattern: this.evalLine(r, c, dr, dc, player, winCount)
+                pattern: this.evalLine(r, c, dr, dc, player, winCount, blockBothEndsEnabled)
             });
         }
         
@@ -88,7 +134,7 @@ const PatternDetector = {
 
     // ===== COUNT LINE AND BLOCKED STATUS =====
     // Returns { count, blockedBoth, headBlocked, tailBlocked }
-    countLineAndBlocked(r, c, dr, dc, player) {
+    countLineAndBlocked(r, c, dr, dc, player, blockBothEndsEnabled = false) {
         let count = 1;
         let nr = r + dr, nc = c + dc;
         
@@ -98,17 +144,31 @@ const PatternDetector = {
             nc += dc;
         }
         
-        const headBlocked = (this.getCell(nr, nc) !== "" && this.getCell(nr, nc) !== player);
+        let headBlocked, tailBlocked;
         
-        nr = r - dr;
-        nc = c - dc;
-        while (this.getCell(nr, nc) === player) {
-            count++;
-            nr -= dr;
-            nc -= dc;
+        if (blockBothEndsEnabled) {
+            headBlocked = this.isBlocked(nr, nc, dr, dc, player);
+            
+            nr = r - dr;
+            nc = c - dc;
+            while (this.getCell(nr, nc) === player) {
+                count++;
+                nr -= dr;
+                nc -= dc;
+            }
+            tailBlocked = this.isBlocked(nr, nc, -dr, -dc, player);
+        } else {
+            headBlocked = (this.getCell(nr, nc) !== "" && this.getCell(nr, nc) !== player);
+            
+            nr = r - dr;
+            nc = c - dc;
+            while (this.getCell(nr, nc) === player) {
+                count++;
+                nr -= dr;
+                nc -= dc;
+            }
+            tailBlocked = (this.getCell(nr, nc) !== "" && this.getCell(nr, nc) !== player);
         }
-        
-        const tailBlocked = (this.getCell(nr, nc) !== "" && this.getCell(nr, nc) !== player);
         
         return {
             count,
@@ -120,8 +180,8 @@ const PatternDetector = {
 
     // ===== DETECT FORK PATTERNS =====
     // A fork is when a move creates multiple attack lines
-    detectFork(r, c, player, winCount) {
-        const patterns = this.evalCell(r, c, player, winCount);
+    detectFork(r, c, player, winCount, blockBothEndsEnabled = false) {
+        const patterns = this.evalCell(r, c, player, winCount, blockBothEndsEnabled);
         let attackLines = 0;
         let threeOpenLines = 0;
         let fourOpenLines = 0;
@@ -145,8 +205,8 @@ const PatternDetector = {
     },
 
     // ===== DETECT DOUBLE THREE =====
-    detectDoubleThree(r, c, player, winCount) {
-        const patterns = this.evalCell(r, c, player, winCount);
+    detectDoubleThree(r, c, player, winCount, blockBothEndsEnabled = false) {
+        const patterns = this.evalCell(r, c, player, winCount, blockBothEndsEnabled);
         let threeOpenCount = 0;
         
         for (const { pattern } of patterns) {
@@ -159,8 +219,8 @@ const PatternDetector = {
     },
 
     // ===== DETECT FOUR-THREE COMBINATION =====
-    detectFourThree(r, c, player, winCount) {
-        const patterns = this.evalCell(r, c, player, winCount);
+    detectFourThree(r, c, player, winCount, blockBothEndsEnabled = false) {
+        const patterns = this.evalCell(r, c, player, winCount, blockBothEndsEnabled);
         let hasFour = false;
         let hasThreeOpen = false;
         
@@ -176,8 +236,8 @@ const PatternDetector = {
     },
 
     // ===== DETECT DOUBLE FOUR =====
-    detectDoubleFour(r, c, player, winCount) {
-        const patterns = this.evalCell(r, c, player, winCount);
+    detectDoubleFour(r, c, player, winCount, blockBothEndsEnabled = false) {
+        const patterns = this.evalCell(r, c, player, winCount, blockBothEndsEnabled);
         let fourCount = 0;
         
         for (const { pattern } of patterns) {

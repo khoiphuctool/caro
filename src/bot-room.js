@@ -1103,7 +1103,8 @@ const BotRoomManager = {
         // Cộng Xu khi thắng bot - dùng hệ thống thống nhất từ xu-nhiem-vu.js
         if (winner === 'X' && typeof window.onWinBotXu === 'function') {
             const gameMode = this.currentBotRoom.gameMode;
-            window.onWinBotXu(gameMode);
+            const winCount = (typeof GameState !== 'undefined' && GameState.roomRules && typeof GameState.roomRules.winCount === 'number') ? GameState.roomRules.winCount : 5;
+            window.onWinBotXu(gameMode, winCount);
         }
 
         if (winner === 'X') {

@@ -596,7 +596,7 @@ function makeMove(r, c) {
                 }
                 // Cộng Xu khi thắng bot (có giới hạn ngày)
                 if (typeof window.onWinBotXu === 'function') {
-                    window.onWinBotXu(gameMode);
+                    window.onWinBotXu(gameMode, winCount);
                 }
                 // Người thắng → bot học pattern của người thắng để tránh bị đánh bại tương tự
                 if (typeof onBotLoss === 'function') {
@@ -633,6 +633,34 @@ function makeMove(r, c) {
 }
 
 // ===== CHECK WIN =====
+// Helper: Kiểm tra xem hướng có bị chặn bởi đối thủ không (bỏ qua ô trống)
+function isBlocked(startR, startC, dr, dc, player) {
+    const opp = player === 'X' ? 'O' : 'X';
+    let r = startR + dr;
+    let c = startC + dc;
+    
+    while (true) {
+        const cell = getCell(r, c);
+        if (cell === opp) {
+            return true; // Bị chặn bởi đối thủ
+        }
+        if (cell === player) {
+            return false; // Gặp quân của mình → không bị chặn (có thể mở rộng)
+        }
+        if (cell === '') {
+            // Ô trống, tiếp tục tìm
+            r += dr;
+            c += dc;
+            // Giới hạn tìm kiếm để tránh loop vô hạn (tối đa 20 ô)
+            if (Math.abs(r - startR) > 20 || Math.abs(c - startC) > 20) {
+                return false; // Quá xa, coi như không bị chặn
+            }
+        } else {
+            return false; // Gặp quân khác (W hoặc ký hiệu khác)
+        }
+    }
+}
+
 function getWinningLine(row, col, player, winCount, blockBothEndsEnabled) {
     const opp = player === 'X' ? 'O' : 'X';
     for (let { dr, dc } of DIRECTIONS) {
@@ -660,20 +688,23 @@ function getWinningLine(row, col, player, winCount, blockBothEndsEnabled) {
             return line;
         }
 
-        const segmentCount = line.length - winCount + 1;
-        for (let startIndex = 0; startIndex < segmentCount; startIndex++) {
-            const segment = line.slice(startIndex, startIndex + winCount);
-            const startCell = segment[0];
-            const endCell = segment[segment.length - 1];
-            const headCell = getCell(endCell[0] + dr, endCell[1] + dc);
-            const tailCell = getCell(startCell[0] - dr, startCell[1] - dc);
-            const headBlocked = headCell === opp;
-            const tailBlocked = tailCell === opp;
+        // Luật chặn 2 đầu mới: Nếu cả 2 đầu bị chặn bởi đối thủ → KHÔNG thắng
+        // Bỏ qua các ô trống để tìm đối thủ chặn
+        const startCell = line[0];
+        const endCell = line[line.length - 1];
+        
+        // Kiểm tra đầu bên phải (theo hướng dr, dc)
+        const headBlocked = isBlocked(endCell[0], endCell[1], dr, dc, player);
+        // Kiểm tra đầu bên trái (ngược hướng dr, dc)
+        const tailBlocked = isBlocked(startCell[0], startCell[1], -dr, -dc, player);
 
-            if (!(headBlocked && tailBlocked)) {
-                return segment;
-            }
+        // Nếu cả 2 đầu bị chặn → không thắng
+        if (headBlocked && tailBlocked) {
+            continue;
         }
+
+        // Nếu ít nhất 1 đầu không bị chặn → thắng
+        return line;
     }
     return null;
 }
@@ -818,7 +849,10 @@ window.undoSoloBotMove = function() {
     // Bot sẽ không tự đánh vì currentPlayer đã được set về lượt người
 };
 
-// checkWinLogicOld: Hàm kiểm tra thắng thua hỗ trợ cả Online và Offline với tham số luật chơi tùy chỉnh
+// checkWinLogicOld: ĐÃ BỎ DÙNG - Đã đồng bộ về checkWinSilent để đảm bảo logic chặn 2 đầu nhất quán
+// Hàm này được thay thế bởi checkWinSilent() với GameState.roomRules
+// Giữ lại comment để tham khảo nếu cần rollback
+/*
 window.checkWinLogicOld = function(row, col, playerRole, customRule, customWinCount) {
     const player = playerRole || getCell(row, col);
     if (!player) return false;
@@ -846,6 +880,7 @@ window.checkWinLogicOld = function(row, col, playerRole, customRule, customWinCo
     }
     return false;
 };
+*/
 
 function highlightWinners(winningCells) {
     if (isInfinite) winningCellCoords = winningCells.slice();

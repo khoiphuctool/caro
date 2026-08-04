@@ -1353,6 +1353,17 @@ function setupEventListeners() {
                 (typeof GameState !== 'undefined' && GameState.board && typeof GameState.board.winCount === 'number') ? GameState.board.winCount : 5;
             currentWinCount   = resolvedWinCount;
             if (typeof winCount !== 'undefined') winCount = currentWinCount;
+            // Sync room rules vào GameState để checkWinSilent dùng đúng luật
+            if (typeof GameState !== 'undefined') {
+                GameState.roomRules = {
+                    winCount: resolvedWinCount,
+                    chan2Dau: typeof room.chan2Dau === 'boolean' ? room.chan2Dau : true,
+                    firstTurn: room.firstTurn || 'X'
+                };
+                if (!GameState.board) GameState.board = {};
+                GameState.board.winCount = resolvedWinCount;
+            }
+            window.roomRules = GameState.roomRules;
             const sf = myRole === 'X' ? 'playerX_status' : 'playerO_status';
             const startReconnectOnline = () => {
                 db.ref(`rooms/${roomId}/${sf}`).set('online');
@@ -1626,6 +1637,17 @@ function vaoLaiPhong(roomId) {
                     (typeof GameState !== 'undefined' && GameState.board && typeof GameState.board.winCount === 'number') ? GameState.board.winCount : 5;
                 currentWinCount   = resolvedWinCount2;
                 if (typeof winCount !== 'undefined') winCount = currentWinCount;
+                // Sync room rules vào GameState để checkWinSilent dùng đúng luật
+                if (typeof GameState !== 'undefined') {
+                    GameState.roomRules = {
+                        winCount: resolvedWinCount2,
+                        chan2Dau: typeof room.chan2Dau === 'boolean' ? room.chan2Dau : true,
+                        firstTurn: room.firstTurn || 'X'
+                    };
+                    if (!GameState.board) GameState.board = {};
+                    GameState.board.winCount = resolvedWinCount2;
+                }
+                window.roomRules = GameState.roomRules;
                 localStorage.setItem('current_room_id', roomId);
                 // Cập nhật currentRoomId lên Firebase
                 const myId = localStorage.getItem('current_user_id');
@@ -2923,6 +2945,17 @@ let _dangBatDauGame = false;
 function _thucSuBatDauGame(room, winCount, chan2Dau, firstTurn) {
     if (_dangBatDauGame) return;
     _dangBatDauGame = true;
+    // Sync room rules vào GameState trước khi bắt đầu game
+    if (typeof GameState !== 'undefined') {
+        GameState.roomRules = {
+            winCount: winCount,
+            chan2Dau: chan2Dau,
+            firstTurn: firstTurn
+        };
+        if (!GameState.board) GameState.board = {};
+        GameState.board.winCount = winCount;
+    }
+    window.roomRules = GameState.roomRules;
     db.ref(`rooms/${currentRoomId}`).update({
         status:           'playing',
         turn:             firstTurn,
@@ -2993,12 +3026,26 @@ function capNhatLuatPhong() {
     const radioNo  = document.getElementById('room-chan-2-dau-no');
     const selFirst = document.getElementById('room-first-turn');
     if (!selWin || (!radioYes && !radioNo)) return;
+    const newWinCount = parseInt(selWin.value);
+    const newChan2Dau = radioYes ? radioYes.checked : true;
+    const newFirstTurn = selFirst ? selFirst.value : 'X';
     db.ref(`rooms/${currentRoomId}`).update({
-        winCount:  parseInt(selWin.value),
-        chan2Dau:  radioYes ? radioYes.checked : true,
-        firstTurn: selFirst ? selFirst.value : 'X',
+        winCount:  newWinCount,
+        chan2Dau:  newChan2Dau,
+        firstTurn: newFirstTurn,
         updatedAt: Date.now()
     });
+    // Sync ngay xuống GameState.roomRules để đảm bảo logic checkWinSilent dùng đúng luật
+    if (typeof GameState !== 'undefined') {
+        GameState.roomRules = {
+            winCount: newWinCount,
+            chan2Dau: newChan2Dau,
+            firstTurn: newFirstTurn
+        };
+        if (!GameState.board) GameState.board = {};
+        GameState.board.winCount = newWinCount;
+    }
+    window.roomRules = GameState.roomRules;
 }
 window.capNhatLuatPhong = capNhatLuatPhong;
 function kickDoiThu() {
@@ -3927,11 +3974,9 @@ window.guiNuocDiLenFirebase = function(row, col) {
     const nextTurn = myRole === 'X' ? 'O' : 'X';
     const roomRef  = db.ref(`rooms/${currentRoomId}`);
     // Luôn dùng luật của phòng đang chơi; không phụ thuộc checkbox local của người chơi.
-    const roomRule = (typeof currentRule !== 'undefined') ? currentRule : 'tu_do';
-    const roomWinCount = (typeof currentWinCount !== 'undefined') ? currentWinCount : winCount;
-    const isWin = (typeof window.checkWinLogicOld === 'function')
-        ? window.checkWinLogicOld(row, col, myRole, roomRule, roomWinCount)
-        : ((typeof checkWin === 'function') ? checkWin(row, col) : false);
+    // Đồng bộ về checkWinSilent để đảm bảo logic chặn 2 đầu nhất quán
+    const roomRules = (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : { winCount: 5, chan2Dau: true };
+    const isWin = (typeof checkWinSilent === 'function') ? checkWinSilent(row, col, roomRules) : false;
     const moveKey  = `${row}_${col}`;  // Key xác định ô — dùng để check O(1)
     return roomRef.transaction(data => {
         if (!data) return null; // retry
@@ -4112,9 +4157,9 @@ async function xuLyKetThucVan(room) {
             // Fallback: winner không online
         }
     }
-    // Xử lý cược: chỉ gọi từ winner và chỉ khi có cược
-    // Loser sẽ nhận xu popup qua transaction của winner
-    if (myId === winnerId && hasBet && typeof ketThucCuoc === 'function') {
+    // Xử lý cược: gọi từ cả winner và loser khi có cược
+    // Winner và loser đều nhận xu popup tương ứng
+    if (hasBet && typeof ketThucCuoc === 'function') {
         await ketThucCuoc(currentRoomId, room.winner, false);
     }
 
