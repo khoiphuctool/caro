@@ -79,19 +79,167 @@ const ThreatDetector = {
     evaluateDefenseThreat(r, c, opponent, winCount, blockBothEnds) {
         const patterns = PatternDetector.evalCell(r, c, opponent, winCount, blockBothEnds);
         
+        // aiPlayer là người phòng thủ (không phải đối thủ)
+        const aiPlayer = opponent === 'X' ? 'O' : 'X';
+        
         let maxThreat = this.THREAT.NONE;
         let patternScores = [];
         
         for (const { direction, pattern } of patterns) {
             if (pattern === PatternDetector.PATTERN.NONE) continue;
             
-            // Check if blocked both ends
+            // Check if blocked both ends + lấy thêm headBlockedBy/tailBlockedBy
             let isDead = false;
+            let alreadyBlockedOnThisSide = false;
+
             if (blockBothEnds && pattern !== PatternDetector.PATTERN.FIVE) {
-                const { blockedBoth } = PatternDetector.countLineAndBlocked(
-                    r, c, direction.dr, direction.dc, opponent, blockBothEnds
+                const lineInfo = PatternDetector.countLineAndBlocked(
+                    r, c, direction.dr, direction.dc, opponent, blockBothEnds, aiPlayer
                 );
-                if (blockedBoth) isDead = true;
+                if (lineInfo.blockedBoth) {
+                    isDead = true;
+                } else {
+                    // Kiểm tra: ô ứng viên (r,c) tiếp giáp đầu mà AI đã chặn sẵn
+                    // nhưng đầu kia vẫn còn mở → AlreadyBlockedPenalty
+                    //
+                    // "headBlocked" là phía trước (forward direction từ r,c):
+                    //   nếu headBlockedBy = 'ai' VÀ !tailBlocked → AI đã chặn head, tail còn mở
+                    // "tailBlocked" là phía sau:
+                    //   nếu tailBlockedBy = 'ai' VÀ !headBlocked → AI đã chặn tail, head còn mở
+                    //
+                    // Ô (r,c) được xét là tiếp giáp đầu mà AI đã chặn khi:
+                    // - headBlockedBy = 'ai' (phía trước chain, AI đã block) → ô (r,c) đang nằm ở phía tail (mở)
+                    //   nhưng cần check: đầu kia (tail) có mở không?
+                    // - hoặc tailBlockedBy = 'ai' (phía sau chain, AI đã block) → đầu kia (head) còn mở?
+                    //
+                    // Thực ra: ô (r,c) là điểm xuất phát đếm chain.
+                    // head = phía dc+ (forward), tail = phía dc- (backward).
+                    // Ô kề head là (r + dr * count, c + dc * count) — cách ô (r,c) "count" bước.
+                    // Ô kề tail là (r - dr * count_back, c - dc * count_back).
+                    //
+                    // Tuy nhiên cách đơn giản nhất: nếu 1 đầu bị AI chặn (blockedBy='ai')
+                    // và đầu kia mở (không blocked) → ô (r,c) nằm ở phía có thể là đầu mở hoặc đầu chặn.
+                    // Để xác định ô (r,c) thuộc bên nào:
+                    //   - headBlocked=true, headBlockedBy='ai', tailBlocked=false
+                    //     → phía forward đã bị AI chặn, ô (r,c) là 1 đầu của chain
+                    //     → nếu ô (r,c) ở phía forward (tức là nằm ngay cạnh đầu AI đã chặn) → penalty
+                    //     → nếu ô (r,c) ở phía tail (đầu còn mở) → KHÔNG penalty
+                    //
+                    // Cách check đơn giản: ô ngay trước head (nr = r + dr) có phải là quân opponent không?
+                    // Nếu không (ô (r,c) không phải trong chuỗi) thì (r,c) là điểm tiếp giáp head.
+                    // → headBlockedBy='ai' AND tailBlocked=false AND ô (r-dr,c-dc) KHÔNG phải opponent
+                    //    = (r,c) nằm ở phía forward, kề head bị AI chặn → penalty
+                    // → tailBlockedBy='ai' AND headBlocked=false AND ô (r+dr,c+dc) KHÔNG phải opponent
+                    //    = (r,c) nằm ở phía backward, kề tail bị AI chặn → penalty
+                    //
+                    // Nhưng thực ra đơn giản hơn: PatternDetector.countLineAndBlocked bắt đầu từ (r,c)
+                    // đếm theo hướng (dr,dc) → head là đầu forward.
+                    // Ô (r,c) chính là một đầu của chuỗi hoặc nằm trong chuỗi.
+                    // Khi AI xét ô (r,c) là move candidate (ô trống), ô đó nằm ngay cạnh chuỗi.
+                    // countLineAndBlocked từ (r,c) với opponent → nếu (r+dr,c+dc) là opponent thì (r,c) kề tail(forward)
+                    //
+                    // Đơn giản nhất: nếu headBlockedBy='ai' AND !tailBlocked → chain đang bị AI chặn ở head,
+                    // tail còn mở. Ô (r,c) nằm ở phía tail (vì count bắt đầu từ r,c đếm forward gặp opponent).
+                    // Wait — count=1 bắt đầu từ ô (r,c) chính nó. Nếu getCell(r,c) = opponent thì đây là ô của đối thủ.
+                    // Nhưng (r,c) là move candidate (ô trống) → getCell(r,c) = '' → count = 1 chỉ đúng nếu (r,c) là opponent.
+                    //
+                    // Thực ra: evalCell trước đó đã xác định pattern tại (r,c) cho opponent.
+                    // Pattern tại (r,c) đại diện cho chuỗi nếu đặt quân opponent vào đó.
+                    // Với ô trống (r,c), countLineAndBlocked bắt đầu từ (r,c):
+                    //   count = 1 (ô (r,c) là ô đầu tiên)
+                    //   đếm forward: nếu (r+dr,c+dc) = opponent → count++, ...
+                    //   đếm backward: nếu (r-dr,c-dc) = opponent → count++, ...
+                    //   head = đầu forward của chuỗi extended (bao gồm ô trống r,c)
+                    //   tail = đầu backward
+                    //
+                    // Ô (r,c) là move candidate nằm ở ĐẦU của chuỗi (một trong 2 đầu).
+                    // Nếu (r+dr,c+dc) = opponent → ô (r,c) là đầu backward (tail direction)
+                    //   → head bị chặn bởi AI → tail chứa (r,c) là đầu mở → đây là ô mở → KHÔNG penalty
+                    //   → tail bị chặn bởi AI → head là đầu mở → (r,c) là đầu bị AI chặn → penalty
+                    // Nếu (r-dr,c-dc) = opponent → ô (r,c) là đầu forward (head direction)
+                    //   → tail bị chặn bởi AI → head còn mở → (r,c) là đầu mở → KHÔNG penalty
+                    //   → head bị chặn bởi AI → (r,c) nằm ở head side nhưng head đã bị AI chặn
+                    //      Wait, (r,c) IS the head if (r+dr,c+dc) is NOT opponent.
+                    //
+                    // TÓM LẠI cách xác định:
+                    // - Nếu getCell(r+dr,c+dc) === opponent → ô (r,c) là đầu tail của chuỗi
+                    //     → tailBlockedBy check bên sau là không áp dụng; phần "tail" của countLineAndBlocked
+                    //        đếm backward từ (r,c) → nhưng (r,c) không phải opponent nên count=1 và tail chính là (r,c)
+                    //   Thực ra: countLineAndBlocked start từ (r,c) với count=1:
+                    //     forward: nr=r+dr → nếu = opponent → count++, tiếp tục...
+                    //     → head = đầu của chuỗi phía trước (không có (r,c) trong forward count)
+                    //     → (r,c) nằm ở phía "tail" (backward end)
+                    //     → tailBlocked/tailBlockedBy = blocked status của (r,c) side
+                    //     → headBlocked/headBlockedBy = blocked status của phía forward end
+                    //   Vậy:
+                    //     nếu headBlockedBy = 'ai' AND !tailBlocked:
+                    //       forward end bị AI chặn, (r,c) ở backward end (còn mở) → ô (r,c) là đầu MỞ → KHÔNG penalty
+                    //     nếu tailBlockedBy = 'ai' AND !headBlocked:
+                    //       (r,c) ở backward end bị AI chặn → nhưng (r,c) là ô TRỐNG (move candidate)
+                    //       → "AI chặn" ở tail side có nghĩa là ô trống (r,c) sau khi đặt quân AI sẽ chặn?
+                    //       → Không phải: tailBlockedBy là blocked status HIỆN TẠI (trước khi đặt quân)
+                    //       → Nếu tailBlockedBy = 'ai' → ô ngay sau backward end (tức ô ngay kề (r,c) theo -dr,-dc) là quân AI
+                    //       → Nghĩa là AI đã có quân kề (r,c) theo hướng ngược → đây là ô "đã bị AI chặn"
+                    //       → (r,c) là ô mà nếu đặt vào sẽ kề quân AI đã có sẵn → PENALTY
+                    //       → VÀ headBlocked = false → phía forward còn mở → ô (r,c) KHÔNG CẦN chặn
+                    //
+                    // KẾT LUẬN:
+                    //   alreadyBlockedOnThisSide = true khi:
+                    //   CASE A: tailBlockedBy = 'ai' AND headBlocked = false
+                    //     → ô (r,c) kề quân AI ở tail side, đầu forward còn mở
+                    //   CASE B: headBlockedBy = 'ai' AND tailBlocked = false
+                    //     → forward end bị AI chặn, (r,c) ở backward (tail) side MỞ
+                    //     → Hmm, trong case này (r,c) là đầu MỞ... không penalty
+                    //
+                    // WAIT - cần suy nghĩ lại:
+                    // Mục tiêu: PENALTY khi ô (r,c) nằm ở phía đã bị AI chặn.
+                    // Ô (r,c) nằm ở phía tail (backward end):
+                    //   → tailBlockedBy mô tả trạng thái của tail end (phía (r,c))
+                    //   → Nếu tailBlockedBy = 'ai': có quân AI ngay kề (r,c) theo hướng -dr,-dc
+                    //      Tức là AI đã chặn tail (phía (r,c)) → đặt (r,c) là thừa → PENALTY
+                    //   → Nếu headBlocked = false: đầu forward còn mở → xác nhận không cần chặn (r,c)
+                    //
+                    // Ô (r,c) nằm ở phía head (forward end) — trường hợp getCell(r-dr,c-dc) === opponent:
+                    //   → headBlockedBy mô tả trạng thái của head end (phía (r,c))
+                    //   → Nếu headBlockedBy = 'ai': AI đã chặn forward end (nhưng (r,c) là đầu forward)
+                    //      → Mâu thuẫn: (r,c) là ô trống, làm sao headBlockedBy = 'ai'?
+                    //      → headEnd = nr sau khi đếm forward từ (r,c). Nếu (r+dr) không phải opponent
+                    //         → headEnd là (r+dr) hoặc xa hơn sau các ô trống
+                    //      → Thực ra nếu (r-dr,c-dc) = opponent: (r,c) không nằm trong forward count
+                    //         mà nằm trong backward count → (r,c) là tail end
+                    //      → WAIT: count bắt đầu từ (r,c) = 1, forward: (r+dr,c+dc)...
+                    //         nếu (r-dr,c-dc) = opponent → backward count: count++ ...
+                    //         → (r,c) vẫn là TẤT CẢ — nó là điểm bắt đầu, không xác định rõ "bên nào"
+                    //
+                    // CUỐI CÙNG - logic đơn giản nhất:
+                    // Ô (r,c) là move candidate (trống). Xung quanh có thể có chuỗi opponent.
+                    // countLineAndBlocked từ (r,c) đếm CẢ HAI chiều:
+                    //   - forward (dr,dc): chain phía trước
+                    //   - backward (-dr,-dc): chain phía sau
+                    // head = đầu của tất cả chain phía forward
+                    // tail = đầu của tất cả chain phía backward
+                    // (r,c) nằm ở GIỮA head và tail (hoặc ở 1 đầu nếu chain chỉ ở 1 phía).
+                    //
+                    // Case PENALTY rõ ràng nhất:
+                    //   - tailBlockedBy = 'ai': AI đã có quân ở backward end (gần phía -dr,-dc từ (r,c))
+                    //     + headBlocked = false: phía forward còn mở
+                    //     → (r,c) đặt vào sẽ kề quân AI ở tail → đầu tail đã chết → PENALTY
+                    //   - headBlockedBy = 'ai': AI đã có quân ở forward end (gần phía dr,dc từ (r,c))
+                    //     + tailBlocked = false: phía backward còn mở
+                    //     → (r,c) đặt vào sẽ kề quân AI ở head → đầu head đã chết → PENALTY
+                    //
+                    // ĐÂY LÀ LOGIC ĐÚNG. Áp dụng:
+                    const { headBlocked, tailBlocked, headBlockedBy, tailBlockedBy } = lineInfo;
+                    
+                    const headAlreadyBlockedByAI = (headBlockedBy === 'ai') && !tailBlocked;
+                    const tailAlreadyBlockedByAI = (tailBlockedBy === 'ai') && !headBlocked;
+                    
+                    if (headAlreadyBlockedByAI || tailAlreadyBlockedByAI) {
+                        alreadyBlockedOnThisSide = true;
+                    }
+                }
+            } else if (!blockBothEnds) {
+                // blockBothEnds = false: không thay đổi gì, no penalty
             }
             
             if (!isDead) {
@@ -102,7 +250,8 @@ const ThreatDetector = {
                     pattern,
                     threatLevel,
                     score,
-                    direction
+                    direction,
+                    alreadyBlockedOnThisSide
                 });
                 
                 if (threatLevel > maxThreat) {
@@ -193,8 +342,16 @@ const ThreatDetector = {
     calculateDefenseScore(defense) {
         let score = 0;
         
-        for (const { pattern } of defense.patternScores) {
-            score += this.getScore(pattern, false);
+        for (const { pattern, alreadyBlockedOnThisSide } of defense.patternScores) {
+            let patternScore = this.getScore(pattern, false);
+            
+            // AlreadyBlockedPenalty: giảm 85% điểm khi ô ứng viên kề đầu AI đã chặn sẵn
+            // và đầu kia còn mở — chỉ áp dụng khi thông tin này được set (tức blockBothEnds=true)
+            if (alreadyBlockedOnThisSide) {
+                patternScore *= 0.15;
+            }
+            
+            score += patternScore;
         }
 
         // Defense urgency multiplier

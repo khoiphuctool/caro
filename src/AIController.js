@@ -467,9 +467,9 @@ const AIController = {
     // ===== MAKE AI MOVE =====
     // Thực hiện nước đi của AI
     makeAIMove(options = {}) {
-        const isActive = typeof isGameActive !== 'undefined' ? isGameActive : 
+        const isActive = typeof isGameActive !== 'undefined' ? isGameActive :
                         (typeof GameState !== 'undefined' ? GameState.isGameActive() : true);
-        
+
         if (!isActive) return;
 
         const isBotMoveFlag = typeof isBotMove !== 'undefined' ? isBotMove : false;
@@ -481,6 +481,28 @@ const AIController = {
 
         try {
             const move = this.getBotMove(options);
+
+            // Collect debug info for DebugPanel
+            if (move && typeof DebugPanel !== 'undefined') {
+                const moveInfo = {
+                    depth: this.config.searchDepth || options.depth || 'N/A',
+                    candidates: move.candidates || 'N/A',
+                    threatLevel: move.threatLevel || 'N/A',
+                    evalScore: move.score || move.evalScore || 'N/A',
+                    bestMove: { r: move.r, c: move.c },
+                    attackScore: move.attackScore,
+                    defenseScore: move.defenseScore,
+                    threatInfo: move.threatInfo
+                };
+                DebugPanel.update(moveInfo);
+                DebugPanel.show();
+
+                // Store highlight for bot move
+                if (typeof window !== 'undefined') {
+                    window.debugHighlightCell = { r: move.r, c: move.c };
+                }
+            }
+
             if (move && typeof makeMove === 'function') makeMove(move.r, move.c);
         } finally {
             if (typeof isBotMove !== 'undefined') isBotMove = false;

@@ -803,6 +803,18 @@ function renderInfiniteBoard() {
                 c.strokeStyle = col.grid;
             }
 
+            // Debug highlight for bot move (yellow highlight)
+            const isDebugHighlight = window.debugHighlightCell && gr === window.debugHighlightCell.r && gc2 === window.debugHighlightCell.c;
+            if (isDebugHighlight) {
+                c.fillStyle = 'rgba(255, 215, 0, 0.3)';
+                c.fillRect(offX + ci*CS + 0.5, offY + ri*CS + 0.5, CS-1, CS-1);
+                c.strokeStyle = '#ffd700';
+                c.lineWidth = 3;
+                c.strokeRect(offX + ci*CS + 1.5, offY + ri*CS + 1.5, CS-3, CS-3);
+                c.lineWidth = 0.5;
+                c.strokeStyle = col.grid;
+            }
+
             // Xác định icon, màu và font size cho từng quân riêng biệt
             const isX = (val === 'X');
             const icon = isX ? _iconX : _iconO;

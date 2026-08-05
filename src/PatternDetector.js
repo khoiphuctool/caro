@@ -132,9 +132,36 @@ const PatternDetector = {
         return patterns;
     },
 
+    // ===== HELPER: Determine what is blocking a chain end =====
+    // Looks at the cell directly at (r, c) — the first cell beyond the chain end.
+    // chainPlayer: the player whose chain is being evaluated (the attacker / opponent)
+    // aiPlayer:    the defending player (AI), or null if unknown
+    // Returns:
+    //   'ai'       — cell contains aiPlayer's piece (AI already blocked this end)
+    //   'opponent' — cell contains chainPlayer's own piece (self-blocked)
+    //   'wall'     — cell is out of bounds
+    //   null       — cell is empty (end is open, not blocked)
+    getBlockedBy(r, c, chainPlayer, aiPlayer) {
+        const cell = this.getCell(r, c);
+        // Out of bounds is reported as "W" by the fallback getCell, or we can check bounds
+        // getCell returns "W" for out-of-bounds in the boardState branch
+        if (cell === "W") return 'wall';
+        // Also check numeric bounds via a direct OOB test
+        if (cell === '' ) return null; // empty → not blocked
+        if (cell === chainPlayer) return 'opponent'; // chain player's own piece
+        // Any other non-empty, non-chainPlayer cell
+        if (aiPlayer !== null && aiPlayer !== undefined && cell === aiPlayer) return 'ai';
+        // Cell has a piece but aiPlayer is unknown — treat as 'ai' (some blocker that isn't chainPlayer)
+        return 'ai';
+    },
+
     // ===== COUNT LINE AND BLOCKED STATUS =====
-    // Returns { count, blockedBoth, headBlocked, tailBlocked }
-    countLineAndBlocked(r, c, dr, dc, player, blockBothEndsEnabled = false) {
+    // Returns { count, blockedBoth, headBlocked, tailBlocked, headBlockedBy, tailBlockedBy }
+    // headBlockedBy / tailBlockedBy: 'ai' | 'opponent' | 'wall' | null
+    //   — only populated when blockBothEndsEnabled = true AND that end is blocked
+    //   — null when blockBothEndsEnabled = false OR end is not blocked
+    // aiPlayer (optional): the defending player; used to distinguish 'ai' vs other blocker
+    countLineAndBlocked(r, c, dr, dc, player, blockBothEndsEnabled = false, aiPlayer = null) {
         let count = 1;
         let nr = r + dr, nc = c + dc;
         
@@ -143,6 +170,8 @@ const PatternDetector = {
             nr += dr;
             nc += dc;
         }
+        // nr, nc is now the first cell beyond the forward end of the chain
+        const headEndR = nr, headEndC = nc;
         
         let headBlocked, tailBlocked;
         
@@ -169,12 +198,52 @@ const PatternDetector = {
             }
             tailBlocked = (this.getCell(nr, nc) !== "" && this.getCell(nr, nc) !== player);
         }
+        // nr, nc is now the first cell beyond the backward end of the chain
+        const tailEndR = nr, tailEndC = nc;
+
+        // Populate headBlockedBy / tailBlockedBy only when blockBothEndsEnabled = true
+        // and the respective end is blocked
+        let headBlockedBy = null;
+        let tailBlockedBy = null;
+
+        if (blockBothEndsEnabled) {
+            if (headBlocked) {
+                // When isBlocked() skips empty cells, the actual blocker cell may not be
+                // headEndR/headEndC (which could be empty). We scan forward from headEnd
+                // to find the first non-empty cell, then call getBlockedBy on it.
+                let scanR = headEndR, scanC = headEndC;
+                let scanCell = this.getCell(scanR, scanC);
+                // Skip empty cells (isBlocked logic scans past empties)
+                let steps = 0;
+                while (scanCell === '' && steps < 20) {
+                    scanR += dr;
+                    scanC += dc;
+                    scanCell = this.getCell(scanR, scanC);
+                    steps++;
+                }
+                headBlockedBy = this.getBlockedBy(scanR, scanC, player, aiPlayer);
+            }
+            if (tailBlocked) {
+                let scanR = tailEndR, scanC = tailEndC;
+                let scanCell = this.getCell(scanR, scanC);
+                let steps = 0;
+                while (scanCell === '' && steps < 20) {
+                    scanR -= dr;
+                    scanC -= dc;
+                    scanCell = this.getCell(scanR, scanC);
+                    steps++;
+                }
+                tailBlockedBy = this.getBlockedBy(scanR, scanC, player, aiPlayer);
+            }
+        }
         
         return {
             count,
             blockedBoth: headBlocked && tailBlocked,
             headBlocked,
-            tailBlocked
+            tailBlocked,
+            headBlockedBy,
+            tailBlockedBy
         };
     },
 

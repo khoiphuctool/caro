@@ -129,8 +129,8 @@ let locallyAppliedLastMove = { row: -2, col: -2 };
 const TOTAL_NORMAL_ROOMS = 20;
 const TOTAL_VIP_ROOMS = 20;
 const TOTAL_ROOMS = TOTAL_NORMAL_ROOMS + TOTAL_VIP_ROOMS;
-// Tab phòng đang chọn: 'normal' hoặc 'vip'
-let currentRoomTab = 'normal';
+// Tab phòng đang chọn: 'bot', 'normal' hoặc 'vip'
+let currentRoomTab = 'bot';
 function debugLog() {}
 // Resolve winCount for a room: prefer explicit room value, else GameState.roomRules, else GameState.board.winCount, else default 5
 function resolveRoomWinCount(room) {

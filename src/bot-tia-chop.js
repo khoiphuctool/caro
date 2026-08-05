@@ -65,8 +65,13 @@ const BotTiaChop = {
         const s = this.make2D(rows, cols, 0);   // điểm tấn công (bot)
         const q = this.make2D(rows, cols, 0);   // điểm phòng thủ (người)
 
-        const maxS = this.evaluatePos(s, machSq, board, rows, cols, winCount, minR, minC);
-        const maxQ = this.evaluatePos(q, userSq, board, rows, cols, winCount, minR, minC);
+        // Đọc flag Chặn 2 Đầu từ roomRules hoặc checkbox
+        const chan2Dau = (resolved && typeof resolved.chan2Dau !== 'undefined')
+            ? resolved.chan2Dau
+            : (typeof getBlockBothEnds === 'function' ? getBlockBothEnds() : false);
+
+        const maxS = this.evaluatePos(s, machSq, board, rows, cols, winCount, minR, minC, chan2Dau, machSq);
+        const maxQ = this.evaluatePos(q, userSq, board, rows, cols, winCount, minR, minC, chan2Dau, machSq);
 
         // Log top 15 ô điểm cao nhất
         console.log('[BotTiaChop][evaluatePos] - timestamp:', performance.now());
@@ -374,9 +379,46 @@ const BotTiaChop = {
     },
 
     // ================================================================
-    // EVALUATE POS — giữ nguyên logic gốc, có bound check đầy đủ
+    // ALREADY BLOCKED PENALTY — trả về true nếu ô (i,j) nằm kề đầu
+    // chuỗi mySq đã bị aiSq chặn sẵn, trong khi đầu kia còn mở.
+    // Chỉ dùng khi chan2Dau = true và đây là bảng phòng thủ (mySq = userSq).
     // ================================================================
-    evaluatePos(a, mySq, board, rows, cols, winCount, minR, minC) {
+    isAlreadyBlockedEnd(i, j, dr, dc, mySq, aiSq, board, rows, cols) {
+        const F = (r, c) => this.f(board, rows, cols, r, c);
+        // Đếm chuỗi mySq về phía forward từ (i,j)
+        let fwd = 0;
+        while (F(i + dr*(fwd+1), j + dc*(fwd+1)) === mySq) fwd++;
+        // Đếm chuỗi mySq về phía backward từ (i,j)
+        let bwd = 0;
+        while (F(i - dr*(bwd+1), j - dc*(bwd+1)) === mySq) bwd++;
+
+        if (fwd === 0 && bwd === 0) return false; // không liền chuỗi nào
+
+        // Kiểm tra head (phía forward end)
+        const headR = i + dr*(fwd+1), headC = j + dc*(fwd+1);
+        const headCell = F(headR, headC);
+        // Kiểm tra tail (phía backward end)
+        const tailR = i - dr*(bwd+1), tailC = j - dc*(bwd+1);
+        const tailCell = F(tailR, tailC);
+
+        const headBlockedByAI = (headCell === aiSq);
+        const tailBlockedByAI = (tailCell === aiSq);
+        const headOpen = (headCell === 0);
+        const tailOpen = (tailCell === 0);
+
+        // Penalty: ô (i,j) ở phía head, head đã bị AI chặn, tail còn mở
+        if (headBlockedByAI && tailOpen && fwd === 0) return true;
+        // Penalty: ô (i,j) ở phía tail, tail đã bị AI chặn, head còn mở
+        if (tailBlockedByAI && headOpen && bwd === 0) return true;
+
+        return false;
+    },
+
+    // ================================================================
+    // EVALUATE POS — giữ nguyên logic gốc, có bound check đầy đủ
+    // chan2Dau: flag luật chặn 2 đầu; aiSq: quân của AI (defender)
+    // ================================================================
+    evaluatePos(a, mySq, board, rows, cols, winCount, minR, minC, chan2Dau, aiSq) {
         const limit = winCount;
         const w = this.config.weights;
         const F = (r, c) => this.f(board, rows, cols, r, c);
@@ -447,6 +489,19 @@ const BotTiaChop = {
                         else if (dirA[k] > top2) { top2 = dirA[k]; }
                     }
                     a[i][j] = top1 + top2;
+
+                    // AlreadyBlockedPenalty: khi chan2Dau=true và đây là bảng phòng thủ
+                    // (mySq = userSq, aiSq = machSq), áp dụng penalty 0.15x nếu ô (i,j)
+                    // nằm kề đầu chuỗi đối thủ đã bị AI chặn sẵn, đầu kia còn mở.
+                    if (chan2Dau && aiSq && mySq !== aiSq && a[i][j] > 0) {
+                        const dirs4 = [{dr:0,dc:1},{dr:1,dc:0},{dr:1,dc:1},{dr:1,dc:-1}];
+                        for (const {dr, dc} of dirs4) {
+                            if (this.isAlreadyBlockedEnd(i, j, dr, dc, mySq, aiSq, board, rows, cols)) {
+                                a[i][j] *= 0.15;
+                                break;
+                            }
+                        }
+                    }
                 }
 
                 if (a[i][j] > maxA) maxA = a[i][j];

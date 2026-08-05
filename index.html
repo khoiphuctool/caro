@@ -2303,13 +2303,13 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
         <!-- CỘT CHÍNH: Danh sách phòng -->
         <div class="lobby-main">
             <div class="card">
-                <div class="card-header">🎮 Thách Đấu Online</div>
+                <div class="card-header">🎮 Thách Đấu</div>
                 <div class="card-body">
                     <p class="text-muted" style="margin-bottom:12px;">Chọn phòng để tham gia. Người vào trước là chủ phòng (X), người sau là khách (O).</p>
                     <div class="room-tab-row" style="display:flex;gap:10px;margin-bottom:12px;">
-                        <button id="tab-normal" onclick="switchRoomTab('normal')" style="flex:1;padding:8px;background:#6366f1;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">🎮 Kênh Thường</button>
+                        <button id="tab-bot" onclick="switchRoomTab('bot')" style="flex:1;padding:8px;background:#10b981;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">🤖 Phòng Bot</button>
+                        <button id="tab-normal" onclick="switchRoomTab('normal')" style="flex:1;padding:8px;background:#e5e7eb;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">🎮 Kênh Thường</button>
                         <button id="tab-vip" onclick="switchRoomTab('vip')" style="flex:1;padding:8px;background:#e5e7eb;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💎 Kênh VIP</button>
-                        <button id="tab-bot" onclick="switchRoomTab('bot')" style="flex:1;padding:8px;background:#e5e7eb;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">🤖 Phòng Bot</button>
                     </div>
                     <div class="room-list" id="room-list" style="position:relative;">
                         <div class="text-muted" style="text-align:center; padding:24px;">Đang tải danh sách phòng...</div>
@@ -2947,6 +2947,21 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
         <div class="bot-chat-content" id="bot-chat-message">💬 "Chào bạn! Sẵn sàng thua chưa?"</div>
     </div>
 
+    <!-- Debug Information Panel (Hidden by default) -->
+    <div id="debug-info-panel" style="display:none;position:fixed;top:80px;right:20px;width:280px;background:rgba(15,23,42,0.95);border:1px solid #8b5cf6;border-radius:12px;padding:16px;z-index:1000;box-shadow:0 8px 32px rgba(0,0,0,0.4);color:#e2e8f0;font-size:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div style="font-weight:bold;color:#a78bfa;">🔍 Debug Info</div>
+            <button onclick="document.getElementById('debug-info-panel').style.display='none'" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;">×</button>
+        </div>
+        <div id="debug-content">
+            <div style="color:#94a3b8;">Chờ bot đánh...</div>
+        </div>
+        <button id="btn-explain-move" onclick="DebugPanel.toggleExplanation()" style="margin-top:12px;padding:8px 12px;background:#8b5cf6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:bold;width:100%;display:none;">
+            💡 Giải thích nước đi
+        </button>
+        <div id="debug-explanation" style="margin-top:8px;padding:8px;background:rgba(139,92,246,0.1);border-radius:6px;display:none;font-size:11px;"></div>
+    </div>
+
     <!-- Bottom Control Bar -->
     <div class="bot-bottom-bar">
         <button class="bot-control-btn" onclick="if(typeof BotRoomManager !== 'undefined') BotRoomManager.undoBotRoomMove();" title="Hoàn tác">
@@ -2958,9 +2973,23 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
         <button class="bot-control-btn bot-replay-btn" onclick="if(typeof BotRoomManager !== 'undefined') BotRoomManager.replayBotBattle();" title="Chơi lại">
             🔄 Chơi lại
         </button>
+        <button class="bot-control-btn" id="btn-compare-bots" onclick="if(typeof CompareBots !== 'undefined') CompareBots.run(currentPlayer);" title="So sánh các bot">
+            ⚔️ Compare Bots
+        </button>
         <button class="bot-control-btn bot-exit-btn" onclick="if(typeof BotRoomManager !== 'undefined') BotRoomManager.exitBotRoom();" title="Thoát">
             🚪 Thoát
         </button>
+    </div>
+
+    <!-- Compare Bots Panel -->
+    <div id="compare-bots-panel" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);width:400px;background:rgba(15,23,42,0.95);border:1px solid #8b5cf6;border-radius:12px;padding:16px;z-index:1000;box-shadow:0 8px 32px rgba(0,0,0,0.4);color:#e2e8f0;font-size:12px;max-height:300px;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div style="font-weight:bold;color:#a78bfa;">⚔️ Compare Bots</div>
+            <button onclick="document.getElementById('compare-bots-panel').style.display='none'" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;">×</button>
+        </div>
+        <div id="compare-bots-content">
+            <div style="color:#94a3b8;">Chờ dữ liệu...</div>
+        </div>
     </div>
 </main>
 
@@ -3911,6 +3940,7 @@ function resetScoreTableToDefaults() {
 </script>
 
 <script src="src/practice-mode.js"></script>
+<script src="src/position-editor.js"></script>
 <script src="src/bot-room.js"></script>
 <script src="src/online-room-flow.js"></script>
 <script src="src/runtime-guard.js"></script>
@@ -4731,6 +4761,38 @@ function debugTickerAfterAnimation() {
     console.log('\n=== KẾT THÚC DEBUG ===');
 }
 window.debugTickerAfterAnimation = debugTickerAfterAnimation;
+</script>
+
+<!-- Set default tab to Bot after all scripts loaded -->
+<script>
+    // Đợi để đảm bảo BotRoomManager đã load xong
+    setTimeout(function() {
+        // Set currentRoomTab to 'bot'
+        if (typeof currentRoomTab !== 'undefined') {
+            currentRoomTab = 'bot';
+        }
+        
+        // Set tab UI active
+        const tabBot = document.getElementById('tab-bot');
+        const tabNormal = document.getElementById('tab-normal');
+        const tabVip = document.getElementById('tab-vip');
+        
+        if (tabBot) { tabBot.style.background = '#10b981'; tabBot.style.color = 'white'; }
+        if (tabNormal) { tabNormal.style.background = '#e5e7eb'; tabNormal.style.color = '#374151'; }
+        if (tabVip) { tabVip.style.background = '#e5e7eb'; tabVip.style.color = '#374151'; }
+        
+        // Call BotRoomManager directly
+        if (typeof BotRoomManager !== 'undefined' && typeof BotRoomManager.openBotLobby === 'function') {
+            BotRoomManager.openBotLobby();
+        } else {
+            // Nếu chưa sẵn sàng, thử lại sau
+            setTimeout(function() {
+                if (typeof BotRoomManager !== 'undefined' && typeof BotRoomManager.openBotLobby === 'function') {
+                    BotRoomManager.openBotLobby();
+                }
+            }, 200);
+        }
+    }, 100);
 </script>
 
 </div><!-- #app -->

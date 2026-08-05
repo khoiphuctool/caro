@@ -174,6 +174,10 @@ function initGame() {
     if (winCount < 3) winCount = 3;
 
     isSolo = gameMode === 'solo';
+    // Position editor mode: force isSolo = false to ensure botPiece is set
+    if (window.positionEditorMode) {
+        isSolo = false;
+    }
     if (!gameMode && window.isBotRoomMode && window.currentBotConfig) {
         if (window.currentBotConfig.gameMode !== 'bot-vs-bot') {
             gameMode = window.currentBotConfig.gameMode || 'ai-easy';
@@ -249,8 +253,11 @@ function initGame() {
     startPlayerTurnTimer();
 
     // Reset only GameState - single source of truth
+    // Skip map reset if position editor mode is active (to preserve custom position)
     if (typeof GameState !== 'undefined' && GameState.board) {
-        GameState.board.infiniteMap = new Map();
+        if (!window.positionEditorMode) {
+            GameState.board.infiniteMap = new Map();
+        }
         GameState.board.isInfinite = true;
         // Sync trang-thai.js reference
         if (typeof initializeBoardState === 'function') {

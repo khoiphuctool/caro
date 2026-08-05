@@ -547,12 +547,29 @@ function quickScore(r, c, p) {
         const tDef = evalLine(r, c, dr, dc, opp);
         if (tDef !== TL.NONE) {
             let dead = false;
-            if (blockBothEnds && tDef !== TL.FIVE) {
-                const { blockedBoth } = countLineAndBlocked(r, c, dr, dc, opp);
-                if (blockedBoth) dead = true;
+            let alreadyBlockedOnThisSide = false;
+            if (blockBothEnds) {
+                const lineInfo = countLineAndBlocked(r, c, dr, dc, opp, p);
+                if (tDef !== TL.FIVE && lineInfo.blockedBoth) {
+                    // Chuỗi chết hoàn toàn (không phải FIVE) → bỏ qua
+                    dead = true;
+                } else {
+                    // AlreadyBlockedPenalty: nếu một đầu đã bị AI chặn sẵn
+                    // và đầu kia còn mở → ô (r,c) là nước đi lãng phí → giảm điểm mạnh
+                    // QUAN TRỌNG: chỉ áp dụng khi ô (r,c) nằm ở PHÍA đầu đã bị chặn
+                    //   - tailAI: tail đã bị AI chặn, head mở. Ô (r,c) ở phía tail (bwd=0)
+                    //   - headAI: head đã bị AI chặn, tail mở. Ô (r,c) ở phía head (fwd=0)
+                    const { headBlocked, tailBlocked, headBlockedBy, tailBlockedBy, fwd, bwd } = lineInfo;
+                    const headAI = (headBlockedBy === 'ai') && !tailBlocked && fwd === 0;
+                    const tailAI = (tailBlockedBy === 'ai') && !headBlocked && bwd === 0;
+                    if (headAI || tailAI) alreadyBlockedOnThisSide = true;
+                }
             }
             if (!dead) {
-                defScore += scoreFromTL(tDef, false);
+                let ds = scoreFromTL(tDef, false);
+                // AlreadyBlockedPenalty: giảm 85% điểm phòng thủ — chỉ khi blockBothEnds=true
+                if (alreadyBlockedOnThisSide) ds *= 0.15;
+                defScore += ds;
                 if (tDef === TL.FOUR_OPEN || tDef === TL.FOUR_BLOCKED) defFourCount++;
             }
         }
@@ -1472,10 +1489,41 @@ function findLiveThreats(p, targetCount) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// getBlockedByAI — helper: xác định ai đang chặn tại ô (r, c)
+// chainPlayer: quân của chuỗi đang xét (kẻ tấn công / đối thủ)
+// aiPlayer:    quân của AI (người phòng thủ), hoặc null nếu không biết
+// Returns:
+//   'ai'       — ô có quân của AI (AI đã chặn đầu này rồi)
+//   'opponent' — ô có quân của chainPlayer (chuỗi tự chặn)
+//   'wall'     — ra ngoài biên bàn cờ (getCell trả về 'W' hoặc ngoài bounds)
+//   null       — ô trống (đầu còn mở)
+// ════════════════════════════════════════════════════════════════════════════
+function getBlockedByAI(r, c, chainPlayer, aiPlayer) {
+    const cell = getCell(r, c);
+    // getCell trả về 'W' hoặc '' cho out-of-bounds tuỳ board mode
+    // Kiểm tra biên thực sự: nếu là bàn hữu hạn thì r/c ngoài [0, boardSize)
+    if (typeof boardSize !== 'undefined' && !isInfinite) {
+        if (r < 0 || r >= boardSize || c < 0 || c >= boardSize) return 'wall';
+    }
+    if (cell === 'W') return 'wall';
+    if (cell === '') return null;              // đầu còn mở
+    if (cell === chainPlayer) return 'opponent'; // chuỗi tự chặn
+    // Ô có quân — nếu biết aiPlayer thì kiểm tra chính xác, còn không thì giả định là AI
+    if (aiPlayer !== null && aiPlayer !== undefined && cell === aiPlayer) return 'ai';
+    if (aiPlayer === null || aiPlayer === undefined) return 'ai'; // unknown blocker → treat as AI
+    return 'ai'; // bất kỳ quân nào không phải chainPlayer → coi là AI/wall
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // countLineAndBlocked — giữ lại cho các hàm khác dùng
 // Đã cập nhật để bỏ qua ô trống khi blockBothEnds = true
+// MỞ RỘNG (Task 3.2): thêm headBlockedBy / tailBlockedBy vào return value
+//   — 'ai' | 'opponent' | 'wall' | null
+//   — chỉ populate khi blockBothEnds = true; null khi false hoặc đầu không bị chặn
+// Thêm tham số aiPlayer (tùy chọn, default null) để phân biệt ai chặn
+// Backward compat: callers không truyền aiPlayer vẫn hoạt động bình thường
 // ════════════════════════════════════════════════════════════════════════════
-function countLineAndBlocked(r, c, dr, dc, p) {
+function countLineAndBlocked(r, c, dr, dc, p, aiPlayer = null) {
     const opp = p === 'X' ? 'O' : 'X';
     let fwd = 0, bwd = 0;
     while (getCell(r + dr*(fwd+1), c + dc*(fwd+1)) === p) fwd++;
@@ -1484,28 +1532,76 @@ function countLineAndBlocked(r, c, dr, dc, p) {
     let headBlocked, tailBlocked;
     const blockBothEnds = getBlockBothEnds();
     
+    // Vị trí ô ngay sau đầu chuỗi (first cell beyond chain end)
+    const headR = r + dr*(fwd+1);
+    const headC = c + dc*(fwd+1);
+    const tailR = r - dr*(bwd+1);
+    const tailC = c - dc*(bwd+1);
+
     if (blockBothEnds) {
         // Dùng logic mới: bỏ qua ô trống để tìm đối thủ chặn
-        const headR = r + dr*(fwd+1);
-        const headC = c + dc*(fwd+1);
-        headBlocked = isBlockedAI(headR, headC, dr, dc, p);
-        
-        const tailR = r - dr*(bwd+1);
-        const tailC = c - dc*(bwd+1);
-        tailBlocked = isBlockedAI(tailR, tailC, -dr, -dc, p);
+        // FIX: kiểm tra ô ngay tại headR/tailR trước (isBlockedAI bỏ qua ô này)
+        const headCell = getCell(headR, headC);
+        const tailCell = getCell(tailR, tailC);
+        if (headCell !== '' && headCell !== p) {
+            headBlocked = true; // ô ngay cạnh đã là quân chặn
+        } else {
+            headBlocked = isBlockedAI(headR, headC, dr, dc, p);
+        }
+        if (tailCell !== '' && tailCell !== p) {
+            tailBlocked = true; // ô ngay cạnh đã là quân chặn
+        } else {
+            tailBlocked = isBlockedAI(tailR, tailC, -dr, -dc, p);
+        }
     } else {
         // Logic cũ: chỉ kiểm tra ô ngay cạnh
-        const headCell = getCell(r + dr*(fwd+1), c + dc*(fwd+1));
-        const tailCell = getCell(r - dr*(bwd+1), c - dc*(bwd+1));
+        const headCell = getCell(headR, headC);
+        const tailCell = getCell(tailR, tailC);
         headBlocked = (headCell === opp);
         tailBlocked = (tailCell === opp);
     }
 
+    // Populate headBlockedBy / tailBlockedBy chỉ khi blockBothEnds = true
+    let headBlockedBy = null;
+    let tailBlockedBy = null;
+
+    if (blockBothEnds) {
+        if (headBlocked) {
+            // isBlockedAI bỏ qua ô trống — cần scan tiếp để tìm ô chặn thực sự
+            let scanR = headR, scanC = headC;
+            let scanCell = getCell(scanR, scanC);
+            let steps = 0;
+            while (scanCell === '' && steps < 20) {
+                scanR += dr;
+                scanC += dc;
+                scanCell = getCell(scanR, scanC);
+                steps++;
+            }
+            headBlockedBy = getBlockedByAI(scanR, scanC, p, aiPlayer);
+        }
+        if (tailBlocked) {
+            let scanR = tailR, scanC = tailC;
+            let scanCell = getCell(scanR, scanC);
+            let steps = 0;
+            while (scanCell === '' && steps < 20) {
+                scanR -= dr;
+                scanC -= dc;
+                scanCell = getCell(scanR, scanC);
+                steps++;
+            }
+            tailBlockedBy = getBlockedByAI(scanR, scanC, p, aiPlayer);
+        }
+    }
+
     return {
         count: 1 + fwd + bwd,
+        fwd,
+        bwd,
         blockedBoth: headBlocked && tailBlocked,
         headBlocked,
-        tailBlocked
+        tailBlocked,
+        headBlockedBy,
+        tailBlockedBy
     };
 }
 
