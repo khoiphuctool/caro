@@ -295,7 +295,7 @@ const BotRoomManager = {
     isBotVsBotMode: false,
     // ══ Thống kê Bot vs Bot ══════════════════════════════════════════════════════════════════
     botVsBotStats: null,
-    
+
     // ══ Auto Bot State ══════════════════════════════════════════════════════════════════
     autoBotState: null,
     autoBotStats: null,
@@ -1112,6 +1112,10 @@ const BotRoomManager = {
             difficulty: botMeta.difficulty || botMeta.description || 'Bot AI',
         });
 
+        // Update avatar circle
+        const botAvatarCircle = document.querySelector('#bot-bot-overlay .bot-avatar-circle');
+        if (botAvatarCircle) botAvatarCircle.textContent = botMeta.avatar || botMeta.emoji || '🤖';
+
         if (playerDetails) {
             PlayerCard.hydrate(playerDetails, humanProfile, {
                 badge: 'Human',
@@ -1842,6 +1846,28 @@ const BotRoomManager = {
         }
     },
 
+    // ══ Vào editor từ ván đang chơi (giữ nguyên bàn cờ) ═══════════════════
+    enterEditorFromGame: function() {
+        if (!this.currentBotRoom) return;
+
+        // Dừng game hiện tại
+        if (typeof isGameActive !== 'undefined') isGameActive = false;
+
+        // Hiện toolbar editor với bàn cờ hiện tại (không xóa quân)
+        if (typeof PositionEditor !== 'undefined') {
+            // Xóa toolbar cũ nếu có
+            const oldToolbar = document.getElementById('position-editor-toolbar');
+            if (oldToolbar) oldToolbar.remove();
+
+            PositionEditor.enterWithCurrentBoard();
+            this.renderPositionEditorToolbar();
+            this.hookCanvasClickForEditor();
+            this.updateBotRoomOverlays();
+        } else {
+            console.error('[BotRoom] PositionEditor not available');
+        }
+    },
+
     // ══ Start Position Editor ══════════════════════════════════════════════════════════════════
     startPositionEditor: function() {
         if (!this.currentBotRoom) return;
@@ -1915,6 +1941,8 @@ const BotRoomManager = {
                 this.renderPositionEditorToolbar();
                 // Hook canvas click after toolbar is rendered
                 this.hookCanvasClickForEditor();
+                // Cập nhật overlay đúng bot của phòng hiện tại
+                this.updateBotRoomOverlays();
             } else {
                 console.error('[BotRoom] PositionEditor not available');
             }
@@ -2066,7 +2094,8 @@ const BotRoomManager = {
         } else {
             console.warn('[BotRoom] infOnClick not available or already hooked');
         }
-    }
+    },
+
 };
 
 // ══════════════════════════════════════════════════════════════════
@@ -2117,7 +2146,7 @@ class AutoBotGameHeadless {
 
     getBotMove(botMode, player) {
         const candidates = this.getCandidateMoves();
-        
+
         if (candidates.length === 0) {
             return { r: 7, c: 7 };
         }

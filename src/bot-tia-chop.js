@@ -214,7 +214,7 @@ const BotTiaChop = {
     // ================================================================
     // WINNING POS — dùng Rule Engine để kiểm tra thắng theo luật game
     // ================================================================
-    winningPos(i, j, mySq, board, rows, cols, winCount, minR, minC) {
+    winningPos(i, j, mySq, board, rows, cols, winCount, minR, minC, chan2Dau = false) {
         const limit = winCount;
         const F = (r, c) => this.f(board, rows, cols, r, c);
         let test3 = 0, test4 = 0;
@@ -236,10 +236,15 @@ const BotTiaChop = {
         
         side1 = (j + m1 < cols && F(i, j + m1) === 0);
         side2 = (j - m2 >= 0   && F(i, j - m2) === 0);
-        if (L === limit - 1 && (side1 || side2)) test3++;
-        if (side1 && side2) {
-            if (L === limit - 1) test4 = 1;
-            if (L === limit - 2) test3++;
+        // chan2Dau: nếu cả 2 đầu bị chặn (không phải 0 = trống) thì chuỗi chết
+        const h1blocked = !side1 && (j + m1 >= cols || F(i, j + m1) === -mySq);
+        const t1blocked = !side2 && (j - m2 <  0   || F(i, j - m2) === -mySq);
+        if (!chan2Dau || !(h1blocked && t1blocked)) {
+            if (L === limit - 1 && (side1 || side2)) test3++;
+            if (side1 && side2) {
+                if (L === limit - 1) test4 = 1;
+                if (L === limit - 2) test3++;
+            }
         }
 
         // Vertical
@@ -256,10 +261,14 @@ const BotTiaChop = {
         
         side1 = (i + m1 < rows && F(i + m1, j) === 0);
         side2 = (i - m2 >= 0   && F(i - m2, j) === 0);
-        if (L === limit - 1 && (side1 || side2)) test3++;
-        if (side1 && side2) {
-            if (L === limit - 1) test4 = 1;
-            if (L === limit - 2) test3++;
+        const h2blocked = !side1 && (i + m1 >= rows || F(i + m1, j) === -mySq);
+        const t2blocked = !side2 && (i - m2 <  0   || F(i - m2, j) === -mySq);
+        if (!chan2Dau || !(h2blocked && t2blocked)) {
+            if (L === limit - 1 && (side1 || side2)) test3++;
+            if (side1 && side2) {
+                if (L === limit - 1) test4 = 1;
+                if (L === limit - 2) test3++;
+            }
         }
 
         // Diagonal \
@@ -276,10 +285,14 @@ const BotTiaChop = {
         
         side1 = (i + m1 < rows && j + m1 < cols && F(i + m1, j + m1) === 0);
         side2 = (i - m2 >= 0   && j - m2 >= 0   && F(i - m2, j - m2) === 0);
-        if (L === limit - 1 && (side1 || side2)) test3++;
-        if (side1 && side2) {
-            if (L === limit - 1) test4 = 1;
-            if (L === limit - 2) test3++;
+        const h3blocked = !side1 && (i + m1 >= rows || j + m1 >= cols || F(i + m1, j + m1) === -mySq);
+        const t3blocked = !side2 && (i - m2 <  0   || j - m2 <  0   || F(i - m2, j - m2) === -mySq);
+        if (!chan2Dau || !(h3blocked && t3blocked)) {
+            if (L === limit - 1 && (side1 || side2)) test3++;
+            if (side1 && side2) {
+                if (L === limit - 1) test4 = 1;
+                if (L === limit - 2) test3++;
+            }
         }
 
         // Diagonal /
@@ -296,10 +309,14 @@ const BotTiaChop = {
         
         side1 = (i + m1 < rows && j - m1 >= 0   && F(i + m1, j - m1) === 0);
         side2 = (i - m2 >= 0   && j + m2 < cols && F(i - m2, j + m2) === 0);
-        if (L === limit - 1 && (side1 || side2)) test3++;
-        if (side1 && side2) {
-            if (L === limit - 1) test4 = 1;
-            if (L === limit - 2) test3++;
+        const h4blocked = !side1 && (i + m1 >= rows || j - m1 <  0   || F(i + m1, j - m1) === -mySq);
+        const t4blocked = !side2 && (i - m2 <  0   || j + m2 >= cols || F(i - m2, j + m2) === -mySq);
+        if (!chan2Dau || !(h4blocked && t4blocked)) {
+            if (L === limit - 1 && (side1 || side2)) test3++;
+            if (side1 && side2) {
+                if (L === limit - 1) test4 = 1;
+                if (L === limit - 2) test3++;
+            }
         }
 
         if (test4) return this.config.openFour;
@@ -431,7 +448,7 @@ const BotTiaChop = {
                 if (board[i][j] !== 0) { a[i][j] = -1; continue; }
                 if (!this.hasNeighbors(i, j, board, rows, cols)) { a[i][j] = -1; continue; }
 
-                const wp = this.winningPos(i, j, mySq, board, rows, cols, winCount, minR, minC);
+                const wp = this.winningPos(i, j, mySq, board, rows, cols, winCount, minR, minC, chan2Dau);
                 if (wp > 0) {
                     a[i][j] = wp;
                 } else {

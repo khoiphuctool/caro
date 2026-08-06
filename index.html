@@ -2925,11 +2925,11 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
     <div class="bot-overlay bot-bot-overlay" id="bot-bot-overlay">
         <div class="bot-avatar-circle bot-avatar-o">🤖</div>
         <div class="bot-player-details">
-            <div class="bot-player-name" id="bot-bot-name">Bot Khó</div>
+            <div class="bot-player-name" id="bot-bot-name">Bot</div>
             <div class="bot-player-stats">
-                <span class="bot-stat-item">Độ khó: <span id="bot-difficulty">Khó</span></span>
-                <span class="bot-stat-item">ELO: <span id="bot-elo">1800</span></span>
-                <span class="bot-stat-item">Win Rate: <span id="bot-winrate">65%</span></span>
+                <span class="bot-stat-item">Độ khó: <span id="bot-difficulty">—</span></span>
+                <span class="bot-stat-item">ELO: <span id="bot-elo">—</span></span>
+                <span class="bot-stat-item">Win Rate: <span id="bot-winrate">—</span></span>
             </div>
         </div>
         <div class="bot-turn-indicator inactive" id="bot-bot-indicator">Đang chờ</div>
@@ -2940,6 +2940,11 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
         <button class="bot-zoom-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(1);" title="Phóng to">+</button>
         <button class="bot-zoom-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(-1);" title="Thu nhỏ">−</button>
         <button class="bot-zoom-btn" onclick="if(typeof vRowF !== 'undefined' && typeof vColF !== 'undefined' && typeof infCanvasW !== 'undefined' && typeof infCanvasH !== 'undefined' && typeof INF_CS !== 'undefined') { if(typeof lastMoveR !== 'undefined' && typeof lastMoveC !== 'undefined') { const cols = infCanvasW / INF_CS, rows = infCanvasH / INF_CS; vRowF = lastMoveR - rows / 2; vColF = lastMoveC - cols / 2; } else { vRowF = 0; vColF = 0; } if(typeof renderInfiniteBoard === 'function') renderInfiniteBoard(); }" title="Di chuyển đến nước vừa đánh">⌖ Fit</button>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:8px;">
+            <input type="checkbox" id="show-cell-scores-bot"
+                onchange="if(typeof renderInfiniteBoard==='function')renderInfiniteBoard();">
+            <span>Hiện điểm ô</span>
+        </label>
     </div>
 
     <!-- Overlay: Chat Bot Bubble (Floating) -->
@@ -2972,6 +2977,9 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
         </button>
         <button class="bot-control-btn bot-replay-btn" onclick="if(typeof BotRoomManager !== 'undefined') BotRoomManager.replayBotBattle();" title="Chơi lại">
             🔄 Chơi lại
+        </button>
+        <button class="bot-control-btn" style="background:rgba(139,92,246,0.8);color:#fff;" onclick="if(typeof BotRoomManager !== 'undefined') BotRoomManager.enterEditorFromGame();" title="Tạo lại thế cờ từ ván hiện tại">
+            🎨 Thế cờ
         </button>
         <button class="bot-control-btn" id="btn-compare-bots" onclick="if(typeof CompareBots !== 'undefined') CompareBots.run(currentPlayer);" title="So sánh các bot">
             ⚔️ Compare Bots

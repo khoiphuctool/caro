@@ -870,7 +870,7 @@ function renderInfiniteBoard() {
     }
 
     // Vẽ điểm đánh giá ô (debug scores) — PHẢI ở cuối cùng để không bị ghi đè
-    const showScores = document.getElementById('show-cell-scores');
+    const showScores = document.getElementById('show-cell-scores') || document.getElementById('show-cell-scores-bot');
     if (showScores && showScores.checked && window.cellScores && Object.keys(window.cellScores).length > 0) {
         const top4 = Object.entries(window.cellScores)
             .map(([key, val]) => ({ key, val }))

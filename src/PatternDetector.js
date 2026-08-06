@@ -18,30 +18,15 @@ const PatternDetector = {
     // ===== HELPER: Check if direction is blocked by opponent (skip empty cells) =====
     // Đồng bộ với logic-game.js isBlocked
     isBlocked(startR, startC, dr, dc, player) {
+        // LUẬT CHẶN 2 ĐẦU ĐÚNG: chỉ chặn khi ô ngay sát là quân đối thủ hoặc biên.
+        // Ô trống ngay cạnh = đầu vẫn mở.
         const opp = player === 'X' ? 'O' : 'X';
-        let r = startR + dr;
-        let c = startC + dc;
-        
-        while (true) {
-            const cell = this.getCell(r, c);
-            if (cell === opp) {
-                return true; // Bị chặn bởi đối thủ
-            }
-            if (cell === player) {
-                return false; // Gặp quân của mình → không bị chặn
-            }
-            if (cell === '') {
-                // Ô trống, tiếp tục tìm
-                r += dr;
-                c += dc;
-                // Giới hạn tìm kiếm để tránh loop vô hạn
-                if (Math.abs(r - startR) > 20 || Math.abs(c - startC) > 20) {
-                    return false; // Quá xa, coi như không bị chặn
-                }
-            } else {
-                return false; // Gặp quân khác
-            }
-        }
+        const cell = this.getCell(startR, startC);
+        if (cell === opp) return true;
+        if (cell === 'W') return true;
+        if (cell === '') return false;
+        if (cell === player) return false;
+        return false;
     },
 
     // ===== EVALUATE A SINGLE LINE =====
@@ -60,7 +45,7 @@ const PatternDetector = {
         let headBlocked, tailBlocked;
         
         if (blockBothEndsEnabled) {
-            // Dùng logic mới: bỏ qua ô trống để tìm đối thủ chặn
+            // isBlocked mới check ngay ô tại (nr,nc)
             headBlocked = this.isBlocked(nr, nc, dr, dc, player);
             
             // Count backward
@@ -176,7 +161,8 @@ const PatternDetector = {
         let headBlocked, tailBlocked;
         
         if (blockBothEndsEnabled) {
-            headBlocked = this.isBlocked(nr, nc, dr, dc, player);
+            // isBlocked mới check ngay ô tại headEndR/headEndC
+            headBlocked = this.isBlocked(headEndR, headEndC, dr, dc, player);
             
             nr = r - dr;
             nc = c - dc;
@@ -208,32 +194,10 @@ const PatternDetector = {
 
         if (blockBothEndsEnabled) {
             if (headBlocked) {
-                // When isBlocked() skips empty cells, the actual blocker cell may not be
-                // headEndR/headEndC (which could be empty). We scan forward from headEnd
-                // to find the first non-empty cell, then call getBlockedBy on it.
-                let scanR = headEndR, scanC = headEndC;
-                let scanCell = this.getCell(scanR, scanC);
-                // Skip empty cells (isBlocked logic scans past empties)
-                let steps = 0;
-                while (scanCell === '' && steps < 20) {
-                    scanR += dr;
-                    scanC += dc;
-                    scanCell = this.getCell(scanR, scanC);
-                    steps++;
-                }
-                headBlockedBy = this.getBlockedBy(scanR, scanC, player, aiPlayer);
+                headBlockedBy = this.getBlockedBy(headEndR, headEndC, player, aiPlayer);
             }
             if (tailBlocked) {
-                let scanR = tailEndR, scanC = tailEndC;
-                let scanCell = this.getCell(scanR, scanC);
-                let steps = 0;
-                while (scanCell === '' && steps < 20) {
-                    scanR -= dr;
-                    scanC -= dc;
-                    scanCell = this.getCell(scanR, scanC);
-                    steps++;
-                }
-                tailBlockedBy = this.getBlockedBy(scanR, scanC, player, aiPlayer);
+                tailBlockedBy = this.getBlockedBy(tailEndR, tailEndC, player, aiPlayer);
             }
         }
         

@@ -640,32 +640,17 @@ function makeMove(r, c) {
 }
 
 // ===== CHECK WIN =====
-// Helper: Kiểm tra xem hướng có bị chặn bởi đối thủ không (bỏ qua ô trống)
+// Helper: Kiểm tra xem hướng có bị chặn bởi đối thủ không
+// LUẬT CHẶN 2 ĐẦU ĐÚNG: chỉ chặn khi ô ngay sát là quân đối thủ hoặc biên bàn cờ.
+// Ô trống ngay cạnh = đầu vẫn mở (không bỏ qua ô trống nữa).
 function isBlocked(startR, startC, dr, dc, player) {
     const opp = player === 'X' ? 'O' : 'X';
-    let r = startR + dr;
-    let c = startC + dc;
-    
-    while (true) {
-        const cell = getCell(r, c);
-        if (cell === opp) {
-            return true; // Bị chặn bởi đối thủ
-        }
-        if (cell === player) {
-            return false; // Gặp quân của mình → không bị chặn (có thể mở rộng)
-        }
-        if (cell === '') {
-            // Ô trống, tiếp tục tìm
-            r += dr;
-            c += dc;
-            // Giới hạn tìm kiếm để tránh loop vô hạn (tối đa 20 ô)
-            if (Math.abs(r - startR) > 20 || Math.abs(c - startC) > 20) {
-                return false; // Quá xa, coi như không bị chặn
-            }
-        } else {
-            return false; // Gặp quân khác (W hoặc ký hiệu khác)
-        }
-    }
+    const cell = getCell(startR, startC);
+    if (cell === opp) return true;   // quân đối thủ ngay sát → bị chặn
+    if (cell === 'W') return true;   // biên bàn cờ → bị chặn
+    if (cell === '') return false;   // ô trống → đầu mở
+    if (cell === player) return false;
+    return false;
 }
 
 function getWinningLine(row, col, player, winCount, blockBothEndsEnabled) {
@@ -695,15 +680,16 @@ function getWinningLine(row, col, player, winCount, blockBothEndsEnabled) {
             return line;
         }
 
-        // Luật chặn 2 đầu mới: Nếu cả 2 đầu bị chặn bởi đối thủ → KHÔNG thắng
-        // Bỏ qua các ô trống để tìm đối thủ chặn
+        // Luật chặn 2 đầu: Nếu cả 2 đầu bị chặn bởi đối thủ ngay sát → KHÔNG thắng
         const startCell = line[0];
         const endCell = line[line.length - 1];
         
-        // Kiểm tra đầu bên phải (theo hướng dr, dc)
-        const headBlocked = isBlocked(endCell[0], endCell[1], dr, dc, player);
-        // Kiểm tra đầu bên trái (ngược hướng dr, dc)
-        const tailBlocked = isBlocked(startCell[0], startCell[1], -dr, -dc, player);
+        // Ô ngay ngoài 2 đầu chuỗi
+        const headR = endCell[0] + dr, headC = endCell[1] + dc;
+        const tailR = startCell[0] - dr, tailC = startCell[1] - dc;
+        
+        const headBlocked = isBlocked(headR, headC, dr, dc, player);
+        const tailBlocked = isBlocked(tailR, tailC, -dr, -dc, player);
 
         // Nếu cả 2 đầu bị chặn → không thắng
         if (headBlocked && tailBlocked) {

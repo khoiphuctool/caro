@@ -78,8 +78,8 @@ const AIController = {
 
         // Filter valid candidates
         const validCands = candidates.filter(({ r, c }) => {
-            const cell = typeof GameState !== 'undefined' ? 
-                GameState.getBoardCell(r, c) : 
+            const cell = typeof GameState !== 'undefined' ?
+                GameState.getBoardCell(r, c) :
                 (typeof getCell === 'function' ? getCell(r, c) : "");
             return cell === '';
         });
@@ -497,9 +497,15 @@ const AIController = {
                 DebugPanel.update(moveInfo);
                 DebugPanel.show();
 
-                // Store highlight for bot move
+                // Store highlight for bot move (only if enabled in bot room or training mode)
                 if (typeof window !== 'undefined') {
-                    window.debugHighlightCell = { r: move.r, c: move.c };
+                    const shouldHighlight = !window.isBotRoomMode || // Always highlight in training mode
+                                           (typeof BotRoomManager !== 'undefined' && BotRoomManager.showBotHighlight);
+                    if (shouldHighlight) {
+                        window.debugHighlightCell = { r: move.r, c: move.c };
+                    } else {
+                        window.debugHighlightCell = null;
+                    }
                 }
             }
 

@@ -41,30 +41,16 @@ const TL = {
 // Helper: Kiểm tra xem hướng có bị chặn bởi đối thủ không (bỏ qua ô trống)
 // Đồng bộ với logic-game.js isBlocked
 function isBlockedAI(startR, startC, dr, dc, player) {
+    // LUẬT CHẶN 2 ĐẦU ĐÚNG: chỉ chặn khi ô ngay sát là quân đối thủ hoặc biên bàn cờ.
+    // Ô trống giữa chuỗi và quân đối thủ = đầu VẪN MỞ (có thể kéo dài qua ô trống đó).
+    // Không bỏ qua ô trống khi xét blockBothEnds — nếu ngay cạnh là trống thì đầu đó mở.
     const opp = player === 'X' ? 'O' : 'X';
-    let r = startR + dr;
-    let c = startC + dc;
-    
-    while (true) {
-        const cell = getCell(r, c);
-        if (cell === opp) {
-            return true; // Bị chặn bởi đối thủ
-        }
-        if (cell === player) {
-            return false; // Gặp quân của mình → không bị chặn
-        }
-        if (cell === '') {
-            // Ô trống, tiếp tục tìm
-            r += dr;
-            c += dc;
-            // Giới hạn tìm kiếm để tránh loop vô hạn
-            if (Math.abs(r - startR) > 20 || Math.abs(c - startC) > 20) {
-                return false; // Quá xa, coi như không bị chặn
-            }
-        } else {
-            return false; // Gặp quân khác
-        }
-    }
+    const cell = getCell(startR, startC);
+    if (cell === opp) return true;   // quân đối thủ ngay sát → bị chặn
+    if (cell === 'W') return true;   // biên bàn cờ → bị chặn
+    if (cell === '') return false;   // ô trống ngay cạnh → đầu mở
+    if (cell === player) return false; // quân mình → không chặn
+    return false;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -80,9 +66,9 @@ function evalLine(r, c, dr, dc, p) {
     const blockBothEnds = getBlockBothEnds();
     
     if (blockBothEnds) {
-        // Dùng logic mới: bỏ qua ô trống để tìm đối thủ chặn
+        // isBlockedAI mới check ngay ô tại (nr,nc) — không nhảy thêm
         hB = isBlockedAI(nr, nc, dr, dc, p);
-        
+
         nr = r - dr; nc = c - dc;
         while (getCell(nr, nc) === p) { count++; nr -= dr; nc -= dc; }
         tB = isBlockedAI(nr, nc, -dr, -dc, p);
@@ -198,6 +184,13 @@ function evalLineFull(r, c, dr, dc, p) {
                 const level = (!headBlocked && !tailBlocked)
                     ? TL_EXT.BROKEN_THREE_OPEN
                     : TL_EXT.BROKEN_THREE_BLOCKED;
+                results.push({ level, blockPts });
+            } else {
+                // THREE thường: 2 lỗ ở 2 đầu slice → đây là THREE_OPEN hoặc THREE_BLOCKED
+                // blockPts = 2 đầu trống — cần chặn 1 trong 2
+                const level = (!headBlocked && !tailBlocked)
+                    ? TL.THREE_OPEN
+                    : TL.THREE_BLOCKED;
                 results.push({ level, blockPts });
             }
         }
@@ -560,8 +553,10 @@ function quickScore(r, c, p) {
                     //   - tailAI: tail đã bị AI chặn, head mở. Ô (r,c) ở phía tail (bwd=0)
                     //   - headAI: head đã bị AI chặn, tail mở. Ô (r,c) ở phía head (fwd=0)
                     const { headBlocked, tailBlocked, headBlockedBy, tailBlockedBy, fwd, bwd } = lineInfo;
-                    const headAI = (headBlockedBy === 'ai') && !tailBlocked && fwd === 0;
-                    const tailAI = (tailBlockedBy === 'ai') && !headBlocked && bwd === 0;
+                    // FIX: bỏ điều kiện fwd=0/bwd=0 — headBlockedBy/tailBlockedBy đã đủ
+                    // để xác định AI đã chặn đầu nào rồi. Đồng bộ với ThreatDetector.
+                    const headAI = (headBlockedBy === 'ai') && !tailBlocked;
+                    const tailAI = (tailBlockedBy === 'ai') && !headBlocked;
                     if (headAI || tailAI) alreadyBlockedOnThisSide = true;
                 }
             }
@@ -1468,10 +1463,10 @@ function findLiveThreats(p, targetCount) {
             const tailR = pr - dr, tailC = pc - dc;
             const tailCell = getCell(tailR, tailC);
 
-            const headOpen   = headCell === '';
-            const tailOpen   = tailCell === '';
-            const headBlocked = headCell === opp;
-            const tailBlocked = tailCell === opp;
+            const headOpen    = headCell === '';
+            const tailOpen    = tailCell === '';
+            const headBlocked = (headCell !== '' && headCell !== p); // quân hoặc biên
+            const tailBlocked = (tailCell !== '' && tailCell !== p);
 
             // Nếu cả 2 đầu bị chặn và luật đang bật → chết, bỏ qua
             if (blockBothEnds && headBlocked && tailBlocked) continue;
@@ -1539,20 +1534,9 @@ function countLineAndBlocked(r, c, dr, dc, p, aiPlayer = null) {
     const tailC = c - dc*(bwd+1);
 
     if (blockBothEnds) {
-        // Dùng logic mới: bỏ qua ô trống để tìm đối thủ chặn
-        // FIX: kiểm tra ô ngay tại headR/tailR trước (isBlockedAI bỏ qua ô này)
-        const headCell = getCell(headR, headC);
-        const tailCell = getCell(tailR, tailC);
-        if (headCell !== '' && headCell !== p) {
-            headBlocked = true; // ô ngay cạnh đã là quân chặn
-        } else {
-            headBlocked = isBlockedAI(headR, headC, dr, dc, p);
-        }
-        if (tailCell !== '' && tailCell !== p) {
-            tailBlocked = true; // ô ngay cạnh đã là quân chặn
-        } else {
-            tailBlocked = isBlockedAI(tailR, tailC, -dr, -dc, p);
-        }
+        // isBlockedAI mới check ngay ô tại headR/tailR
+        headBlocked = isBlockedAI(headR, headC, dr, dc, p);
+        tailBlocked = isBlockedAI(tailR, tailC, -dr, -dc, p);
     } else {
         // Logic cũ: chỉ kiểm tra ô ngay cạnh
         const headCell = getCell(headR, headC);
@@ -1567,29 +1551,10 @@ function countLineAndBlocked(r, c, dr, dc, p, aiPlayer = null) {
 
     if (blockBothEnds) {
         if (headBlocked) {
-            // isBlockedAI bỏ qua ô trống — cần scan tiếp để tìm ô chặn thực sự
-            let scanR = headR, scanC = headC;
-            let scanCell = getCell(scanR, scanC);
-            let steps = 0;
-            while (scanCell === '' && steps < 20) {
-                scanR += dr;
-                scanC += dc;
-                scanCell = getCell(scanR, scanC);
-                steps++;
-            }
-            headBlockedBy = getBlockedByAI(scanR, scanC, p, aiPlayer);
+            headBlockedBy = getBlockedByAI(headR, headC, p, aiPlayer);
         }
         if (tailBlocked) {
-            let scanR = tailR, scanC = tailC;
-            let scanCell = getCell(scanR, scanC);
-            let steps = 0;
-            while (scanCell === '' && steps < 20) {
-                scanR -= dr;
-                scanC -= dc;
-                scanCell = getCell(scanR, scanC);
-                steps++;
-            }
-            tailBlockedBy = getBlockedByAI(scanR, scanC, p, aiPlayer);
+            tailBlockedBy = getBlockedByAI(tailR, tailC, p, aiPlayer);
         }
     }
 
@@ -1928,7 +1893,8 @@ function makeAIMove() {
 
     // Luôn điền cellScores cho tất cả candidates để hiển thị điểm ô
     // Dùng quickScore vì nó nhanh và phản ánh đúng giá trị từng ô
-    const showScores = document.getElementById('show-cell-scores');
+    // FIX: check cả show-cell-scores-bot (dùng trong phòng Bot)
+    const showScores = document.getElementById('show-cell-scores') || document.getElementById('show-cell-scores-bot');
     if (showScores && showScores.checked) {
         const cands2 = getSearchCandidates().filter(({r,c}) => getCell(r,c) === '');
         for (const {r, c} of cands2) {
@@ -2084,7 +2050,23 @@ function tacticalVerify(bestMove, pvScore, bp, hp, validCands) {
         }
         setCell(bestMove.r, bestMove.c, '');
         if (opponentWinsAfter) {
-            return { move: opponentWinsAfter, reason: 'counter_attack_block' };
+            // Kiểm tra: nếu chặn opponentWinsAfter thì địch còn đầu thắng khác không?
+            // Nếu có (FOUR_OPEN) → không override, giữ nguyên PVS
+            setCell(opponentWinsAfter.r, opponentWinsAfter.c, bp);
+            let enemyStillWins = false;
+            for (const {r, c} of allCells) {
+                if (getCell(r,c) !== '') continue;
+                setCell(r, c, hp);
+                const win = checkWinSilent(r, c);
+                setCell(r, c, '');
+                if (win) { enemyStillWins = true; break; }
+            }
+            setCell(opponentWinsAfter.r, opponentWinsAfter.c, '');
+            if (!enemyStillWins) {
+                // Chặn hiệu quả — override về chặn
+                return { move: opponentWinsAfter, reason: 'counter_attack_block' };
+            }
+            // FOUR_OPEN: chặn 1 đầu địch vẫn thắng đầu kia → giữ PVS
         }
     }
 
@@ -2126,36 +2108,6 @@ function godEngineMove(bp, hp, validCands, isGod) {
     const bbe = getBlockBothEnds();
     const moveCount = moveHistory.length;
     const startTime = Date.now();
-
-    // ══════════════════════════════════════════════════════════════════
-    // CHIẾN LƯỢC MỚI: Sử dụng Bot Tia Chớp làm tư vấn viên cho God/ToiThuong
-    // Bot Tia Chớp có scoring system rất mạnh (winningMove, openFour, twoThrees)
-    // ══════════════════════════════════════════════════════════════════
-    
-    // Thử dùng Bot Tia Chớp để tư vấn nước đi tốt nhất
-    if (typeof BotTiaChop !== 'undefined' && typeof BotTiaChop.getBotMove === 'function') {
-        console.log('[godEngineMove] Consulting BotTiaChop for move recommendation');
-        try {
-            const tiaChopMove = BotTiaChop.getBotMove({
-                player: bp,
-                opponent: hp,
-                roomRules: { winCount: wc, chan2Dau: bbe }
-            });
-            if (tiaChopMove && tiaChopMove.r !== undefined && tiaChopMove.c !== undefined) {
-                console.log('[godEngineMove] BotTiaChop recommended move:', tiaChopMove);
-                
-                // Verify nước đi có hợp lệ không
-                if (getCell(tiaChopMove.r, tiaChopMove.c) === '') {
-                    console.log('[godEngineMove] Using BotTiaChop recommendation (verified valid)');
-                    return { move: tiaChopMove, reason: 'BotTiaChop_advisor' };
-                } else {
-                    console.warn('[godEngineMove] BotTiaChop recommended invalid cell, continuing with godEngine logic');
-                }
-            }
-        } catch (e) {
-            console.warn('[godEngineMove] BotTiaChop consultation failed:', e);
-        }
-    }
 
     // ── LAYER 0: Nước đầu — random ──
     if (moveCount <= 2) {
@@ -2231,12 +2183,13 @@ function godEngineMove(bp, hp, validCands, isGod) {
     {
         let bestBlock=null, bestS=-Infinity;
         let bestEffectiveBlock=null, bestEffectiveS=-Infinity;
+        let isFourOpen = false; // FOUR_OPEN: không đầu nào chặn được
+
         for (const {r,c} of allEmpty) {
             if (getCell(r,c)!=='') continue;
             const t = ThreatDetector.evaluateDefenseThreat(r,c,hp,wc,bbe);
             if (t.maxThreat >= ThreatDetector.THREAT.CRITICAL) {
                 const s = t.patternScores.reduce((acc,p)=>acc+p.score,0);
-                // Kiểm tra chặn hiệu quả: sau khi bot đặt vào đây, chuỗi FOUR địch bị khóa 2 đầu
                 setCell(r,c,bp);
                 let makesDeadFour = false;
                 for (const {dr,dc} of DIRECTIONS) {
@@ -2247,13 +2200,19 @@ function godEngineMove(bp, hp, validCands, isGod) {
                 if (makesDeadFour) {
                     if (s>bestEffectiveS) { bestEffectiveS=s; bestEffectiveBlock={r,c}; }
                 } else {
+                    isFourOpen = true; // đầu này không chặn được
                     if (s>bestS) { bestS=s; bestBlock={r,c}; }
                 }
             }
         }
-        // Ưu tiên chặn hiệu quả (khóa dead four), fallback sang chặn thường
-        const chosenBlock = bestEffectiveBlock || bestBlock;
-        if (chosenBlock) return { move:chosenBlock, reason:'block_forced_four' };
+
+        if (bestEffectiveBlock) {
+            // Có đầu chặn hiệu quả (khóa dead four) → chặn ngay
+            return { move:bestEffectiveBlock, reason:'block_forced_four' };
+        }
+        // FOUR_OPEN thực sự: không đầu nào chặn được cả 2
+        // Không return — để PVS/các bước sau tìm nước phản công tốt nhất
+        // (PVS sẽ xem xét cả tấn công lẫn chặn để maximize score)
     }
 
     // 1e. Forced Double Threat (bot) — Double Four / Four+Three
@@ -2275,16 +2234,12 @@ function godEngineMove(bp, hp, validCands, isGod) {
     }
 
     // 1g. Lookahead: địch tạo FOUR lượt sau? / Double Three lượt sau?
-    // Dùng getAllTacticalCells() — không bị giới hạn 50
-    // Đặc biệt: nếu địch có FOUR_OPEN (2 đầu thoáng) → kiểm tra cả 2 đầu,
-    // ưu tiên đầu nào mà khi bot chặn sẽ khóa được chuỗi (dead four).
-    // Nếu không khóa được đầu nào → địch FOUR_OPEN thực sự → tìm cách tấn công.
     {
         // 1g-extra: FOUR_OPEN của địch (chuỗi (wc-1) quân, 2 đầu trống)
-        // Phát hiện sớm trước khi PVS để tránh bỏ sót
         const liveThreatsNow = findLiveThreats(hp, winCount - 1);
+        let enemyHasFourOpen = false;
+
         if (liveThreatsNow.length >= 2) {
-            // Tìm xem có đầu nào chặn hiệu quả không
             let effectiveBlock=null, effectiveS=-Infinity;
             for (const {r,c} of liveThreatsNow) {
                 if (getCell(r,c)!=='') continue;
@@ -2301,7 +2256,12 @@ function godEngineMove(bp, hp, validCands, isGod) {
                 }
             }
             if (effectiveBlock) return { move:effectiveBlock, reason:'block_four_open_effective' };
-            // Không có đầu nào chặn được FOUR_OPEN → ghi nhận để PVS xử lý (không return sớm)
+            // Không chặn được → FOUR_OPEN thực sự, đánh dấu để bỏ qua preFour
+            enemyHasFourOpen = true;
+        } else if (liveThreatsNow.length === 1) {
+            // FOUR_BLOCKED: chỉ 1 đầu mở → chặn ngay
+            const {r,c} = liveThreatsNow[0];
+            if (getCell(r,c) === '') return { move:{r,c}, reason:'block_four_blocked' };
         }
 
         let preFour=null, preFourS=-Infinity, preDT=null, preDTS=-Infinity;
@@ -2319,8 +2279,10 @@ function godEngineMove(bp, hp, validCands, isGod) {
                 if (s>preDTS) { preDTS=s; preDT={r,c}; }
             }
         }
-        if (preFour) return { move:preFour, reason:'pre_block_four' };
-        if (preDT)   return { move:preDT,   reason:'pre_block_double_three' };
+        // Nếu địch đang có FOUR_OPEN → bỏ qua preFour (chặn 1 đầu vô nghĩa),
+        // để PVS tìm nước phản công tốt nhất
+        if (!enemyHasFourOpen && preFour) return { move:preFour, reason:'pre_block_four' };
+        if (preDT) return { move:preDT, reason:'pre_block_double_three' };
     }
 
     // ── LAYER 2: PVS + Quiescence ──
@@ -2395,6 +2357,15 @@ function getBotMove() {
     if (cands.length === 0) return { r: 0, c: 0 };
     const validCands = cands.filter(({ r, c }) => getCell(r, c) === '');
     if (validCands.length === 0) return { r: 0, c: 0 };
+
+    // Fill cellScores for visualization (if checkbox is checked)
+    const showScores = document.getElementById('show-cell-scores') || document.getElementById('show-cell-scores-bot');
+    if (showScores && showScores.checked) {
+        window.cellScores = {};
+        for (const { r, c } of validCands) {
+            window.cellScores[`${r},${c}`] = quickScore(r, c, botPiece);
+        }
+    }
 
     const bp = botPiece, hp = humanPiece;
     const blockBothEnds = getBlockBothEnds();
@@ -2541,16 +2512,17 @@ function getBotMove() {
     }
 
     // Quyết định FOUR
-    // Nếu địch có FOUR_OPEN thực sự (không chặn được bằng 1 nước hiệu quả): 
-    //   → tấn công nếu bot cũng có FOUR (cách duy nhất thoát)
-    // Nếu enemyFour là FOUR bình thường (chặn được): ưu tiên chặn trước dù bot có FOUR
     if (botWinningMove && enemyFour && enemyFourIsOpen) {
-        // FOUR_OPEN địch không chặn được → 2 nước tấn công = cách duy nhất
+        // FOUR_OPEN địch không chặn được → bot có FOUR → tấn công thắng trước
         updateBotThinking('Cả 2 có 4! Tấn công! ⚔️'); return botWinningMove;
     }
-    if (enemyFour) { 
-        // Địch có FOUR → chặn trước khi tấn công (dù bot cũng có FOUR)
-        updateBotThinking(enemyFourIsOpen ? 'Chặn FOUR OPEN địch! ⚠️🛡️' : 'Chặn 4 địch! 🛡️');
+    if (enemyFourIsOpen && !botWinningMove) {
+        // FOUR_OPEN địch, bot không có FOUR → không thể cứu bằng chặn 1 đầu
+        // Bỏ qua enemyFour, tiếp tục tìm nước tốt nhất (tạo FOUR để phản công)
+        // Không return ở đây — để fall-through xuống các bước tiếp theo
+    } else if (enemyFour) {
+        // Địch có FOUR_BLOCKED (chỉ 1 đầu mở) → chặn được
+        updateBotThinking('Chặn 4 địch! 🛡️');
         return enemyFour;
     }
     if (botWinningMove) { updateBotThinking('Tạo FOUR! ⚔️'); return botWinningMove; }

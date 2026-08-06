@@ -124,6 +124,28 @@ const PositionEditor = {
         console.log('[PositionEditor] Reset');
     },
 
+    /**
+     * Vào editor với bàn cờ hiện tại (không xóa quân).
+     * Dùng khi người chơi muốn chỉnh sửa thế cờ đang diễn ra.
+     */
+    enterWithCurrentBoard: function() {
+        this.enabled = true;
+        this.active  = true;
+        this.locked  = false;
+        this.undoStack = [];
+        this.redoStack = [];
+        this.currentTool = 'X';
+
+        // Giữ nguyên bàn cờ, chỉ lưu snapshot ban đầu
+        const map = this._map();
+        if (map) {
+            this.undoStack.push({ map: this._cloneMap(map), timestamp: Date.now() });
+            console.log('[PositionEditor] Entered editor with current board. Pieces:', map.size);
+        }
+
+        if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
+    },
+
     // ── Board Manipulation ─────────────────────────────────────────
     /**
      * Đặt / xóa quân tại (r, c) theo currentTool.
