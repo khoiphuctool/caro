@@ -3310,48 +3310,48 @@ body.in-game-active #inf-canvas-bot {
 }
 .bot-overlay * { pointer-events: auto; }
 
-/* Player overlay — layout dọc: info trên, avatar dưới */
+/* Player overlay — thanh ngang full width, 2 đối thủ căn giữa */
+.bot-players-bar {
+  top: env(safe-area-inset-top, 8px);
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 0;
+  padding: 0 10px;
+  pointer-events: none;
+}
+
 .bot-player-overlay,
 .bot-bot-overlay {
-  top: env(safe-area-inset-top, 10px);
   background: var(--bg-card);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: clamp(6px, 1.2vw, 12px);
+  padding: clamp(6px, 1vw, 10px) clamp(10px, 1.5vw, 16px);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: clamp(4px, 0.8vw, 8px);
-  width: clamp(130px, 18vw, 220px);
+  gap: clamp(3px, 0.5vw, 6px);
+  flex: 1;
+  max-width: 45%;
+  pointer-events: auto;
   box-shadow: var(--shadow-lg);
   transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 
-.bot-player-overlay { left: 10px; }
-.bot-bot-overlay    { right: 10px; align-items: flex-end; }
-
-/* Avatar nằm dưới thông tin */
-.bot-avatar-wrapper {
-  position: relative;
-  flex-shrink: 0;
-  align-self: center;
-  margin-top: 2px;
+/* Card trái: bo góc trái */
+.bot-player-overlay {
+  border-radius: 12px 0 0 12px;
+  border-right: none;
 }
 
-.bot-avatar-circle {
-  width: clamp(28px, 4vw, 40px);
-  height: clamp(28px, 4vw, 40px);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: clamp(14px, 2vw, 20px);
-  font-weight: 900;
-  border: 2px solid;
-  overflow: hidden;
-  line-height: 1;
+/* Card phải: bo góc phải */
+.bot-bot-overlay {
+  border-radius: 0 12px 12px 0;
+  align-items: flex-start;
+  border-left: 1px solid var(--border-light);
 }
 
 .bot-piece-badge {
@@ -3495,14 +3495,16 @@ body.in-game-active #inf-canvas-bot {
   border-top: 1px solid var(--border);
   padding: 10px 16px;
   display: flex;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  justify-content: space-evenly;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
   z-index: 100;
   transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 
 .bot-control-btn {
+  flex: 1;
   padding: 8px 16px;
   background: var(--bg-panel);
   border: 1px solid var(--border);
@@ -3511,6 +3513,8 @@ body.in-game-active #inf-canvas-bot {
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
   transition: all var(--transition-fast);
 }
 .bot-control-btn:hover { background: var(--bg-primary); }
@@ -3538,24 +3542,30 @@ body.in-game-active #inf-canvas-bot {
 
 /* ── Mobile ── */
 @media (max-width: 768px) {
+  .bot-players-bar { padding: 0 6px; }
   .bot-player-overlay,
   .bot-bot-overlay {
-    width: clamp(110px, 42vw, 160px);
     padding: 6px 8px;
-    gap: 4px;
+    gap: 3px;
   }
 
-  .bot-avatar-circle { border-width: 1.5px; }
   .bot-piece-badge { width: 12px; height: 12px; font-size: 9px; top: -2px; right: -2px; }
-  .bot-bottom-bar { padding: 8px 10px; gap: 6px; }
-  .bot-control-btn { padding: 7px 10px; font-size: 11px; }
+  .bot-bottom-bar { padding: 6px 8px; gap: 4px; }
+  .bot-control-btn { padding: 6px 8px; font-size: 11px; flex-shrink: 1; min-width: 0; }
+}
+
+/* Cực nhỏ ≤480px */
+@media (max-width: 480px) {
+  .bot-bottom-bar { padding: 5px 4px; gap: 3px; }
+  .bot-control-btn { padding: 5px 6px; font-size: 10px; }
 }
 
 /* Cực nhỏ ≤400px */
 @media (max-width: 400px) {
   .bot-player-overlay,
-  .bot-bot-overlay { width: clamp(100px, 44vw, 140px); padding: 5px 7px; }
-  .bot-control-btn { padding: 6px 8px; font-size: 10px; }
+  .bot-bot-overlay { padding: 5px 7px; }
+  .bot-bottom-bar { padding: 4px 2px; gap: 2px; }
+  .bot-control-btn { padding: 5px 5px; font-size: 9px; }
 }
 
 
@@ -3563,32 +3573,27 @@ body.in-game-active #inf-canvas-bot {
    PLAYER CARD (PlayerCard.render) — theme-aware, thay thế inline styles
    ══════════════════════════════════════════════════════════════════ */
 .pc-shell {
-    display: grid;
-    grid-template-columns: clamp(36px, 5vw, 52px) minmax(0, 1fr);
-    align-items: start;
-    gap: clamp(6px, 1vw, 10px);
+    display: flex;
+    flex-direction: column;
     width: 100%;
-    padding: clamp(7px, 1vw, 11px) clamp(8px, 1.2vw, 13px);
+    padding: clamp(6px, 1vw, 10px) clamp(8px, 1.2vw, 13px);
     border-radius: 12px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow-md);
+    background: transparent;
+    border: none;
+    box-shadow: none;
     box-sizing: border-box;
     transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 
-.pc-avatar {
-    width: clamp(36px, 5vw, 52px);
-    height: clamp(36px, 5vw, 52px);
-    border-radius: 12px;
-    display: grid;
-    place-items: center;
-    background: var(--bg-panel);
-    border: 2px solid var(--border);
-    font-size: clamp(18px, 2.5vw, 26px);
-    flex-shrink: 0;
-    box-shadow: var(--shadow-sm);
-    transition: background var(--transition-normal), border-color var(--transition-normal);
+/* Avatar nhỏ inline cạnh tên */
+.pc-avatar-inline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(14px, 1.8vw, 18px);
+    margin-right: 5px;
+    vertical-align: middle;
+    line-height: 1;
 }
 
 .pc-body {
@@ -3704,14 +3709,10 @@ body.in-game-active #inf-canvas-bot {
     border-color: var(--color-success);
 }
 
-/* Mobile: avatar nhỏ hơn */
+/* Mobile: compact */
 @media (max-width: 768px) {
-    .pc-shell {
-        grid-template-columns: 40px minmax(0, 1fr);
-        gap: 7px;
-        padding: 7px 9px;
-    }
-    .pc-avatar { width: 40px; height: 40px; font-size: 18px; border-radius: 10px; }
+    .pc-shell { padding: 5px 8px; }
+    .pc-avatar-inline { font-size: 13px; margin-right: 4px; }
     .pc-name   { font-size: 11px; }
     .pc-title  { font-size: 10px; }
     .pc-stats-grid { font-size: 10px; }

@@ -205,9 +205,8 @@ const PlayerCard = {
 
         return `
             <div class="pc-shell">
-                <div class="pc-avatar">${avatar}</div>
                 <div class="pc-body">
-                    <div class="pc-name">${normalizedName}</div>
+                    <div class="pc-name"><span class="pc-avatar-inline">${avatar}</span>${normalizedName}</div>
                     <div class="pc-meta">
                         <span class="pc-badge">${badge}</span>
                         <span class="pc-level">Lv.${level}</span>
@@ -259,7 +258,7 @@ const BotRoomManager = {
         { id: 5, name: 'Bot Tia Chớp',  emoji: '⚡', color: '#3b82f6', gameMode: 'bot-tia-chop',   description: 'Tốc độ siêu nhanh' },
         { id: 6, name: 'Bot Siêu Phàm',  emoji: '🌟', color: '#8b5cf6', gameMode: 'bot-super',       description: 'Thách thức đặc biệt (mở theo nhiệm vụ)' },
         { id: 7, name: 'Bot vs Bot',     emoji: '🤖', color: '#8b5cf6', gameMode: 'bot-vs-bot',      description: 'Chọn 2 bot cho X/O, trận đấu tự động' },
-        { id: 8, name: 'Auto Bot',       emoji: '⚔️', color: '#ec4899', gameMode: 'auto-bot',        description: 'Mô phỏng nhiều trận giữa 2 bot tự động' },
+        { id: 8, name: 'Auto Bot',       emoji: '⚔️', color: '#ec4899', gameMode: 'auto-bot',        description: 'Mô phỏng nhiều ván bot vs bot, thống kê tỷ lệ thắng' },
         { id: 9, name: 'Sắp ra mắt',    emoji: '🔒', color: '#94a3b8', gameMode: null,             description: 'Mở khóa theo nhiệm vụ' }
     ],
 
@@ -407,7 +406,7 @@ const BotRoomManager = {
 
         const username = localStorage.getItem('current_username') || 'Bạn';
         const botOptions = this.BOT_ROOMS
-            .filter(r => r.gameMode && r.gameMode !== 'bot-vs-bot')
+            .filter(r => r.gameMode && r.gameMode !== 'bot-vs-bot' && r.gameMode !== 'auto-bot')
             .map(r => `<option value="${r.gameMode}">${r.emoji} ${r.name}</option>`)
             .join('');
 
@@ -691,6 +690,18 @@ const BotRoomManager = {
                 🎨 Bắt đầu dựng
             </button>
         `;
+        // Sau khi render, setup event listener cho bot-vs-bot-block-both checkbox
+        if (botConfig.gameMode === 'bot-vs-bot') {
+            const checkboxBBE = document.getElementById('bot-vs-bot-block-both');
+            if (checkboxBBE) {
+                checkboxBBE.addEventListener('change', function() {
+                    if (typeof invalidateBlockBothEndsCache === 'function') {
+                        invalidateBlockBothEndsCache();
+                        console.log('[bot-vs-bot-block-both] checkbox toggled, cache invalidated');
+                    }
+                });
+            }
+        }
     },
 
     // ══ Chuyển sang bot room view và khởi game (YC.TXT Board First) ═════════════════════
@@ -1011,6 +1022,9 @@ const BotRoomManager = {
         humanPiece = 'X';
         currentPlayer = 'X';
         isGameActive = true;
+        
+        // FIX: Set bot room mode flags so performBotVsBotMove() doesn't return early
+        this.isBotRoomMode = true;
 
         // Start automatic bot-vs-bot play regardless of X/O order
         setTimeout(() => this.performBotVsBotMove(), 100);
@@ -1052,7 +1066,9 @@ const BotRoomManager = {
                 return;
             }
             console.log('[performBotVsBotMove] BEFORE getBotMove - currentPlayer=', state.currentPlayer, 'botMode=', botMode, 'gameMode=', gameMode, 'botPiece=', botPiece, 'humanPiece=', humanPiece);
-            const move = getBotMove();
+            // Truyền roomRules vào getBotMove để đảm bảo bot áp dụng đúng luật chặn 2 đầu
+            const roomRules = (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : (typeof window !== 'undefined' && window.roomRules) ? window.roomRules : { winCount: 5, chan2Dau: true };
+            const move = getBotMove({ roomRules });
             console.log('[performBotVsBotMove] move=', move);
             if (move) {
                 const originalIsBotMove = isBotMove;
@@ -1086,125 +1102,80 @@ const BotRoomManager = {
 
     // ══ Update BOT ROOM overlay UI (YC.TXT) ═════════════════════
     updateBotRoomOverlays: function() {
-        const username = localStorage.getItem('current_username') || 'Bạn';
-        const playerIndicator = document.getElementById('bot-player-indicator');
-        const botIndicator = document.getElementById('bot-bot-indicator');
-
         const playerDetails = document.querySelector('#bot-player-overlay .bot-player-details');
-        const botDetails = document.querySelector('#bot-bot-overlay .bot-player-details');
+        const botDetails    = document.querySelector('#bot-bot-overlay .bot-player-details');
+        const playerOverlay = document.getElementById('bot-player-overlay');
+        const isBvB = this.currentBotRoom && this.currentBotRoom.gameMode === 'bot-vs-bot';
 
-        const humanProfile = PlayerCard.normalizeProfile({
-            id: 'human',
-            name: username,
-            avatar: '🧑',
-            level: 25,
-            elo: 1500,
-            win: 0,
-            lose: 0,
-            draw: 0,
-            winRate: '—',
-            coin: 25000,
-            title: 'Người chơi',
-            status: 'Đang suy nghĩ',
-            isBot: false,
-        });
+        // ── Chế độ Bot vs Bot: cả 2 ô đều là bot ──
+        if (isBvB && this.botVsBotState) {
+            if (playerOverlay) playerOverlay.style.display = 'flex';
 
-        const botMeta = this.resolveBotMetaByMode(this.currentBotRoom?.gameMode);
-        const botProfile = PlayerCard.normalizeProfile({
-            id: botMeta.id || 'bot',
-            name: botMeta.name || 'Bot',
-            avatar: botMeta.avatar || botMeta.emoji || '🤖',
-            level: botMeta.level,
-            elo: botMeta.elo,
-            wins: botMeta.wins,
-            losses: botMeta.losses,
-            draws: botMeta.draws,
-            winRate: botMeta.winRate,
-            coin: botMeta.coin || 0,
-            title: botMeta.title || botMeta.description || 'Bot AI',
-            status: 'Đang tính nước đi',
-            isBot: true,
-            difficulty: botMeta.difficulty || botMeta.description || 'Bot AI',
-        });
-
-        // Update avatar circle
-        const botAvatarCircle = document.getElementById('bot-bot-avatar');
-        if (botAvatarCircle) botAvatarCircle.textContent = botMeta.avatar || botMeta.emoji || '🤖';
-
-        // Update player avatar
-        const playerAvatarCircle = document.getElementById('bot-player-avatar');
-        if (playerAvatarCircle) playerAvatarCircle.textContent = humanProfile.avatar || '🧑';
-
-        if (playerDetails) {
-            PlayerCard.hydrate(playerDetails, humanProfile, {
-                badge: 'Human',
-                status: this.currentBotRoom && this.currentBotRoom.gameMode === 'bot-vs-bot' && this.botVsBotState
-                    ? (this.botVsBotState.currentPlayer === 'X' ? 'Đang đánh' : 'Đang chờ')
-                    : 'Đang suy nghĩ'
-            });
-        }
-
-        if (botDetails) {
-            PlayerCard.hydrate(botDetails, botProfile, {
-                badge: 'Bot',
-                status: this.currentBotRoom && this.currentBotRoom.gameMode === 'bot-vs-bot' && this.botVsBotState
-                    ? (this.botVsBotState.currentPlayer === 'O' ? 'Đang đánh' : 'Đang chờ')
-                    : 'Đang tính nước đi'
-            });
-        }
-
-        if (playerIndicator) playerIndicator.textContent = this.currentBotRoom && this.currentBotRoom.gameMode === 'bot-vs-bot' && this.botVsBotState
-            ? (this.botVsBotState.currentPlayer === 'X' ? 'Đang đánh • Bot X' : 'Đang chờ • Bot X')
-            : 'Lượt của bạn';
-
-        if (botIndicator) botIndicator.textContent = this.currentBotRoom && this.currentBotRoom.gameMode === 'bot-vs-bot' && this.botVsBotState
-            ? (this.botVsBotState.currentPlayer === 'O' ? 'Đang đánh • Bot O' : 'Đang chờ • Bot O')
-            : 'Đang chờ';
-
-        if (this.currentBotRoom && this.currentBotRoom.gameMode === 'bot-vs-bot' && this.botVsBotState) {
             const xMeta = this.resolveBotMetaByMode(this.botVsBotState.botXMode || 'bot-toi-thuong');
             const oMeta = this.resolveBotMetaByMode(this.botVsBotState.botOMode || 'bot-tia-chop');
-
-            const botXProfile = PlayerCard.normalizeProfile({
-                id: xMeta.id || xMeta.gameMode,
-                name: `${xMeta.avatar || xMeta.emoji} ${xMeta.name}`,
-                avatar: xMeta.avatar || xMeta.emoji,
-                level: xMeta.level,
-                elo: xMeta.elo,
-                wins: xMeta.wins,
-                losses: xMeta.losses,
-                draws: xMeta.draws,
-                winRate: xMeta.winRate,
-                coin: xMeta.coin || 0,
-                title: xMeta.title || xMeta.description,
-                status: this.botVsBotState.currentPlayer === 'X' ? 'Đang đánh' : 'Đang chờ',
-                isBot: true,
-                difficulty: xMeta.difficulty || xMeta.description,
-            });
-
-            const botOProfile = PlayerCard.normalizeProfile({
-                id: oMeta.id || oMeta.gameMode,
-                name: `${oMeta.avatar || oMeta.emoji} ${oMeta.name}`,
-                avatar: oMeta.avatar || oMeta.emoji,
-                level: oMeta.level,
-                elo: oMeta.elo,
-                wins: oMeta.wins,
-                losses: oMeta.losses,
-                draws: oMeta.draws,
-                winRate: oMeta.winRate,
-                coin: oMeta.coin || 0,
-                title: oMeta.title || oMeta.description,
-                status: this.botVsBotState.currentPlayer === 'O' ? 'Đang đánh' : 'Đang chờ',
-                isBot: true,
-                difficulty: oMeta.difficulty || oMeta.description,
-            });
+            const xTurn = this.botVsBotState.currentPlayer === 'X';
 
             if (playerDetails) {
-                PlayerCard.hydrate(playerDetails, botXProfile, { badge: 'Bot', status: this.botVsBotState.currentPlayer === 'X' ? 'Đang đánh' : 'Đang chờ' });
+                PlayerCard.hydrate(playerDetails, PlayerCard.normalizeProfile({
+                    id: xMeta.id || xMeta.gameMode,
+                    name: xMeta.name,
+                    avatar: xMeta.avatar || xMeta.emoji,
+                    level: xMeta.level, elo: xMeta.elo,
+                    wins: xMeta.wins, losses: xMeta.losses, draws: xMeta.draws,
+                    title: xMeta.title || xMeta.description,
+                    status: xTurn ? 'Đang đánh' : 'Đang chờ',
+                    isBot: true,
+                }), { badge: 'Bot X', status: xTurn ? 'Đang đánh' : 'Đang chờ' });
             }
             if (botDetails) {
-                PlayerCard.hydrate(botDetails, botOProfile, { badge: 'Bot', status: this.botVsBotState.currentPlayer === 'O' ? 'Đang đánh' : 'Đang chờ' });
+                PlayerCard.hydrate(botDetails, PlayerCard.normalizeProfile({
+                    id: oMeta.id || oMeta.gameMode,
+                    name: oMeta.name,
+                    avatar: oMeta.avatar || oMeta.emoji,
+                    level: oMeta.level, elo: oMeta.elo,
+                    wins: oMeta.wins, losses: oMeta.losses, draws: oMeta.draws,
+                    title: oMeta.title || oMeta.description,
+                    status: !xTurn ? 'Đang đánh' : 'Đang chờ',
+                    isBot: true,
+                }), { badge: 'Bot O', status: !xTurn ? 'Đang đánh' : 'Đang chờ' });
             }
+            return;
+        }
+
+        // ── Chế độ Người vs Bot ──
+        if (playerOverlay) playerOverlay.style.display = 'flex';
+
+        const username = localStorage.getItem('current_username') || 'Bạn';
+        let userAvatar = '🧑';
+        if (typeof currentUserData !== 'undefined' && currentUserData) {
+            const equippedId = currentUserData.equippedAvatar;
+            if (equippedId && typeof SHOP_AVATAR_LIST !== 'undefined') {
+                const avDef = SHOP_AVATAR_LIST.find(a => a.id === equippedId);
+                if (avDef) userAvatar = avDef.emoji;
+            }
+            if (userAvatar === '🧑' && currentUserData.avatar) userAvatar = currentUserData.avatar;
+        }
+
+        if (playerDetails) {
+            PlayerCard.hydrate(playerDetails, PlayerCard.normalizeProfile({
+                id: 'human', name: username, avatar: userAvatar,
+                level: 25, elo: 1500, title: 'Người chơi',
+                status: 'Đang suy nghĩ', isBot: false,
+            }), { badge: 'Human', status: 'Đang suy nghĩ' });
+        }
+
+        const botMeta = this.resolveBotMetaByMode(this.currentBotRoom?.gameMode);
+        if (botDetails) {
+            PlayerCard.hydrate(botDetails, PlayerCard.normalizeProfile({
+                id: botMeta.id || 'bot',
+                name: botMeta.name || 'Bot',
+                avatar: botMeta.avatar || botMeta.emoji || '🤖',
+                level: botMeta.level, elo: botMeta.elo,
+                wins: botMeta.wins, losses: botMeta.losses, draws: botMeta.draws,
+                title: botMeta.title || botMeta.description || 'Bot AI',
+                status: 'Đang tính nước đi', isBot: true,
+                difficulty: botMeta.difficulty || botMeta.description,
+            }), { badge: 'Bot', status: 'Đang tính nước đi' });
         }
     },
 
@@ -1257,14 +1228,32 @@ const BotRoomManager = {
 
     // ══ Xử lý kết thúc ván (YC.TXT - Updated for new popup) ═════════════════════
     handleGameEnd: function(winner) {
-        if (winner === 'X' && typeof window.updateUserStats === 'function') {
-            window.updateUserStats('winBot', 1);
+        const isBvB = this.currentBotRoom && (
+            this.currentBotRoom.gameMode === 'bot-vs-bot' ||
+            this.currentBotRoom.gameMode === 'auto-bot'
+        );
+
+        // Không cộng xu hay update stats khi bot đấu bot
+        if (!isBvB) {
+            if (winner === 'X' && typeof window.updateUserStats === 'function') {
+                window.updateUserStats('winBot', 1);
+            }
+            if (winner === 'X' && typeof window.onWinBotXu === 'function') {
+                const gameMode = this.currentBotRoom.gameMode;
+                const winCount = (typeof GameState !== 'undefined' && GameState.roomRules && typeof GameState.roomRules.winCount === 'number') ? GameState.roomRules.winCount : 5;
+                window.onWinBotXu(gameMode, winCount);
+            }
         }
-        // Cộng Xu khi thắng bot - dùng hệ thống thống nhất từ xu-nhiem-vu.js
-        if (winner === 'X' && typeof window.onWinBotXu === 'function') {
-            const gameMode = this.currentBotRoom.gameMode;
-            const winCount = (typeof GameState !== 'undefined' && GameState.roomRules && typeof GameState.roomRules.winCount === 'number') ? GameState.roomRules.winCount : 5;
-            window.onWinBotXu(gameMode, winCount);
+
+        if (isBvB) {
+            // Bot vs Bot / Auto Bot — chỉ hiện kết quả đơn giản, không win overlay rườm rà
+            const botVsBotState = this.botVsBotState;
+            const xLabel = botVsBotState ? botVsBotState.botXLabel : 'Bot X';
+            const oLabel = botVsBotState ? botVsBotState.botOLabel : 'Bot O';
+            const msg = winner === 'X' ? `${xLabel} thắng!` :
+                        winner === 'O' ? `${oLabel} thắng!` : 'Hòa!';
+            this.showBotSpeech(msg);
+            return;
         }
 
         if (winner === 'X') {
@@ -1669,8 +1658,9 @@ const BotRoomManager = {
             if (typeof isGameActive !== 'undefined' && !isGameActive) {
                 // Game đã kết thúc, xác định winner
                 if (typeof lastMoveR !== 'undefined' && typeof lastMoveC !== 'undefined' && lastMoveR !== null) {
-                    const lastPlayer = typeof infiniteMap !== 'undefined' ? infiniteMap.get(`${lastMoveR},${lastMoveC}`) : null;
-                    this.autoBotState.currentGameResult = lastPlayer;
+                    const cell = typeof infiniteMap !== 'undefined' ? infiniteMap.get(`${lastMoveR},${lastMoveC}`) : null;
+                    const lastPlayer = cell ? (cell.player || cell) : null;
+                    this.autoBotState.currentGameResult = (lastPlayer === 'X' || lastPlayer === 'O') ? lastPlayer : 'draw';
                 } else {
                     this.autoBotState.currentGameResult = 'draw';
                 }

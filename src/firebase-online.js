@@ -1364,6 +1364,10 @@ function setupEventListeners() {
                 GameState.board.winCount = resolvedWinCount;
             }
             window.roomRules = GameState.roomRules;
+            // Invalidate cache để ai-nao.js dùng roomRules mới
+            if (typeof invalidateBlockBothEndsCache === 'function') {
+                invalidateBlockBothEndsCache();
+            }
             const sf = myRole === 'X' ? 'playerX_status' : 'playerO_status';
             const startReconnectOnline = () => {
                 db.ref(`rooms/${roomId}/${sf}`).set('online');
@@ -1648,6 +1652,10 @@ function vaoLaiPhong(roomId) {
                     GameState.board.winCount = resolvedWinCount2;
                 }
                 window.roomRules = GameState.roomRules;
+                // Invalidate cache để ai-nao.js dùng roomRules mới
+                if (typeof invalidateBlockBothEndsCache === 'function') {
+                    invalidateBlockBothEndsCache();
+                }
                 localStorage.setItem('current_room_id', roomId);
                 // Cập nhật currentRoomId lên Firebase
                 const myId = localStorage.getItem('current_user_id');
@@ -2945,7 +2953,7 @@ let _dangBatDauGame = false;
 function _thucSuBatDauGame(room, winCount, chan2Dau, firstTurn) {
     if (_dangBatDauGame) return;
     _dangBatDauGame = true;
-    // Sync room rules vào GameState trước khi bắt đầu game
+    // Sync room rules vào GameState trước khi bắt đầu game (synchronously)
     if (typeof GameState !== 'undefined') {
         GameState.roomRules = {
             winCount: winCount,
@@ -2956,6 +2964,10 @@ function _thucSuBatDauGame(room, winCount, chan2Dau, firstTurn) {
         GameState.board.winCount = winCount;
     }
     window.roomRules = GameState.roomRules;
+    // CẦN invalidate ngay để getBlockBothEnds() re-read trước khi game logic chạy
+    if (typeof invalidateBlockBothEndsCache === 'function') {
+        invalidateBlockBothEndsCache();
+    }
     db.ref(`rooms/${currentRoomId}`).update({
         status:           'playing',
         turn:             firstTurn,
@@ -3035,7 +3047,7 @@ function capNhatLuatPhong() {
         firstTurn: newFirstTurn,
         updatedAt: Date.now()
     });
-    // Sync ngay xuống GameState.roomRules để đảm bảo logic checkWinSilent dùng đúng luật
+    // Sync ngay xuống GameState.roomRules để đảm bảo logic checkWinSilent dùng đúng luật (synchronously)
     if (typeof GameState !== 'undefined') {
         GameState.roomRules = {
             winCount: newWinCount,
@@ -3046,6 +3058,7 @@ function capNhatLuatPhong() {
         GameState.board.winCount = newWinCount;
     }
     window.roomRules = GameState.roomRules;
+    // Cache invalidation sẽ được xử lý bởi listener khi db.update() fire
 }
 window.capNhatLuatPhong = capNhatLuatPhong;
 function kickDoiThu() {
@@ -3373,6 +3386,10 @@ function langNgheThayDoiPhong(roomId) {
                     if (!GameState.board) GameState.board = {};
                     GameState.board.winCount = room.winCount;
                 }
+            }
+            // Invalidate cache để ai-nao.js dùng roomRules mới
+            if (typeof invalidateBlockBothEndsCache === 'function') {
+                invalidateBlockBothEndsCache();
             }
         } catch (e) { console.warn('[SyncRoomRules] failed to set GameState.roomRules', e); }
         // Expose as window.roomRules for compatibility

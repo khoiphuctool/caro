@@ -499,19 +499,36 @@ let _blockBothEndsDirty = true;
 function getBlockBothEnds() {
     if (_blockBothEndsDirty) {
         let checked = false;
-        if (window.isBotVsBotMode) {
-            const el = document.getElementById('bot-vs-bot-block-both');
-            checked = el ? el.checked : false;
-        } else {
-            const el = document.getElementById('block-both-ends');
-            checked = el ? el.checked : false;
+        
+        // PRIORITY 1: lấy từ GameState.roomRules (phòng online)
+        if (typeof GameState !== 'undefined' && GameState.roomRules && typeof GameState.roomRules.chan2Dau === 'boolean') {
+            checked = GameState.roomRules.chan2Dau;
+            console.log(`[getBlockBothEnds] PRIORITY 1: from GameState.roomRules = ${checked}`);
         }
+        // PRIORITY 2: lấy từ window.roomRules (backup)
+        else if (typeof window !== 'undefined' && window.roomRules && typeof window.roomRules.chan2Dau === 'boolean') {
+            checked = window.roomRules.chan2Dau;
+            console.log(`[getBlockBothEnds] PRIORITY 2: from window.roomRules = ${checked}`);
+        }
+        // PRIORITY 3: lấy từ DOM checkbox (chế độ solo/bot local)
+        else {
+            if (window.isBotVsBotMode) {
+                const el = document.getElementById('bot-vs-bot-block-both');
+                checked = el ? el.checked : false;
+                console.log(`[getBlockBothEnds] PRIORITY 3a: from bot-vs-bot-block-both = ${checked}`);
+            } else {
+                const el = document.getElementById('block-both-ends');
+                checked = el ? el.checked : false;
+                console.log(`[getBlockBothEnds] PRIORITY 3b: from block-both-ends = ${checked}`);
+            }
+        }
+        
         _cachedBlockBothEnds = checked;
         _blockBothEndsDirty = false;
     }
     return _cachedBlockBothEnds;
 }
-// Gọi khi người dùng đổi checkbox
+// Gọi khi người dùng đổi checkbox HOẶC khi vào phòng mới
 function invalidateBlockBothEndsCache() { _blockBothEndsDirty = true; }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2397,11 +2414,12 @@ function godEngineMove(bp, hp, validCands, isGod) {
     return { move: verifiedMove, reason };
 }
 
-function getBotMove() {
+function getBotMove(options = {}) {
+    let validCands = [];
     try {
     const cands = getSearchCandidates();
     if (!cands || !Array.isArray(cands) || cands.length === 0) return { r: 0, c: 0 };
-    const validCands = cands.filter(({ r, c }) => getCell(r, c) === '');
+    validCands = cands.filter(({ r, c }) => getCell(r, c) === '');
     if (validCands.length === 0) return { r: 0, c: 0 };
 
     // Fill cellScores for visualization (if checkbox is checked)
@@ -2414,7 +2432,9 @@ function getBotMove() {
     }
 
     const bp = botPiece, hp = humanPiece;
-    const blockBothEnds = getBlockBothEnds();
+    // Ưu tiên options.roomRules nếu được truyền vào, cung cấp chan2Dau cho checkWinSilent
+    const roomRules = options.roomRules || (typeof GameState !== 'undefined' && GameState.roomRules) || { winCount: winCount || 5, chan2Dau: getBlockBothEnds() };
+    const blockBothEnds = !!roomRules.chan2Dau;
 
     // ════════════════════════════════════════════════════════════════════════════
     // DIFFICULTY-BASED PIPELINE - Điều chỉnh theo level bot
@@ -2438,14 +2458,14 @@ function getBotMove() {
     // ══ P1. BOT THẮNG NGAY ══
     for (const { r, c } of tacticalCells) {
         setCell(r, c, bp);
-        const win = checkWinSilent(r, c);
+        const win = checkWinSilent(r, c, roomRules);
         setCell(r, c, '');
         if (win) { updateBotThinking('TÌM THẤY NƯỚC THẮNG! 🎯'); return { r, c }; }
     }
 
     // ══ P2. ĐỊCH THẮNG NGAY — chặn ngay, tuyệt đối ══
     for (const { r, c } of tacticalCells) {
-        setCell(r, c, hp); const win = checkWinSilent(r, c); setCell(r, c, '');
+        setCell(r, c, hp); const win = checkWinSilent(r, c, roomRules); setCell(r, c, '');
         if (win) { updateBotThinking('Chặn kịp! 😤'); return { r, c }; }
     }
 
@@ -2454,12 +2474,10 @@ function getBotMove() {
     // Tìm chuỗi FOUR của địch và trả về đúng đầu cần chặn (đầu viable, thoáng nhất).
     // Không được chạy trước P1/P2 vì nếu bot đang thắng ngay thì không cần chặn gì.
     if (!isEasy && typeof BlockBothEndsAnalyzer !== 'undefined') {
-        const urgentBlocks = BlockBothEndsAnalyzer.getBestBlockMoves(hp, bp, winCount, winCount - 1);
+        const urgentBlocks = BlockBothEndsAnalyzer.findBlockPositions(hp, winCount, true);
         if (urgentBlocks.length > 0) {
             const top = urgentBlocks[0];
-            // Chỉ ép chặn ngay nếu là FOUR (chainCount >= winCount-1)
-            // THREE và thấp hơn để từng bot tự quyết định
-            if (top.chainCount >= winCount - 1) {
+            if (top.priority >= 9000) {
                 console.log('[ai-nao][P3] BlockBothEndsAnalyzer forced FOUR block:', top);
                 updateBotThinking('Chặn FOUR đúng đầu mở! 🛡️');
                 return { r: top.r, c: top.c };

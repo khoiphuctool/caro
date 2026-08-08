@@ -1859,160 +1859,6 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
   pointer-events: auto;
 }
 
-/* Player Info Overlay (Top Left) */
-.bot-player-overlay {
-  top: env(safe-area-inset-top, 12px);
-  left: 12px;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 8px;
-  display: flex;
-  align-items: stretch;
-  gap: 8px;
-  width: clamp(240px, 20vw, 320px);
-  max-width: calc(100vw - 24px);
-  min-width: 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  position: fixed;
-  overflow: visible;
-}
-
-.bot-avatar-wrapper {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.bot-avatar-circle {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  font-weight: 900;
-  border: 2px solid;
-  flex-shrink: 0;
-  overflow: hidden;
-  line-height: 1;
-}
-
-.bot-piece-badge {
-  position: absolute;
-  top: -3px;
-  right: -3px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: 900;
-  border: 1.5px solid;
-  background: #fff;
-  z-index: 10;
-}
-
-.bot-piece-x {
-  color: var(--color-danger);
-  border-color: var(--color-danger);
-}
-
-.bot-piece-o {
-  color: var(--color-success);
-  border-color: var(--color-success);
-}
-
-.bot-avatar-x {
-  background: var(--color-danger-light);
-  border-color: var(--color-danger);
-  color: var(--color-danger);
-}
-
-.bot-avatar-o {
-  background: var(--color-success-light);
-  border-color: var(--color-success);
-  color: var(--color-success);
-}
-
-.bot-player-details {
-  flex: 1 1 auto;
-  min-width: 0;
-  width: auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.bot-player-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: #fff;
-  margin-bottom: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.bot-player-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 11px;
-  color: #cbd5e1;
-}
-
-.bot-stat-item {
-  white-space: nowrap;
-}
-
-.bot-turn-indicator {
-  position: absolute;
-  right: 12px;
-  top: 12px;
-  padding: 4px 10px;
-  border-radius: var(--radius-full);
-  font-size: 11px;
-  font-weight: 700;
-  background: var(--color-success-light);
-  color: var(--color-success);
-  border: 1px solid var(--color-success);
-  text-align: center;
-  white-space: nowrap;
-  flex-shrink: 0;
-  align-self: center;
-}
-
-.bot-turn-indicator.inactive {
-  background: var(--bg-panel);
-  color: var(--text-secondary);
-  border-color: var(--border);
-}
-
-/* Bot Info Overlay (Top Right) */
-.bot-bot-overlay {
-  top: env(safe-area-inset-top, 12px);
-  right: 12px;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 12px;
-  display: flex;
-  align-items: stretch;
-  gap: 12px;
-  width: clamp(260px, 22vw, 340px);
-  max-width: calc(100vw - 24px);
-  min-width: 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  position: fixed;
-  overflow: visible;
-}
-
 /* Zoom Controls Overlay (Right Side) */
 .bot-zoom-overlay {
   right: 12px;
@@ -2087,29 +1933,33 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 /* Bottom Control Bar */
 .bot-bottom-bar {
   position: fixed;
-  bottom: env(safe-area-inset-bottom, 12px);
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
+  justify-content: space-evenly;
+  align-items: center;
   gap: 8px;
-  background: rgba(15, 23, 42, 0.85);
+  flex-wrap: nowrap;
+  background: rgba(15, 23, 42, 0.92);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
   padding: 8px 12px;
   z-index: 100;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.3);
 }
 
 .bot-control-btn {
+  flex: 1;
   padding: 10px 16px;
   border-radius: 10px;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   border: none;
-  transition: all var(--transition);
+  text-align: center;
   white-space: nowrap;
+  transition: all var(--transition);
 }
 
 .bot-undo-btn {
@@ -2147,85 +1997,6 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 
 .bot-exit-btn:hover {
   background: rgba(100, 116, 139, 1);
-}
-
-/* Responsive - Mobile */
-@media (max-width: 768px) {
-  .bot-player-overlay,
-  .bot-bot-overlay {
-    width: clamp(120px, 32vw, 180px);
-    max-width: calc(100vw - 24px);
-    padding: 6px;
-    gap: 6px;
-  }
-
-  .bot-avatar-wrapper {
-    flex-shrink: 0;
-  }
-
-  .bot-avatar-circle {
-    width: 28px;
-    height: 28px;
-    font-size: 14px;
-    border-width: 1.5px;
-  }
-
-  .bot-piece-badge {
-    width: 12px;
-    height: 12px;
-    font-size: 9px;
-    top: -2px;
-    right: -2px;
-    border-width: 1px;
-  }
-
-  .bot-player-name {
-    font-size: 10px;
-  }
-
-  .bot-player-stats {
-    font-size: 8px;
-    gap: 3px;
-  }
-
-  .bot-turn-indicator {
-    font-size: 8px;
-    padding: 2px 4px;
-  }
-
-  .bot-zoom-overlay {
-    right: 8px;
-  }
-
-  .bot-zoom-btn {
-    width: 40px;
-    height: 40px;
-    font-size: 18px;
-  }
-
-  .bot-chat-overlay {
-    bottom: 80px;
-    max-width: 250px;
-  }
-
-  .bot-chat-content {
-    font-size: 12px;
-    padding: 10px 14px;
-  }
-
-  .bot-bottom-bar {
-    bottom: env(safe-area-inset-bottom, 8px);
-    padding: 6px 10px;
-    gap: 6px;
-    width: calc(100% - 24px);
-    max-width: 400px;
-  }
-
-  .bot-control-btn {
-    padding: 8px 12px;
-    font-size: 11px;
-  }
-
 }
 
 /* Chat Bubble Animations */
@@ -3036,14 +2807,14 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
         </div>
     </div>
 
-    <!-- Overlay: Player Info (Top Left) -->
-    <div class="bot-overlay bot-player-overlay" id="bot-player-overlay">
-        <div class="bot-player-details" id="bot-player-details"></div>
-    </div>
-
-    <!-- Overlay: Bot Info (Top Right) -->
-    <div class="bot-overlay bot-bot-overlay" id="bot-bot-overlay">
-        <div class="bot-player-details" id="bot-bot-details"></div>
+    <!-- Overlay: Player Info Bar (Top — full width, 2 đối thủ căn giữa) -->
+    <div class="bot-overlay bot-players-bar" id="bot-players-bar">
+        <div class="bot-player-overlay" id="bot-player-overlay">
+            <div class="bot-player-details" id="bot-player-details"></div>
+        </div>
+        <div class="bot-player-overlay bot-bot-overlay" id="bot-bot-overlay">
+            <div class="bot-player-details" id="bot-bot-details"></div>
+        </div>
     </div>
 
     <!-- Overlay: Zoom Controls (Right Side) -->
@@ -3088,17 +2859,17 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
             🎨 Thế cờ
         </button>
         <button class="bot-control-btn" id="btn-compare-bots" onclick="if(typeof CompareBots !== 'undefined') CompareBots.run(currentPlayer);" title="So sánh các bot">
-            ⚔️ Compare Bots
+            ⚔️ Bots
         </button>
         <button class="bot-control-btn bot-exit-btn" onclick="if(typeof BotRoomManager !== 'undefined') BotRoomManager.exitBotRoom();" title="Thoát">
             🚪 Thoát
         </button>
     </div>
 
-    <!-- Compare Bots Panel -->
+    <!-- Bots Panel -->
     <div id="compare-bots-panel" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);width:400px;background:rgba(15,23,42,0.95);border:1px solid #8b5cf6;border-radius:12px;padding:16px;z-index:1000;box-shadow:0 8px 32px rgba(0,0,0,0.4);color:#e2e8f0;font-size:12px;max-height:300px;overflow-y:auto;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-            <div style="font-weight:bold;color:#a78bfa;">⚔️ Compare Bots</div>
+            <div style="font-weight:bold;color:#a78bfa;">⚔️ Bots</div>
             <button onclick="document.getElementById('compare-bots-panel').style.display='none'" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;">×</button>
         </div>
         <div id="compare-bots-content">

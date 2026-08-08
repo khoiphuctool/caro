@@ -199,7 +199,17 @@ function initGame() {
 
     currentPlayer     = firstMove;
     isGameActive      = true;
-    
+
+    // Sync GameState.roomRules cho solo/bot local mode
+    // (tránh dùng nhầm roomRules từ phòng online cũ còn sót lại)
+    if (!window.isOnlineModeActive || !window.isOnlineModeActive()) {
+        const localChan2Dau = !!document.getElementById('block-both-ends')?.checked;
+        const localRules = { winCount, chan2Dau: localChan2Dau, firstTurn: firstMove };
+        if (typeof GameState !== 'undefined') GameState.roomRules = localRules;
+        window.roomRules = localRules;
+        if (typeof invalidateBlockBothEndsCache === 'function') invalidateBlockBothEndsCache();
+    }
+
     // YC.TXT FIX: Use centralized GameModeManager for solo mode
     if (isSolo && isGameActive) {
         if (typeof GameModeManager !== 'undefined') {
@@ -256,7 +266,13 @@ function initGame() {
     // Skip map reset if position editor mode is active (to preserve custom position)
     if (typeof GameState !== 'undefined' && GameState.board) {
         if (!window.positionEditorMode) {
-            GameState.board.infiniteMap = new Map();
+            // Clear thay vì new Map() để giữ nguyên reference
+            // (tránh mất listener hoặc alias trỏ vào map cũ)
+            if (GameState.board.infiniteMap instanceof Map) {
+                GameState.board.infiniteMap.clear();
+            } else {
+                GameState.board.infiniteMap = new Map();
+            }
         }
         GameState.board.isInfinite = true;
         // Sync trang-thai.js reference
@@ -265,7 +281,11 @@ function initGame() {
         }
     } else {
         // Fallback if GameState not available
-        infiniteMap = new Map();
+        if (infiniteMap instanceof Map) {
+            infiniteMap.clear();
+        } else {
+            infiniteMap = new Map();
+        }
     }
 
     console.log('[initGame] infiniteMap identity check:', {
@@ -421,7 +441,8 @@ function makeMove(r, c) {
 
         // Gửi lên Firebase SAU KHI đã setCell (để kiểm tra thắng đọc đúng board).
         // Kết quả thắng chỉ được chốt sau khi transaction được Firebase xác nhận.
-        const isWinningMove = (typeof checkWinSilent === 'function') ? checkWinSilent(r, c) : false;
+        // Truyền GameState.roomRules để áp dụng luật chặn 2 đầu của phòng
+        const isWinningMove = (typeof checkWinSilent === 'function') ? checkWinSilent(r, c, (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : undefined) : false;
         if (window.guiNuocDiLenFirebase) {
             window.onlineMovePending = true;
             return Promise.resolve(window.guiNuocDiLenFirebase(r, c))
@@ -691,8 +712,16 @@ function getWinningLine(row, col, player, winCount, blockBothEndsEnabled) {
         const headR = endCell[0] + dr, headC = endCell[1] + dc;
         const tailR = startCell[0] - dr, tailC = startCell[1] - dc;
         
+        const headCell = getCell(headR, headC);
+        const tailCell = getCell(tailR, tailC);
+        
         const headBlocked = isBlocked(headR, headC, dr, dc, player);
         const tailBlocked = isBlocked(tailR, tailC, -dr, -dc, player);
+
+        // DEBUG: Log để kiểm tra case O__XXXXX_O
+        if (line.length >= winCount && blockBothEndsEnabled) {
+            console.log(`[getWinningLine] player=${player}, lineCount=${line.length}, dir=(${dr},${dc}), headCell=${headCell}, tailCell=${tailCell}, headBlocked=${headBlocked}, tailBlocked=${tailBlocked}, bothBlocked=${headBlocked && tailBlocked}`);
+        }
 
         // Nếu cả 2 đầu bị chặn → không thắng
         if (headBlocked && tailBlocked) {
@@ -707,15 +736,25 @@ function getWinningLine(row, col, player, winCount, blockBothEndsEnabled) {
 
 // Resolve room rules from parameter, GameState.roomRules, or fallback
 function _resolveRoomRules(passedRules) {
-    if (passedRules && typeof passedRules.winCount === 'number') return passedRules;
-    if (typeof GameState !== 'undefined' && GameState.roomRules) return GameState.roomRules;
-    if (typeof window !== 'undefined' && window.roomRules && typeof window.roomRules.winCount === 'number') return window.roomRules;
+    if (passedRules && typeof passedRules.winCount === 'number') {
+        console.log(`[_resolveRoomRules] using passed rules:`, passedRules);
+        return passedRules;
+    }
+    if (typeof GameState !== 'undefined' && GameState.roomRules) {
+        console.log(`[_resolveRoomRules] using GameState.roomRules:`, GameState.roomRules);
+        return GameState.roomRules;
+    }
+    if (typeof window !== 'undefined' && window.roomRules && typeof window.roomRules.winCount === 'number') {
+        console.log(`[_resolveRoomRules] using window.roomRules:`, window.roomRules);
+        return window.roomRules;
+    }
     // Fallback to GameState.board.winCount if available
     const fallbackWin = (typeof GameState !== 'undefined' && GameState.board && typeof GameState.board.winCount === 'number') ? GameState.board.winCount : (typeof winCount === 'number' ? winCount : undefined);
     const fallbackChan = (typeof document !== 'undefined') ? !!document.getElementById('block-both-ends')?.checked : true;
     if (typeof fallbackWin === 'undefined') {
         console.warn('[checkWin] roomRules missing; unable to determine winCount reliably');
     }
+    console.log(`[_resolveRoomRules] using fallback: winCount=${fallbackWin}, chan2Dau=${fallbackChan}`);
     return { winCount: fallbackWin, chan2Dau: fallbackChan, firstTurn: (typeof window !== 'undefined' && window.firstTurn) ? window.firstTurn : 'X' };
 }
 
@@ -738,7 +777,10 @@ function checkWinSilent(r, c, roomRules) {
     const rules = _resolveRoomRules(roomRules);
     const blockBothEndsEnabled = !!rules.chan2Dau;
     const countRequired = rules.winCount;
-    return !!getWinningLine(r, c, player, countRequired, blockBothEndsEnabled);
+    console.log(`[checkWinSilent] player=${player}, pos=(${r},${c}), blockBothEnds=${blockBothEndsEnabled}, winCount=${countRequired}, roomRules=${roomRules ? 'provided' : 'resolved'}`);
+    const result = !!getWinningLine(r, c, player, countRequired, blockBothEndsEnabled);
+    console.log(`[checkWinSilent] result=${result}`);
+    return result;
 }
 
 // ĐỊNH NGHĨA HÀM XÓA SẠCH BÀN CỜ CHO VÁN MỚI TINH
