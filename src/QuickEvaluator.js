@@ -336,17 +336,13 @@ const QuickEvaluator = {
     },
 
     // ===== CHECK SMART BLOCK =====
-    // Kiểm tra smart blocking (chặn hiệu quả)
     checkSmartBlock(allEmpty, opponent, winCount, chan2Dau) {
-        const board = typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : infiniteMap;
-        
-        if (typeof ThreatDetector !== 'undefined' && typeof ThreatDetector.analyzeBlockPositions === 'function') {
-            const blockPositions = ThreatDetector.analyzeBlockPositions(allEmpty, opponent, winCount, true);
-            if (blockPositions && blockPositions.length > 0) {
-                return blockPositions[0];
-            }
+        // Dùng BlockBothEndsAnalyzer thay analyzeBlockPositions cũ
+        if (typeof BlockBothEndsAnalyzer !== 'undefined') {
+            const player = opponent === 'X' ? 'O' : 'X';
+            const blockMoves = BlockBothEndsAnalyzer.getBestBlockMoves(opponent, player, winCount, winCount - 2);
+            if (blockMoves.length > 0) return blockMoves[0];
         }
-        
         return null;
     },
 

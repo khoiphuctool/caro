@@ -1007,57 +1007,102 @@ body.game-playing #app-header {
 
 /* Player Overlay (Top Left) */
 .battle-player-overlay-left {
-  top: env(safe-area-inset-top, 12px);
-  left: 12px;
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(8px);
+  top: env(safe-area-inset-top, 10px);
+  left: 10px;
+  background: var(--bg-card);
+  backdrop-filter: blur(10px);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 12px;
+  padding: clamp(6px, 1.2vw, 12px);
   display: flex;
-  align-items: center;
-  gap: 12px;
-  max-width: 280px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(4px, 0.8vw, 8px);
+  width: clamp(130px, 18vw, 220px);
   box-shadow: var(--shadow-lg);
 }
 
 /* Player Overlay (Top Right) */
 .battle-player-overlay-right {
-  top: env(safe-area-inset-top, 12px);
-  right: 12px;
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(8px);
+  top: env(safe-area-inset-top, 10px);
+  right: 10px;
+  background: var(--bg-card);
+  backdrop-filter: blur(10px);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 12px;
+  padding: clamp(6px, 1.2vw, 12px);
   display: flex;
-  align-items: center;
-  gap: 12px;
-  max-width: 280px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: clamp(4px, 0.8vw, 8px);
+  width: clamp(130px, 18vw, 220px);
   box-shadow: var(--shadow-lg);
 }
 
+/* Hàng trên: tên + lượt */
+.battle-player-overlay-left .battle-player-details,
+.battle-player-overlay-right .battle-player-details {
+  width: 100%;
+}
+
+/* Avatar nằm dưới thông tin nhân vật */
+.battle-avatar-wrapper {
+  position: relative;
+  flex-shrink: 0;
+  align-self: center;
+  margin-top: 2px;
+}
+
 .battle-avatar-circle {
-  width: 48px;
-  height: 48px;
+  width: clamp(28px, 4vw, 40px);
+  height: clamp(28px, 4vw, 40px);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: clamp(14px, 2vw, 20px);
   font-weight: 900;
-  border: 3px solid;
+  border: 2px solid;
   flex-shrink: 0;
+  overflow: hidden;
+  line-height: 1;
+}
+
+.battle-piece-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 900;
+  border: 1.5px solid;
+  background: var(--bg-card);
+  z-index: 10;
+}
+
+.battle-piece-x {
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+.battle-piece-o {
+  color: #10b981;
+  border-color: #10b981;
 }
 
 .battle-avatar-x {
-  background: rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.15);
   border-color: #ef4444;
   color: #ef4444;
 }
 
 .battle-avatar-o {
-  background: rgba(16, 185, 129, 0.2);
+  background: rgba(16, 185, 129, 0.15);
   border-color: #10b981;
   color: #10b981;
 }
@@ -1068,39 +1113,44 @@ body.game-playing #app-header {
 }
 
 .battle-player-name {
-  font-size: 14px;
+  font-size: clamp(11px, 1.4vw, 14px);
   font-weight: 700;
-  color: #fff;
-  margin-bottom: 4px;
+  color: var(--text-primary);
+  margin-bottom: 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .battle-player-stats {
-  font-size: 12px;
+  font-size: clamp(9px, 1.1vw, 12px);
   color: var(--text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
 }
 
 .battle-stat-item {
-  margin-right: 8px;
+  margin-right: 4px;
 }
 
 .battle-turn-indicator {
-  padding: 4px 10px;
+  padding: clamp(2px, 0.4vw, 4px) clamp(6px, 1vw, 10px);
   border-radius: var(--radius-full);
-  font-size: 11px;
+  font-size: clamp(9px, 1.1vw, 11px);
   font-weight: 700;
   background: var(--color-success-light);
   color: var(--color-success);
   border: 1px solid var(--color-success);
   text-align: center;
   white-space: nowrap;
+  align-self: center;
 }
 
 .battle-turn-indicator.inactive {
   background: var(--bg-panel);
-  color: var(--text-secondary);
+  color: var(--text-muted);
   border-color: var(--border);
 }
 
@@ -1144,13 +1194,14 @@ body.game-playing #app-header {
 }
 
 .battle-chat-panel {
-  background: rgba(0, 0, 0, 0.9);
+  background: var(--bg-card);
   backdrop-filter: blur(8px);
   border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 
 .battle-chat-header {
@@ -1199,10 +1250,11 @@ body.game-playing #app-header {
   max-height: 200px;
   overflow-y: auto;
   font-size: 12px;
-  color: #cbd5e1;
-  background: rgba(0, 0, 0, 0.2);
+  color: var(--text-primary);
+  background: var(--bg-panel);
   border-radius: 8px;
   padding: 8px;
+  transition: background var(--transition-normal);
 }
 
 .battle-chat-input {
@@ -1213,11 +1265,12 @@ body.game-playing #app-header {
 .battle-chat-input input {
   flex: 1;
   padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-size: 12px;
+  transition: border-color var(--transition-fast);
 }
 
 .battle-chat-input button {
@@ -1259,13 +1312,14 @@ body.game-playing #app-header {
 }
 
 .battle-room-info-card {
-  background: rgba(15, 23, 42, 0.85);
+  background: var(--bg-card);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 12px;
-  color: #94a3b8;
+  padding: 10px 12px;
+  color: var(--text-secondary);
   font-size: 11px;
+  transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 
 /* Status Bar Overlay */
@@ -1277,15 +1331,16 @@ body.game-playing #app-header {
 }
 
 .battle-status-bar {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 12px 24px;
-  color: #1e293b;
+  padding: 10px 24px;
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 700;
   text-align: center;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-md);
+  transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 
 /* Bottom Control Bar */
@@ -1294,58 +1349,56 @@ body.game-playing #app-header {
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(15, 23, 42, 0.9);
+  background: var(--bg-secondary);
   backdrop-filter: blur(8px);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  padding: 10px 16px;
   display: flex;
   justify-content: center;
   gap: 12px;
   z-index: 100;
+  transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 
 .battle-control-btn {
-  padding: 10px 20px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 8px 18px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  color: #e2e8f0;
-  font-size: 14px;
+  color: var(--text-primary);
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .battle-control-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--bg-primary);
 }
 
 .battle-exit-btn {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.4);
-  color: #fca5a5;
+  background: var(--color-danger-light);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 
 .battle-exit-btn:hover {
-  background: rgba(239, 68, 68, 0.3);
+  background: var(--color-danger);
+  color: #fff;
 }
 
 .battle-surrender-btn {
-  background: rgba(245, 158, 11, 0.2);
-  border-color: rgba(245, 158, 11, 0.4);
-  color: #fcd34d;
+  background: var(--color-warning-light);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
 }
 
 .battle-surrender-btn:hover {
-  background: rgba(245, 158, 11, 0.3);
+  background: var(--color-warning);
+  color: #fff;
 }
 
-/* Thông tin phòng trong battle */
-.battle-room-info-card {
-  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
-  border-radius: var(--radius-sm); padding: var(--space-3);
-  color: #94a3b8; font-size: var(--font-xs);
-}
+/* Thông tin phòng trong battle — dùng biến theme, xem .battle-room-info-card ở trên */
 
 /* ================================================================
    MOBILE — Tablet (768–1024px)
@@ -1814,11 +1867,11 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  padding: 12px;
+  padding: 8px;
   display: flex;
   align-items: stretch;
-  gap: 12px;
-  width: clamp(260px, 22vw, 340px);
+  gap: 8px;
+  width: clamp(240px, 20vw, 320px);
   max-width: calc(100vw - 24px);
   min-width: 0;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -1826,17 +1879,51 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
   overflow: visible;
 }
 
+.bot-avatar-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .bot-avatar-circle {
-  width: 48px;
-  height: 48px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 16px;
   font-weight: 900;
-  border: 3px solid;
+  border: 2px solid;
   flex-shrink: 0;
+  overflow: hidden;
+  line-height: 1;
+}
+
+.bot-piece-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 900;
+  border: 1.5px solid;
+  background: #fff;
+  z-index: 10;
+}
+
+.bot-piece-x {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.bot-piece-o {
+  color: var(--color-success);
+  border-color: var(--color-success);
 }
 
 .bot-avatar-x {
@@ -2066,30 +2153,44 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 @media (max-width: 768px) {
   .bot-player-overlay,
   .bot-bot-overlay {
-    width: clamp(180px, 42vw, 260px);
+    width: clamp(120px, 32vw, 180px);
     max-width: calc(100vw - 24px);
-    padding: 8px;
-    gap: 8px;
-  }
-
-  .bot-avatar-circle {
-    width: 36px;
-    height: 36px;
-    font-size: 18px;
-  }
-
-  .bot-player-name {
-    font-size: 12px;
-  }
-
-  .bot-player-stats {
-    font-size: 10px;
+    padding: 6px;
     gap: 6px;
   }
 
-  .bot-turn-indicator {
+  .bot-avatar-wrapper {
+    flex-shrink: 0;
+  }
+
+  .bot-avatar-circle {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+    border-width: 1.5px;
+  }
+
+  .bot-piece-badge {
+    width: 12px;
+    height: 12px;
+    font-size: 9px;
+    top: -2px;
+    right: -2px;
+    border-width: 1px;
+  }
+
+  .bot-player-name {
     font-size: 10px;
-    padding: 3px 8px;
+  }
+
+  .bot-player-stats {
+    font-size: 8px;
+    gap: 3px;
+  }
+
+  .bot-turn-indicator {
+    font-size: 8px;
+    padding: 2px 4px;
   }
 
   .bot-zoom-overlay {
@@ -2179,6 +2280,29 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 /* Bot room card trong lobby */
 .bot-room-item { border: 2px solid #10b981; background: linear-gradient(135deg, #f0fdf4, #dcfce7); }
 .bot-room-badge { background: #10b981; color: white; font-size: 10px; padding: 2px 6px; border-radius: 999px; }
+
+/* ── Position Editor Toolbar Responsive ── */
+#position-editor-toolbar {
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  #position-editor-toolbar {
+    padding: 8px 10px !important;
+    gap: 4px !important;
+    border-radius: 10px !important;
+  }
+  #position-editor-toolbar button,
+  #position-editor-toolbar .editor-tool-btn {
+    padding: 7px 10px !important;
+    font-size: 12px !important;
+  }
+  #position-editor-toolbar span {
+    display: none; /* ẩn label trên màn nhỏ */
+  }
+}
+
+/* Khi đang dựng thế: không cần ẩn bot-bottom-bar — toolbar tự điều chỉnh bottom */
 
 @keyframes bounce {
   0%, 100% { transform: translateY(0); }
@@ -2807,28 +2931,34 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 
     <!-- Overlay: Player X (Top Left) -->
     <div class="battle-overlay battle-player-overlay-left" id="battle-player-overlay-left">
-        <div class="battle-avatar-circle battle-avatar-x" id="battle-avatar-x">X</div>
         <div class="battle-player-details">
             <div class="battle-player-name" id="battle-name-x">Người chơi X</div>
-            <div id="battle-role-x" style="font-size:11px;color:#94a3b8;margin-top:4px;">X</div>
+            <div id="battle-role-x" style="font-size:10px;color:var(--text-secondary);margin-bottom:2px;">X</div>
             <div class="battle-player-stats">
                 <span class="battle-stat-item" id="battle-stats-x">🤖 0 · ⚔️ 0 · 📉 0</span>
             </div>
-            <div class="battle-player-timer" id="battle-timer-x" style="margin-top:8px;padding:4px 8px;border-radius:999px;font-size:12px;background:rgba(255,255,255,.08);color:#94a3b8;display:inline-block;">02:30</div>
+            <div class="battle-player-timer" id="battle-timer-x" style="margin-top:4px;padding:3px 7px;border-radius:999px;font-size:11px;background:var(--bg-panel);color:var(--text-secondary);display:inline-block;border:1px solid var(--border);">02:30</div>
+        </div>
+        <div class="battle-avatar-wrapper">
+            <div class="battle-avatar-circle battle-avatar-x" id="battle-avatar-x">🧑</div>
+            <div class="battle-piece-badge battle-piece-x">X</div>
         </div>
         <div class="battle-turn-indicator" id="battle-indicator-x">Lượt của bạn</div>
     </div>
 
     <!-- Overlay: Player O (Top Right) -->
     <div class="battle-overlay battle-player-overlay-right" id="battle-player-overlay-right">
-        <div class="battle-avatar-circle battle-avatar-o" id="battle-avatar-o">O</div>
         <div class="battle-player-details">
             <div class="battle-player-name" id="battle-name-o">Người chơi O</div>
-            <div id="battle-role-o" style="font-size:11px;color:#94a3b8;margin-top:4px;">O</div>
+            <div id="battle-role-o" style="font-size:10px;color:var(--text-secondary);margin-bottom:2px;">O</div>
             <div class="battle-player-stats">
                 <span class="battle-stat-item" id="battle-stats-o">🤖 0 · ⚔️ 0 · 📉 0</span>
             </div>
-            <div class="battle-player-timer" id="battle-timer-o" style="margin-top:8px;padding:4px 8px;border-radius:999px;font-size:12px;background:rgba(255,255,255,.08);color:#94a3b8;display:inline-block;">02:30</div>
+            <div class="battle-player-timer" id="battle-timer-o" style="margin-top:4px;padding:3px 7px;border-radius:999px;font-size:11px;background:var(--bg-panel);color:var(--text-secondary);display:inline-block;border:1px solid var(--border);">02:30</div>
+        </div>
+        <div class="battle-avatar-wrapper">
+            <div class="battle-avatar-circle battle-avatar-o" id="battle-avatar-o">🧑</div>
+            <div class="battle-piece-badge battle-piece-o">O</div>
         </div>
         <div class="battle-turn-indicator inactive" id="battle-indicator-o">Đang chờ</div>
     </div>
@@ -2908,31 +3038,12 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 
     <!-- Overlay: Player Info (Top Left) -->
     <div class="bot-overlay bot-player-overlay" id="bot-player-overlay">
-        <div class="bot-avatar-circle bot-avatar-x">X</div>
-        <div class="bot-player-details">
-            <div class="bot-player-name" id="bot-player-name">Bạn</div>
-            <div class="bot-player-stats">
-                <span class="bot-stat-item">Lv <span id="bot-player-level">25</span></span>
-                <span class="bot-stat-item">🏆 <span id="bot-player-elo">1500</span></span>
-                <span class="bot-stat-item">Win <span id="bot-player-wins">0</span></span>
-                <span class="bot-stat-item">💰 <span id="bot-player-xu">25000</span></span>
-            </div>
-        </div>
-        <div class="bot-turn-indicator" id="bot-player-indicator">Lượt của bạn</div>
+        <div class="bot-player-details" id="bot-player-details"></div>
     </div>
 
     <!-- Overlay: Bot Info (Top Right) -->
     <div class="bot-overlay bot-bot-overlay" id="bot-bot-overlay">
-        <div class="bot-avatar-circle bot-avatar-o">🤖</div>
-        <div class="bot-player-details">
-            <div class="bot-player-name" id="bot-bot-name">Bot</div>
-            <div class="bot-player-stats">
-                <span class="bot-stat-item">Độ khó: <span id="bot-difficulty">—</span></span>
-                <span class="bot-stat-item">ELO: <span id="bot-elo">—</span></span>
-                <span class="bot-stat-item">Win Rate: <span id="bot-winrate">—</span></span>
-            </div>
-        </div>
-        <div class="bot-turn-indicator inactive" id="bot-bot-indicator">Đang chờ</div>
+        <div class="bot-player-details" id="bot-bot-details"></div>
     </div>
 
     <!-- Overlay: Zoom Controls (Right Side) -->
@@ -2940,11 +3051,6 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
         <button class="bot-zoom-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(1);" title="Phóng to">+</button>
         <button class="bot-zoom-btn" onclick="if(typeof zoomBoard === 'function') zoomBoard(-1);" title="Thu nhỏ">−</button>
         <button class="bot-zoom-btn" onclick="if(typeof vRowF !== 'undefined' && typeof vColF !== 'undefined' && typeof infCanvasW !== 'undefined' && typeof infCanvasH !== 'undefined' && typeof INF_CS !== 'undefined') { if(typeof lastMoveR !== 'undefined' && typeof lastMoveC !== 'undefined') { const cols = infCanvasW / INF_CS, rows = infCanvasH / INF_CS; vRowF = lastMoveR - rows / 2; vColF = lastMoveC - cols / 2; } else { vRowF = 0; vColF = 0; } if(typeof renderInfiniteBoard === 'function') renderInfiniteBoard(); }" title="Di chuyển đến nước vừa đánh">⌖ Fit</button>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:8px;">
-            <input type="checkbox" id="show-cell-scores-bot"
-                onchange="if(typeof renderInfiniteBoard==='function')renderInfiniteBoard();">
-            <span>Hiện điểm ô</span>
-        </label>
     </div>
 
     <!-- Overlay: Chat Bot Bubble (Floating) -->
@@ -3400,6 +3506,7 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
 <script src="src/trang-thai.js"></script>
 <script src="src/PatternDetector.js"></script>
 <script src="src/ThreatDetector.js"></script>
+<script src="src/BlockBothEndsAnalyzer.js"></script>
 <script src="src/Evaluation.js"></script>
 <script src="src/Search.js"></script>
 <script src="src/AIController.js"></script>

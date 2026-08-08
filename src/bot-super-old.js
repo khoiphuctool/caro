@@ -87,20 +87,19 @@ const BotSuper = {
                 return { r, c };
             }
         }
+        // NOTE: Chặn FOUR đúng đầu mở đã được P3 (BlockBothEndsAnalyzer) trong getBotMove() xử lý trước.
 
-        // ══════════════════════════════════════════════════════════════════
-        // 1c. CHECK ENEMY THREE_OPEN - Phải chặn THREE_OPEN nguy hiểm trước
-        // Nếu đối thủ có THREE_OPEN → 2 nước nữa là FOUR_OPEN → phải chặn ngay
-        // ══════════════════════════════════════════════════════════════════
-        if (typeof ThreatDetector !== 'undefined') {
-            for (const { r, c } of allEmpty) {
-                const t = ThreatDetector.evaluateDefenseThreat(r, c, opponent, wc, true);
-                const hasThreeOpen = t.patternScores.some(p => 
-                    p.pattern === PatternDetector.PATTERN.THREE_OPEN
-                );
-                if (hasThreeOpen) {
-                    console.log('[BotSuper Ultimate] BLOCKING THREE_OPEN (dangerous):', { r, c });
-                    return { r, c };
+        // 1c. CHẶN THREE/FOUR ĐÚNG ĐẦU MỞ — dùng BlockBothEndsAnalyzer
+        // Thay thế ThreatDetector.analyzeBlockPositions (không biết phân biệt đầu mở)
+        if (typeof BlockBothEndsAnalyzer !== 'undefined') {
+            const blockMoves = BlockBothEndsAnalyzer.getBestBlockMoves(opponent, player, wc, wc - 2);
+            if (blockMoves.length > 0) {
+                const best = blockMoves[0];
+                // Chặn THREE trở lên — FOUR đã bị P3 (ai-nao.js) bắt trước rồi
+                // Nhưng nếu P3 bỏ qua (FOUR_OPEN 2 đầu viable), xử lý ở đây
+                if (best.chainCount >= wc - 2) {
+                    console.log('[BotSuper Ultimate] BlockBothEndsAnalyzer block open end:', best);
+                    return { r: best.r, c: best.c };
                 }
             }
         }
@@ -171,22 +170,8 @@ const BotSuper = {
             }
         }
 
-        // 1d. Smart Blocking (Ưu tiên đầu mở + Đánh giá lợi thế chiến lược)
-        // Với luật chặn 2 đầu, đối thủ sẽ không thắng → ưu tiên chặn tạo thế cờ tốt
-        if (typeof ThreatDetector !== 'undefined' && typeof ThreatDetector.analyzeBlockPositions === 'function') {
-            const blockPositions = ThreatDetector.analyzeBlockPositions(allEmpty, opponent, wc, true);
-            if (blockPositions.length > 0) {
-                // analyzeBlockPositions đã sắp xếp theo điểm giảm dần
-                // Điểm bao gồm: chặn đầu mở + tạo đòn tấn công + vị trí chiến lược
-                const bestBlock = blockPositions[0];
-                console.log('[BotSuper Ultimate] Strategic block selected:', {
-                    position: { r: bestBlock.r, c: bestBlock.c },
-                    score: bestBlock.score,
-                    analysis: bestBlock.analysis
-                });
-                return { r: bestBlock.r, c: bestBlock.c };
-            }
-        }
+        // Smart Blocking — đã được 1c xử lý bởi BlockBothEndsAnalyzer ở trên
+        // Bỏ ThreatDetector.analyzeBlockPositions vì nó không phân biệt đầu mở
 
         // ══════════════════════════════════════════════════════════════════
         // LAYER 2: Collect Candidates từ Multiple Engines

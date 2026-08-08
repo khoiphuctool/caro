@@ -192,6 +192,14 @@ const PositionEditor = {
         // Render lại
         if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
 
+        // Cập nhật cellScores nếu checkbox được tích
+        const checkbox = document.getElementById('show-cell-scores-bot');
+        console.log('[PositionEditor placePiece] checkbox:', checkbox, 'checked:', checkbox ? checkbox.checked : 'N/A');
+        if (checkbox && checkbox.checked && typeof BotRoomManager !== 'undefined' && typeof BotRoomManager.onCellScoresCheckboxChange === 'function') {
+            console.log('[PositionEditor placePiece] Calling onCellScoresCheckboxChange');
+            BotRoomManager.onCellScoresCheckboxChange();
+        }
+
         // Cập nhật nút Compare Bots
         if (typeof CompareBots !== 'undefined') CompareBots.checkBoardEmpty();
     },
@@ -214,6 +222,13 @@ const PositionEditor = {
         this._applySnapshot(prev.map);
 
         if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
+        
+        // Cập nhật cellScores nếu checkbox được tích
+        const checkbox = document.getElementById('show-cell-scores-bot');
+        if (checkbox && checkbox.checked && typeof BotRoomManager !== 'undefined' && typeof BotRoomManager.onCellScoresCheckboxChange === 'function') {
+            BotRoomManager.onCellScoresCheckboxChange();
+        }
+        
         if (typeof CompareBots !== 'undefined') CompareBots.checkBoardEmpty();
         console.log('[PositionEditor] Undo');
     },
@@ -234,6 +249,13 @@ const PositionEditor = {
         this._applySnapshot(next.map);
 
         if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
+        
+        // Cập nhật cellScores nếu checkbox được tích
+        const checkbox = document.getElementById('show-cell-scores-bot');
+        if (checkbox && checkbox.checked && typeof BotRoomManager !== 'undefined' && typeof BotRoomManager.onCellScoresCheckboxChange === 'function') {
+            BotRoomManager.onCellScoresCheckboxChange();
+        }
+        
         if (typeof CompareBots !== 'undefined') CompareBots.checkBoardEmpty();
         console.log('[PositionEditor] Redo');
     },
@@ -272,6 +294,13 @@ const PositionEditor = {
         }
 
         if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
+        
+        // Cập nhật cellScores nếu checkbox được tích
+        const checkbox = document.getElementById('show-cell-scores-bot');
+        if (checkbox && checkbox.checked && typeof BotRoomManager !== 'undefined' && typeof BotRoomManager.onCellScoresCheckboxChange === 'function') {
+            BotRoomManager.onCellScoresCheckboxChange();
+        }
+        
         if (typeof CompareBots !== 'undefined') CompareBots.checkBoardEmpty();
         console.log('[PositionEditor] Board cleared');
     },

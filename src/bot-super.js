@@ -212,17 +212,16 @@ const BotSuperV2 = {
                 return { r, c };
             }
         }
+        // NOTE: Chặn FOUR đúng đầu mở đã được P3 (BlockBothEndsAnalyzer) trong getBotMove() xử lý trước.
 
-        // 1c. CHECK ENEMY THREE_OPEN
-        if (typeof ThreatDetector !== 'undefined') {
-            for (const { r, c } of allEmpty) {
-                const t = ThreatDetector.evaluateDefenseThreat(r, c, opponent, wc, true);
-                const hasThreeOpen = t.patternScores.some(p => 
-                    p.pattern === PatternDetector.PATTERN.THREE_OPEN
-                );
-                if (hasThreeOpen) {
-                    console.log('[BotSuperV2 Old] BLOCKING THREE_OPEN:', { r, c });
-                    return { r, c };
+        // 1c. CHẶN THREE/FOUR ĐÚNG ĐẦU MỞ — dùng BlockBothEndsAnalyzer
+        if (typeof BlockBothEndsAnalyzer !== 'undefined') {
+            const blockMoves = BlockBothEndsAnalyzer.getBestBlockMoves(opponent, player, wc, wc - 2);
+            if (blockMoves.length > 0) {
+                const best = blockMoves[0];
+                if (best.chainCount >= wc - 2) {
+                    console.log('[BotSuperV2 Old] BlockBothEndsAnalyzer block open end:', best);
+                    return { r: best.r, c: best.c };
                 }
             }
         }
@@ -287,15 +286,7 @@ const BotSuperV2 = {
             }
         }
 
-        // Smart Blocking
-        if (typeof ThreatDetector !== 'undefined' && typeof ThreatDetector.analyzeBlockPositions === 'function') {
-            const blockPositions = ThreatDetector.analyzeBlockPositions(allEmpty, opponent, wc, true);
-            if (blockPositions.length > 0) {
-                const bestBlock = blockPositions[0];
-                console.log('[BotSuperV2 Old] Strategic block selected:', bestBlock);
-                return { r: bestBlock.r, c: bestBlock.c };
-            }
-        }
+        // Smart Blocking — đã được 1c xử lý bởi BlockBothEndsAnalyzer ở trên
 
         // Layer 2: Collect Candidates
         const candidates = [];

@@ -70,6 +70,10 @@ const BotTiaChop = {
             ? resolved.chan2Dau
             : (typeof getBlockBothEnds === 'function' ? getBlockBothEnds() : false);
 
+        // NOTE: Việc chặn FOUR đúng đầu mở đã được xử lý hoàn toàn bởi P3 trong getBotMove()
+        // (ai-nao.js) trước khi BotTiaChop được gọi.
+        // BotTiaChop chỉ cần lo tính điểm tấn công + phòng thủ THREE trở xuống.
+
         const maxS = this.evaluatePos(s, machSq, board, rows, cols, winCount, minR, minC, chan2Dau, machSq);
         const maxQ = this.evaluatePos(q, userSq, board, rows, cols, winCount, minR, minC, chan2Dau, machSq);
 
@@ -348,7 +352,9 @@ const BotTiaChop = {
             isWin = checkWinSilent(absR, absC, passRules);
         } else {
             // Fallback to simple count-based check if Rule Engine not available
-            isWin = this.simpleWinCheck(i, j, mySq, board, rows, cols, winCount);
+            // Lấy chan2Dau từ passRules nếu có
+            const _c2d = (passRules && typeof passRules.chan2Dau !== 'undefined') ? !!passRules.chan2Dau : false;
+            isWin = this.simpleWinCheck(i, j, mySq, board, rows, cols, winCount, _c2d);
         }
         
         // Restore original value
@@ -363,34 +369,47 @@ const BotTiaChop = {
 
     // ================================================================
     // SIMPLE WIN CHECK — fallback khi Rule Engine không available
+    // Có hỗ trợ chan2Dau: chuỗi bị chặn 2 đầu không được tính thắng
     // ================================================================
-    simpleWinCheck(i, j, mySq, board, rows, cols, winCount) {
+    simpleWinCheck(i, j, mySq, board, rows, cols, winCount, chan2Dau = false) {
         const limit = winCount;
         const F = (r, c) => this.f(board, rows, cols, r, c);
-        
-        // Check all 4 directions
+
         const directions = [
-            { dr: 0, dc: 1 },  // Horizontal
-            { dr: 1, dc: 0 },  // Vertical
-            { dr: 1, dc: 1 },  // Diagonal \
-            { dr: 1, dc: -1 }  // Diagonal /
+            { dr: 0, dc: 1 },
+            { dr: 1, dc: 0 },
+            { dr: 1, dc: 1 },
+            { dr: 1, dc: -1 }
         ];
-        
+
         for (const { dr, dc } of directions) {
             let count = 1;
             let m = 1;
-            while (i + dr * m < rows && j + dc * m < cols && j + dc * m >= 0 && 
-                   F(i + dr * m, j + dc * m) === mySq) {
-                count++;
-                m++;
-            }
+            while (i + dr * m < rows && j + dc * m < cols && j + dc * m >= 0 &&
+                   F(i + dr * m, j + dc * m) === mySq) { count++; m++; }
+            const headR = i + dr * m, headC = j + dc * m;
+
             m = 1;
-            while (i - dr * m >= 0 && j - dc * m >= 0 && j - dc * m < cols && 
-                   F(i - dr * m, j - dc * m) === mySq) {
-                count++;
-                m++;
+            while (i - dr * m >= 0 && j - dc * m >= 0 && j - dc * m < cols &&
+                   F(i - dr * m, j - dc * m) === mySq) { count++; m++; }
+            const tailR = i - dr * m, tailC = j - dc * m;
+
+            if (count < limit) continue;
+
+            if (chan2Dau) {
+                // Kiểm tra 2 đầu: ô trống = mở, quân đối thủ/biên = bị chặn
+                const headCell = this.f(board, rows, cols, headR, headC);
+                const tailCell = this.f(board, rows, cols, tailR, tailC);
+                const opp = -mySq;
+                // 0 = trống (mở), opp = bị chặn, ngoài biên F trả về 0 nhưng cần check bound
+                const headOutOfBound = (headR < 0 || headR >= rows || headC < 0 || headC >= cols);
+                const tailOutOfBound = (tailR < 0 || tailR >= rows || tailC < 0 || tailC >= cols);
+                const headBlocked = headOutOfBound || headCell === opp;
+                const tailBlocked = tailOutOfBound || tailCell === opp;
+                if (headBlocked && tailBlocked) continue; // chặn 2 đầu → không thắng
             }
-            if (count >= limit) return true;
+
+            return true;
         }
         return false;
     },

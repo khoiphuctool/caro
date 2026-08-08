@@ -126,23 +126,14 @@ const AIController = {
         // 1.2. ĐỊCH CÓ FOUR_OPEN — chặn ngay, 1 nước nữa là thua
         // ══════════════════════════════════════════════════════
         
-        // ══════════════════════════════════════════════════════════════════
-        // CHẶN THÔNG MINH: Sử dụng analyzeBlockPositions để chọn vị trí chặn tối ưu
-        // Ưu tiên chặn đầu MỞ (chưa có quân đối thủ) thay vì đầu đã chặn
-        // ══════════════════════════════════════════════════════════════════
-        if (typeof ThreatDetector !== 'undefined' && typeof ThreatDetector.analyzeBlockPositions === 'function') {
-            const blockPositions = ThreatDetector.analyzeBlockPositions(validCands, opponent, winCount, blockBothEnds);
-            if (blockPositions.length > 0) {
-                const bestBlock = blockPositions[0]; // Đã sắp xếp theo điểm giảm dần
-                console.log('[AIController] Smart block selected:', bestBlock);
-                if (typeof updateBotThinking === 'function') {
-                    updateBotThinking('Chặn thông minh! 🛡️');
-                }
-                if (typeof DebugLogger !== 'undefined') {
-                    DebugLogger.log(DebugLogger.CATEGORY.AI_DECISION, DebugLogger.LEVEL.INFO,
-                                   'Smart block position selected', bestBlock);
-                }
-                return { r: bestBlock.r, c: bestBlock.c };
+        // CHẶN ĐÚNG ĐẦU MỞ — dùng BlockBothEndsAnalyzer (thay analyzeBlockPositions cũ)
+        if (typeof BlockBothEndsAnalyzer !== 'undefined') {
+            const blockMoves = BlockBothEndsAnalyzer.getBestBlockMoves(opponent, player, winCount, winCount - 1);
+            if (blockMoves.length > 0 && blockMoves[0].chainCount >= winCount - 1) {
+                const best = blockMoves[0];
+                console.log('[AIController] BlockBothEndsAnalyzer block:', best);
+                if (typeof updateBotThinking === 'function') updateBotThinking('Chặn đúng đầu mở! 🛡️');
+                return { r: best.r, c: best.c };
             }
         }
         
@@ -297,21 +288,16 @@ const AIController = {
 
     // ===== MEDIUM MODE =====
     getMediumModeMove(candidates, player, opponent, winCount, blockBothEnds) {
-        // Neural-sort candidates để search duyệt nước có triển vọng trước
         const sortedCands = this.neuralSortCandidates(candidates, player);
 
-        // Check for FOUR threats — dùng phân tích nâng cao để chọn vị trí chặn tốt nhất
-        const blockPositions = ThreatDetector.analyzeBlockPositions(sortedCands, opponent, winCount, blockBothEnds);
-        if (blockPositions.length > 0) {
-            const bestBlock = blockPositions[0]; // Đã sắp xếp theo điểm giảm dần
-            if (typeof updateBotThinking === 'function') {
-                updateBotThinking('Chặn nguy hiểm! 🛡️');
+        // Chặn đúng đầu mở bằng BlockBothEndsAnalyzer
+        if (typeof BlockBothEndsAnalyzer !== 'undefined') {
+            const blockMoves = BlockBothEndsAnalyzer.getBestBlockMoves(opponent, player, winCount, winCount - 2);
+            if (blockMoves.length > 0) {
+                const best = blockMoves[0];
+                if (typeof updateBotThinking === 'function') updateBotThinking('Chặn nguy hiểm! 🛡️');
+                return { r: best.r, c: best.c };
             }
-            if (typeof DebugLogger !== 'undefined') {
-                DebugLogger.log(DebugLogger.CATEGORY.AI_DECISION, DebugLogger.LEVEL.INFO,
-                               'Best block position selected', bestBlock);
-            }
-            return { r: bestBlock.r, c: bestBlock.c };
         }
 
         // Check for attack HIGH
@@ -348,21 +334,16 @@ const AIController = {
 
     // ===== HARD MODE =====
     getHardModeMove(candidates, player, opponent, winCount, blockBothEnds) {
-        // Neural-sort candidates để search ưu tiên nước có triển vọng cao
         const sortedCands = this.neuralSortCandidates(candidates, player);
 
-        // Check for FOUR threats — dùng phân tích nâng cao để chọn vị trí chặn tốt nhất
-        const blockPositions = ThreatDetector.analyzeBlockPositions(sortedCands, opponent, winCount, blockBothEnds);
-        if (blockPositions.length > 0) {
-            const bestBlock = blockPositions[0]; // Đã sắp xếp theo điểm giảm dần
-            if (typeof updateBotThinking === 'function') {
-                updateBotThinking('Chặn nguy hiểm! 🛡️');
+        // Chặn đúng đầu mở bằng BlockBothEndsAnalyzer
+        if (typeof BlockBothEndsAnalyzer !== 'undefined') {
+            const blockMoves = BlockBothEndsAnalyzer.getBestBlockMoves(opponent, player, winCount, winCount - 2);
+            if (blockMoves.length > 0) {
+                const best = blockMoves[0];
+                if (typeof updateBotThinking === 'function') updateBotThinking('Chặn nguy hiểm! 🛡️');
+                return { r: best.r, c: best.c };
             }
-            if (typeof DebugLogger !== 'undefined') {
-                DebugLogger.log(DebugLogger.CATEGORY.AI_DECISION, DebugLogger.LEVEL.INFO,
-                               'Best block position selected', bestBlock);
-            }
-            return { r: bestBlock.r, c: bestBlock.c };
         }
 
         // Check for advanced patterns (dùng sortedCands)
@@ -409,22 +390,16 @@ const AIController = {
 
     // ===== GOD MODE =====
     getGodModeMove(candidates, player, opponent, winCount, blockBothEnds) {
-        // ══════════════════════════════════════════════════════
-        // GOD MODE - DÙNG PIPELINE MỚI, KHÔNG DÙNG LOGIC CŨ
-        // Tránh xung đột giữa 2 hệ thống scoring khác nhau
-        // ══════════════════════════════════════════════════════
-        
-        // Neural-sort candidates
         const sortedCands = this.neuralSortCandidates(candidates, player);
 
-        // Check for FOUR threats — dùng phân tích nâng cao
-        const blockPositions = ThreatDetector.analyzeBlockPositions(sortedCands, opponent, winCount, blockBothEnds);
-        if (blockPositions.length > 0) {
-            const bestBlock = blockPositions[0];
-            if (typeof updateBotThinking === 'function') {
-                updateBotThinking('Chặn nguy hiểm! 🛡️');
+        // Chặn đúng đầu mở bằng BlockBothEndsAnalyzer
+        if (typeof BlockBothEndsAnalyzer !== 'undefined') {
+            const blockMoves = BlockBothEndsAnalyzer.getBestBlockMoves(opponent, player, winCount, winCount - 2);
+            if (blockMoves.length > 0) {
+                const best = blockMoves[0];
+                if (typeof updateBotThinking === 'function') updateBotThinking('Chặn nguy hiểm! 🛡️');
+                return { r: best.r, c: best.c };
             }
-            return { r: bestBlock.r, c: bestBlock.c };
         }
 
         // Check for advanced patterns

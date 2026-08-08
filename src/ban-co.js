@@ -833,16 +833,29 @@ function renderInfiniteBoard() {
         }
     }
 
-    // Hover preview — chỉ hiện khi đến lượt mình và KHÔNG fullscreen
+    // Hover preview — hiện khi đến lượt mình hoặc đang dựng thế (editor mode)
     const onlineActive = window.isOnlineModeActive && window.isOnlineModeActive();
-    const myTurn = onlineActive
+    const inEditorMode = typeof PositionEditor !== 'undefined' && PositionEditor.active;
+    const myTurn = inEditorMode ? true : (onlineActive
         ? (typeof currentTurn !== 'undefined' && currentTurn === (window.myOnlineRole))
-        : (gameMode === 'solo' || (gameMode.startsWith('ai') && currentPlayer !== botPiece));
+        : (gameMode === 'solo' || (gameMode.startsWith('ai') && currentPlayer !== botPiece)));
 
-    if (infHoverR !== null && isGameActive && myTurn && !isFullscreen) {
+    if (infHoverR !== null && (isGameActive || inEditorMode) && myTurn && !isFullscreen) {
         const hr = infHoverR - r0, hc = infHoverC - c0;
         if (hr >= 0 && hc >= 0 && hr < rows && hc < cols) {
-            c.fillStyle = theme === 'pure-white' ? 'rgba(37,99,235,0.12)' : 'rgba(255,255,255,0.08)';
+            // Editor mode: tô màu theo tool đang chọn
+            if (inEditorMode && typeof PositionEditor !== 'undefined') {
+                const tool = PositionEditor.currentTool;
+                if (tool === 'X') {
+                    c.fillStyle = 'rgba(59,130,246,0.18)';
+                } else if (tool === 'O') {
+                    c.fillStyle = 'rgba(239,68,68,0.18)';
+                } else {
+                    c.fillStyle = 'rgba(239,68,68,0.10)'; // Erase
+                }
+            } else {
+                c.fillStyle = theme === 'pure-white' ? 'rgba(37,99,235,0.12)' : 'rgba(255,255,255,0.08)';
+            }
             c.fillRect(offX + hc*CS + 0.5, offY + hr*CS + 0.5, CS-1, CS-1);
         }
     }
@@ -871,7 +884,15 @@ function renderInfiniteBoard() {
 
     // Vẽ điểm đánh giá ô (debug scores) — PHẢI ở cuối cùng để không bị ghi đè
     const showScores = document.getElementById('show-cell-scores') || document.getElementById('show-cell-scores-bot');
-    if (showScores && showScores.checked && window.cellScores && Object.keys(window.cellScores).length > 0) {
+    console.log('[renderInfiniteBoard] showScores element:', showScores);
+    console.log('[renderInfiniteBoard] showScores.checked:', showScores ? showScores.checked : 'N/A');
+    console.log('[renderInfiniteBoard] window.cellScores:', window.cellScores);
+    console.log('[renderInfiniteBoard] cellScores keys:', window.cellScores ? Object.keys(window.cellScores).length : 0);
+    
+    // Nếu không tìm thấy checkbox nhưng có cellScores, vẫn vẽ (cho bot room)
+    const shouldShowScores = (showScores && showScores.checked) || (window.cellScores && Object.keys(window.cellScores).length > 0);
+    
+    if (shouldShowScores && window.cellScores && Object.keys(window.cellScores).length > 0) {
         const top4 = Object.entries(window.cellScores)
             .map(([key, val]) => ({ key, val }))
             .sort((a, b) => b.val - a.val)
@@ -1015,18 +1036,21 @@ function infOnMouseMove(e) {
         scheduleRender();
         return;
     }
-    
-    // TẮT HOÀN TOÀN HOVER EFFECT ĐỂ TRÁNH FLICKERING
-    return;
-    
-    // Tắt hover effect khi ở fullscreen để tránh flickering
+
+    // Trong editor mode: hiện hover để người dùng biết đang trỏ vào ô nào
+    const inEditorMode = typeof PositionEditor !== 'undefined' && PositionEditor.active;
+    if (!inEditorMode) {
+        // Tắt hover effect thông thường để tránh flickering
+        return;
+    }
+
+    // Tắt hover khi fullscreen
     if (isFullscreen) return;
-    
-    // Throttle mousemove để giảm tải render
+
     const now = performance.now();
     if (now - _lastMouseMoveTime < MOUSE_MOVE_THROTTLE) return;
     _lastMouseMoveTime = now;
-    
+
     const rect = infCanvas.getBoundingClientRect();
     const { r, c } = canvasPixelToCell(e.clientX - rect.left, e.clientY - rect.top);
     if (r !== infHoverR || c !== infHoverC) {
@@ -1045,15 +1069,13 @@ function infOnClick(e) {
     if (e.button !== 0) return;
     if (panMoved) { panMoved = false; return; }
 
-    console.log('[DEBUG-BOARD] infOnClick triggered:', {
-        isGameActive,
-        currentPlayer: typeof currentPlayer !== 'undefined' ? currentPlayer : 'undefined',
-        isOnlineMode: window.isOnlineModeActive ? window.isOnlineModeActive() : false,
-        myOnlineRole: window.myOnlineRole || null,
-        currentTurn: typeof currentTurn !== 'undefined' ? currentTurn : 'undefined',
-        gameMode: typeof gameMode !== 'undefined' ? gameMode : 'undefined',
-        botPiece: typeof botPiece !== 'undefined' ? botPiece : 'undefined'
-    });
+    // ── POSITION EDITOR MODE (Bot Room) ──
+    if (typeof PositionEditor !== 'undefined' && PositionEditor.active) {
+        const rect = infCanvas.getBoundingClientRect();
+        const { r, c } = canvasPixelToCell(e.clientX - rect.left, e.clientY - rect.top);
+        PositionEditor.placePiece(r, c);
+        return;
+    }
 
     if (!isGameActive) {
         console.warn('[DEBUG-BOARD] Click blocked: isGameActive is false');
@@ -1152,6 +1174,14 @@ function infOnTouchEnd(e) {
         const t = e.changedTouches[0];
         const rect = infCanvas.getBoundingClientRect();
         const { r, c } = canvasPixelToCell(t.clientX - rect.left, t.clientY - rect.top);
+
+        // ── POSITION EDITOR MODE (Bot Room) ──
+        if (typeof PositionEditor !== 'undefined' && PositionEditor.active) {
+            PositionEditor.placePiece(r, c);
+            panMoved = false;
+            return;
+        }
+
         if (!isGameActive) return;
         if (typeof r !== 'number' || typeof c !== 'number' || isNaN(r) || isNaN(c)) return;
         if (getCell(r, c) !== '') return;

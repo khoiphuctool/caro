@@ -622,7 +622,10 @@ function makeMove(r, c) {
         return;
     }
 
-    currentPlayer = currentPlayer === "X" ? "O" : "X";
+    // Chỉ chuyển lượt nếu không phải bot-vs-bot mode (performBotVsBotMove sẽ quản lý việc chuyển lượt)
+    if (!window.isBotVsBotMode) {
+        currentPlayer = currentPlayer === "X" ? "O" : "X";
+    }
     updateCursorByTurn();
     console.log('[makeMove] nextPlayer=', currentPlayer, 'botPiece=', botPiece, 'humanPiece=', humanPiece, 'isBotMode=', isBotMode(), 'isBotVsBotMode=', window.isBotVsBotMode);
 
