@@ -17,11 +17,13 @@ const AIController = {
         const player = options.player ?? (typeof botPiece !== 'undefined' ? botPiece : 'O');
         const opponent = options.opponent ?? (typeof humanPiece !== 'undefined' ? humanPiece : 'X');
         const rawGameMode = options.gameMode ?? (typeof gameMode !== 'undefined' ? gameMode : document.getElementById('game-mode')?.value) ?? 'ai-god';
-        const equippedBotPetProfile = (typeof getEquippedBotPetProfile === 'function') ? getEquippedBotPetProfile() : null;
+        const equippedBotPetProfile = (typeof getMatchBotPetProfile === 'function') ? getMatchBotPetProfile() : null;
         const botPetActive = (typeof isBotPetActive === 'function') ? isBotPetActive() : false;
         const useBotPetRuntime = botPetActive && equippedBotPetProfile && typeof isValidBotPetRuntimeMode === 'function' && isValidBotPetRuntimeMode(rawGameMode);
         const gameMode = useBotPetRuntime ? equippedBotPetProfile.gameMode : rawGameMode;
-        console.log('[AIController] getBotMove options:', options, 'rawGameMode:', rawGameMode, 'botPetActive:', botPetActive, 'useBotPetRuntime:', useBotPetRuntime, 'equippedBotPetProfile:', equippedBotPetProfile, 'resolvedGameMode:', gameMode);
+        if (window.DEBUG_BOT_RUNTIME) {
+            console.log('[AIController] getBotMove options:', options, 'rawGameMode:', rawGameMode, 'botPetActive:', botPetActive, 'useBotPetRuntime:', useBotPetRuntime, 'equippedBotPetProfile:', equippedBotPetProfile, 'resolvedGameMode:', gameMode);
+        }
         // Resolve room rules: prefer explicit options.roomRules, then GameState.roomRules, then window.roomRules
         const resolvedRules = options.roomRules ?? (typeof GameState !== 'undefined' ? GameState.roomRules : undefined) ?? (typeof window !== 'undefined' ? window.roomRules : undefined);
         let winCount, blockBothEnds;

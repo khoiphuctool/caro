@@ -2444,8 +2444,13 @@ function getBotMove(options = {}) {
 
     const bp = botPiece, hp = humanPiece;
     const botPetActive = (typeof isBotPetActive === 'function') ? isBotPetActive() : false;
-    const botPetProfile = botPetActive && typeof getEquippedBotPetProfile === 'function' ? getEquippedBotPetProfile() : null;
-    console.log('[ai-nao] getBotMove runtime check', { gameMode, botPetActive, botPetProfile });
+    const botPetProfile = botPetActive && typeof getMatchBotPetProfile === 'function' ? getMatchBotPetProfile() : null;
+    const requestedGameMode = options.gameMode || gameMode;
+    const runtimeGameMode = botPetActive && botPetProfile ? botPetProfile.gameMode : requestedGameMode;
+    if (window.DEBUG_BOT_RUNTIME) {
+        console.log('[ai-nao] getBotMove runtime check', { requestedGameMode, runtimeGameMode, botPetActive, botPetProfile });
+    }
+    const activeGameMode = runtimeGameMode;
     // Ưu tiên options.roomRules nếu được truyền vào, cung cấp chan2Dau cho checkWinSilent
     const roomRules = options.roomRules || (typeof GameState !== 'undefined' && GameState.roomRules) || { winCount: winCount || 5, chan2Dau: getBlockBothEnds() };
     const blockBothEnds = !!roomRules.chan2Dau;
@@ -2453,13 +2458,13 @@ function getBotMove(options = {}) {
     // ════════════════════════════════════════════════════════════════════════════
     // DIFFICULTY-BASED PIPELINE - Điều chỉnh theo level bot
     // ════════════════════════════════════════════════════════════════════════════
-    const isEasy      = gameMode === 'ai-easy';
-    const isMedium    = gameMode === 'ai-medium';
-    const isHard      = gameMode === 'ai-hard';
-    const isGod       = gameMode === 'ai-god';
-    const isTiaChop   = gameMode === 'bot-tia-chop';
-    const isToiThuong = gameMode === 'bot-toi-thuong';
-    const isSuper     = gameMode === 'bot-super';
+    const isEasy      = activeGameMode === 'ai-easy';
+    const isMedium    = activeGameMode === 'ai-medium';
+    const isHard      = activeGameMode === 'ai-hard';
+    const isGod       = activeGameMode === 'ai-god';
+    const isTiaChop   = activeGameMode === 'bot-tia-chop';
+    const isToiThuong = activeGameMode === 'bot-toi-thuong';
+    const isSuper     = activeGameMode === 'bot-super';
 
     updateBotThinking('Đang phân tích bàn cờ...');
 

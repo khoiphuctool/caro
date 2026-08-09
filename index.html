@@ -2110,8 +2110,8 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                 <div class="shop-menu" id="shop-menu">
                     <button class="shop-menu-item" onclick="moShopAvatar(); closeShopMenu()">🎭 Avatar</button>
                     <button class="shop-menu-item" onclick="moShopSkin(); closeShopMenu()">🎨 Quân Cờ</button>
-                    <button class="shop-menu-item" onclick="moShopBoardSkin(); closeShopMenu()">🎨 Bàn Cờ</button>
-                    <button class="shop-menu-item" onclick="moShopBotPet(); closeShopMenu()">🤖 Bot Thú Cưng</button>
+                    <button class="shop-menu-item" onclick="moShopBoardSkin(); closeShopMenu()">🌙 Bàn Cờ</button>
+                    <button class="shop-menu-item" onclick="moShopBotPet(); closeShopMenu()">🤖 Bot PET</button>
                 </div>
             </div>
 
@@ -2774,18 +2774,6 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
     <div class="battle-overlay battle-room-info-overlay" id="battle-room-info-overlay">
         <div class="battle-room-info-card">
             <div id="battle-room-info">Đang tải thông tin phòng...</div>
-        </div>
-    </div>
-
-    <!-- Overlay: Bot Pet Companion -->
-    <div class="battle-overlay battle-bot-pet-overlay" id="battle-bot-pet-overlay" style="display:none;">
-        <div class="battle-bot-pet-card">
-            <div class="battle-bot-pet-avatar" id="battle-bot-pet-avatar"></div>
-            <div class="battle-bot-pet-info">
-                <div class="battle-bot-pet-name" id="battle-bot-pet-name"></div>
-                <div class="battle-bot-pet-status" id="battle-bot-pet-status"></div>
-            </div>
-            <button class="battle-bot-pet-toggle" id="battle-bot-pet-toggle" onclick="toggleBotPetActive()">TẮT</button>
         </div>
     </div>
 
@@ -3867,6 +3855,7 @@ function resetScoreTableToDefaults() {
 <script src="src/bot-pets/BotPetService.js"></script>
 <script src="src/bot-pets/BotPetState.js"></script>
 <script src="src/bot-pets/BotPetUI.js"></script>
+<script src="src/bot-pets/BotPetCandidates.js"></script>
 <script src="src/bot-pets/BotPetIntegration.js"></script>
 <script src="src/room-health.js"></script>
 

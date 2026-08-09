@@ -184,7 +184,9 @@ function initGame() {
     }
     const equippedBotPetProfile = (typeof getEquippedBotPetProfile === 'function') ? getEquippedBotPetProfile() : null;
     const botPetActive = (typeof isBotPetActive === 'function') ? isBotPetActive() : false;
-    console.log('[initGame] Bot pet runtime check:', { isSolo, gameMode, equippedBotPetProfile, botPetActive });
+    if (window.DEBUG_BOT_RUNTIME) {
+        console.log('[initGame] Bot pet runtime check:', { isSolo, gameMode, equippedBotPetProfile, botPetActive });
+    }
     if (!isSolo && botPetActive && equippedBotPetProfile && typeof isValidBotPetRuntimeMode === 'function' && isValidBotPetRuntimeMode(gameMode)) {
         console.log('[initGame] Equipped Bot Pet runtime profile applied:', equippedBotPetProfile.gameMode);
         gameMode = equippedBotPetProfile.gameMode;
@@ -453,6 +455,11 @@ function makeMove(r, c) {
             if (cell) { cell.classList.add(quanToi); cell.classList.add('last-move'); lastMoveCell = cell; }
         }
 
+        // Update Bot Pet candidates after board change
+        if (typeof updateCandidates === 'function') {
+            updateCandidates();
+        }
+
         // Gửi lên Firebase SAU KHI đã setCell (để kiểm tra thắng đọc đúng board).
         // Kết quả thắng chỉ được chốt sau khi transaction được Firebase xác nhận.
         // Truyền GameState.roomRules để áp dụng luật chặn 2 đầu của phòng
@@ -554,6 +561,10 @@ function makeMove(r, c) {
         let cell = document.querySelector(`[data-row='${r}'][data-col='${c}']`);
         if (cell) { cell.classList.add(currentPlayer); cell.classList.add('last-move'); lastMoveCell = cell; }
     }
+
+    // Update Bot Pet TOP-4 candidates sau mỗi nước đi (offline)
+    // updateCandidates() tự kiểm tra: isBotMatch, turn, petActive — không ảnh hưởng engine
+    if (typeof updateCandidates === 'function') updateCandidates();
 
     if (checkWin(r, c)) {
         isGameActive = false;
@@ -716,12 +727,20 @@ function getWinningLine(row, col, player, winCount, blockBothEndsEnabled) {
         const headCell = getCell(headR, headC);
         const tailCell = getCell(tailR, tailC);
         
+        // DIAGNOSTIC: Verify PatternDetector uses same board as global getCell
+        const headCellPattern = typeof PatternDetector.getCell === 'function' ? PatternDetector.getCell(headR, headC) : 'no-PatternDetector.getCell';
+        const tailCellPattern = typeof PatternDetector.getCell === 'function' ? PatternDetector.getCell(tailR, tailC) : 'no-PatternDetector.getCell';
+        
         const headBlocked = PatternDetector.isBlocked(headR, headC, dr, dc, player);
         const tailBlocked = PatternDetector.isBlocked(tailR, tailC, -dr, -dc, player);
 
         // DEBUG: Log để kiểm tra case O__XXXXX_O
         if (line.length >= winCount && blockBothEndsEnabled) {
             console.log(`[getWinningLine] player=${player}, lineCount=${line.length}, dir=(${dr},${dc}), headCell=${headCell}, tailCell=${tailCell}, headBlocked=${headBlocked}, tailBlocked=${tailBlocked}, bothBlocked=${headBlocked && tailBlocked}`);
+            console.log('[BOARD-CELL-COMPARE]', {
+                head: { r: headR, c: headC, getCell: headCell, patternCell: headCellPattern, same: headCell === headCellPattern },
+                tail: { r: tailR, c: tailC, getCell: tailCell, patternCell: tailCellPattern, same: tailCell === tailCellPattern }
+            });
         }
 
         // Nếu cả 2 đầu bị chặn → không thắng
@@ -737,25 +756,56 @@ function getWinningLine(row, col, player, winCount, blockBothEndsEnabled) {
 
 // Resolve room rules from parameter, GameState.roomRules, or fallback
 function _resolveRoomRules(passedRules) {
+    console.log('[RULE-AUDIT] _resolveRoomRules called with passedRules:', passedRules);
+    
     if (passedRules && typeof passedRules.winCount === 'number') {
-        console.log(`[_resolveRoomRules] using passed rules:`, passedRules);
+        console.log(`[RULE-AUDIT] using passed rules:`, passedRules);
         return passedRules;
     }
     if (typeof GameState !== 'undefined' && GameState.roomRules) {
-        console.log(`[_resolveRoomRules] using GameState.roomRules:`, GameState.roomRules);
+        console.log(`[RULE-AUDIT] using GameState.roomRules:`, GameState.roomRules);
         return GameState.roomRules;
     }
     if (typeof window !== 'undefined' && window.roomRules && typeof window.roomRules.winCount === 'number') {
-        console.log(`[_resolveRoomRules] using window.roomRules:`, window.roomRules);
+        console.log(`[RULE-AUDIT] using window.roomRules:`, window.roomRules);
         return window.roomRules;
     }
-    // Fallback to GameState.board.winCount if available
-    const fallbackWin = (typeof GameState !== 'undefined' && GameState.board && typeof GameState.board.winCount === 'number') ? GameState.board.winCount : (typeof winCount === 'number' ? winCount : undefined);
-    const fallbackChan = (typeof document !== 'undefined') ? !!document.getElementById('block-both-ends')?.checked : true;
+    
+    // ══════════════════════════════════════════════════════════════════
+    // SINGLE SOURCE OF TRUTH: Prevent offline checkbox fallback in Online mode
+    // ══════════════════════════════════════════════════════════════════
+    const isOnline = (typeof window !== 'undefined' && typeof window.isOnlineModeActive === 'function') 
+        ? window.isOnlineModeActive() 
+        : false;
+    
+    const fallbackWin = (typeof GameState !== 'undefined' && GameState.board && typeof GameState.board.winCount === 'number') 
+        ? GameState.board.winCount 
+        : (typeof winCount === 'number' ? winCount : undefined);
+    
+    let fallbackChan;
+    if (isOnline) {
+        // Online mode: NEVER use offline checkbox - use Firebase snapshot or safe default
+        const lastRoom = (typeof window !== 'undefined' && window._lastRoomSnapshot) 
+            ? window._lastRoomSnapshot 
+            : null;
+        if (lastRoom) {
+            fallbackChan = typeof lastRoom.chan2Dau === 'boolean' ? lastRoom.chan2Dau : (lastRoom.chan2Dau ?? true);
+            console.log(`[RULE-AUDIT] Online mode: using Firebase snapshot chan2Dau=${fallbackChan}`);
+        } else {
+            fallbackChan = true; // Safe default for Online if Firebase snapshot unavailable
+            console.warn(`[RULE-AUDIT] Online mode: Firebase snapshot unavailable, using safe default chan2Dau=${fallbackChan}`);
+        }
+    } else {
+        // Offline mode: use offline checkbox
+        fallbackChan = (typeof document !== 'undefined') ? !!document.getElementById('block-both-ends')?.checked : true;
+        console.log(`[RULE-AUDIT] Offline mode: using checkbox chan2Dau=${fallbackChan}`);
+    }
+    
     if (typeof fallbackWin === 'undefined') {
         console.warn('[checkWin] roomRules missing; unable to determine winCount reliably');
     }
-    console.log(`[_resolveRoomRules] using fallback: winCount=${fallbackWin}, chan2Dau=${fallbackChan}`);
+    
+    console.log(`[RULE-AUDIT] using fallback: winCount=${fallbackWin}, chan2Dau=${fallbackChan}, mode=${isOnline ? 'ONLINE' : 'OFFLINE'}`);
     return { winCount: fallbackWin, chan2Dau: fallbackChan, firstTurn: (typeof window !== 'undefined' && window.firstTurn) ? window.firstTurn : 'X' };
 }
 
@@ -765,6 +815,20 @@ function checkWin(r, c, roomRules) {
     const rules = _resolveRoomRules(roomRules);
     const blockBothEndsEnabled = !!rules.chan2Dau;
     const countRequired = rules.winCount;
+    
+    console.log('[RULE-WIN-TRACE]', {
+        mode: (typeof window !== 'undefined' && typeof window.isOnlineModeActive === 'function' && window.isOnlineModeActive()) ? 'ONLINE' : 'OFFLINE',
+        action: 'checkWin',
+        player,
+        row: r, col: c,
+        winCount: countRequired,
+        chan2Dau: rules.chan2Dau,
+        blockedTwoEnds: blockBothEndsEnabled,
+        roomRulesProvided: !!roomRules,
+        roomRules: rules,
+        source: 'checkWin'
+    });
+    
     const winningLine = getWinningLine(r, c, player, countRequired, blockBothEndsEnabled);
     if (!winningLine) return false;
     highlightWinners(winningLine);
@@ -1203,8 +1267,8 @@ window.addEventListener('load', () => {
 
 // BUG 5 FIX: Clear solo game state when game ends
 const _origCheckWin = window.checkWin;
-window.checkWin = function(r, c) {
-    const result = _origCheckWin ? _origCheckWin(r, c) : false;
+window.checkWin = function(r, c, roomRules) {
+    const result = _origCheckWin ? _origCheckWin(r, c, roomRules) : false;
     if (result && isSolo) {
         localStorage.removeItem('solo_game_mode');
         localStorage.removeItem('solo_game_config');

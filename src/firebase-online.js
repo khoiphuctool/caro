@@ -2964,6 +2964,9 @@ let _dangBatDauGame = false;
 function _thucSuBatDauGame(room, winCount, chan2Dau, firstTurn) {
     if (_dangBatDauGame) return;
     _dangBatDauGame = true;
+    
+    console.log('[RULE-AUDIT] _thucSuBatDauGame called with:', { winCount, chan2Dau, firstTurn });
+    
     // Sync room rules vào GameState trước khi bắt đầu game (synchronously)
     if (typeof GameState !== 'undefined') {
         GameState.roomRules = {
@@ -2973,6 +2976,7 @@ function _thucSuBatDauGame(room, winCount, chan2Dau, firstTurn) {
         };
         if (!GameState.board) GameState.board = {};
         GameState.board.winCount = winCount;
+        console.log('[RULE-AUDIT] GameState.roomRules set to:', GameState.roomRules);
     }
     window.roomRules = GameState.roomRules;
     // CẦN invalidate ngay để getBlockBothEnds() re-read trước khi game logic chạy
@@ -3219,11 +3223,49 @@ let _prevRoomStatus = '';
 let _currentListeningRoomId = null;
 
 function _syncRoomBoardState(room) {
-    const movesArray = room.moves ? (Array.isArray(room.moves) ? room.moves : Object.values(room.moves)) : [];
-    if (typeof infiniteMap !== 'undefined') infiniteMap.clear();
-    if (typeof GameState !== 'undefined' && GameState.board && GameState.board.infiniteMap) {
-        GameState.board.infiniteMap.clear();
+    // ══════════════════════════════════════════════════════════════════
+    // CANONICAL BOARD MAP: Ensure infiniteMap === GameState.board.infiniteMap
+    // ══════════════════════════════════════════════════════════════════
+    console.log('[BOARD-SYNC-IDENTITY]', {
+        isInfinite: typeof isInfinite !== 'undefined' ? isInfinite : 'undefined',
+        gameStateIsInfinite: (typeof GameState !== 'undefined' && GameState.board) ? GameState.board.isInfinite : 'undefined',
+        sameMap: (typeof infiniteMap !== 'undefined' && typeof GameState !== 'undefined' && GameState.board && GameState.board.infiniteMap) 
+            ? (infiniteMap === GameState.board.infiniteMap) 
+            : 'undefined',
+        globalSize: typeof infiniteMap !== 'undefined' ? infiniteMap.size : 'undefined',
+        gameStateSize: (typeof GameState !== 'undefined' && GameState.board && GameState.board.infiniteMap) ? GameState.board.infiniteMap.size : 'undefined'
+    });
+    
+    // Ensure GameState.board structure exists and is canonical
+    if (typeof GameState !== 'undefined') {
+        if (!GameState.board) GameState.board = {};
+        GameState.board.isInfinite = true;
+        
+        // If GameState.board.infiniteMap doesn't exist or is different from global infiniteMap,
+        // make them the same reference
+        if (!GameState.board.infiniteMap || GameState.board.infiniteMap !== infiniteMap) {
+            if (typeof infiniteMap !== 'undefined') {
+                GameState.board.infiniteMap = infiniteMap;
+                console.log('[BOARD-SYNC-IDENTITY] Canonical map established: GameState.board.infiniteMap = infiniteMap');
+            } else {
+                // If global infiniteMap doesn't exist yet, create it and sync
+                if (typeof Map !== 'undefined') {
+                    infiniteMap = new Map();
+                    GameState.board.infiniteMap = infiniteMap;
+                    console.log('[BOARD-SYNC-IDENTITY] Created new canonical infiniteMap');
+                }
+            }
+        }
     }
+    
+    // Ensure global isInfinite is true
+    if (typeof isInfinite !== 'undefined') isInfinite = true;
+    
+    const movesArray = room.moves ? (Array.isArray(room.moves) ? room.moves : Object.values(room.moves)) : [];
+    
+    // Clear the canonical map (only once, since they're the same reference now)
+    if (typeof infiniteMap !== 'undefined') infiniteMap.clear();
+    
     if (typeof moveHistory !== 'undefined') moveHistory.length = 0;
     if (typeof winningCellCoords !== 'undefined') winningCellCoords.length = 0;
     if (typeof lastMoveR !== 'undefined') { lastMoveR = null; lastMoveC = null; }
@@ -3248,17 +3290,60 @@ function _syncRoomBoardState(room) {
         lastMoveR = roomLastMove.row;
         lastMoveC = roomLastMove.col;
     }
+    
+    // ══════════════════════════════════════════════════════════════════
+    // BOARD-SYNC-AFTER-RESTORE: Verify canonical map and sample cells
+    // ══════════════════════════════════════════════════════════════════
+    console.log('[BOARD-SYNC-AFTER-RESTORE]', {
+        sameMap: (typeof infiniteMap !== 'undefined' && typeof GameState !== 'undefined' && GameState.board && GameState.board.infiniteMap) 
+            ? (infiniteMap === GameState.board.infiniteMap) 
+            : 'undefined',
+        globalSize: typeof infiniteMap !== 'undefined' ? infiniteMap.size : 'undefined',
+        gameStateSize: (typeof GameState !== 'undefined' && GameState.board && GameState.board.infiniteMap) ? GameState.board.infiniteMap.size : 'undefined',
+        sample: {
+            left: typeof getCell === 'function' ? getCell(5, 6) : 'no-getCell',
+            x1: typeof getCell === 'function' ? getCell(5, 7) : 'no-getCell',
+            x2: typeof getCell === 'function' ? getCell(5, 8) : 'no-getCell',
+            x3: typeof getCell === 'function' ? getCell(5, 9) : 'no-getCell',
+            x4: typeof getCell === 'function' ? getCell(5, 10) : 'no-getCell',
+            x5: typeof getCell === 'function' ? getCell(5, 11) : 'no-getCell',
+            right: typeof getCell === 'function' ? getCell(5, 12) : 'no-getCell'
+        }
+    });
 
-    if (typeof currentTurn !== 'undefined') currentTurn = room.turn || currentTurn;
+    console.log('[Firebase-Timing] Step 1: Firebase board update received');
+    
+    if (typeof currentTurn !== 'undefined') {
+        const oldTurn = currentTurn;
+        currentTurn = room.turn || currentTurn;
+        console.log('[Firebase-Timing] Step 2: currentTurn updated:', oldTurn, '→', currentTurn);
+    }
     if (typeof currentPlayer !== 'undefined') currentPlayer = room.turn || currentPlayer;
     if (typeof locallyAppliedLastMove !== 'undefined' && roomLastMove) {
         locallyAppliedLastMove.row = roomLastMove.row;
         locallyAppliedLastMove.col = roomLastMove.col;
     }
+    
+    // Check if it's local player's turn BEFORE rendering
+    const isLocalTurn = (typeof currentTurn !== 'undefined' && typeof window !== 'undefined' && window.myOnlineRole) 
+        ? currentTurn === window.myOnlineRole 
+        : false;
+    console.log('[Firebase-Timing] Step 3: localTurn check:', isLocalTurn, '(currentTurn:', currentTurn, ', myOnlineRole:', typeof window !== 'undefined' ? window.myOnlineRole : 'undefined', ')');
+    
     if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
     if (typeof updateCursorByTurn === 'function') updateCursorByTurn();
     if (typeof updateStatus === 'function') updateStatus();
     if (typeof window !== 'undefined' && window.onlineMovePending) window.onlineMovePending = false;
+    
+    // ══════════════════════════════════════════════════════════════════
+    // Bot Pet Candidate Refresh: Recalculate after board sync and turn update
+    // Order: canonical board → currentTurn → render → refresh candidates
+    // ══════════════════════════════════════════════════════════════════
+    if (typeof refreshBotPetCandidatesForCurrentTurn === 'function') {
+        console.log('[Firebase-Timing] Step 4: Calling refreshBotPetCandidatesForCurrentTurn()');
+        refreshBotPetCandidatesForCurrentTurn();
+        console.log('[Firebase-Timing] Step 5: refreshBotPetCandidatesForCurrentTurn() completed');
+    }
 }
 
 function langNgheThayDoiPhong(roomId) {
@@ -3384,19 +3469,36 @@ function langNgheThayDoiPhong(roomId) {
         currentTurn     = room.turn || 'X';
         currentRule     = room.chan2Dau ? 'chan_2_dau' : 'tu_do';
         currentWinCount = resolveRoomWinCount(room);
+        
+        // ══════════════════════════════════════════════════════════════════
+        // SINGLE SOURCE OF TRUTH: Sync room rules from Firebase BEFORE board sync
+        // ══════════════════════════════════════════════════════════════════
+        const roomWinCount = typeof room.winCount === 'number' ? room.winCount : 5;
+        const roomChan2Dau = typeof room.chan2Dau === 'boolean' ? room.chan2Dau : (room.chan2Dau ?? true);
+        const roomFirstTurn = room.firstTurn || 'X';
+        
+        console.log('[RULE-AUDIT]', {
+            mode: 'ONLINE',
+            roomId: roomId,
+            winCount: roomWinCount,
+            chan2Dau: roomChan2Dau,
+            source: 'ONLINE_FIREBASE',
+            timestamp: Date.now()
+        });
+        
         // Sync single source of truth for room rules to GameState
         try {
             if (typeof GameState !== 'undefined') {
                 GameState.roomRules = {
-                    winCount: typeof room.winCount === 'number' ? room.winCount : (GameState.board && GameState.board.winCount ? GameState.board.winCount : undefined),
-                    chan2Dau: typeof room.chan2Dau === 'boolean' ? room.chan2Dau : (room.chan2Dau ?? true),
-                    firstTurn: room.firstTurn || 'X'
+                    winCount: roomWinCount,
+                    chan2Dau: roomChan2Dau,
+                    firstTurn: roomFirstTurn
                 };
                 // Also sync board.winCount for legacy modules that read GameState.board.winCount
-                if (typeof room.winCount === 'number') {
-                    if (!GameState.board) GameState.board = {};
-                    GameState.board.winCount = room.winCount;
-                }
+                if (!GameState.board) GameState.board = {};
+                GameState.board.winCount = roomWinCount;
+                
+                console.log('[RULE-AUDIT] GameState.roomRules synced from Firebase:', GameState.roomRules);
             }
             // Invalidate cache để ai-nao.js dùng roomRules mới
             if (typeof invalidateBlockBothEndsCache === 'function') {
@@ -3404,7 +3506,7 @@ function langNgheThayDoiPhong(roomId) {
             }
         } catch (e) { console.warn('[SyncRoomRules] failed to set GameState.roomRules', e); }
         // Expose as window.roomRules for compatibility
-        window.roomRules = (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : { winCount: resolveRoomWinCount(room), chan2Dau: room.chan2Dau ?? true, firstTurn: room.firstTurn || 'X' };
+        window.roomRules = (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : { winCount: roomWinCount, chan2Dau: roomChan2Dau, firstTurn: roomFirstTurn };
         if (typeof winCount !== 'undefined') winCount = currentWinCount;
         _updateBattleCountdown(room);
         const gameInfo = document.getElementById('game-info');
@@ -4001,9 +4103,56 @@ window.guiNuocDiLenFirebase = function(row, col) {
     }
     const nextTurn = myRole === 'X' ? 'O' : 'X';
     const roomRef  = db.ref(`rooms/${currentRoomId}`);
-    // Luôn dùng luật của phòng đang chơi; không phụ thuộc checkbox local của người chơi.
-    // Đồng bộ về checkWinSilent để đảm bảo logic chặn 2 đầu nhất quán
-    const roomRules = (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : { winCount: 5, chan2Dau: true };
+    
+    // ══════════════════════════════════════════════════════════════════
+    // SINGLE SOURCE OF TRUTH: Use Firebase room rules, NOT hardcoded default
+    // ══════════════════════════════════════════════════════════════════
+    let roomRules = (typeof GameState !== 'undefined' && GameState.roomRules) 
+        ? GameState.roomRules 
+        : null;
+    
+    if (!roomRules) {
+        // Fallback: read from Firebase room snapshot if GameState.roomRules is undefined
+        const lastRoom = (typeof window !== 'undefined' && window._lastRoomSnapshot) 
+            ? window._lastRoomSnapshot 
+            : null;
+        if (lastRoom) {
+            roomRules = {
+                winCount: typeof lastRoom.winCount === 'number' ? lastRoom.winCount : 5,
+                chan2Dau: typeof lastRoom.chan2Dau === 'boolean' ? lastRoom.chan2Dau : (lastRoom.chan2Dau ?? true),
+                firstTurn: lastRoom.firstTurn || 'X'
+            };
+            console.log('[RULE-AUDIT] guiNuocDiLenFirebase using Firebase room snapshot:', roomRules);
+        } else {
+            // Final fallback - should rarely happen if langNgheThayDoiPhong synced correctly
+            roomRules = { winCount: 5, chan2Dau: true, firstTurn: 'X' };
+            console.warn('[RULE-AUDIT] guiNuocDiLenFirebase using FINAL fallback (GameState.roomRules and Firebase snapshot both undefined):', roomRules);
+        }
+    }
+    
+    console.log('[RULE-AUDIT]', {
+        mode: 'ONLINE',
+        action: 'guiNuocDiLenFirebase',
+        roomId: currentRoomId,
+        winCount: roomRules.winCount,
+        chan2Dau: roomRules.chan2Dau,
+        source: roomRules === (typeof GameState !== 'undefined' && GameState.roomRules) ? 'GAMESTATE_ROOM_RULES' : 'ONLINE_FIREBASE_SNAPSHOT',
+        timestamp: Date.now()
+    });
+    
+    console.log('[RULE-WIN-TRACE]', {
+        mode: 'ONLINE',
+        action: 'guiNuocDiLenFirebase',
+        player: myRole,
+        row, col,
+        winCount: roomRules.winCount,
+        chan2Dau: roomRules.chan2Dau,
+        blockedTwoEnds: !!roomRules.chan2Dau,
+        source: 'guiNuocDiLenFirebase',
+        roomId: currentRoomId,
+        roomRules: roomRules
+    });
+    
     const isWin = (typeof checkWinSilent === 'function') ? checkWinSilent(row, col, roomRules) : false;
     const moveKey  = `${row}_${col}`;  // Key xác định ô — dùng để check O(1)
     return roomRef.transaction(data => {
@@ -4029,6 +4178,8 @@ window.guiNuocDiLenFirebase = function(row, col) {
       .catch(() => false);
 };
 function thucHienVeNuocDi(row, col, role) {
+    console.log('[RULE-AUDIT] thucHienVeNuocDi called with:', { row, col, role });
+    
     if (typeof setCell === 'function')      setCell(row, col, role);
     if (typeof moveHistory !== 'undefined') moveHistory.push({ r: row, c: col, player: role });
     if (typeof lastMoveR   !== 'undefined') { lastMoveR = row; lastMoveC = col; }
@@ -4039,7 +4190,55 @@ function thucHienVeNuocDi(row, col, role) {
         }
     }
     if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
-    if (typeof checkWin === 'function' && checkWin(row, col)) {
+    
+    // ══════════════════════════════════════════════════════════════════
+    // SINGLE SOURCE OF TRUTH: Use Firebase room rules, NOT offline checkbox
+    // ══════════════════════════════════════════════════════════════════
+    let roomRules = (typeof GameState !== 'undefined' && GameState.roomRules) 
+        ? GameState.roomRules 
+        : null;
+    
+    if (!roomRules && isOnlineMode) {
+        // Online mode: read from Firebase room snapshot if GameState.roomRules is undefined
+        const lastRoom = (typeof window !== 'undefined' && window._lastRoomSnapshot) 
+            ? window._lastRoomSnapshot 
+            : null;
+        if (lastRoom) {
+            roomRules = {
+                winCount: typeof lastRoom.winCount === 'number' ? lastRoom.winCount : 5,
+                chan2Dau: typeof lastRoom.chan2Dau === 'boolean' ? lastRoom.chan2Dau : (lastRoom.chan2Dau ?? true),
+                firstTurn: lastRoom.firstTurn || 'X'
+            };
+            console.log('[RULE-AUDIT] thucHienVeNuocDi using Firebase room snapshot:', roomRules);
+        } else {
+            // Final fallback - should rarely happen if langNgheThayDoiPhong synced correctly
+            roomRules = { winCount: 5, chan2Dau: true, firstTurn: 'X' };
+            console.warn('[RULE-AUDIT] thucHienVeNuocDi using FINAL fallback (GameState.roomRules and Firebase snapshot both undefined):', roomRules);
+        }
+    }
+    
+    console.log('[RULE-AUDIT]', {
+        mode: isOnlineMode ? 'ONLINE' : 'OFFLINE',
+        action: 'thucHienVeNuocDi',
+        roomId: currentRoomId,
+        winCount: roomRules ? roomRules.winCount : 'undefined',
+        chan2Dau: roomRules ? roomRules.chan2Dau : 'undefined',
+        source: roomRules === (typeof GameState !== 'undefined' && GameState.roomRules) ? 'GAMESTATE_ROOM_RULES' : (isOnlineMode ? 'ONLINE_FIREBASE_SNAPSHOT' : 'OFFLINE_CHECKBOX'),
+        timestamp: Date.now()
+    });
+    
+    if (typeof checkWin === 'function' && checkWin(row, col, roomRules)) {
+        console.log('[RULE-WIN-TRACE]', {
+            mode: isOnlineMode ? 'ONLINE' : 'OFFLINE',
+            player: role,
+            row, col,
+            winCount: roomRules ? roomRules.winCount : 'unknown',
+            chan2Dau: roomRules ? roomRules.chan2Dau : 'unknown',
+            blockedTwoEnds: roomRules ? !!roomRules.chan2Dau : 'unknown',
+            source: 'thucHienVeNuocDi',
+            roomId: currentRoomId,
+            result: 'WIN'
+        });
         if (typeof isGameActive !== 'undefined') isGameActive = false;
         // Show navigation when game ends
         if (typeof showTopNavigation === 'function') {
@@ -4055,6 +4254,14 @@ function thucHienVeNuocDi(row, col, role) {
     if (typeof currentPlayer  !== 'undefined') currentPlayer = role === 'X' ? 'O' : 'X';
     if (typeof updateCursorByTurn === 'function') updateCursorByTurn();
     if (typeof updateStatus       === 'function') updateStatus();
+    
+    // ══════════════════════════════════════════════════════════════════
+    // Bot Pet Candidate Refresh: Recalculate after local move render
+    // ══════════════════════════════════════════════════════════════════
+    if (typeof refreshBotPetCandidatesForCurrentTurn === 'function') {
+        console.log('[PET-ONLINE-TRACE] thucHienVeNuocDi calling refreshBotPetCandidatesForCurrentTurn()');
+        refreshBotPetCandidatesForCurrentTurn();
+    }
 }
 function phucHoiBanCo(roomId, callback) {
     db.ref(`rooms/${roomId}/moves`).once('value').then(snap => {
@@ -4139,6 +4346,30 @@ async function xuLyKetThucVan(room) {
                      myIdKetThuc === room.playerX_id || myIdKetThuc === room.playerO_id;
     const minBetCheck = room.isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
     const hasBet = Number(room.betAmount || 0) >= minBetCheck;
+
+    // ── MATCH TYPE CLASSIFICATION ──────────────────────────────────────
+    // Online PvP = cả hai slot đều có người chơi thật khác nhau.
+    // Bot Room không bao giờ có cả playerX_id lẫn playerO_id (một slot là null/undefined).
+    const _xId = room.playerX_id;
+    const _oId = room.playerO_id;
+    const isOnlinePvP = !!(_xId && _oId && _xId !== _oId);
+    const _bet = Number(room.betAmount || 0);
+
+    // [REWARD-AUDIT] log bắt buộc tại thời điểm win
+    console.log('[REWARD-AUDIT]', JSON.stringify({
+        mode: 'ONLINE',
+        isOnline: true,
+        isBotMatch: !isOnlinePvP,
+        opponentType: isOnlinePvP ? 'HUMAN' : 'BOT',
+        roomType: isOnlinePvP ? 'ONLINE_PVP' : 'BOT_ROOM',
+        bet: _bet,
+        winner: room.winner,
+        coinReward: (isOnlinePvP && _bet === 0) ? 0 : (hasBet ? _bet : (XU_CONFIG ? XU_CONFIG.SOLO_WIN_REWARD : 200)),
+        botMissionEligible: !isOnlinePvP,
+        rewardSource: hasBet ? 'ketThucCuoc' : (isOnlinePvP ? 'BLOCKED_ONLINE_PVP' : 'onWinSoloXu')
+    }));
+    // ───────────────────────────────────────────────────────────────────
+
     if (isPlayer) {
         // BUG 1 FIX (REAL ROOT CAUSE): Don't call playCoinBurstAsync(0) here.
         // The coin reward animation is fired by the reward/settlement code itself,
@@ -4160,8 +4391,11 @@ async function xuLyKetThucVan(room) {
         if (thangThucSu) {
             await db.ref(`users/${winnerId}/winSolo`).transaction(c => (c || 0) + 1);
             capNhatBXH(winName, winnerId);
-            // Thưởng xu thắng Solo Online (có giới hạn ngày) - chỉ khi KHÔNG có cược
-            if (!hasBet && typeof onWinSoloXu === 'function') await onWinSoloXu();
+            // Thưởng xu thắng Solo Online (có giới hạn ngày) - chỉ khi:
+            //   1. KHÔNG có cược (hasBet = false)
+            //   2. KHÔNG phải Online PvP người-vs-người (isOnlinePvP = false)
+            // Online PvP bet=0 KHÔNG được reward và KHÔNG được tăng nhiệm vụ Solo.
+            if (!hasBet && !isOnlinePvP && typeof onWinSoloXu === 'function') await onWinSoloXu();
             // Broadcast kết quả lên ticker toàn server
             const _roomNum = room.roomNumber || (currentRoomId ? currentRoomId.replace('phong_', '') : '?');
             db.ref('match_results').push({
@@ -4169,9 +4403,9 @@ async function xuLyKetThucVan(room) {
                 ts: Date.now()
             });
         } else {
-            // Thắng do đối thủ bỏ cuộc — chỉ thưởng nếu không có cược
-            // Nếu có cược, ketThucCuoc sẽ xử lý đầy đủ
-            if (!hasBet && typeof showXuPopup === 'function') {
+            // Thắng do đối thủ bỏ cuộc — chỉ thưởng nếu không có cược và không phải Online PvP
+            // Online PvP bet=0: không popup xu, không animation
+            if (!hasBet && !isOnlinePvP && typeof showXuPopup === 'function') {
                 showXuPopup(Math.floor((XU_CONFIG ? XU_CONFIG.SOLO_WIN_REWARD : 200) / 2), 'Đối thủ bỏ cuộc 🏳️');
             }
         }

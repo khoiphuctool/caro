@@ -1,6 +1,6 @@
 // ══════════════════════════════════════════════════════════════════
 // BOT PET CATALOG - HỆ THỐNG CATALOG BOT THÚ CƯNG
-// Mapping Bot Pet ↔ AI Profile cho tính năng Top 4 Moves tương lai
+// Mapping Bot Pet ↔ AI Profile ↔ Game Mode cho tính năng Top 4 Moves
 // ══════════════════════════════════════════════════════════════════
 
 // ──────────────────────────────────────────────

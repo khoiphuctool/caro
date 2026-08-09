@@ -884,15 +884,12 @@ function renderInfiniteBoard() {
 
     // Vẽ điểm đánh giá ô (debug scores) — PHẢI ở cuối cùng để không bị ghi đè
     const showScores = document.getElementById('show-cell-scores') || document.getElementById('show-cell-scores-bot');
-    console.log('[renderInfiniteBoard] showScores element:', showScores);
-    console.log('[renderInfiniteBoard] showScores.checked:', showScores ? showScores.checked : 'N/A');
-    console.log('[renderInfiniteBoard] window.cellScores:', window.cellScores);
-    console.log('[renderInfiniteBoard] cellScores keys:', window.cellScores ? Object.keys(window.cellScores).length : 0);
-    
-    // Nếu không tìm thấy checkbox nhưng có cellScores, vẫn vẽ (cho bot room)
-    const shouldShowScores = (showScores && showScores.checked) || (window.cellScores && Object.keys(window.cellScores).length > 0);
-    
-    if (shouldShowScores && window.cellScores && Object.keys(window.cellScores).length > 0) {
+
+    // Chỉ vẽ scores khi checkbox được tích — không auto-vẽ chỉ vì cellScores tồn tại
+    const shouldShowScores = showScores && showScores.checked
+        && window.cellScores && Object.keys(window.cellScores).length > 0;
+
+    if (shouldShowScores) {
         const top4 = Object.entries(window.cellScores)
             .map(([key, val]) => ({ key, val }))
             .sort((a, b) => b.val - a.val)
@@ -915,6 +912,48 @@ function renderInfiniteBoard() {
             c.fillRect(offX + ci*CS + 1, offY + ri*CS + 1, CS-2, CS-2);
             c.fillStyle = isTop ? 'rgba(180,100,0,0.55)' : 'rgba(79,70,229,0.45)';
             c.fillText(label, px, py);
+        }
+    }
+
+    // Vẽ Bot Pet Top-4 Candidates (nếu Bot Pet đang bật)
+    if (typeof getCurrentCandidates === 'function' && typeof areCandidatesVisible === 'function') {
+        const botPetCandidates = getCurrentCandidates();
+        const candidatesVisible = areCandidatesVisible();
+        
+        if (candidatesVisible && botPetCandidates && botPetCandidates.length > 0) {
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            
+            for (let i = 0; i < botPetCandidates.length; i++) {
+                const { r, c: col, score } = botPetCandidates[i];
+                const key = `${r},${col}`;
+                
+                // Skip if cell is occupied
+                if (infiniteMap.get(key)) continue;
+                
+                const ri = r - r0, ci = col - c0;
+                if (ri < 0 || ci < 0 || ri >= rows || ci >= cols) continue;
+                
+                const px = offX + ci * CS + CS / 2;
+                const py = offY + ri * CS + CS / 2;
+                
+                // Style: rank 1 (gold), rank 2 (silver), rank 3 (bronze), rank 4 (gray)
+                const colors = [
+                    { bg: 'rgba(234,179,8,0.2)', text: 'rgba(180,83,9,0.8)' },    // Gold
+                    { bg: 'rgba(148,163,184,0.2)', text: 'rgba(71,85,105,0.8)' },  // Silver
+                    { bg: 'rgba(180,83,9,0.2)', text: 'rgba(124,45,18,0.8)' },    // Bronze
+                    { bg: 'rgba(107,114,128,0.2)', text: 'rgba(55,65,81,0.8)' }    // Gray
+                ];
+                
+                const style = colors[i] || colors[3];
+                
+                // Draw rank number
+                c.font = `bold ${Math.max(10, Math.floor(CS * 0.3))}px sans-serif`;
+                c.fillStyle = style.bg;
+                c.fillRect(offX + ci*CS + 2, offY + ri*CS + 2, CS-4, CS-4);
+                c.fillStyle = style.text;
+                c.fillText((i + 1).toString(), px, py);
+            }
         }
     }
 }

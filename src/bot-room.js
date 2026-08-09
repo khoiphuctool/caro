@@ -756,9 +756,11 @@ const BotRoomManager = {
                         console.warn('[BotRoom] Equipped Bot Pet profile exists but room gameMode is not valid runtime mode for override or pet inactive:', this.currentBotRoom.gameMode);
                     }
                 }
-                console.log('[BotRoom] startBotBattle final gameMode set to', modeEl.value);
-                if (typeof window.logBotPetRuntimeAudit === 'function') {
-                    window.logBotPetRuntimeAudit();
+                if (window.DEBUG_BOT_RUNTIME) {
+                    console.log('[BotRoom] startBotBattle final gameMode set to', modeEl.value);
+                    if (typeof window.logBotPetRuntimeAudit === 'function') {
+                        window.logBotPetRuntimeAudit();
+                    }
                 }
             }
         }
@@ -1196,6 +1198,11 @@ const BotRoomManager = {
                 status: 'Đang tính nước đi', isBot: true,
                 difficulty: botMeta.difficulty || botMeta.description,
             }), { badge: 'Bot', status: 'Đang tính nước đi' });
+        }
+
+        // Re-inject compact Bot Pet row after PlayerCard refreshes innerHTML
+        if (typeof updateBotPetUI === 'function') {
+            updateBotPetUI();
         }
     },
 

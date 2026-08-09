@@ -1053,6 +1053,21 @@ function onWinBotXu(modeName, winCount) {
     const uid = _getUid();
     if (!uid) return;
     
+    // ══════════════════════════════════════════════════════════════════
+    // MISSION-AUDIT: Log before processing bot mission
+    // ══════════════════════════════════════════════════════════════════
+    console.log('[MISSION-AUDIT]', JSON.stringify({
+        missionId: 'BOT_WIN',
+        missionType: 'BOT',
+        mode: modeName,
+        isOnline: false,
+        isBotMatch: true,
+        matchType: 'BOT_ROOM',
+        winCount: winCount,
+        shouldIncrement: true,
+        reason: 'BOT_WIN_CONFIRMED'
+    }));
+    
     // Chỉ tính nhiệm vụ khi winCount >= 5
     if (typeof winCount === 'number' && winCount < 5) {
         console.log('[onWinBotXu] winCount < 5, không tính nhiệm vụ. winCount=', winCount);
@@ -1105,6 +1120,19 @@ function onWinSoloXu() {
     const uid = _getUid();
     const database = _getDb();
     if (!uid || !database) return Promise.resolve();
+
+    // ══════════════════════════════════════════════════════════════════
+    // MISSION-AUDIT: Log before processing solo win reward
+    // ══════════════════════════════════════════════════════════════════
+    console.log('[MISSION-AUDIT]', JSON.stringify({
+        missionId: 'SOLO_WIN',
+        missionType: 'SOLO',
+        isOnline: true,
+        isBotMatch: false,
+        matchType: 'SOLO_BOT_ROOM',
+        shouldIncrement: true,
+        reason: 'SOLO_WIN_REWARD'
+    }));
 
     // Guard để tránh gọi nhiều lần
     const now = Date.now();
