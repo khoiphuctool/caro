@@ -40,6 +40,20 @@ const BotSuperV2 = {
     getBotMoveNewArchitecture(options) {
         console.log('[BotSuperV2] Using new architecture');
 
+        // Direct callers (for example bot-room) can enter this path without
+        // passing through ai-nao.js P1/P2. Use the shared tactical preflight.
+        const player = options.player || botPiece || 'O';
+        const opponent = options.opponent || humanPiece || 'X';
+        const rules = options.roomRules || (typeof GameState !== 'undefined' ? GameState.roomRules : undefined);
+        const winCount = rules && typeof rules.winCount === 'number' ? rules.winCount : 5;
+        if (typeof BlockBothEndsAnalyzer !== 'undefined') {
+            const immediate = BlockBothEndsAnalyzer.getPriorityTacticalMove(player, opponent, winCount);
+            if (immediate) {
+                console.log('[BotSuperV2] Shared immediate tactical move:', immediate);
+                return { move: { r: immediate.r, c: immediate.c }, reason: immediate.reason };
+            }
+        }
+
         // Step 1: Context Builder
         const context = ContextBuilder.build(options);
         
@@ -172,6 +186,14 @@ const BotSuperV2 = {
         }
         const depth = options.depth || this.config.searchDepth;
 
+        if (typeof BlockBothEndsAnalyzer !== 'undefined') {
+            const immediate = BlockBothEndsAnalyzer.getPriorityTacticalMove(player, opponent, wc);
+            if (immediate) {
+                console.log('[BotSuperV2 Old] Shared immediate tactical move:', immediate);
+                return immediate;
+            }
+        }
+
         console.log('[BotSuperV2 Old] getBotMove', { player, opponent, winCount: wc, depth });
 
         // Layer 0: Nước đầu - random trung tâm
@@ -193,7 +215,7 @@ const BotSuperV2 = {
         for (const { r, c } of allEmpty) {
             if (getCell(r, c) !== '') continue;
             setCell(r, c, player);
-            const win = checkWinSilent(r, c);
+            const win = checkWinSilent(r, c, (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : window.roomRules);
             setCell(r, c, '');
             if (win) {
                 console.log('[BotSuperV2 Old] Win now:', { r, c });
@@ -205,7 +227,7 @@ const BotSuperV2 = {
         for (const { r, c } of allEmpty) {
             if (getCell(r, c) !== '') continue;
             setCell(r, c, opponent);
-            const win = checkWinSilent(r, c);
+            const win = checkWinSilent(r, c, (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : window.roomRules);
             setCell(r, c, '');
             if (win) {
                 console.log('[BotSuperV2 Old] Block win:', { r, c });

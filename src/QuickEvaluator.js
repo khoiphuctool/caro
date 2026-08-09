@@ -144,10 +144,13 @@ const QuickEvaluator = {
     },
 
     // ===== CHECK WIN =====
-    // Kiểm tra thắng tại ô (r, c)
+    // Kiểm tra thắng tại ô (r, c) — truyền roomRules để áp dụng đúng luật chặn 2 đầu
     checkWin(r, c, player, winCount) {
         if (typeof checkWinSilent === 'function') {
-            return checkWinSilent(r, c);
+            const rr = (typeof GameState !== 'undefined' && GameState.roomRules)
+                ? GameState.roomRules
+                : (typeof window !== 'undefined' ? window.roomRules : undefined);
+            return checkWinSilent(r, c, rr);
         }
         
         // Fallback: simple count check

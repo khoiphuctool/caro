@@ -2166,7 +2166,7 @@ const BotRoomManager = {
             <div style="width:1px;height:28px;background:rgba(255,255,255,0.15);margin:0 2px;flex-shrink:0;"></div>
 
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 10px;background:rgba(59,130,246,0.15);border-radius:8px;border:1px solid rgba(59,130,246,0.3);">
-                <input type="checkbox" id="show-cell-scores-bot"
+                <input type="checkbox" id="show-cell-scores-bot" ${window._cellScoresEnabled ? 'checked' : ''}
                     onchange="BotRoomManager.onCellScoresCheckboxChange();">
                 <span style="font-size:12px;color:#93c5fd;font-weight:600;">Điểm ô</span>
             </label>
@@ -2246,6 +2246,7 @@ const BotRoomManager = {
         }
 
         console.log('[BotRoomManager] Checkbox checked:', checkbox.checked);
+        window._cellScoresEnabled = checkbox.checked;
 
         if (checkbox.checked) {
             // Set flag để bot tiếp tục recalculate sau mỗi nước
@@ -2285,7 +2286,12 @@ const BotRoomManager = {
                 for (const { r, c } of candidates) {
                     const key = `${r},${c}`;
                     try {
-                        const score = quickScore(r, c, currentPlayer);
+                        const fallbackScore = quickScore(r, c, currentPlayer);
+                        const botPlayer = typeof botPiece !== 'undefined' ? botPiece : currentPlayer;
+                        const opponentPlayer = botPlayer === 'X' ? 'O' : 'X';
+                        const score = typeof BlockBothEndsAnalyzer !== 'undefined'
+                            ? BlockBothEndsAnalyzer.getDisplayScore(r, c, botPlayer, opponentPlayer, this.winCount, fallbackScore)
+                            : fallbackScore;
                         window.cellScores[key] = score;
                         if (score > 0) {
                             scoredCandidates.push({ key, r, c, score });
@@ -2313,7 +2319,7 @@ const BotRoomManager = {
             }
         } else {
             window.cellScores = {};
-            window._cellScoresEnabled = false; // Clear flag
+            window._cellScoresEnabled = false;
             console.log('[BotRoomManager] cellScores cleared, flag disabled');
         }
 
@@ -2434,10 +2440,35 @@ class AutoBotGameHeadless {
 
     getBotMove(botMode, player) {
         console.log('[AutoBotGameHeadless] getBotMove called:', { botMode, player, boardSize: this.board.size });
-        
-        // Tạm thời dùng fallback minimax để Auto Bot chạy được
-        // Bot implementations thực tế cần thêm thời gian để debug
-        console.log('[AutoBotGameHeadless] Using fallback minimax (bot implementations temporarily disabled)');
+
+        // Headless games must use the same tactical rule engine as the UI.
+        // Keep the local board isolated, then fall back only after the shared
+        // win/open-end defense has had a chance to choose a move.
+        if (typeof BlockBothEndsAnalyzer !== 'undefined') {
+            const opponent = player === 'X' ? 'O' : 'X';
+            const originalMap = typeof GameState !== 'undefined' && GameState.board
+                ? GameState.board.infiniteMap
+                : null;
+            const originalRules = typeof GameState !== 'undefined' ? GameState.roomRules : undefined;
+            const originalGlobalMap = typeof infiniteMap !== 'undefined' ? infiniteMap : null;
+            try {
+                if (typeof GameState !== 'undefined' && GameState.board) {
+                    GameState.board.infiniteMap = this.board;
+                    GameState.roomRules = { winCount: this.winCount, chan2Dau: this.blockBoth };
+                }
+                if (typeof infiniteMap !== 'undefined') infiniteMap = this.board;
+                const tacticalMove = BlockBothEndsAnalyzer.getPriorityTacticalMove(player, opponent, this.winCount);
+                if (tacticalMove) return { r: tacticalMove.r, c: tacticalMove.c };
+            } finally {
+                if (typeof GameState !== 'undefined' && GameState.board) {
+                    GameState.board.infiniteMap = originalMap;
+                    GameState.roomRules = originalRules;
+                }
+                if (typeof infiniteMap !== 'undefined' && originalGlobalMap) infiniteMap = originalGlobalMap;
+            }
+        }
+
+        console.log('[AutoBotGameHeadless] Shared tactical scan found no forced move; using fallback minimax');
         return this.getBotMoveFallback(botMode, player);
         
         /* 
@@ -2803,52 +2834,47 @@ class AutoBotGameHeadless {
 
         for (const [dr, dc] of directions) {
             let count = 1;
-            
+            let headR = r, headC = c; // đầu chuỗi (hướng +)
+            let tailR = r, tailC = c; // đuôi chuỗi (hướng -)
+
             for (let i = 1; i < this.winCount; i++) {
-                const nr = r + dr * i;
-                const nc = c + dc * i;
-                const key = `${nr},${nc}`;
-                
+                const nr = r + dr * i, nc = c + dc * i;
                 if (nr < 0 || nr >= 15 || nc < 0 || nc >= 15) break;
-                if (this.board.get(key) !== player) break;
-                count++;
+                if (this.board.get(`${nr},${nc}`) !== player) break;
+                count++; headR = nr; headC = nc;
             }
-            
+
             for (let i = 1; i < this.winCount; i++) {
-                const nr = r - dr * i;
-                const nc = c - dc * i;
-                const key = `${nr},${nc}`;
-                
+                const nr = r - dr * i, nc = c - dc * i;
                 if (nr < 0 || nr >= 15 || nc < 0 || nc >= 15) break;
-                if (this.board.get(key) !== player) break;
-                count++;
+                if (this.board.get(`${nr},${nc}`) !== player) break;
+                count++; tailR = nr; tailC = nc;
             }
-            
+
             if (count >= this.winCount) {
                 if (this.blockBoth) {
-                    const blocked1 = this.isBlocked(r, c, dr, dc, player);
-                    const blocked2 = this.isBlocked(r, c, -dr, -dc, player);
-                    if (blocked1 && blocked2) {
-                        continue;
-                    }
+                    // Check từ ô ngoài cùng 2 đầu chuỗi
+                    const b1 = this.isBlocked(headR + dr, headC + dc, dr, dc, player);
+                    const b2 = this.isBlocked(tailR - dr, tailC - dc, -dr, -dc, player);
+                    if (b1 && b2) continue;
                 }
                 return true;
             }
         }
-        
+
         return false;
     }
 
+    // Từ ô (r,c), đi theo hướng (dr,dc) — trả về true nếu gặp quân địch hoặc biên
     isBlocked(r, c, dr, dc, player) {
-        for (let i = 1; i <= this.winCount; i++) {
-            const nr = r + dr * i;
-            const nc = c + dc * i;
-            const key = `${nr},${nc}`;
-
-            if (nr < 0 || nr >= 15 || nc < 0 || nc >= 15) return true;
-            if (this.board.has(key)) {
-                return this.board.get(key) !== player;
-            }
+        const opp = player === 'X' ? 'O' : 'X';
+        let cr = r, cc = c;
+        for (let i = 0; i < this.winCount; i++) {
+            if (cr < 0 || cr >= 15 || cc < 0 || cc >= 15) return true;
+            const v = this.board.get(`${cr},${cc}`);
+            if (v === opp) return true;
+            if (v === player) return false;
+            if (!v) { cr += dr; cc += dc; continue; } // ô trống — tiếp tục
         }
         return false;
     }

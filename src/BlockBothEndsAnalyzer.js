@@ -1,211 +1,324 @@
-// ═══════════════════════════════════════════════════════════════════════════
-// BLOCK BOTH ENDS ANALYZER - Phân tích luật chặn 2 đầu
-// ═══════════════════════════════════════════════════════════════════════════
-// Phân tích các nước đi tạo ra 4 quân mở 2 đầu (FOUR_OPEN) 
-// và trả về danh sách các ô cần chặn ngay lập tức
-
+// ===== BLOCK BOTH ENDS ANALYZER =====
+// Finds the opponent's open chain ends that should be occupied by the AI.
+// PatternDetector remains the pattern/rule engine; this module only chooses
+// defensive cells from those facts.
 const BlockBothEndsAnalyzer = {
-    /**
-     * Phân tích tất cả các nước đi nguy hiểm của đối thủ khi luật chan2Dau = true
-     * Trả về mảng các ô cần chặn, sắp xếp theo độ ưu tiên
-     * 
-     * @param {string} opponent - 'X' hoặc 'O'
-     * @param {number} winCount - số quân để thắng (5, 6, 7...)
-     * @param {boolean} blockBothEnds - có áp dụng luật chặn 2 đầu
-     * @returns {Array} mảng [{r, c, priority, threat}] sắp xếp ưu tiên giảm dần
-     */
-    findBlockPositions(opponent, winCount, blockBothEnds) {
-        if (!blockBothEnds) return [];
+	resolveRules(winCount) {
+		const activeRules = (typeof GameState !== 'undefined' && GameState.roomRules)
+			? GameState.roomRules
+			: (typeof window !== 'undefined' ? window.roomRules : undefined);
+		return {
+			winCount: activeRules && typeof activeRules.winCount === 'number'
+				? activeRules.winCount
+				: (typeof winCount === 'number' ? winCount : 5),
+			chan2Dau: activeRules && typeof activeRules.chan2Dau === 'boolean'
+				? activeRules.chan2Dau
+				: (typeof getBlockBothEnds === 'function' ? getBlockBothEnds() : true)
+		};
+	},
 
-        const player = opponent === 'X' ? 'O' : 'X';
-        const directions = [[0,1], [1,0], [1,1], [1,-1]];  // →, ↓, ↘, ↙
-        const threats = [];
-        const threatsMap = new Map(); // key = "r,c" để tránh trùng
+	getCandidates() {
+		if (typeof getAllTacticalCells === 'function') {
+			return getAllTacticalCells().filter(({ r, c }) => getCell(r, c) === '');
+		}
+		return [];
+	},
 
-        // Quét toàn bộ bàn cờ để tìm các nước đi nguy hiểm của đối thủ
-        if (typeof infiniteMap !== 'undefined') {
-            // Online mode: dùng infiniteMap
-            for (const [key, cell] of infiniteMap) {
-                if (cell.player === opponent) {
-                    const [r, c] = key.split(',').map(Number);
-                    this._analyzePosition(r, c, opponent, player, directions, winCount, threats, threatsMap);
-                }
-            }
-        } else {
-            // Fallback: quét vùng xung quanh board
-            const cells = (typeof GameState !== 'undefined' && GameState.board && GameState.board.infiniteMap) ? GameState.board.infiniteMap : null;
-            if (!cells) return [];
-            
-            for (const [key, cell] of cells) {
-                if (cell.player === opponent) {
-                    const [r, c] = key.split(',').map(Number);
-                    this._analyzePosition(r, c, opponent, player, directions, winCount, threats, threatsMap);
-                }
-            }
-        }
+	isCandidateOpen(r, c, dr, dc, player) {
+		if (typeof PatternDetector !== 'undefined' && typeof PatternDetector.isBlocked === 'function') {
+			return !PatternDetector.isBlocked(r, c, dr, dc, player);
+		}
 
-        // Sắp xếp theo độ ưu tiên (threat level cao nhất trước)
-        return threats.sort((a, b) => b.priority - a.priority);
-    },
+		const opponent = player === 'X' ? 'O' : 'X';
+		const maxEmpty = 5;
+		let emptyCount = 0;
+		let nr = r;
+		let nc = c;
+		while (emptyCount <= maxEmpty) {
+			const cell = getCell(nr, nc);
+			if (cell === opponent || cell === 'W') return false;
+			if (cell === player) return true;
+			if (cell === '') {
+				emptyCount++;
+				nr += dr;
+				nc += dc;
+				continue;
+			}
+			return true;
+		}
+		return true;
+	},
 
-    /**
-     * Phân tích một vị trí (r,c) của đối thủ — tìm các hướng tạo FOUR_OPEN
-     */
-    _analyzePosition(r, c, opponent, player, directions, winCount, threats, threatsMap) {
-        const opp = opponent;
-        
-        for (const [dr, dc] of directions) {
-            // Quét 2 chiều (thuận & ngược) từ (r,c)
-            const forward = this._countInDirection(r, c, dr, dc, opp, winCount);
-            const backward = this._countInDirection(r, c, -dr, -dc, opp, winCount);
-            
-            // Tính tổng quân liên tiếp trong hướng này (qua (r,c))
-            const totalCount = forward.count + backward.count + 1;  // +1 là chính (r,c)
-            
-            // Nếu đã có 4+ quân liên tiếp → kiểm tra FOUR_OPEN
-            if (totalCount === winCount - 1) {
-                // Là FOUR (4 quân, thiếu 1 ô để thắng)
-                const blockPos = this._findFourOpenBlockPosition(
-                    r, c, dr, dc, opp, forward, backward, winCount, player
-                );
-                if (blockPos) {
-                    const key = `${blockPos.r},${blockPos.c}`;
-                    if (!threatsMap.has(key)) {
-                        threats.push(blockPos);
-                        threatsMap.set(key, true);
-                    } else {
-                        // Tăng priority nếu cùng ô bị đe dọa từ nhiều hướng
-                        const existingThreat = threats.find(t => t.r === blockPos.r && t.c === blockPos.c);
-                        if (existingThreat) {
-                            existingThreat.priority += blockPos.priority;
-                            existingThreat.threat += 1;
-                        }
-                    }
-                }
-            }
-        }
-    },
+	findWinningMoves(player, candidates, rules, reason = 'immediate_win_block') {
+		const winningMoves = [];
+		const defender = player === 'X' ? 'O' : 'X';
+		for (const { r, c } of candidates) {
+			setCell(r, c, player);
+			const wins = typeof checkWinSilent === 'function'
+				? checkWinSilent(r, c, rules)
+				: false;
+			setCell(r, c, '');
+			if (wins) {
+				// A broken FOUR (for example XXX_X) is an internal gap,
+				// not an end extension. It must be blocked even when one
+				// end of the completed line is already closed.
+				const isBrokenGap = reason === 'immediate_win_block' &&
+					this.isInternalGapCandidate(r, c, player);
+				if (reason === 'immediate_win_block' &&
+					!isBrokenGap && !this.hasOpenThreatEndAtCandidate(r, c, player, rules)) {
+					continue;
+				}
+				const score = this.scoreBlockMove(r, c, defender, rules);
+				const metadata = reason === 'immediate_win_block'
+					? this.getThreatMetadataAtCandidate(r, c, player, rules)
+					: { openEnds: 1, wouldDeadChain: false };
+				winningMoves.push({
+					r, c,
+					chainCount: rules.winCount - 1,
+					openEnds: metadata.openEnds,
+					wouldDeadChain: metadata.wouldDeadChain,
+					priority: 10000,
+					score,
+					reason
+				});
+			}
+		}
+		winningMoves.sort((a, b) => b.score - a.score || b.priority - a.priority);
+		return winningMoves;
+	},
 
-    /**
-     * Đếm số quân opponent liên tiếp từ (r,c) theo hướng (dr,dc)
-     * Trả về {count, blocked} — blocked = true nếu gặp quân player hoặc biên
-     */
-    _countInDirection(r, c, dr, dc, opponent, winCount) {
-        let count = 0;
-        let nr = r + dr, nc = c + dc;
-        
-        for (let i = 0; i < winCount; i++) {
-            const cell = typeof getCell === 'function' ? getCell(nr, nc) : this._getCellFallback(nr, nc);
-            
-            if (cell === opponent) {
-                count++;
-                nr += dr;
-                nc += dc;
-            } else {
-                break;
-            }
-        }
-        
-        return { count, blocked: cell !== '' };
-    },
+	getThreatMetadataAtCandidate(r, c, player, rules) {
+		if (typeof DIRECTIONS === 'undefined') return { openEnds: 0, wouldDeadChain: false };
+		for (const { dr, dc } of DIRECTIONS) {
+			for (const sign of [1, -1]) {
+				const scanDr = dr * sign;
+				const scanDc = dc * sign;
+				let nr = r + scanDr;
+				let nc = c + scanDc;
+				let gap = 0;
+				while (getCell(nr, nc) === '' && gap < rules.winCount) {
+					nr += scanDr;
+					nc += scanDc;
+					gap++;
+				}
+				if (getCell(nr, nc) !== player) continue;
+				let count = 0;
+				while (getCell(nr, nc) === player) {
+					count++;
+					nr += scanDr;
+					nc += scanDc;
+				}
+				if (count < rules.winCount - 1) continue;
+				if (!this.isCandidateOpen(r, c, -scanDr, -scanDc, player)) continue;
+				const oppositeOpen = this.isCandidateOpen(nr, nc, scanDr, scanDc, player);
+				return { openEnds: oppositeOpen ? 2 : 1, wouldDeadChain: !oppositeOpen };
+			}
+		}
+		return { openEnds: 0, wouldDeadChain: false };
+	},
 
-    /**
-     * Tìm ô cần chặn khi tạo FOUR_OPEN từ (r,c) theo hướng (dr,dc)
-     * FOUR_OPEN = 4 quân mở 2 đầu → chỉ cần chặn 1 đầu
-     */
-    _findFourOpenBlockPosition(r, c, dr, dc, opp, forward, backward, winCount, player) {
-        // Vị trí đầu mở phía trước
-        const frontR = r + (forward.count + 1) * dr;
-        const frontC = c + (forward.count + 1) * dc;
-        
-        // Vị trí đầu mở phía sau
-        const backR = r - (backward.count + 1) * dr;
-        const backC = c - (backward.count + 1) * dc;
-        
-        // Kiểm tra 2 đầu có thực sự mở (không bị chặn)
-        const frontCell = typeof getCell === 'function' ? getCell(frontR, frontC) : this._getCellFallback(frontR, frontC);
-        const backCell = typeof getCell === 'function' ? getCell(backR, backC) : this._getCellFallback(backR, backC);
-        
-        const frontOpen = frontCell === '';  // ô trống = mở
-        const backOpen = backCell === '';    // ô trống = mở
-        
-        // Chỉ là FOUR_OPEN nếu cả 2 đầu đều mở
-        if (!frontOpen || !backOpen) {
-            return null;  // Là FOUR_BLOCKED, không cần chặn ngay
-        }
-        
-        // Chặn 1 đầu bất kỳ → ưu tiên chặn đầu gần center hơn
-        const center = typeof (window.BOARD_CENTER) !== 'undefined' ? window.BOARD_CENTER : {r: 0, c: 0};
-        const frontDist = Math.abs(frontR - center.r) + Math.abs(frontC - center.c);
-        const backDist = Math.abs(backR - center.r) + Math.abs(backC - center.c);
-        
-        const blockR = frontDist <= backDist ? frontR : backR;
-        const blockC = frontDist <= backDist ? frontC : backC;
-        
-        return {
-            r: blockR,
-            c: blockC,
-            priority: 9000,  // Rất cao — FOUR_OPEN là đe dọa trực tiếp
-            threat: 1,
-            reason: 'BLOCK_FOUR_OPEN'
-        };
-    },
+	isInternalGapCandidate(r, c, player) {
+		if (typeof DIRECTIONS === 'undefined') return false;
+		return DIRECTIONS.some(({ dr, dc }) =>
+			getCell(r + dr, c + dc) === player &&
+			getCell(r - dr, c - dc) === player
+		);
+	},
 
-    /**
-     * Fallback để lấy cell khi getCell không khả dụng
-     */
-    _getCellFallback(r, c) {
-        if (typeof infiniteMap !== 'undefined') {
-            const cell = infiniteMap.get(`${r},${c}`);
-            return cell ? cell.player : '';
-        }
-        if (typeof GameState !== 'undefined' && GameState.board && GameState.board.infiniteMap) {
-            const cell = GameState.board.infiniteMap.get(`${r},${c}`);
-            return cell ? cell.player : '';
-        }
-        return '';
-    },
+	hasOpenThreatEndAtCandidate(r, c, player, rules) {
+		return this.getThreatMetadataAtCandidate(r, c, player, rules).openEnds > 0;
+	},
 
-    /**
-     * Kiểm tra xem nước đi (r,c) của player có tạo FOUR_OPEN không
-     * Dùng để AI tự đánh giá nước đi
-     */
-    isFourOpen(r, c, player, winCount, blockBothEnds) {
-        if (!blockBothEnds) return false;
+	getPriorityTacticalMove(player, opponent, winCount) {
+		const rules = this.resolveRules(winCount);
+		const candidates = this.getCandidates();
+		if (candidates.length === 0) return null;
 
-        const opponent = player === 'X' ? 'O' : 'X';
-        const directions = [[0,1], [1,0], [1,1], [1,-1]];
+		// Phase 1: the bot must take a legal winning move first.
+		const winningMove = this.findWinningMoves(player, candidates, rules, 'immediate_win')[0];
+		if (winningMove) return winningMove;
 
-        for (const [dr, dc] of directions) {
-            const forward = this._countInDirection(r, c, dr, dc, player, winCount);
-            const backward = this._countInDirection(r, c, -dr, -dc, player, winCount);
-            const totalCount = forward.count + backward.count + 1;
+		// All opponent threats are the same defensive problem: find the
+		// viable/open end first, then rank immediate win, FOUR and THREE.
+		const defenseMoves = this.findDefenseMoves(opponent, player, candidates, rules);
+		const selected = defenseMoves[0] || null;
+		if (selected) {
+			console.log('[BlockBothEndsAnalyzer] priority defense:', {
+				player,
+				opponent,
+				rules,
+				selected,
+				topCandidates: defenseMoves.slice(0, 8)
+			});
+		}
+		return selected;
+	},
 
-            if (totalCount === winCount - 1) {
-                // Là FOUR — kiểm tra 2 đầu
-                const frontR = r + (forward.count + 1) * dr;
-                const frontC = c + (forward.count + 1) * dc;
-                const backR = r - (backward.count + 1) * dr;
-                const backC = c - (backward.count + 1) * dc;
+	getDisplayScore(r, c, player, opponent, winCount, fallbackScore = 0) {
+		const rules = this.resolveRules(winCount);
+		const candidates = this.getCandidates();
+		const defenseMoves = this.findDefenseMoves(opponent, player, candidates, rules);
+		if (defenseMoves.length === 0) return fallbackScore;
 
-                const frontCell = typeof getCell === 'function' ? getCell(frontR, frontC) : this._getCellFallback(frontR, frontC);
-                const backCell = typeof getCell === 'function' ? getCell(backR, backC) : this._getCellFallback(backR, backC);
+		const defenseMove = defenseMoves.find(move => move.r === r && move.c === c);
+		if (!defenseMove) return 0;
 
-                const frontOpen = frontCell === '';
-                const backOpen = backCell === '';
+		return defenseMove.priority * 100 + Math.max(0, defenseMove.score || 0);
+	},
 
-                // FOUR_OPEN = cả 2 đầu mở
-                if (frontOpen && backOpen) {
-                    return true;
-                }
-            }
-        }
+	// Backward-compatible alias for callers not yet migrated.
+	getImmediateTacticalMove(player, opponent, winCount) {
+		return this.getPriorityTacticalMove(player, opponent, winCount);
+	},
 
-        return false;
-    }
+	findDefenseMoves(opponent, defender, candidates, rules) {
+		const immediate = this.findWinningMoves(opponent, candidates, rules, 'immediate_win_block');
+		const four = this.findOpenChainEnds(opponent, candidates, rules, rules.winCount - 1);
+		const three = this.findOpenChainEnds(opponent, candidates, rules, rules.winCount - 2)
+			.filter(move => move.chainCount < rules.winCount - 1);
+		const moves = [...immediate, ...four, ...three];
+		const seen = new Set();
+
+		for (const move of moves) {
+			const key = `${move.r},${move.c}`;
+			if (seen.has(key)) {
+				move.priority = -Infinity;
+				continue;
+			}
+			seen.add(key);
+			if (move.score === undefined) {
+				move.score = this.scoreBlockMove(move.r, move.c, defender, rules);
+			}
+		}
+
+		return moves
+			.filter(move => Number.isFinite(move.priority))
+			.sort((a, b) => b.priority - a.priority || b.score - a.score || b.chainCount - a.chainCount);
+	},
+
+	scoreBlockMove(r, c, defender, rules) {
+		const threatPlayer = defender === 'X' ? 'O' : 'X';
+		let openEndBonus = 0;
+		for (const { dr, dc } of (typeof DIRECTIONS !== 'undefined' ? DIRECTIONS : [])) {
+			for (const sign of [1, -1]) {
+				const scanDr = dr * sign;
+				const scanDc = dc * sign;
+				let nr = r + scanDr;
+				let nc = c + scanDc;
+				let chainCount = 0;
+				while (getCell(nr, nc) === threatPlayer) {
+					chainCount++;
+					nr += scanDr;
+					nc += scanDc;
+				}
+				if (chainCount >= rules.winCount - 1) {
+					// The candidate is on the opposite side of the chain from
+					// this scan. Prefer the candidate whose outside side is open.
+					const candidateOpen = this.isCandidateOpen(r, c, -scanDr, -scanDc, threatPlayer);
+					if (candidateOpen) openEndBonus += 500000;
+					else openEndBonus -= 100000;
+				}
+			}
+		}
+
+		setCell(r, c, defender);
+		let score = openEndBonus;
+
+		// A block that also wins for the bot is the best legal response.
+		if (typeof checkWinSilent === 'function' && checkWinSilent(r, c, rules)) {
+			score += 1000000000;
+		}
+
+		// Prefer a block that builds useful local threats for the bot.
+		if (typeof quickScore === 'function') {
+			score += quickScore(r, c, defender);
+		} else if (typeof PatternDetector !== 'undefined' && typeof PatternDetector.evalCell === 'function') {
+			const patterns = PatternDetector.evalCell(r, c, defender, rules.winCount, rules.chan2Dau);
+			for (const { pattern } of patterns) {
+				if (pattern === PatternDetector.PATTERN.FOUR_OPEN) score += 100000;
+				else if (pattern === PatternDetector.PATTERN.THREE_OPEN) score += 10000;
+				else if (pattern === PatternDetector.PATTERN.TWO_OPEN) score += 1000;
+			}
+		}
+
+		// Break ties in favor of a block connected to nearby bot stones.
+		for (const { dr, dc } of (typeof DIRECTIONS !== 'undefined' ? DIRECTIONS : [])) {
+			if (getCell(r + dr, c + dc) === defender) score += 100;
+			if (getCell(r - dr, c - dc) === defender) score += 100;
+		}
+		setCell(r, c, '');
+		return score;
+	},
+
+	findOpenChainEnds(player, candidates, rules, minimumChain) {
+		if (!rules.chan2Dau || typeof DIRECTIONS === 'undefined') return [];
+
+		const results = [];
+		const seen = new Set();
+		for (const { r, c } of candidates) {
+			for (const { dr, dc } of DIRECTIONS) {
+				for (const sign of [1, -1]) {
+					const scanDr = dr * sign;
+					const scanDc = dc * sign;
+					let nr = r + scanDr;
+					let nc = c + scanDc;
+					let chainCount = 0;
+					let gap = 0;
+
+					// A blocking candidate may be separated from the chain by
+					// empty cells. Walk across that gap before counting the chain.
+					while (getCell(nr, nc) === '' && gap < rules.winCount) {
+						nr += scanDr;
+						nc += scanDc;
+						gap++;
+					}
+
+					while (getCell(nr, nc) === player) {
+						chainCount++;
+						nr += scanDr;
+						nc += scanDc;
+					}
+
+					if (chainCount < minimumChain) continue;
+
+					// The candidate-side end must be open. A distant defender or
+					// wall through empty cells closes it just like an adjacent one.
+					if (!this.isCandidateOpen(r, c, -scanDr, -scanDc, player)) continue;
+					const oppositeEndOpen = this.isCandidateOpen(nr, nc, scanDr, scanDc, player);
+
+					const key = `${r},${c}`;
+					if (seen.has(key)) continue;
+					seen.add(key);
+					results.push({
+						r,
+						c,
+						chainCount,
+						openEnds: oppositeEndOpen ? 2 : 1,
+						wouldDeadChain: !oppositeEndOpen,
+						priority: chainCount >= rules.winCount - 1 ? 9000 : 7000,
+						reason: 'open_end_block'
+					});
+				}
+			}
+		}
+		return results;
+	},
+
+	getBestBlockMoves(opponent, defender, winCount, minimumChain = winCount - 2) {
+		const rules = this.resolveRules(winCount);
+		const candidates = this.getCandidates();
+		if (candidates.length === 0) return [];
+
+		return this.findDefenseMoves(opponent, defender, candidates, rules)
+			.filter(move => move.chainCount >= minimumChain);
+	},
+
+	findBlockPositions(opponent, winCount, includeOpenEnds = true) {
+		const rules = this.resolveRules(winCount);
+		const candidates = this.getCandidates();
+		if (candidates.length === 0) return [];
+
+		const moves = this.findDefenseMoves(opponent, opponent === 'X' ? 'O' : 'X', candidates, rules);
+		return includeOpenEnds ? moves : moves.filter(move => move.reason === 'immediate_win_block');
+	}
 };
-
-// Export for use
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = BlockBothEndsAnalyzer;
-}

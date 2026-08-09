@@ -43,6 +43,14 @@ const BotSuper = {
         }
         const depth = options.depth || this.config.searchDepth;
 
+        if (typeof BlockBothEndsAnalyzer !== 'undefined') {
+            const immediate = BlockBothEndsAnalyzer.getPriorityTacticalMove(player, opponent, wc);
+            if (immediate) {
+                console.log('[BotSuper Ultimate] Shared immediate tactical move:', immediate);
+                return { r: immediate.r, c: immediate.c };
+            }
+        }
+
         console.log('[BotSuper Ultimate] getBotMove', { player, opponent, winCount: wc, depth });
 
         // ══════════════════════════════════════════════════════════════════
@@ -68,7 +76,7 @@ const BotSuper = {
         for (const { r, c } of allEmpty) {
             if (getCell(r, c) !== '') continue;
             setCell(r, c, player);
-            const win = checkWinSilent(r, c);
+            const win = checkWinSilent(r, c, (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : window.roomRules);
             setCell(r, c, '');
             if (win) {
                 console.log('[BotSuper Ultimate] Win now:', { r, c });
@@ -80,7 +88,7 @@ const BotSuper = {
         for (const { r, c } of allEmpty) {
             if (getCell(r, c) !== '') continue;
             setCell(r, c, opponent);
-            const win = checkWinSilent(r, c);
+            const win = checkWinSilent(r, c, (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : window.roomRules);
             setCell(r, c, '');
             if (win) {
                 console.log('[BotSuper Ultimate] Block win:', { r, c });

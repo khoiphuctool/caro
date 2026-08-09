@@ -43,6 +43,14 @@ const BotTiaChop = {
             winCount = typeof window.winCount !== 'undefined' ? window.winCount : undefined;
         }
 
+        if (typeof BlockBothEndsAnalyzer !== 'undefined') {
+            const immediate = BlockBothEndsAnalyzer.getPriorityTacticalMove(playerStr, opponentStr, winCount);
+            if (immediate) {
+                console.log('[BotTiaChop] Shared immediate tactical move:', immediate);
+                return { r: immediate.r, c: immediate.c };
+            }
+        }
+
         // Chuyển 'X'/'O' → số nguyên như gốc mevivu
         // Bot = machSq = -1, người = userSq = 1 (gốc dùng userSq cho người)
         // Nhưng ở đây ta tính: botPlayer → machSq, humanPlayer → userSq

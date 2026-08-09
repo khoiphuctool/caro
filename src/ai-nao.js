@@ -38,19 +38,11 @@ const TL = {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
-// Helper: Kiểm tra xem hướng có bị chặn bởi đối thủ không (bỏ qua ô trống)
-// Đồng bộ với logic-game.js isBlocked
+// Helper: Kiểm tra xem hướng có bị chặn bởi đối thủ không
+// LUẬT CHẶN 2 ĐẦU: bỏ qua ô trống, nếu cuối cùng gặp quân địch hoặc biên → bị chặn.
+// Ví dụ: O _ _ XXXXX _ _ O → cả 2 đầu bị chặn (dù có ô trống giữa).
 function isBlockedAI(startR, startC, dr, dc, player) {
-    // LUẬT CHẶN 2 ĐẦU ĐÚNG: chỉ chặn khi ô ngay sát là quân đối thủ hoặc biên bàn cờ.
-    // Ô trống giữa chuỗi và quân đối thủ = đầu VẪN MỞ (có thể kéo dài qua ô trống đó).
-    // Không bỏ qua ô trống khi xét blockBothEnds — nếu ngay cạnh là trống thì đầu đó mở.
-    const opp = player === 'X' ? 'O' : 'X';
-    const cell = getCell(startR, startC);
-    if (cell === opp) return true;   // quân đối thủ ngay sát → bị chặn
-    if (cell === 'W') return true;   // biên bàn cờ → bị chặn
-    if (cell === '') return false;   // ô trống ngay cạnh → đầu mở
-    if (cell === player) return false; // quân mình → không chặn
-    return false;
+    return PatternDetector.isBlocked(startR, startC, dr, dc, player);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -151,13 +143,19 @@ function evalLineFull(r, c, dr, dc, p) {
         // Nếu có quân địch trong slice → không thể hoàn thành → bỏ qua
         if (oppCount > 0) continue;
 
-        // Kiểm tra 2 đầu ngoài slice
-        const outerHead = window[start - 1];
-        const outerTail = window[start + winCount];
-        const headBlocked = outerHead ? outerHead.v === opp : true; // biên = bị chặn
-        const tailBlocked = outerTail ? outerTail.v === opp : true;
-        const headOpen    = outerHead ? outerHead.v === '' : false;
-        const tailOpen    = outerTail ? outerTail.v === '' : false;
+        // Kiểm tra 2 đầu ngoài slice — dùng isBlockedAI để bỏ qua ô trống
+        const outerHeadEntry = window[start - 1];
+        const outerTailEntry = window[start + winCount];
+        // outerHead là ô nằm trước đầu slice (phía -dr), cần check theo hướng -dr tiếp
+        // outerTail là ô nằm sau đuôi slice (phía +dr), cần check theo hướng +dr tiếp
+        const headBlocked = outerHeadEntry
+            ? isBlockedAI(outerHeadEntry.r, outerHeadEntry.c, -dr, -dc, p)
+            : true;
+        const tailBlocked = outerTailEntry
+            ? isBlockedAI(outerTailEntry.r, outerTailEntry.c, dr, dc, p)
+            : true;
+        const headOpen    = outerHeadEntry ? outerHeadEntry.v === '' : false;
+        const tailOpen    = outerTailEntry ? outerTailEntry.v === '' : false;
 
         const bothBlocked = headBlocked && tailBlocked;
         if (bothBlocked) continue; // chuỗi chết hoàn toàn
@@ -974,6 +972,7 @@ function mctsSearch(iterations = 1000, timeLimit = 2000) {
 function simulateRandomPlayout() {
     let player = botPiece === 'X' ? 'O' : 'X';
     let moves = 0;
+    const roomRules = (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : window.roomRules;
     const simMoves = []; // lưu lại để undo sau simulation
     while (moves < 50) {
         const candidates = getSearchCandidates();
@@ -981,7 +980,7 @@ function simulateRandomPlayout() {
         const move = selectRandomMoveWithBias(candidates, player);
         setCell(move.r, move.c, player);
         simMoves.push({ r: move.r, c: move.c });
-        if (checkWinSilent(move.r, move.c)) {
+        if (checkWinSilent(move.r, move.c, roomRules)) {
             // Undo tất cả simulation moves
             for (const m of simMoves) setCell(m.r, m.c, '');
             return player;
@@ -1376,9 +1375,10 @@ function evaluateBoardPatterns(player, opponent, dirs) {
 
 function checkBoardWinner() {
     const candidates = getSearchCandidates();
+    const rr = (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : window.roomRules;
     for (const { r, c } of candidates) {
         const cell = getCell(r,c);
-        if (cell !== '' && checkWinSilent(r,c)) return cell;
+        if (cell !== '' && checkWinSilent(r, c, rr)) return cell;
     }
     return null;
 }
@@ -1483,22 +1483,25 @@ function findLiveThreats(p, targetCount) {
 
             // Đầu sau (head): ô tiếp theo sau chuỗi
             const headR = pr + dr * len, headC = pc + dc * len;
-            const headCell = getCell(headR, headC);
             // Đầu trước (tail): ô trước chuỗi
             const tailR = pr - dr, tailC = pc - dc;
-            const tailCell = getCell(tailR, tailC);
 
-            const headOpen    = headCell === '';
-            const tailOpen    = tailCell === '';
-            const headBlocked = (headCell !== '' && headCell !== p); // quân hoặc biên
-            const tailBlocked = (tailCell !== '' && tailCell !== p);
+            // Dùng isBlockedAI để bỏ qua ô trống và tìm quân địch/biên phía sau
+            const headBlocked = isBlockedAI(headR, headC, dr, dc, p);
+            const tailBlocked = isBlockedAI(tailR, tailC, -dr, -dc, p);
 
-            // Nếu cả 2 đầu bị chặn và luật đang bật → chết, bỏ qua
+            // Nếu cả 2 đầu bị chặn (kể cả cách xa) → chuỗi chết, bỏ qua
             if (blockBothEnds && headBlocked && tailBlocked) continue;
 
-            // Thêm các đầu thoáng vào danh sách cần chặn
-            if (headOpen) threats.add(`${headR},${headC}`);
-            if (tailOpen) threats.add(`${tailR},${tailC}`);
+            // Chỉ thêm đầu thực sự mở (ô ngay sát là trống)
+            const headCell = getCell(headR, headC);
+            const tailCell = getCell(tailR, tailC);
+            const headOpen = headCell === '';
+            const tailOpen = tailCell === '';
+
+            // Thêm đầu mở vào threats — chỉ những đầu chưa bị chặn
+            if (headOpen && !headBlocked) threats.add(`${headR},${headC}`);
+            if (tailOpen && !tailBlocked) threats.add(`${tailR},${tailC}`);
         }
     }
 
@@ -1931,7 +1934,10 @@ function makeAIMove() {
         const scoredCandidates = [];
         for (const {r, c} of cands2) {
             const key = `${r},${c}`;
-            const score = quickScore(r, c, botPiece);
+            const fallbackScore = quickScore(r, c, botPiece);
+            const score = typeof BlockBothEndsAnalyzer !== 'undefined'
+                ? BlockBothEndsAnalyzer.getDisplayScore(r, c, botPiece, humanPiece, winCount, fallbackScore)
+                : fallbackScore;
             window.cellScores[key] = score;
             if (score > 0) {
                 scoredCandidates.push({ key, r, c, score });
@@ -2056,13 +2062,14 @@ function quiescenceSearch(alpha, beta, player, startTime, maxTime, qdepth = 0) {
 function tacticalVerify(bestMove, pvScore, bp, hp, validCands) {
     const wc = winCount;
     const bbe = getBlockBothEnds();
+    const roomRules = (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : window.roomRules;
     // Dùng tất cả ô tactical — không bị giới hạn 50
     const allCells = getAllTacticalCells();
 
     // 1. Kiểm tra bestMove có tạo forced win không
     if (bestMove) {
         setCell(bestMove.r, bestMove.c, bp);
-        const win = checkWinSilent(bestMove.r, bestMove.c);
+        const win = checkWinSilent(bestMove.r, bestMove.c, roomRules);
         setCell(bestMove.r, bestMove.c, '');
         if (win) return { move: bestMove, reason: 'verified_win' };
     }
@@ -2070,7 +2077,7 @@ function tacticalVerify(bestMove, pvScore, bp, hp, validCands) {
     // 2. Kiểm tra có nước thắng ngay nào bị PVS bỏ sót không
     for (const {r, c} of allCells) {
         setCell(r, c, bp);
-        const win = checkWinSilent(r, c);
+        const win = checkWinSilent(r, c, roomRules);
         setCell(r, c, '');
         if (win) return { move: {r,c}, reason: 'forced_win_found' };
     }
@@ -2078,7 +2085,7 @@ function tacticalVerify(bestMove, pvScore, bp, hp, validCands) {
     // 3. Kiểm tra địch có forced win không bị chặn
     for (const {r, c} of allCells) {
         setCell(r, c, hp);
-        const win = checkWinSilent(r, c);
+        const win = checkWinSilent(r, c, roomRules);
         setCell(r, c, '');
         if (win) {
             if (bestMove && bestMove.r === r && bestMove.c === c)
@@ -2095,29 +2102,25 @@ function tacticalVerify(bestMove, pvScore, bp, hp, validCands) {
             if (r === bestMove.r && c === bestMove.c) continue;
             if (getCell(r,c) !== '') continue;
             setCell(r, c, hp);
-            const win = checkWinSilent(r, c);
+            const win = checkWinSilent(r, c, roomRules);
             setCell(r, c, '');
             if (win) { opponentWinsAfter = {r,c}; break; }
         }
         setCell(bestMove.r, bestMove.c, '');
         if (opponentWinsAfter) {
-            // Kiểm tra: nếu chặn opponentWinsAfter thì địch còn đầu thắng khác không?
-            // Nếu có (FOUR_OPEN) → không override, giữ nguyên PVS
             setCell(opponentWinsAfter.r, opponentWinsAfter.c, bp);
             let enemyStillWins = false;
             for (const {r, c} of allCells) {
                 if (getCell(r,c) !== '') continue;
                 setCell(r, c, hp);
-                const win = checkWinSilent(r, c);
+                const win = checkWinSilent(r, c, roomRules);
                 setCell(r, c, '');
                 if (win) { enemyStillWins = true; break; }
             }
             setCell(opponentWinsAfter.r, opponentWinsAfter.c, '');
             if (!enemyStillWins) {
-                // Chặn hiệu quả — override về chặn
                 return { move: opponentWinsAfter, reason: 'counter_attack_block' };
             }
-            // FOUR_OPEN: chặn 1 đầu địch vẫn thắng đầu kia → giữ PVS
         }
     }
 
@@ -2133,6 +2136,7 @@ function tacticalVerify(bestMove, pvScore, bp, hp, validCands) {
 function countWinningCompletionEnds(r, c, player) {
     let winEnds = 0;
     const seen = new Set();
+    const rr = (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : window.roomRules;
     setCell(r, c, player);
     for (const { dr, dc } of DIRECTIONS) {
         const { count } = countLineAndBlocked(r, c, dr, dc, player);
@@ -2146,7 +2150,7 @@ function countWinningCompletionEnds(r, c, player) {
             seen.add(key);
             if (getCell(er, ec) !== '') continue;
             setCell(er, ec, player);
-            if (checkWinSilent(er, ec)) winEnds++;
+            if (checkWinSilent(er, ec, rr)) winEnds++;
             setCell(er, ec, '');
         }
     }
@@ -2159,6 +2163,7 @@ function godEngineMove(bp, hp, validCands, isGod) {
     const bbe = getBlockBothEnds();
     const moveCount = moveHistory.length;
     const startTime = Date.now();
+    const roomRules = (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : window.roomRules;
 
     // ── LAYER 0: Nước đầu — random ──
     if (moveCount <= 2) {
@@ -2174,7 +2179,7 @@ function godEngineMove(bp, hp, validCands, isGod) {
     for (const {r,c} of allEmpty) {
         if (getCell(r,c)!=='') continue;
         if (ThreatDetector.isWinningMove(r,c,bp,wc)) {
-            setCell(r,c,bp); const w=checkWinSilent(r,c); setCell(r,c,'');
+            setCell(r,c,bp); const w=checkWinSilent(r,c,roomRules); setCell(r,c,'');
             if (w) return { move:{r,c}, reason:'win_now' };
         }
     }
@@ -2183,7 +2188,7 @@ function godEngineMove(bp, hp, validCands, isGod) {
     for (const {r,c} of allEmpty) {
         if (getCell(r,c)!=='') continue;
         if (ThreatDetector.blocksWinningThreat(r,c,hp,wc)) {
-            setCell(r,c,hp); const w=checkWinSilent(r,c); setCell(r,c,'');
+            setCell(r,c,hp); const w=checkWinSilent(r,c,roomRules); setCell(r,c,'');
             if (w) return { move:{r,c}, reason:'block_win' };
         }
     }
@@ -2457,31 +2462,18 @@ function getBotMove(options = {}) {
 
     // ══ P1. BOT THẮNG NGAY ══
     for (const { r, c } of tacticalCells) {
+        if (getCell(r, c) !== '') continue;
         setCell(r, c, bp);
         const win = checkWinSilent(r, c, roomRules);
         setCell(r, c, '');
         if (win) { updateBotThinking('TÌM THẤY NƯỚC THẮNG! 🎯'); return { r, c }; }
     }
 
-    // ══ P2. ĐỊCH THẮNG NGAY — chặn ngay, tuyệt đối ══
-    for (const { r, c } of tacticalCells) {
-        setCell(r, c, hp); const win = checkWinSilent(r, c, roomRules); setCell(r, c, '');
-        if (win) { updateBotThinking('Chặn kịp! 😤'); return { r, c }; }
-    }
-
-    // ══ P3. CHẶN FOUR ĐÚNG ĐẦU MỞ (BlockBothEndsAnalyzer) ══
-    // Chạy SAU khi đã loại trừ win ngay / block win ngay.
-    // Tìm chuỗi FOUR của địch và trả về đúng đầu cần chặn (đầu viable, thoáng nhất).
-    // Không được chạy trước P1/P2 vì nếu bot đang thắng ngay thì không cần chặn gì.
-    if (!isEasy && typeof BlockBothEndsAnalyzer !== 'undefined') {
-        const urgentBlocks = BlockBothEndsAnalyzer.findBlockPositions(hp, winCount, true);
-        if (urgentBlocks.length > 0) {
-            const top = urgentBlocks[0];
-            if (top.priority >= 9000) {
-                console.log('[ai-nao][P3] BlockBothEndsAnalyzer forced FOUR block:', top);
-                updateBotThinking('Chặn FOUR đúng đầu mở! 🛡️');
-                return { r: top.r, c: top.c };
-            }
+    if (typeof BlockBothEndsAnalyzer !== 'undefined') {
+        const rankedBlock = BlockBothEndsAnalyzer.getPriorityTacticalMove(bp, hp, winCount);
+        if (rankedBlock && (rankedBlock.reason === 'immediate_win_block' || rankedBlock.reason === 'open_end_block')) {
+            updateBotThinking('Chặn kịp! 😤');
+            return { r: rankedBlock.r, c: rankedBlock.c };
         }
     }
 

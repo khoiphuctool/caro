@@ -664,19 +664,6 @@ function makeMove(r, c) {
 }
 
 // ===== CHECK WIN =====
-// Helper: Kiểm tra xem hướng có bị chặn bởi đối thủ không
-// LUẬT CHẶN 2 ĐẦU ĐÚNG: chỉ chặn khi ô ngay sát là quân đối thủ hoặc biên bàn cờ.
-// Ô trống ngay cạnh = đầu vẫn mở (không bỏ qua ô trống nữa).
-function isBlocked(startR, startC, dr, dc, player) {
-    const opp = player === 'X' ? 'O' : 'X';
-    const cell = getCell(startR, startC);
-    if (cell === opp) return true;   // quân đối thủ ngay sát → bị chặn
-    if (cell === 'W') return true;   // biên bàn cờ → bị chặn
-    if (cell === '') return false;   // ô trống → đầu mở
-    if (cell === player) return false;
-    return false;
-}
-
 function getWinningLine(row, col, player, winCount, blockBothEndsEnabled) {
     const opp = player === 'X' ? 'O' : 'X';
     for (let { dr, dc } of DIRECTIONS) {
@@ -715,8 +702,8 @@ function getWinningLine(row, col, player, winCount, blockBothEndsEnabled) {
         const headCell = getCell(headR, headC);
         const tailCell = getCell(tailR, tailC);
         
-        const headBlocked = isBlocked(headR, headC, dr, dc, player);
-        const tailBlocked = isBlocked(tailR, tailC, -dr, -dc, player);
+        const headBlocked = PatternDetector.isBlocked(headR, headC, dr, dc, player);
+        const tailBlocked = PatternDetector.isBlocked(tailR, tailC, -dr, -dc, player);
 
         // DEBUG: Log để kiểm tra case O__XXXXX_O
         if (line.length >= winCount && blockBothEndsEnabled) {

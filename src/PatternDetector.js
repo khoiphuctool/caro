@@ -15,17 +15,24 @@ const PatternDetector = {
         TWO_BLOCKED: 7,
     },
 
-    // ===== HELPER: Check if direction is blocked by opponent (skip empty cells) =====
-    // Đồng bộ với logic-game.js isBlocked
+    // ===== HELPER: Check if direction is blocked by opponent =====
+    // LUẬT CHẶN 2 ĐẦU: bỏ qua ô trống, nếu cuối cùng gặp quân địch hoặc biên → bị chặn.
+    // Ví dụ: O _ _ XXXXX _ _ O → cả 2 đầu bị chặn (dù có ô trống giữa).
     isBlocked(startR, startC, dr, dc, player) {
-        // LUẬT CHẶN 2 ĐẦU ĐÚNG: chỉ chặn khi ô ngay sát là quân đối thủ hoặc biên.
-        // Ô trống ngay cạnh = đầu vẫn mở.
         const opp = player === 'X' ? 'O' : 'X';
-        const cell = this.getCell(startR, startC);
-        if (cell === opp) return true;
-        if (cell === 'W') return true;
-        if (cell === '') return false;
-        if (cell === player) return false;
+        const activeWinCount = (typeof GameState !== 'undefined' && GameState.roomRules && typeof GameState.roomRules.winCount === 'number')
+            ? GameState.roomRules.winCount
+            : (typeof winCount === 'number' ? winCount : 5);
+        const maxEmpty = activeWinCount; // giới hạn scan theo luật phòng
+        let r = startR, c = startC, empty = 0;
+        while (empty <= maxEmpty) {
+            const cell = this.getCell(r, c);
+            if (cell === 'W') return true;
+            if (cell === opp) return true;
+            if (cell === player) return false;
+            if (cell === '') { empty++; r += dr; c += dc; continue; }
+            return false;
+        }
         return false;
     },
 

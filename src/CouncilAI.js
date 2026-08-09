@@ -277,6 +277,7 @@ const CouncilAI = {
     // ===== HELPER: Verify move =====
     verifyMove(move, player, opponent, winCount, depth) {
         const { r, c } = move;
+        const roomRules = (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : window.roomRules;
         
         // Simulate move
         setCell(r, c, player);
@@ -291,7 +292,7 @@ const CouncilAI = {
             // Check if enemy can force win
             for (const enemyMove of enemyCands) {
                 setCell(enemyMove.r, enemyMove.c, opponent);
-                const enemyWin = checkWinSilent(enemyMove.r, enemyMove.c);
+                const enemyWin = checkWinSilent(enemyMove.r, enemyMove.c, roomRules);
                 setCell(enemyMove.r, enemyMove.c, '');
                 
                 if (enemyWin) {
@@ -306,7 +307,7 @@ const CouncilAI = {
                 setCell(r, c, player);
                 for (const ourMove of enemyCands) {
                     setCell(ourMove.r, ourMove.c, player);
-                    const ourWin = checkWinSilent(ourMove.r, ourMove.c);
+                    const ourWin = checkWinSilent(ourMove.r, ourMove.c, roomRules);
                     setCell(ourMove.r, ourMove.c, '');
                     
                     if (ourWin) {
@@ -343,6 +344,7 @@ const CouncilAI = {
 const CouncilRiskAnalyzer = {
     analyze(move, player, opponent, winCount) {
         const { r, c } = move;
+        const roomRules = (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : window.roomRules;
         let penalty = 0;
         const risks = [];
 
@@ -352,7 +354,7 @@ const CouncilRiskAnalyzer = {
             const enemyCands = getAllTacticalCells().filter(({ r, c }) => getCell(r, c) === '');
             for (const enemyMove of enemyCands) {
                 setCell(enemyMove.r, enemyMove.c, opponent);
-                const enemyWin = checkWinSilent(enemyMove.r, enemyMove.c);
+                const enemyWin = checkWinSilent(enemyMove.r, enemyMove.c, roomRules);
                 setCell(enemyMove.r, enemyMove.c, '');
                 
                 if (enemyWin) {
@@ -366,7 +368,7 @@ const CouncilRiskAnalyzer = {
 
         // Immediate Win Check (bonus, not penalty)
         setCell(r, c, player);
-        const ourWin = checkWinSilent(r, c);
+        const ourWin = checkWinSilent(r, c, (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : window.roomRules);
         setCell(r, c, '');
         if (ourWin) {
             penalty -= 50000; // Bonus

@@ -330,6 +330,10 @@ const PositionEditor = {
             return;
         }
 
+        const scoreCheckbox = document.getElementById('show-cell-scores-bot');
+        const keepCellScores = !!(scoreCheckbox && scoreCheckbox.checked) || window._cellScoresEnabled === true;
+        window._cellScoresEnabled = keepCellScores;
+
         // Snapshot thế cờ trước initGame
         this.savedMap = this._cloneMap(map);
         console.log('[PositionEditor] savedMap size:', this.savedMap.size);
@@ -351,18 +355,44 @@ const PositionEditor = {
         // Sau initGame, kiểm tra nếu map bị xóa thì inject lại
         setTimeout(() => {
             const currentMap = this._map();
-            if (!currentMap) return;
+            if (!currentMap || !this.savedMap) return;
 
-            if (currentMap.size === 0 && this.savedMap && this.savedMap.size > 0) {
-                console.warn('[PositionEditor] Map was reset by initGame — injecting savedMap');
-                for (const [k, v] of this.savedMap) currentMap.set(k, v);
-                // Sync GameState
-                if (typeof GameState !== 'undefined' && GameState.board) {
-                    GameState.board.infiniteMap = currentMap;
-                }
+            // Commit the editor position unconditionally. initGame can replace
+            // or clear one board reference, so restore both references in-place.
+            currentMap.clear();
+            for (const [k, v] of this.savedMap) currentMap.set(k, v);
+            if (typeof GameState !== 'undefined' && GameState.board) {
+                GameState.board.infiniteMap = currentMap;
+                GameState.board.isInfinite = true;
+            }
+            if (typeof infiniteMap !== 'undefined' && infiniteMap !== currentMap) {
+                infiniteMap.clear();
+                for (const [k, v] of this.savedMap) infiniteMap.set(k, v);
             }
 
+            // The editor position is a new game state, not a continuation of
+            // stale moves from before editing. Let the bot continue next.
+            if (typeof moveHistory !== 'undefined') {
+                moveHistory = Array.from(this.savedMap, ([key, player]) => {
+                    const [r, c] = key.split(',').map(Number);
+                    return { r, c, player };
+                });
+            }
+            if (typeof moveCount !== 'undefined') moveCount = this.savedMap.size;
+            if (typeof currentPlayer !== 'undefined' && typeof botPiece !== 'undefined') {
+                currentPlayer = botPiece;
+            }
+            if (typeof isBotMove !== 'undefined') isBotMove = false;
+
+            const restoredScoreCheckbox = document.getElementById('show-cell-scores-bot');
+            if (restoredScoreCheckbox) restoredScoreCheckbox.checked = keepCellScores;
+
             if (typeof renderInfiniteBoard === 'function') renderInfiniteBoard();
+
+            if (keepCellScores && typeof BotRoomManager !== 'undefined' &&
+                typeof BotRoomManager.onCellScoresCheckboxChange === 'function') {
+                BotRoomManager.onCellScoresCheckboxChange();
+            }
 
             // Nếu lượt đầu là bot thì kích hoạt
             if (typeof makeAIMove === 'function' &&

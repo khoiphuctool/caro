@@ -88,6 +88,11 @@ const AIController = {
             return { r: 0, c: 0 };
         }
 
+        if (typeof BlockBothEndsAnalyzer !== 'undefined') {
+            const immediate = BlockBothEndsAnalyzer.getPriorityTacticalMove(player, opponent, winCount);
+            if (immediate) return { r: immediate.r, c: immediate.c };
+        }
+
         // ══════════════════════════════════════════════════════
         // 0. BOT THẮNG NGAY — tuyệt đối ưu tiên
         // Xác minh bằng checkWinSilent (chuẩn luật thật, gồm cả luật chặn 2 đầu)
@@ -227,7 +232,11 @@ const AIController = {
     isRealWin(r, c, player, winCount) {
         if (typeof setCell === 'function' && typeof checkWinSilent === 'function') {
             setCell(r, c, player);
-            const w = checkWinSilent(r, c);
+            // Truyền roomRules để áp dụng đúng luật chặn 2 đầu
+            const rr = (typeof GameState !== 'undefined' && GameState.roomRules)
+                ? GameState.roomRules
+                : (typeof window !== 'undefined' ? window.roomRules : undefined);
+            const w = checkWinSilent(r, c, rr);
             setCell(r, c, '');
             return !!w;
         }
