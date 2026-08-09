@@ -637,6 +637,17 @@ function fetchUserData(userId) {
     userDataListener = db.ref('users/' + userId).on('value', snap => {
         const data = snap.val();
         if (!data) return;
+        
+        // Initialize ownedBotPets and equippedBotPet if not exist
+        if (!data.ownedBotPets) {
+            db.ref('users/' + userId + '/ownedBotPets').set([]);
+            data.ownedBotPets = [];
+        }
+        if (data.equippedBotPet === undefined) {
+            db.ref('users/' + userId + '/equippedBotPet').set(null);
+            data.equippedBotPet = null;
+        }
+        
         currentUserData = data;
         localStorage.setItem('current_user_id', userId);
         const rank = getRankName(data.winBot, data.winSolo);

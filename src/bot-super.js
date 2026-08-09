@@ -26,14 +26,28 @@ const BotSuperV2 = {
         // ══════════════════════════════════════════════════════════════════
         // NEW ARCHITECTURE: Intent Router → Context Builder → ...
         // ══════════════════════════════════════════════════════════════════
-        if (this.config.useNewArchitecture) {
-            return this.getBotMoveNewArchitecture(options);
+        const result = this.config.useNewArchitecture
+            ? this.getBotMoveNewArchitecture(options)
+            : this.getBotMoveOldArchitecture(options);
+
+        return this.normalizeMove(result, options);
+    },
+
+    normalizeMove(result, options = {}) {
+        const candidate = result && result.move ? result.move : result;
+        if (!candidate || !Number.isInteger(candidate.r) || !Number.isInteger(candidate.c)) {
+            return null;
         }
 
-        // ══════════════════════════════════════════════════════════════════
-        // FALLBACK: Old architecture (original BotSuper)
-        // ══════════════════════════════════════════════════════════════════
-        return this.getBotMoveOldArchitecture(options);
+        const player = options.player || botPiece || 'O';
+        const reason = result && result.reason ? result.reason : 'search';
+        return {
+            row: candidate.r,
+            col: candidate.c,
+            score: Number.isFinite(result && result.score) ? result.score : 0,
+            reason,
+            source: 'BotSuperV2'
+        };
     },
 
     // ===== NEW ARCHITECTURE =====
@@ -50,7 +64,7 @@ const BotSuperV2 = {
             const immediate = BlockBothEndsAnalyzer.getPriorityTacticalMove(player, opponent, winCount);
             if (immediate) {
                 console.log('[BotSuperV2] Shared immediate tactical move:', immediate);
-                return { move: { r: immediate.r, c: immediate.c }, reason: immediate.reason };
+                return { r: immediate.r, c: immediate.c, reason: immediate.reason };
             }
         }
 
@@ -121,9 +135,7 @@ const BotSuperV2 = {
         const validCands = allEmpty.filter(({ r, c }) => getCell(r, c) === '');
 
         if (validCands.length === 0) {
-            // Fallback: random move
-            const randomMove = validCands[Math.floor(Math.random() * validCands.length)];
-            return { move: randomMove, reason: 'Random fallback' };
+            return null;
         }
 
         // Use Ultimate engine (PVS Search or Quick Scoring)

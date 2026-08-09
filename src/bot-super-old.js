@@ -17,7 +17,7 @@
 //   - Minimax fallback
 // ══════════════════════════════════════════════════════════════════
 
-const BotSuper = {
+const BotSuperV1 = {
     // ===== CONFIGURATION =====
     config: {
         winningMove: 9999999,
@@ -290,4 +290,4 @@ const BotSuper = {
     }
 };
 
-window.BotSuper = BotSuper;
+window.BotSuperV1 = BotSuperV1;

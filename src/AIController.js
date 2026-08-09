@@ -16,7 +16,12 @@ const AIController = {
     getBotMove(options = {}) {
         const player = options.player ?? (typeof botPiece !== 'undefined' ? botPiece : 'O');
         const opponent = options.opponent ?? (typeof humanPiece !== 'undefined' ? humanPiece : 'X');
-        const gameMode = options.gameMode ?? document.getElementById('game-mode')?.value ?? 'ai-god';
+        const rawGameMode = options.gameMode ?? (typeof gameMode !== 'undefined' ? gameMode : document.getElementById('game-mode')?.value) ?? 'ai-god';
+        const equippedBotPetProfile = (typeof getEquippedBotPetProfile === 'function') ? getEquippedBotPetProfile() : null;
+        const botPetActive = (typeof isBotPetActive === 'function') ? isBotPetActive() : false;
+        const useBotPetRuntime = botPetActive && equippedBotPetProfile && typeof isValidBotPetRuntimeMode === 'function' && isValidBotPetRuntimeMode(rawGameMode);
+        const gameMode = useBotPetRuntime ? equippedBotPetProfile.gameMode : rawGameMode;
+        console.log('[AIController] getBotMove options:', options, 'rawGameMode:', rawGameMode, 'botPetActive:', botPetActive, 'useBotPetRuntime:', useBotPetRuntime, 'equippedBotPetProfile:', equippedBotPetProfile, 'resolvedGameMode:', gameMode);
         // Resolve room rules: prefer explicit options.roomRules, then GameState.roomRules, then window.roomRules
         const resolvedRules = options.roomRules ?? (typeof GameState !== 'undefined' ? GameState.roomRules : undefined) ?? (typeof window !== 'undefined' ? window.roomRules : undefined);
         let winCount, blockBothEnds;
@@ -49,7 +54,7 @@ const AIController = {
 
         // Fallback: sử dụng logic cũ từ ai-nao.js
         if (typeof getBotMove === 'function') {
-            return getBotMove();
+            return getBotMove({ gameMode });
         }
 
         return null;

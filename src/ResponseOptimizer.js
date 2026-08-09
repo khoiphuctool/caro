@@ -20,7 +20,7 @@ const ResponseOptimizer = {
         }
         
         // 2. Format output
-        const formatted = this.formatMove(move);
+        const formatted = this.formatMove(move, reason);
         
         // 3. Update cache
         this.updateCache(context, move);
@@ -52,10 +52,13 @@ const ResponseOptimizer = {
 
     // ===== FORMAT MOVE =====
     // Format move thành {r, c}
-    formatMove(move) {
+    formatMove(move, reason) {
         return {
             r: move.r,
-            c: move.c
+            c: move.c,
+            score: Number.isFinite(move.score) ? move.score : 0,
+            reason: reason || 'search',
+            source: 'BotSuperV2'
         };
     },
 

@@ -178,6 +178,19 @@ function initGame() {
     if (window.positionEditorMode) {
         isSolo = false;
     }
+
+    if (typeof initMatchBotPetState === 'function') {
+        initMatchBotPetState();
+    }
+    const equippedBotPetProfile = (typeof getEquippedBotPetProfile === 'function') ? getEquippedBotPetProfile() : null;
+    const botPetActive = (typeof isBotPetActive === 'function') ? isBotPetActive() : false;
+    console.log('[initGame] Bot pet runtime check:', { isSolo, gameMode, equippedBotPetProfile, botPetActive });
+    if (!isSolo && botPetActive && equippedBotPetProfile && typeof isValidBotPetRuntimeMode === 'function' && isValidBotPetRuntimeMode(gameMode)) {
+        console.log('[initGame] Equipped Bot Pet runtime profile applied:', equippedBotPetProfile.gameMode);
+        gameMode = equippedBotPetProfile.gameMode;
+        if (modeSelect) modeSelect.value = gameMode;
+    }
+
     if (!gameMode && window.isBotRoomMode && window.currentBotConfig) {
         if (window.currentBotConfig.gameMode !== 'bot-vs-bot') {
             gameMode = window.currentBotConfig.gameMode || 'ai-easy';
@@ -186,6 +199,7 @@ function initGame() {
         }
         console.warn('[initGame] fallback gameMode from bot room config:', gameMode);
     }
+    console.log('[initGame] final selected gameMode:', gameMode);
     const groupPiece = document.getElementById('group-piece');
     const groupFirst = document.getElementById('group-first');
     if (groupPiece) groupPiece.style.display = isSolo ? 'none' : 'flex';

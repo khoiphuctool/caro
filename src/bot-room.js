@@ -719,6 +719,10 @@ const BotRoomManager = {
         window.isBotRoomMode    = true;
         window.currentBotConfig = this.currentBotRoom;
 
+        if (typeof initMatchBotPetState === 'function') {
+            initMatchBotPetState();
+        }
+
         // Sync bot room rules into GameState.roomRules so AI uses the correct rules
         try {
             const parsedWc = parseInt(wc, 10);
@@ -740,6 +744,22 @@ const BotRoomManager = {
                 console.log('[BotRoom] bot-vs-bot initial gameMode set to', modeEl.value);
             } else {
                 modeEl.value = this.currentBotRoom.gameMode;
+                console.log('[BotRoom] startBotBattle initial room gameMode:', this.currentBotRoom.gameMode);
+                if (typeof getEquippedBotPetProfile === 'function' && typeof isBotPetActive === 'function') {
+                    const botPetProfile = getEquippedBotPetProfile();
+                    const botPetActive = isBotPetActive();
+                    console.log('[BotRoom] Equipped Bot Pet runtime check:', { botPetProfile, botPetActive });
+                    if (botPetActive && botPetProfile && typeof isValidBotPetRuntimeMode === 'function' && isValidBotPetRuntimeMode(this.currentBotRoom.gameMode)) {
+                        modeEl.value = botPetProfile.gameMode;
+                        console.log('[BotRoom] Overriding room gameMode with equipped Bot Pet:', modeEl.value);
+                    } else if (botPetProfile) {
+                        console.warn('[BotRoom] Equipped Bot Pet profile exists but room gameMode is not valid runtime mode for override or pet inactive:', this.currentBotRoom.gameMode);
+                    }
+                }
+                console.log('[BotRoom] startBotBattle final gameMode set to', modeEl.value);
+                if (typeof window.logBotPetRuntimeAudit === 'function') {
+                    window.logBotPetRuntimeAudit();
+                }
             }
         }
 
@@ -2411,6 +2431,8 @@ class AutoBotGameHeadless {
 
     run() {
         // Chạy synchronous until game over
+        let invalidMoveCount = 0;
+        const maxInvalidRetries = 3;
         while (this.moveCount < this.maxMoves) {
             const botMode = this.currentPlayer === 'X' ? this.botXMode : this.botOMode;
             const move = this.getBotMove(botMode, this.currentPlayer);
@@ -2421,9 +2443,13 @@ class AutoBotGameHeadless {
 
             const key = `${move.r},${move.c}`;
             if (this.board.has(key)) {
-                // Ô đã có quân, bỏ qua
+                invalidMoveCount++;
+                console.warn('[AutoBotGameHeadless] Invalid occupied move', { move, invalidMoveCount });
+                if (invalidMoveCount >= maxInvalidRetries) return 'error';
                 continue;
             }
+
+            invalidMoveCount = 0;
 
             this.board.set(key, this.currentPlayer);
             this.moveCount++;
@@ -2440,6 +2466,43 @@ class AutoBotGameHeadless {
 
     getBotMove(botMode, player) {
         console.log('[AutoBotGameHeadless] getBotMove called:', { botMode, player, boardSize: this.board.size });
+
+        // Bot Super runtime path: use the same V2-primary adapter as the UI.
+        // The local tactical/minimax path below is only for other bot modes or
+        // when the adapter cannot provide a valid move.
+        if ((botMode === 'bot-super' || botMode === 'bot-toi-thuong') &&
+            typeof BotSuperAdapter !== 'undefined' && typeof BotSuperAdapter.getBotMove === 'function') {
+            const opponent = player === 'X' ? 'O' : 'X';
+            const originalMap = typeof GameState !== 'undefined' && GameState.board
+                ? GameState.board.infiniteMap
+                : null;
+            const originalRules = typeof GameState !== 'undefined' ? GameState.roomRules : undefined;
+            const originalGlobalMap = typeof infiniteMap !== 'undefined' ? infiniteMap : null;
+            try {
+                if (typeof GameState !== 'undefined' && GameState.board) {
+                    GameState.board.infiniteMap = this.board;
+                    GameState.roomRules = { winCount: this.winCount, chan2Dau: this.blockBoth };
+                }
+                if (typeof infiniteMap !== 'undefined') infiniteMap = this.board;
+                console.log('[AutoBotGameHeadless] Using BotSuperAdapter', { botMode, player });
+                const move = BotSuperAdapter.getBotMove({
+                    player,
+                    opponent,
+                    roomRules: { winCount: this.winCount, chan2Dau: this.blockBoth },
+                    depth: botMode === 'bot-toi-thuong' ? 6 : 5,
+                    mode: botMode,
+                    boardSize: 15
+                });
+                console.log('[AutoBotGameHeadless] BotSuperAdapter returned:', move);
+                if (move) return move;
+            } finally {
+                if (typeof GameState !== 'undefined' && GameState.board) {
+                    GameState.board.infiniteMap = originalMap;
+                    GameState.roomRules = originalRules;
+                }
+                if (typeof infiniteMap !== 'undefined' && originalGlobalMap) infiniteMap = originalGlobalMap;
+            }
+        }
 
         // Headless games must use the same tactical rule engine as the UI.
         // Keep the local board isolated, then fall back only after the shared
@@ -2520,29 +2583,29 @@ class AutoBotGameHeadless {
             }
             
             if (botMode === 'bot-super') {
-                console.log('[AutoBotGameHeadless] Using BotSuper, available:', typeof BotSuper !== 'undefined');
-                if (typeof BotSuper !== 'undefined' && typeof BotSuper.getBotMove === 'function') {
-                    const move = BotSuper.getBotMove({
+                console.log('[AutoBotGameHeadless] Using BotSuperAdapter, available:', typeof BotSuperAdapter !== 'undefined');
+                if (typeof BotSuperAdapter !== 'undefined' && typeof BotSuperAdapter.getBotMove === 'function') {
+                    const move = BotSuperAdapter.getBotMove({
                         player: player,
                         opponent: opponent,
                         roomRules: { winCount: this.winCount, chan2Dau: this.blockBoth },
                         depth: 5
                     });
-                    console.log('[AutoBotGameHeadless] BotSuper returned:', move);
+                    console.log('[AutoBotGameHeadless] BotSuperAdapter returned:', move);
                     return move;
                 }
             }
             
             if (botMode === 'bot-toi-thuong') {
-                console.log('[AutoBotGameHeadless] Using BotSuper (toi-thuong), available:', typeof BotSuper !== 'undefined');
-                if (typeof BotSuper !== 'undefined' && typeof BotSuper.getBotMove === 'function') {
-                    const move = BotSuper.getBotMove({
+                console.log('[AutoBotGameHeadless] Using BotSuperAdapter (toi-thuong), available:', typeof BotSuperAdapter !== 'undefined');
+                if (typeof BotSuperAdapter !== 'undefined' && typeof BotSuperAdapter.getBotMove === 'function') {
+                    const move = BotSuperAdapter.getBotMove({
                         player: player,
                         opponent: opponent,
                         roomRules: { winCount: this.winCount, chan2Dau: this.blockBoth },
                         depth: 6
                     });
-                    console.log('[AutoBotGameHeadless] BotSuper (toi-thuong) returned:', move);
+                    console.log('[AutoBotGameHeadless] BotSuperAdapter (toi-thuong) returned:', move);
                     return move;
                 }
             }

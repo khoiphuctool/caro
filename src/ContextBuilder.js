@@ -22,6 +22,7 @@ const ContextBuilder = {
             // Players
             player: options.player || botPiece || 'O',
             opponent: options.opponent || humanPiece || 'X',
+            options,
             
             // Move history
             moveHistory: this.getMoveHistory(),
@@ -145,7 +146,7 @@ const ContextBuilder = {
     // Check semantic cache
     checkCache(context) {
         if (typeof SemanticCache !== 'undefined' && typeof SemanticCache.get === 'function') {
-            const hash = this.generateBoardHash(context.board, context.rules);
+            const hash = this.generateBoardHash(context.board, context.rules, context.player, context.opponent, context.options);
             return SemanticCache.get(hash);
         }
         return null;
@@ -153,12 +154,13 @@ const ContextBuilder = {
 
     // ===== GENERATE BOARD HASH =====
     // Generate hash cho board state để cache lookup
-    generateBoardHash(board, rules) {
+    generateBoardHash(board, rules, player = '', opponent = '', options = {}) {
         // Simple hash implementation
         let hash = '';
         
         // Add rules to hash
-        hash += `wc:${rules.winCount}|c2d:${rules.chan2Dau ? 1 : 0}|`;
+        hash += `wc:${rules.winCount}|c2d:${rules.chan2Dau ? 1 : 0}|player:${player}|opponent:${opponent}|`;
+        hash += `depth:${options.depth || 0}|mode:${options.mode || ''}|policy:${options.policy || ''}|`;
         
         // Add board state to hash (sorted keys for consistency)
         const sortedKeys = Array.from(board.keys()).sort();
@@ -180,7 +182,7 @@ const ContextBuilder = {
     // Update cache với kết quả mới
     updateCache(context, move) {
         if (typeof SemanticCache !== 'undefined' && typeof SemanticCache.set === 'function') {
-            const hash = this.generateBoardHash(context.board, context.rules);
+            const hash = this.generateBoardHash(context.board, context.rules, context.player, context.opponent, context.options);
             SemanticCache.set(hash, {
                 move,
                 timestamp: Date.now(),

@@ -1900,9 +1900,8 @@ function assessThreats(cands, bp, hp) {
 
 function makeAIMove() {
     console.log('[makeAIMove] called', { gameMode, currentPlayer, botPiece, humanPiece, isBotMode: isBotMode(), isBotVsBotMode: window.isBotVsBotMode, isGameActive });
-    // AIController là điểm vào chính. Giữ engine cũ làm fallback cho chế độ God
-    // và trường hợp controller chưa tải được.
     if (typeof AIController !== 'undefined' && AIController.config.useNewArchitecture) {
+        console.log('[makeAIMove] Delegating to AIController new architecture', { gameMode, useNewArch: AIController.config.useNewArchitecture });
         return AIController.makeAIMove({
             player: botPiece,
             opponent: humanPiece,
@@ -1911,6 +1910,7 @@ function makeAIMove() {
             blockBothEnds: getBlockBothEnds()
         });
     }
+    console.log('[makeAIMove] Using legacy ai-nao getBotMove path', { gameMode });
     if (!isGameActive) {
         console.log('[makeAIMove] aborted because game is not active');
         return;
@@ -2421,6 +2421,12 @@ function godEngineMove(bp, hp, validCands, isGod) {
 
 function getBotMove(options = {}) {
     let validCands = [];
+    const originalGameMode = typeof gameMode !== 'undefined' ? gameMode : undefined;
+    const requestedGameMode = options.gameMode || originalGameMode;
+    if (requestedGameMode && requestedGameMode !== originalGameMode) {
+        console.log('[ai-nao] getBotMove overriding global gameMode from options:', { originalGameMode, requestedGameMode });
+        gameMode = requestedGameMode;
+    }
     try {
     const cands = getSearchCandidates();
     if (!cands || !Array.isArray(cands) || cands.length === 0) return { r: 0, c: 0 };
@@ -2437,6 +2443,9 @@ function getBotMove(options = {}) {
     }
 
     const bp = botPiece, hp = humanPiece;
+    const botPetActive = (typeof isBotPetActive === 'function') ? isBotPetActive() : false;
+    const botPetProfile = botPetActive && typeof getEquippedBotPetProfile === 'function' ? getEquippedBotPetProfile() : null;
+    console.log('[ai-nao] getBotMove runtime check', { gameMode, botPetActive, botPetProfile });
     // Ưu tiên options.roomRules nếu được truyền vào, cung cấp chan2Dau cho checkWinSilent
     const roomRules = options.roomRules || (typeof GameState !== 'undefined' && GameState.roomRules) || { winCount: winCount || 5, chan2Dau: getBlockBothEnds() };
     const blockBothEnds = !!roomRules.chan2Dau;
@@ -2500,15 +2509,15 @@ function getBotMove(options = {}) {
 
     // BOT SIÊU PHÀM - gọi logic riêng nếu có
     if (isSuper) {
-        if (typeof BotSuper !== 'undefined' && typeof BotSuper.getBotMove === 'function') {
-            console.log('[ai-nao] Bot Siêu Phàm mode detected - calling BotSuper');
-            const move = BotSuper.getBotMove({ player: bp, opponent: hp, roomRules: (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : (typeof window !== 'undefined' ? window.roomRules : { winCount, chan2Dau: getBlockBothEnds() }), depth: 6 });
+        if (typeof BotSuperAdapter !== 'undefined' && typeof BotSuperAdapter.getBotMove === 'function') {
+            console.log('[ai-nao] Bot Siêu Phàm mode detected - calling BotSuperAdapter');
+            const move = BotSuperAdapter.getBotMove({ player: bp, opponent: hp, roomRules: (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : (typeof window !== 'undefined' ? window.roomRules : { winCount, chan2Dau: getBlockBothEnds() }), depth: 6 });
             if (move) {
                 updateBotThinking('Bot Siêu Phàm ⚔️');
                 return move;
             }
         }
-        console.warn('[ai-nao] BotSuper not available or returned null, continuing fallback');
+        console.warn('[ai-nao] BotSuperAdapter not available or returned null, continuing fallback');
     }
 
     // ══ 1. BOT THẮNG NGAY (đã xử lý ở P1) ══
