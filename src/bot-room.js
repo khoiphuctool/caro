@@ -2527,9 +2527,10 @@ class AutoBotGameHeadless {
                     GameState.roomRules = { winCount: this.winCount, chan2Dau: this.blockBoth };
                 }
                 if (typeof infiniteMap !== 'undefined') infiniteMap = this.board;
-                const tacticalMove = BlockBothEndsAnalyzer.getPriorityTacticalMove(player, opponent, this.winCount);
+                const blockRules = { winCount: this.winCount, chan2Dau: !!this.blockBoth };
+                const tacticalMove = BlockBothEndsAnalyzer.getPriorityTacticalMove(player, opponent, blockRules);
                 if (tacticalMove) return { r: tacticalMove.r, c: tacticalMove.c };
-                const openEndBlock = BlockBothEndsAnalyzer.getOpenEndBlockMove(player, opponent, this.winCount);
+                const openEndBlock = BlockBothEndsAnalyzer.getOpenEndBlockMove(player, opponent, blockRules);
                 if (openEndBlock) return { r: openEndBlock.r, c: openEndBlock.c };
             } finally {
                 if (typeof GameState !== 'undefined' && GameState.board) {

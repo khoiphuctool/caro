@@ -61,12 +61,13 @@ const BotSuperV2 = {
         const rules = options.roomRules || (typeof GameState !== 'undefined' ? GameState.roomRules : undefined);
         const winCount = rules && typeof rules.winCount === 'number' ? rules.winCount : 5;
         if (typeof BlockBothEndsAnalyzer !== 'undefined') {
-            const immediate = BlockBothEndsAnalyzer.getPriorityTacticalMove(player, opponent, winCount);
+            const blockRules = { winCount, chan2Dau: !!(rules && rules.chan2Dau) };
+            const immediate = BlockBothEndsAnalyzer.getPriorityTacticalMove(player, opponent, blockRules);
             if (immediate) {
                 console.log('[BotSuperV2] Shared immediate tactical move:', immediate);
                 return { r: immediate.r, c: immediate.c, reason: immediate.reason };
             }
-            const openEndBlock = BlockBothEndsAnalyzer.getOpenEndBlockMove(player, opponent, winCount);
+            const openEndBlock = BlockBothEndsAnalyzer.getOpenEndBlockMove(player, opponent, blockRules);
             if (openEndBlock) {
                 console.log('[BotSuperV2] Shared open-end block move:', openEndBlock);
                 return { r: openEndBlock.r, c: openEndBlock.c, reason: openEndBlock.reason };
@@ -230,7 +231,8 @@ const BotSuperV2 = {
         const depth = options.depth || this.config.searchDepth;
 
         if (typeof BlockBothEndsAnalyzer !== 'undefined') {
-            const immediate = BlockBothEndsAnalyzer.getPriorityTacticalMove(player, opponent, wc);
+            const blockRules = { winCount: wc, chan2Dau: !!(resolved && resolved.chan2Dau) };
+            const immediate = BlockBothEndsAnalyzer.getPriorityTacticalMove(player, opponent, blockRules);
             if (immediate) {
                 console.log('[BotSuperV2 Old] Shared immediate tactical move:', immediate);
                 return immediate;
@@ -281,7 +283,8 @@ const BotSuperV2 = {
 
         // 1c. CHẶN THREE/FOUR ĐÚNG ĐẦU MỞ — dùng BlockBothEndsAnalyzer
         if (typeof BlockBothEndsAnalyzer !== 'undefined') {
-            const blockMoves = BlockBothEndsAnalyzer.getBestBlockMoves(opponent, player, wc, wc - 2);
+            const blockRules = { winCount: wc, chan2Dau: !!(resolved && resolved.chan2Dau) };
+            const blockMoves = BlockBothEndsAnalyzer.getBestBlockMoves(opponent, player, blockRules, wc - 2);
             if (blockMoves.length > 0) {
                 const best = blockMoves[0];
                 if (best.chainCount >= wc - 2) {

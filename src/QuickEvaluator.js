@@ -343,7 +343,9 @@ const QuickEvaluator = {
         // Dùng BlockBothEndsAnalyzer thay analyzeBlockPositions cũ
         if (typeof BlockBothEndsAnalyzer !== 'undefined') {
             const player = opponent === 'X' ? 'O' : 'X';
-            const blockMoves = BlockBothEndsAnalyzer.getBestBlockMoves(opponent, player, winCount, winCount - 2);
+            const openEnd = BlockBothEndsAnalyzer.getOpenEndBlockMove(opponent, player, { winCount, chan2Dau });
+            if (openEnd) return openEnd;
+            const blockMoves = BlockBothEndsAnalyzer.getBestBlockMoves(opponent, player, { winCount, chan2Dau }, winCount - 2);
             if (blockMoves.length > 0) return blockMoves[0];
         }
         return null;

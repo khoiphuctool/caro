@@ -3,20 +3,29 @@
 // common API used by the bot pipelines.
 
 const BlockBothEndsAnalyzer = {
-    resolveRoomRules(explicitWinCount) {
+    resolveRoomRules(roomRulesOrWinCount) {
+        const explicit = (typeof roomRulesOrWinCount === 'object' && roomRulesOrWinCount !== null)
+            ? roomRulesOrWinCount
+            : null;
         const fromGameState = (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : null;
         const fromWindow = (typeof window !== 'undefined' && window.roomRules) ? window.roomRules : null;
-        const source = fromGameState || fromWindow || {};
+        const source = explicit || fromGameState || fromWindow || {};
 
-        let winCount = Number.isFinite(explicitWinCount) ? explicitWinCount : 5;
-        if (typeof source.winCount === 'number' && Number.isFinite(source.winCount)) {
+        let winCount = 5;
+        if (explicit && typeof explicit.winCount === 'number' && Number.isFinite(explicit.winCount)) {
+            winCount = explicit.winCount;
+        } else if (typeof roomRulesOrWinCount === 'number' && Number.isFinite(roomRulesOrWinCount)) {
+            winCount = roomRulesOrWinCount;
+        } else if (typeof source.winCount === 'number' && Number.isFinite(source.winCount)) {
             winCount = source.winCount;
         } else if (typeof globalThis.winCount === 'number' && Number.isFinite(globalThis.winCount)) {
             winCount = globalThis.winCount;
         }
 
         let chan2Dau = true;
-        if (typeof source.chan2Dau === 'boolean') {
+        if (explicit && typeof explicit.chan2Dau === 'boolean') {
+            chan2Dau = explicit.chan2Dau;
+        } else if (typeof source.chan2Dau === 'boolean') {
             chan2Dau = source.chan2Dau;
         } else {
             const id = (typeof window !== 'undefined' && window.isBotVsBotMode) ? 'bot-vs-bot-block-both' : 'block-both-ends';
@@ -79,7 +88,7 @@ const BlockBothEndsAnalyzer = {
         return false;
     },
 
-    _getTacticalCells() {
+    _getTacticalCells(maxRadius = 4) {
         const board = this._getBoard();
         const seen = new Set();
         const result = [];
@@ -98,8 +107,8 @@ const BlockBothEndsAnalyzer = {
         board.forEach((val, key) => {
             if (val === '') return;
             const [r, c] = key.split(',').map(Number);
-            for (let dr = -2; dr <= 2; dr++) {
-                for (let dc = -2; dc <= 2; dc++) {
+            for (let dr = -maxRadius; dr <= maxRadius; dr++) {
+                for (let dc = -maxRadius; dc <= maxRadius; dc++) {
                     if (dr === 0 && dc === 0) continue;
                     addIfEmpty(r + dr, c + dc);
                 }
@@ -177,6 +186,9 @@ const BlockBothEndsAnalyzer = {
             { dr: 1, dc: -1 }
         ];
 
+        let bestCandidate = null;
+        let bestCount = 0;
+
         for (const cell of tacticalCells) {
             if (this._getCell(cell.r, cell.c) !== '') continue;
             for (const { dr, dc } of directions) {
@@ -205,11 +217,15 @@ const BlockBothEndsAnalyzer = {
                 const headBlocked = this._isBlocked(headEndR, headEndC, dr, dc, opponent, winCount);
                 const tailBlocked = this._isBlocked(tailEndR, tailEndC, -dr, -dc, opponent, winCount);
                 if ((headBlocked && !tailBlocked) || (!headBlocked && tailBlocked)) {
-                    return { r: cell.r, c: cell.c };
+                    if (count > bestCount) {
+                        bestCount = count;
+                        bestCandidate = { r: cell.r, c: cell.c };
+                    }
                 }
             }
         }
-        return null;
+
+        return bestCandidate;
     },
 
     _evaluatePotentialThreat(r, c, player, winCount) {
@@ -273,7 +289,7 @@ const BlockBothEndsAnalyzer = {
         const chan2Dau = !!rules.chan2Dau;
         if (!chan2Dau) return null;
 
-        const tacticalCells = this._getTacticalCells();
+        const tacticalCells = this._getTacticalCells(effectiveWinCount);
         const openEndBlock = this._checkOpenEndBlock(tacticalCells, opponent, effectiveWinCount);
         if (openEndBlock) {
             return { r: openEndBlock.r, c: openEndBlock.c, reason: 'open_end_block' };

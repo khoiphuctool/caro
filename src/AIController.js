@@ -96,9 +96,10 @@ const AIController = {
         }
 
         if (typeof BlockBothEndsAnalyzer !== 'undefined') {
-            const immediate = BlockBothEndsAnalyzer.getPriorityTacticalMove(player, opponent, winCount);
+            const blockRules = { winCount, chan2Dau: !!blockBothEnds };
+            const immediate = BlockBothEndsAnalyzer.getPriorityTacticalMove(player, opponent, blockRules);
             if (immediate) return { r: immediate.r, c: immediate.c };
-            const openEndBlock = BlockBothEndsAnalyzer.getOpenEndBlockMove(player, opponent, winCount);
+            const openEndBlock = BlockBothEndsAnalyzer.getOpenEndBlockMove(player, opponent, blockRules);
             if (openEndBlock) {
                 if (typeof updateBotThinking === 'function') updateBotThinking('Chặn đầu mở! 🛡️');
                 if (typeof DebugLogger !== 'undefined') {

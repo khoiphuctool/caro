@@ -2486,12 +2486,13 @@ function getBotMove(options = {}) {
     }
 
     if (typeof BlockBothEndsAnalyzer !== 'undefined') {
-        const rankedBlock = BlockBothEndsAnalyzer.getPriorityTacticalMove(bp, hp, winCount);
+        const blockRules = { winCount, chan2Dau: blockBothEnds };
+        const rankedBlock = BlockBothEndsAnalyzer.getPriorityTacticalMove(bp, hp, blockRules);
         if (rankedBlock && rankedBlock.reason === 'immediate_block') {
             updateBotThinking('Chặn kịp! 😤');
             return { r: rankedBlock.r, c: rankedBlock.c };
         }
-        const openEndBlock = BlockBothEndsAnalyzer.getOpenEndBlockMove(bp, hp, winCount);
+        const openEndBlock = BlockBothEndsAnalyzer.getOpenEndBlockMove(bp, hp, blockRules);
         if (openEndBlock) {
             updateBotThinking('Chặn đầu mở! 🔒');
             return { r: openEndBlock.r, c: openEndBlock.c };

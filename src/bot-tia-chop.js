@@ -44,12 +44,13 @@ const BotTiaChop = {
         }
 
         if (typeof BlockBothEndsAnalyzer !== 'undefined') {
-            const immediate = BlockBothEndsAnalyzer.getPriorityTacticalMove(playerStr, opponentStr, winCount);
+            const blockRules = { winCount, chan2Dau: (resolved && typeof resolved.chan2Dau !== 'undefined') ? resolved.chan2Dau : (typeof getBlockBothEnds === 'function' ? getBlockBothEnds() : false) };
+            const immediate = BlockBothEndsAnalyzer.getPriorityTacticalMove(playerStr, opponentStr, blockRules);
             if (immediate) {
                 console.log('[BotTiaChop] Shared immediate tactical move:', immediate);
                 return { r: immediate.r, c: immediate.c };
             }
-            const openEndBlock = BlockBothEndsAnalyzer.getOpenEndBlockMove(playerStr, opponentStr, winCount);
+            const openEndBlock = BlockBothEndsAnalyzer.getOpenEndBlockMove(playerStr, opponentStr, blockRules);
             if (openEndBlock) {
                 console.log('[BotTiaChop] Shared open-end block move:', openEndBlock);
                 return { r: openEndBlock.r, c: openEndBlock.c };
