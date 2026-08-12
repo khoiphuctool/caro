@@ -1066,8 +1066,9 @@ function onWinBotXu(modeName, winCount) {
     else if (validKeys.includes(modeName)) diff = modeName;
     else diff = 'easy';
 
-    if (diff !== 'super' && modeName === 'bot-than-co') {
-        console.warn('[onWinBotXu] Unexpected mapping for bot-than-co, diff=', diff);
+    if (modeName === 'bot-than-co' && diff !== 'super') {
+        console.warn('[onWinBotXu] Bot-than-co should resolve to super reward; current diff=', diff);
+        diff = 'super';
     }
     console.log('[onWinBotXu] modeName=', modeName, 'winCount=', winCount, 'resolvedDiff=', diff);
     

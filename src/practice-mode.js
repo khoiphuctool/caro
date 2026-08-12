@@ -21,7 +21,8 @@ const PracticeMode = (function() {
         { value: 'ai-medium',      label: '🤖 BOT TRUNG BÌNH',   emoji: '🟡' },
         { value: 'ai-hard',        label: '🤖 BOT KHÓ',          emoji: '🟠' },
         { value: 'bot-toi-thuong', label: '👑 BOT TỐI THƯỢNG',  emoji: '💀' },
-        { value: 'bot-tia-chop',   label: '⚡ BOT TIA CHỚP',    emoji: '⚡' }
+        { value: 'bot-tia-chop',   label: '⚡ BOT TIA CHỚP',    emoji: '⚡' },
+        { value: 'bot-than-co',    label: '🌟 BOT THẦN CƠ',     emoji: '🌟' }
     ];
 
     // Tên hiển thị rút gọn
@@ -30,7 +31,8 @@ const PracticeMode = (function() {
         'ai-medium':      'Bot Trung Bình',
         'ai-hard':        'Bot Khó',
         'bot-tia-chop':   'Bot Tia Chớp ⚡',
-        'bot-toi-thuong': 'Bot Tối Thượng 💀'
+        'bot-toi-thuong': 'Bot Tối Thượng 💀',
+        'bot-than-co':    'Bot Thần Cơ 🌟'
     };
 
     // ── HELPERS ────────────────────────────────────────────────────

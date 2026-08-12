@@ -194,6 +194,37 @@ function trangBiBotPet(botPetId) {
 }
 window.trangBiBotPet = trangBiBotPet;
 
+function boTrangBiBotPet() {
+    const uid = (typeof _botPetGetUid === 'function') ? _botPetGetUid() : null;
+    const database = (typeof _botPetGetDb === 'function') ? _botPetGetDb() : null;
+    if (!uid || !database) {
+        alert('Bạn cần đăng nhập để gỡ Bot Pet!');
+        return;
+    }
+
+    if (typeof currentUserData !== 'undefined' && currentUserData) {
+        currentUserData.equippedBotPet = null;
+    }
+
+    database.ref(`users/${uid}/equippedBotPet`).set(null, (error) => {
+        if (error) {
+            alert('Lỗi khi gỡ Bot Pet: ' + error.message);
+            return;
+        }
+
+        if (typeof matchBotPetState !== 'undefined') {
+            matchBotPetState.active = false;
+            matchBotPetState.visual = null;
+            matchBotPetState.runtimeProfile = null;
+        }
+
+        if (typeof updateBotPetUI === 'function') updateBotPetUI();
+        if (typeof renderShopBotPet === 'function') renderShopBotPet();
+        alert('Đã gỡ trang bị Bot Pet thành công!');
+    });
+}
+window.boTrangBiBotPet = boTrangBiBotPet;
+
 // ──────────────────────────────────────────────
 // KHỞI TẠO: Đảm bảo ownedBotPets tồn tại
 // ──────────────────────────────────────────────

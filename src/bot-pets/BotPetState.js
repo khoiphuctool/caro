@@ -26,11 +26,19 @@ let matchBotPetState = {
 // KHỞI TẠO BOT PET STATE KHI VÀO TRẬN
 // ──────────────────────────────────────────────
 function matchIsBotMatch() {
+    const isOnline = typeof window !== 'undefined' && typeof window.isOnlineModeActive === 'function' && window.isOnlineModeActive();
+    if (isOnline) return false;
+
     const currentMode = typeof gameMode !== 'undefined' ? gameMode : (document.getElementById('game-mode')?.value || '');
     if (typeof isBotMode === 'function') {
         return isBotMode(currentMode);
     }
-    return typeof currentMode === 'string' && (currentMode.startsWith('ai') || currentMode === 'bot-toi-thuong' || currentMode === 'bot-tia-chop' || currentMode === 'bot-than-co');
+    return typeof currentMode === 'string' && (
+        currentMode.startsWith('ai') ||
+        currentMode === 'bot-toi-thuong' ||
+        currentMode === 'bot-tia-chop' ||
+        currentMode === 'bot-than-co'
+    );
 }
 
 function getMatchBotPetVisual() {
@@ -137,7 +145,9 @@ window.auditBotPetRuntimeSelection = function() {
 // KIỂM TRA BOT PET CÓ ĐANG BẬT KHÔNG
 // ──────────────────────────────────────────────
 function isBotPetActive() {
-    return matchBotPetState.active && matchBotPetState.equippedBotPet !== null;
+    const hasEquipped = !!matchBotPetState.equippedBotPet;
+    const validProfile = hasEquipped && typeof getEquippedBotPetProfile === 'function' ? !!getEquippedBotPetProfile() : false;
+    return hasEquipped && validProfile && matchBotPetState.active;
 }
 window.isBotPetActive = isBotPetActive;
 

@@ -884,9 +884,11 @@ function renderInfiniteBoard() {
 
     // Vẽ điểm đánh giá ô (debug scores) — PHẢI ở cuối cùng để không bị ghi đè
     const showScores = document.getElementById('show-cell-scores') || document.getElementById('show-cell-scores-bot');
+    const hasGlobalScoreFlag = window._cellScoresEnabled === true;
 
-    // Chỉ vẽ scores khi checkbox được tích — không auto-vẽ chỉ vì cellScores tồn tại
-    const shouldShowScores = showScores && showScores.checked
+    // Chỉ vẽ scores khi checkbox được tích hoặc flag global đã bật.
+    // Dùng fallback này để tránh trường hợp DOM checkbox không đồng bộ nhưng state đã đúng.
+    const shouldShowScores = (!!(showScores && showScores.checked) || hasGlobalScoreFlag)
         && window.cellScores && Object.keys(window.cellScores).length > 0;
 
     if (shouldShowScores) {

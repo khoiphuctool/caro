@@ -1,7 +1,7 @@
 // ===== LOGIC GAME - initGame, makeMove, checkWin, timer =====
 // boardElement, statusPanel, modeSelect được khai báo trong index.html sau khi DOM sẵn sàng
 
-// Helper: kiểm tra có phải chế độ đấu bot không (bao gồm cả bot-toi-thuong, bot-tia-chop)
+// Helper: kiểm tra có phải chế độ đấu bot không (bao gồm cả bot-toi-thuong, bot-tia-chop, bot-than-co)
 function isBotMode(mode) {
     const m = (mode || gameMode || '').toString();
     return m.startsWith('ai') || m === 'bot-toi-thuong' || m === 'bot-tia-chop' || m === 'bot-than-co';

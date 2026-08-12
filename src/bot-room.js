@@ -102,19 +102,19 @@ const BOT_PROFILE_SEED = {
         id: 'bot-than-co',
         name: 'Bot Thần Cơ',
         avatar: '🌟',
-        difficulty: 'super',
-        level: 48,
+        difficulty: 'hybrid',
+        level: 55,
         elo: 2800,
         rank: 2,
-        title: 'BHX #2',
+        title: 'Hybrid Tia Chớp + Tối Thượng',
         wins: 8024,
         losses: 482,
         draws: 52,
         winRate: 93,
         thinkingSpeed: 'Tối ưu',
-        openingBook: 'Đa dạng',
-        style: 'Biến đổi chiến thuật',
-        description: 'Thách thức đặc biệt (mở theo nhiệm vụ)',
+        openingBook: 'Kết hợp nhanh + sâu',
+        style: 'Hybrid chiến thuật',
+        description: 'Kết hợp Tia Chớp ở đầu ván và Tối Thượng khi cần sâu',
         isBot: true,
     },
 };
@@ -256,7 +256,7 @@ const BotRoomManager = {
         { id: 3, name: 'Bot Khó',        emoji: '🟠', color: '#f97316', gameMode: 'ai-hard',        description: 'Thử thách thật sự' },
         { id: 4, name: 'Bot Tối Thượng', emoji: '💀', color: '#ef4444', gameMode: 'bot-toi-thuong', description: 'Cấp Tinh Anh' },
         { id: 5, name: 'Bot Tia Chớp',  emoji: '⚡', color: '#3b82f6', gameMode: 'bot-tia-chop',   description: 'Tốc độ siêu nhanh' },
-        { id: 6, name: 'Bot Thần Cơ',  emoji: '🌟', color: '#8b5cf6', gameMode: 'bot-than-co',    description: 'Thách thức đặc biệt (mở theo nhiệm vụ)' },
+        { id: 6, name: 'Bot Thần Cơ',  emoji: '🌟', color: '#8b5cf6', gameMode: 'bot-than-co',    description: 'Hybrid: Tia Chớp + Tối Thượng' },
         { id: 7, name: 'Bot vs Bot',     emoji: '🤖', color: '#8b5cf6', gameMode: 'bot-vs-bot',      description: 'Chọn 2 bot cho X/O, trận đấu tự động' },
         { id: 8, name: 'Auto Bot',       emoji: '⚔️', color: '#ec4899', gameMode: 'auto-bot',        description: 'Mô phỏng nhiều ván bot vs bot, thống kê tỷ lệ thắng' },
         { id: 9, name: 'Sắp ra mắt',    emoji: '🔒', color: '#94a3b8', gameMode: null,             description: 'Mở khóa theo nhiệm vụ' }
@@ -2276,39 +2276,52 @@ const BotRoomManager = {
         window._cellScoresEnabled = checkbox.checked;
 
         if (checkbox.checked) {
-            // Set flag để bot tiếp tục recalculate sau mỗi nước
             window._cellScoresEnabled = true;
-            
-            // Fill cellScores when checkbox is checked
             window.cellScores = {};
             console.log('[BotRoomManager] infiniteMap available:', typeof infiniteMap !== 'undefined');
             console.log('[BotRoomManager] quickScore available:', typeof quickScore !== 'undefined');
-            
+
             if (typeof infiniteMap !== 'undefined' && typeof quickScore === 'function') {
-                // Get all empty cells around existing pieces
+                const map = infiniteMap;
                 const candidates = [];
-                for (const [key, value] of infiniteMap.entries()) {
-                    const [r, c] = key.split(',').map(Number);
-                    for (let dr = -2; dr <= 2; dr++) {
-                        for (let dc = -2; dc <= 2; dc++) {
-                            if (dr === 0 && dc === 0) continue;
-                            const nr = r + dr;
-                            const nc = c + dc;
-                            const nkey = `${nr},${nc}`;
-                            if (!infiniteMap.has(nkey)) {
-                                candidates.push({ r: nr, c: nc });
+                const seen = new Set();
+
+                const pushCandidate = (r, c) => {
+                    const key = `${r},${c}`;
+                    if (map.has(key) || seen.has(key)) return;
+                    seen.add(key);
+                    candidates.push({ r, c });
+                };
+
+                if (map.size === 0) {
+                    for (let r = -4; r <= 4; r++) {
+                        for (let c = -4; c <= 4; c++) {
+                            if (Math.abs(r) <= 2 || Math.abs(c) <= 2) pushCandidate(r, c);
+                        }
+                    }
+                } else {
+                    for (const [key] of map.entries()) {
+                        const [r, c] = key.split(',').map(Number);
+                        for (let dr = -2; dr <= 2; dr++) {
+                            for (let dc = -2; dc <= 2; dc++) {
+                                if (dr === 0 && dc === 0) continue;
+                                pushCandidate(r + dr, c + dc);
                             }
                         }
                     }
                 }
-                
-                console.log('[BotRoomManager] Candidates found:', candidates.length);
-                
-                // Calculate scores for candidates
+
+                if (candidates.length === 0) {
+                    for (let r = -2; r <= 2; r++) {
+                        for (let c = -2; c <= 2; c++) {
+                            pushCandidate(r, c);
+                        }
+                    }
+                }
+
                 const currentPlayer = typeof window.currentPlayer !== 'undefined' ? window.currentPlayer : 'X';
-                console.log('[BotRoomManager] Current player:', currentPlayer);
-                
-                // Dùng quickScore cho tất cả (đủ cho mục đích debug)
+                console.log('[BotRoomManager] Current player:', currentPlayer, 'candidateCount:', candidates.length);
+
                 const scoredCandidates = [];
                 for (const { r, c } of candidates) {
                     const key = `${r},${c}`;
@@ -2320,7 +2333,7 @@ const BotRoomManager = {
                             ? BlockBothEndsAnalyzer.getDisplayScore(r, c, botPlayer, opponentPlayer, this.winCount, fallbackScore)
                             : fallbackScore;
                         window.cellScores[key] = score;
-                        if (score > 0) {
+                        if (score > 0 || candidates.length <= 8) {
                             scoredCandidates.push({ key, r, c, score });
                         }
                     } catch (e) {
@@ -2328,17 +2341,21 @@ const BotRoomManager = {
                         window.cellScores[key] = 0;
                     }
                 }
-                
-                // Chỉ giữ top 8 ô có điểm cao nhất để hiển thị
+
                 scoredCandidates.sort((a, b) => b.score - a.score);
                 const topCandidates = scoredCandidates.slice(0, 8);
-                
-                // Clear cellScores và chỉ giữ top 8
                 window.cellScores = {};
                 for (const { key, score } of topCandidates) {
                     window.cellScores[key] = score;
                 }
-                
+
+                if (topCandidates.length === 0 && candidates.length > 0) {
+                    for (const candidate of candidates.slice(0, 8)) {
+                        const key = `${candidate.r},${candidate.c}`;
+                        window.cellScores[key] = 1;
+                    }
+                }
+
                 console.log('[BotRoomManager] cellScores populated:', Object.keys(window.cellScores).length);
                 console.log('[BotRoomManager] Top scores:', topCandidates);
             } else {
@@ -2350,7 +2367,6 @@ const BotRoomManager = {
             console.log('[BotRoomManager] cellScores cleared, flag disabled');
         }
 
-        // Re-render board
         console.log('[BotRoomManager] Calling renderInfiniteBoard');
         if (typeof renderInfiniteBoard === 'function') {
             renderInfiniteBoard();
@@ -2474,40 +2490,22 @@ class AutoBotGameHeadless {
     getBotMove(botMode, player) {
         console.log('[AutoBotGameHeadless] getBotMove called:', { botMode, player, boardSize: this.board.size });
 
-        // Bot Super runtime path: use the same V2-primary adapter as the UI.
-        // The local tactical/minimax path below is only for other bot modes or
-        // when the adapter cannot provide a valid move.
-        if ((botMode === 'bot-than-co' || botMode === 'bot-toi-thuong') &&
-            typeof BotSuperAdapter !== 'undefined' && typeof BotSuperAdapter.getBotMove === 'function') {
+        if (botMode === 'bot-than-co') {
             const opponent = player === 'X' ? 'O' : 'X';
-            const originalMap = typeof GameState !== 'undefined' && GameState.board
-                ? GameState.board.infiniteMap
-                : null;
-            const originalRules = typeof GameState !== 'undefined' ? GameState.roomRules : undefined;
-            const originalGlobalMap = typeof infiniteMap !== 'undefined' ? infiniteMap : null;
-            try {
-                if (typeof GameState !== 'undefined' && GameState.board) {
-                    GameState.board.infiniteMap = this.board;
-                    GameState.roomRules = { winCount: this.winCount, chan2Dau: this.blockBoth };
-                }
-                if (typeof infiniteMap !== 'undefined') infiniteMap = this.board;
-                console.log('[AutoBotGameHeadless] Using BotSuperAdapter', { botMode, player });
-                const move = BotSuperAdapter.getBotMove({
+            if (typeof BotTiaChop !== 'undefined' && typeof BotTiaChop.getBotMove === 'function' && this.moveCount <= 10) {
+                const move = BotTiaChop.getBotMove({
                     player,
                     opponent,
-                    roomRules: { winCount: this.winCount, chan2Dau: this.blockBoth },
-                    depth: botMode === 'bot-toi-thuong' ? 6 : 5,
-                    mode: botMode,
-                    boardSize: 15
+                    roomRules: { winCount: this.winCount, chan2Dau: this.blockBoth }
                 });
-                console.log('[AutoBotGameHeadless] BotSuperAdapter returned:', move);
                 if (move) return move;
-            } finally {
-                if (typeof GameState !== 'undefined' && GameState.board) {
-                    GameState.board.infiniteMap = originalMap;
-                    GameState.roomRules = originalRules;
-                }
-                if (typeof infiniteMap !== 'undefined' && originalGlobalMap) infiniteMap = originalGlobalMap;
+            }
+            if (typeof godEngineMove === 'function') {
+                const result = godEngineMove(player, opponent, Array.from(this.board.keys()).map(k => {
+                    const [r, c] = k.split(',').map(Number);
+                    return { r, c };
+                }).filter(({ r, c }) => !this.board.has(`${r},${c}`) || true), true);
+                if (result && result.move) return result.move;
             }
         }
 
@@ -2588,34 +2586,6 @@ class AutoBotGameHeadless {
                         roomRules: { winCount: this.winCount, chan2Dau: this.blockBoth }
                     });
                     console.log('[AutoBotGameHeadless] BotTiaChop returned:', move);
-                    return move;
-                }
-            }
-            
-            if (botMode === 'bot-than-co') {
-                console.log('[AutoBotGameHeadless] Using BotSuperAdapter, available:', typeof BotSuperAdapter !== 'undefined');
-                if (typeof BotSuperAdapter !== 'undefined' && typeof BotSuperAdapter.getBotMove === 'function') {
-                    const move = BotSuperAdapter.getBotMove({
-                        player: player,
-                        opponent: opponent,
-                        roomRules: { winCount: this.winCount, chan2Dau: this.blockBoth },
-                        depth: 5
-                    });
-                    console.log('[AutoBotGameHeadless] BotSuperAdapter returned:', move);
-                    return move;
-                }
-            }
-            
-            if (botMode === 'bot-toi-thuong') {
-                console.log('[AutoBotGameHeadless] Using BotSuperAdapter (toi-thuong), available:', typeof BotSuperAdapter !== 'undefined');
-                if (typeof BotSuperAdapter !== 'undefined' && typeof BotSuperAdapter.getBotMove === 'function') {
-                    const move = BotSuperAdapter.getBotMove({
-                        player: player,
-                        opponent: opponent,
-                        roomRules: { winCount: this.winCount, chan2Dau: this.blockBoth },
-                        depth: 6
-                    });
-                    console.log('[AutoBotGameHeadless] BotSuperAdapter (toi-thuong) returned:', move);
                     return move;
                 }
             }

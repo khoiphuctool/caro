@@ -2466,7 +2466,7 @@ function getBotMove(options = {}) {
     const isGod       = activeGameMode === 'ai-god';
     const isTiaChop   = activeGameMode === 'bot-tia-chop';
     const isToiThuong = activeGameMode === 'bot-toi-thuong';
-    const isSuper     = activeGameMode === 'bot-than-co';
+    const isHybrid    = activeGameMode === 'bot-than-co';
 
     updateBotThinking('Đang phân tích bàn cờ...');
 
@@ -2500,6 +2500,45 @@ function getBotMove(options = {}) {
     }
 
     // ════════════════════════════════════════════════════════════════════════════
+    // BOT THẦN CƠ - hybrid: nhanh như Tia Chớp ở đầu ván, sâu như Tối Thượng khi cần depth
+    // ════════════════════════════════════════════════════════════════════════════
+    if (isHybrid) {
+        const moveCount = moveHistory.length;
+        const useFastPath = moveCount <= 10 || (moveCount <= 18 && typeof BotTiaChop !== 'undefined');
+        if (useFastPath && typeof BotTiaChop !== 'undefined' && typeof BotTiaChop.getBotMove === 'function') {
+            console.log('[ai-nao] Bot Thần Cơ using fast hybrid path (Tia Chớp)');
+            const move = BotTiaChop.getBotMove({
+                player: bp,
+                opponent: hp,
+                roomRules: { winCount: winCount, chan2Dau: getBlockBothEnds() }
+            });
+            if (move) {
+                updateBotThinking('Bot Thần Cơ ⚡');
+                return move;
+            }
+        }
+
+        if (typeof godEngineMove === 'function') {
+            const { move: hybridDeepMove, reason } = godEngineMove(bp, hp, validCands, true);
+            if (hybridDeepMove) {
+                updateBotThinking(`Bot Thần Cơ ${reason || 'Hybrid'} 🧠`);
+                return hybridDeepMove;
+            }
+        }
+
+        if (typeof BotTiaChop !== 'undefined' && typeof BotTiaChop.getBotMove === 'function') {
+            const move = BotTiaChop.getBotMove({
+                player: bp,
+                opponent: hp,
+                roomRules: { winCount: winCount, chan2Dau: getBlockBothEnds() }
+            });
+            if (move) {
+                updateBotThinking('Bot Thần Cơ ⚡');
+                return move;
+            }
+        }
+    }
+
     // BOT TIA CHỚP - Dùng logic riêng từ BotTiaChop
     // ════════════════════════════════════════════════════════════════════════════
     if (isTiaChop) {
@@ -2518,19 +2557,6 @@ function getBotMove(options = {}) {
             }
         }
         console.warn('[ai-nao] BotTiaChop not available or returned null, using fallback');
-    }
-
-    // BOT THẦN CƠ - gọi logic riêng nếu có
-    if (isSuper) {
-        if (typeof BotSuperAdapter !== 'undefined' && typeof BotSuperAdapter.getBotMove === 'function') {
-            console.log('[ai-nao] Bot Thần Cơ mode detected - calling BotSuperAdapter');
-            const move = BotSuperAdapter.getBotMove({ player: bp, opponent: hp, roomRules: (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : (typeof window !== 'undefined' ? window.roomRules : { winCount, chan2Dau: getBlockBothEnds() }), depth: 6 });
-            if (move) {
-                updateBotThinking('Bot Thần Cơ ⚔️');
-                return move;
-            }
-        }
-        console.warn('[ai-nao] BotSuperAdapter not available or returned null, continuing fallback');
     }
 
     // ══ 1. BOT THẮNG NGAY (đã xử lý ở P1) ══

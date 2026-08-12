@@ -63,7 +63,12 @@ function renderBotPetGrid(grid, owned, equippedBotPetId, coins) {
         
         let btnHtml = '';
         if (isEquipped) {
-            btnHtml = `<button class="bot-pet-btn bot-pet-equipped" disabled>✅ Đang trang bị</button>`;
+            btnHtml = `
+                <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+                    <button class="bot-pet-btn bot-pet-equipped" disabled>✅ Đang trang bị</button>
+                    <button class="bot-pet-btn bot-pet-unequip" onclick="boTrangBiBotPet()">Gỡ trang bị</button>
+                </div>
+            `;
         } else if (isOwned) {
             btnHtml = `<button class="bot-pet-btn bot-pet-equip" onclick="trangBiBotPet('${botPet.id}')">Trang bị</button>`;
         } else {
@@ -92,13 +97,34 @@ const BOT_PET_COMPACT_ID = 'bot-pet-compact-row';
 
 /** Tìm container .pc-body trong #bot-player-overlay để nhúng compact row */
 function _getBotPetHostEl() {
-    // Bot room: nhúng vào pc-body của player card (người chơi, bên trái)
-    const pcBody = document.querySelector('#bot-player-overlay .bot-player-details .pc-body');
-    if (pcBody) return pcBody;
-    // Practice/battle view fallback: nhúng vào #bot-player-details hoặc .pc-body tương ứng
-    const fallback = document.querySelector('#bot-player-details .pc-body')
-        || document.querySelector('.bot-player-details .pc-body');
-    return fallback || null;
+    const candidates = [
+        '#bot-player-overlay .bot-player-details .pc-body',
+        '#bot-player-overlay .pc-body',
+        '#bot-player-details .pc-body',
+        '.bot-player-details .pc-body',
+        '.players-panel .pc-body',
+        '.player-card .pc-body',
+        '.battle-player-details .pc-body',
+        '#game-board .pc-body',
+        '#board-wrapper .pc-body',
+        '#board-panel .pc-body'
+    ];
+
+    for (const selector of candidates) {
+        const el = document.querySelector(selector);
+        if (el) return el;
+    }
+
+    const fallbackId = 'bot-pet-fallback-host';
+    let fallback = document.getElementById(fallbackId);
+    if (!fallback) {
+        fallback = document.createElement('div');
+        fallback.id = fallbackId;
+        fallback.style.position = 'relative';
+        fallback.style.zIndex = '12';
+        document.body.appendChild(fallback);
+    }
+    return fallback;
 }
 
 /** Đảm bảo compact row tồn tại trong host, trả về element */
@@ -158,6 +184,12 @@ window.updateBotPetUI = updateBotPetUI;
 // SHOW BOT PET COMPANION UI
 // ──────────────────────────────────────────────
 function showBotPetCompanion() {
+    const isOnline = typeof window !== 'undefined' && typeof window.isOnlineModeActive === 'function' && window.isOnlineModeActive();
+    if (isOnline) {
+        if (typeof mountOnlineBotPets === 'function') mountOnlineBotPets();
+        return;
+    }
+
     initMatchBotPetState();
     const host = _getBotPetHostEl();
     if (!host) {
@@ -174,6 +206,12 @@ window.showBotPetCompanion = showBotPetCompanion;
 // HIDE BOT PET COMPANION UI
 // ──────────────────────────────────────────────
 function hideBotPetCompanion() {
+    const isOnline = typeof window !== 'undefined' && typeof window.isOnlineModeActive === 'function' && window.isOnlineModeActive();
+    if (isOnline) {
+        if (typeof unmountOnlineBotPets === 'function') unmountOnlineBotPets();
+        return;
+    }
+
     // Remove compact rows from all possible hosts
     document.querySelectorAll('#' + BOT_PET_COMPACT_ID).forEach(el => el.remove());
     cleanupMatchBotPetState();
