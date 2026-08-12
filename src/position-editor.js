@@ -14,6 +14,7 @@ const PositionEditor = {
     undoStack:   [],      // [{map: Map, timestamp}]
     redoStack:   [],
     savedMap:    null,    // snapshot trước initGame (phòng trường hợp initGame reset)
+    autoBotTurnOnStart: true, // Sau khi bấm Bắt đầu, ván phải chạy đúng như trận thường
 
     // ── Helpers ────────────────────────────────────────────────────
     /** Trả về tham chiếu infiniteMap toàn cục hiện tại */
@@ -196,7 +197,7 @@ const PositionEditor = {
         const checkbox = document.getElementById('show-cell-scores-bot');
         console.log('[PositionEditor placePiece] checkbox:', checkbox, 'checked:', checkbox ? checkbox.checked : 'N/A');
         if (checkbox && checkbox.checked && typeof BotRoomManager !== 'undefined' && typeof BotRoomManager.onCellScoresCheckboxChange === 'function') {
-            console.log('[PositionEditor placePiece] Calling onCellScoresCheckboxChange');
+            console.log('[PositionEditor placePiece] Refreshing cell-score immediately');
             BotRoomManager.onCellScoresCheckboxChange();
         }
 
@@ -323,7 +324,8 @@ const PositionEditor = {
      *   4. Sau initGame, kiểm tra nếu map bị reset thì inject lại savedMap
      *   5. renderInfiniteBoard() và trigger bot nếu lượt bot
      */
-    initGameFromPosition: function() {
+    initGameFromPosition: function(options = {}) {
+        const autoBotTurn = options.autoBotTurn !== undefined ? !!options.autoBotTurn : this.autoBotTurnOnStart;
         const map = this._map();
         if (!map) {
             console.warn('[PositionEditor] infiniteMap not available');
@@ -379,9 +381,8 @@ const PositionEditor = {
                 });
             }
             if (typeof moveCount !== 'undefined') moveCount = this.savedMap.size;
-            if (typeof currentPlayer !== 'undefined' && typeof botPiece !== 'undefined') {
-                currentPlayer = botPiece;
-            }
+            // Không ép lượt hiện tại về botPiece. Ván khởi từ editor phải giữ nguyên
+            // firstMove / currentPlayer do initGame() thiết lập, để bot đánh đúng lượt thực.
             if (typeof isBotMove !== 'undefined') isBotMove = false;
 
             const restoredScoreCheckbox = document.getElementById('show-cell-scores-bot');
@@ -394,8 +395,9 @@ const PositionEditor = {
                 BotRoomManager.onCellScoresCheckboxChange();
             }
 
-            // Nếu lượt đầu là bot thì kích hoạt
-            if (typeof makeAIMove === 'function' &&
+            // Mặc định không auto-chạy bot ngay khi khởi trận từ editor.
+            // Nếu muốn cho bot đánh tiếp ngay, phải bật rõ ràng khi cần.
+            if (autoBotTurn && typeof makeAIMove === 'function' &&
                 typeof isGameActive !== 'undefined' && isGameActive &&
                 typeof currentPlayer !== 'undefined' &&
                 typeof botPiece !== 'undefined' &&

@@ -2201,7 +2201,7 @@ const BotRoomManager = {
             <div style="width:1px;height:28px;background:rgba(255,255,255,0.15);margin:0 2px;flex-shrink:0;"></div>
 
             <button id="btn-editor-start"
-                    onclick="PositionEditor.lock(); PositionEditor.initGameFromPosition(); BotRoomManager.hideEditorToolbar();"
+                    onclick="PositionEditor.lock(); PositionEditor.initGameFromPosition({ autoBotTurn: true }); BotRoomManager.hideEditorToolbar();"
                     style="padding:8px 16px;background:#8b5cf6;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:800;font-size:13px;white-space:nowrap;transition:all 0.15s;">
                 ▶ Bắt đầu
             </button>

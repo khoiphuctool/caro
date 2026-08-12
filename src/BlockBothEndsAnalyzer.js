@@ -178,7 +178,7 @@ const BlockBothEndsAnalyzer = {
         return false;
     },
 
-    _checkOpenEndBlock(tacticalCells, opponent, winCount) {
+    _evaluateOpenEndThreat(cellR, cellC, opponent, winCount) {
         const directions = [
             { dr: 0, dc: 1 },
             { dr: 1, dc: 0 },
@@ -186,42 +186,67 @@ const BlockBothEndsAnalyzer = {
             { dr: 1, dc: -1 }
         ];
 
+        let best = null;
+        let bestScore = -Infinity;
+
+        for (const { dr, dc } of directions) {
+            let count = 1;
+            let nr = cellR + dr;
+            let nc = cellC + dc;
+            while (this._getCell(nr, nc) === opponent) {
+                count += 1;
+                nr += dr;
+                nc += dc;
+            }
+            const headNeighbor = this._getCell(nr, nc);
+            const headBlocked = headNeighbor !== '' && headNeighbor !== opponent;
+
+            nr = cellR - dr;
+            nc = cellC - dc;
+            while (this._getCell(nr, nc) === opponent) {
+                count += 1;
+                nr -= dr;
+                nc -= dc;
+            }
+            const tailNeighbor = this._getCell(nr, nc);
+            const tailBlocked = tailNeighbor !== '' && tailNeighbor !== opponent;
+
+            if (count < winCount - 1) continue;
+            // A live threat needs at least one open end. A sealed chain like O__XXXX_O is dead.
+            if (headBlocked && tailBlocked) continue;
+
+            const openEnds = (headBlocked ? 0 : 1) + (tailBlocked ? 0 : 1);
+            const score = count * 100 + openEnds * 1000;
+
+            if (score > bestScore) {
+                bestScore = score;
+                best = {
+                    r: cellR,
+                    c: cellC,
+                    openEnds,
+                    headBlocked,
+                    tailBlocked,
+                    count
+                };
+            }
+        }
+
+        return best;
+    },
+
+    _checkOpenEndBlock(tacticalCells, opponent, winCount) {
         let bestCandidate = null;
-        let bestCount = 0;
+        let bestScore = -Infinity;
 
         for (const cell of tacticalCells) {
             if (this._getCell(cell.r, cell.c) !== '') continue;
-            for (const { dr, dc } of directions) {
-                let count = 1;
-                let nr = cell.r + dr;
-                let nc = cell.c + dc;
-                while (this._getCell(nr, nc) === opponent) {
-                    count += 1;
-                    nr += dr;
-                    nc += dc;
-                }
-                const headEndR = nr;
-                const headEndC = nc;
+            const threat = this._evaluateOpenEndThreat(cell.r, cell.c, opponent, winCount);
+            if (!threat) continue;
 
-                nr = cell.r - dr;
-                nc = cell.c - dc;
-                while (this._getCell(nr, nc) === opponent) {
-                    count += 1;
-                    nr -= dr;
-                    nc -= dc;
-                }
-                const tailEndR = nr;
-                const tailEndC = nc;
-
-                if (count < winCount - 1) continue;
-                const headBlocked = this._isBlocked(headEndR, headEndC, dr, dc, opponent, winCount);
-                const tailBlocked = this._isBlocked(tailEndR, tailEndC, -dr, -dc, opponent, winCount);
-                if ((headBlocked && !tailBlocked) || (!headBlocked && tailBlocked)) {
-                    if (count > bestCount) {
-                        bestCount = count;
-                        bestCandidate = { r: cell.r, c: cell.c };
-                    }
-                }
+            const score = threat.count * 100 + threat.openEnds * 1000;
+            if (score > bestScore) {
+                bestScore = score;
+                bestCandidate = { r: cell.r, c: cell.c };
             }
         }
 
@@ -262,21 +287,72 @@ const BlockBothEndsAnalyzer = {
         return best;
     },
 
+    _isLiveThreatCell(r, c, player, winCount) {
+        const directions = [
+            { dr: 0, dc: 1 },
+            { dr: 1, dc: 0 },
+            { dr: 1, dc: 1 },
+            { dr: 1, dc: -1 }
+        ];
+
+        for (const { dr, dc } of directions) {
+            let left = 0;
+            let rr = r - dr;
+            let cc = c - dc;
+            while (this._getCell(rr, cc) === player) {
+                left += 1;
+                rr -= dr;
+                cc -= dc;
+            }
+
+            let right = 0;
+            rr = r + dr;
+            cc = c + dc;
+            while (this._getCell(rr, cc) === player) {
+                right += 1;
+                rr += dr;
+                cc += dc;
+            }
+
+            const total = left + right + 1;
+            if (total < winCount - 1) continue;
+
+            const leftSideOpen = this._getCell(rr, cc) === '';
+            const rightSideOpen = this._getCell(r - dr * (left + 1), c - dc * (left + 1)) === '';
+            const liveThreat = leftSideOpen || rightSideOpen;
+
+            // Nếu cả 2 đầu đều bị khóa/đã chặn, coi như threat đã chết.
+            // Ví dụ: O__XXXX_O => không còn cần block thêm ô trống trong line nữa.
+            if (liveThreat && !(leftSideOpen === false && rightSideOpen === false)) {
+                return true;
+            }
+        }
+
+        return false;
+    },
+
     getPriorityTacticalMove(player, opponent, winCount) {
         const rules = this.resolveRoomRules(winCount);
         const effectiveWinCount = Number.isFinite(rules.winCount) ? rules.winCount : 5;
         const chan2Dau = !!rules.chan2Dau;
         const tacticalCells = this._getTacticalCells();
 
+        // 1) Nước thắng ngay: nếu đặt ở ô này thì thắng, dù có chặn 2 đầu hay không.
         for (const cell of tacticalCells) {
             if (this._isWinningMoveAt(cell.r, cell.c, player, effectiveWinCount, chan2Dau)) {
                 return { r: cell.r, c: cell.c, reason: 'immediate_win' };
             }
         }
 
+        // 2) Nước đối thủ thắng ngay: chỉ chặn khi threat còn sống.
         for (const cell of tacticalCells) {
             if (this._isWinningMoveAt(cell.r, cell.c, opponent, effectiveWinCount, chan2Dau)) {
-                return { r: cell.r, c: cell.c, reason: 'immediate_block' };
+                // Nếu cả 2 đầu đã đóng lại, threat đã chết => không block thêm ô trống thừa.
+                // Ví dụ: O__XXXX_O là đã bị khóa, không cần block nữa.
+                const nextMoveIsSealed = !this._isLiveThreatCell(cell.r, cell.c, opponent, effectiveWinCount);
+                if (!nextMoveIsSealed) {
+                    return { r: cell.r, c: cell.c, reason: 'immediate_block' };
+                }
             }
         }
 
@@ -290,9 +366,12 @@ const BlockBothEndsAnalyzer = {
         if (!chan2Dau) return null;
 
         const tacticalCells = this._getTacticalCells(effectiveWinCount);
-        const openEndBlock = this._checkOpenEndBlock(tacticalCells, opponent, effectiveWinCount);
-        if (openEndBlock) {
-            return { r: openEndBlock.r, c: openEndBlock.c, reason: 'open_end_block' };
+
+        for (const cell of tacticalCells) {
+            if (this._getCell(cell.r, cell.c) !== '') continue;
+            if (this._isLiveThreatCell(cell.r, cell.c, opponent, effectiveWinCount)) {
+                return { r: cell.r, c: cell.c, reason: 'open_end_block' };
+            }
         }
 
         return null;
@@ -321,6 +400,48 @@ const BlockBothEndsAnalyzer = {
         return results.slice(0, 5);
     },
 
+    _getOpenEndBias(r, c, player) {
+        let totalBias = 0;
+        const directions = [
+            { dr: 0, dc: 1 },
+            { dr: 1, dc: 0 },
+            { dr: 1, dc: 1 },
+            { dr: 1, dc: -1 }
+        ];
+
+        for (const { dr, dc } of directions) {
+            let left = 0;
+            let rr = r - dr;
+            let cc = c - dc;
+            while (this._getCell(rr, cc) === player) {
+                left += 1;
+                rr -= dr;
+                cc -= dc;
+            }
+
+            let right = 0;
+            rr = r + dr;
+            cc = c + dc;
+            while (this._getCell(rr, cc) === player) {
+                right += 1;
+                rr += dr;
+                cc += dc;
+            }
+
+            const chain = left + right + 1;
+            if (chain < 2) continue;
+
+            const leftOpen = this._getCell(rr, cc) === '';
+            const rightOpen = this._getCell(r - dr * (left + 1), c - dc * (left + 1)) === '';
+            const openEnds = (leftOpen ? 1 : 0) + (rightOpen ? 1 : 0);
+            const closedEnds = 2 - openEnds;
+
+            totalBias += openEnds * 400 - closedEnds * 120 + chain * 25;
+        }
+
+        return totalBias;
+    },
+
     getDisplayScore(r, c, player, opponent, winCount, fallbackScore = 0) {
         const rules = this.resolveRoomRules(winCount);
         const effectiveWinCount = Number.isFinite(rules.winCount) ? rules.winCount : 5;
@@ -333,7 +454,14 @@ const BlockBothEndsAnalyzer = {
             return (fallbackScore || 0) + 80000;
         }
 
-        return Number.isFinite(fallbackScore) ? fallbackScore : 0;
+        const playerBias = this._getOpenEndBias(r, c, player);
+        const opponentBias = this._getOpenEndBias(r, c, opponent);
+        const endBias = playerBias - opponentBias;
+        const baseScore = Number.isFinite(fallbackScore) ? fallbackScore : 0;
+
+        // Mục tiêu: đầu mở luôn đáng giá hơn đầu kín. Nếu cùng một dạng chuỗi nhưng một đầu còn trống,
+        // ô đó phải có điểm cao hơn rõ rệt, không được xếp ngang nhau như hai đầu đồng giá.
+        return baseScore + endBias;
     }
 };
 

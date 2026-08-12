@@ -20,6 +20,30 @@ function test(name, coords, rules) {
 }
 const patterns = [
   {
+    name: 'sealed O__XXXX_O',
+    coords: [
+      {r:10,c:9,v:'O'},
+      {r:10,c:10,v:''},
+      {r:10,c:11,v:''},
+      {r:10,c:12,v:'X'},
+      {r:10,c:13,v:'X'},
+      {r:10,c:14,v:'X'},
+      {r:10,c:15,v:'X'},
+      {r:10,c:16,v:'O'}
+    ]
+  },
+  {
+    name: 'open left _XXXX_',
+    coords: [
+      {r:10,c:10,v:''},
+      {r:10,c:11,v:'X'},
+      {r:10,c:12,v:'X'},
+      {r:10,c:13,v:'X'},
+      {r:10,c:14,v:'X'},
+      {r:10,c:15,v:''}
+    ]
+  },
+  {
     name: 'hor O___XXXX',
     coords: [
       {r:10,c:10,v:'O'},

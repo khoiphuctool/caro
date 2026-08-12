@@ -264,6 +264,17 @@ function switchRoomTab(tab) {
     renderRoomListImmediate();
 }
 window.switchRoomTab = switchRoomTab;
+
+// Khởi động tab phòng mặc định theo đúng mục tiêu UX: khi vào web, phòng bot
+// phải render ngay lập tức mà không cần click vào tab.
+document.addEventListener('DOMContentLoaded', function() {
+    currentRoomTab = 'bot';
+    if (typeof switchRoomTab === 'function') {
+        switchRoomTab('bot');
+    } else if (typeof renderRoomListImmediate === 'function') {
+        renderRoomListImmediate();
+    }
+});
 // ══════════════════════════════════════════════════════════════════
 // 🏠 RENDER ROOM CARD - Tách code render phòng để tránh trùng lặp
 // ══════════════════════════════════════════════════════════════════
