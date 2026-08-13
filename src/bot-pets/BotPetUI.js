@@ -232,6 +232,21 @@ let _onlinePetState = {
     o: { equippedPetId: null, active: false }
 };
 
+// Expose helpers so other modules (BotPetCandidates) can query online pet state
+window.isOnlinePetActive = function(role) {
+    try {
+        const roleLC = (role || '').toLowerCase();
+        return !!(_onlinePetState && _onlinePetState[roleLC] && _onlinePetState[roleLC].active);
+    } catch (e) { return false; }
+};
+
+window.getOnlinePetEquippedId = function(role) {
+    try {
+        const roleLC = (role || '').toLowerCase();
+        return (_onlinePetState && _onlinePetState[roleLC]) ? _onlinePetState[roleLC].equippedPetId : null;
+    } catch (e) { return null; }
+};
+
 /** Lấy .battle-player-details của player X hoặc O trong #view-battle */
 function _getOnlinePetHostEl(role) {
     const roleLC = (role || '').toLowerCase();
@@ -294,6 +309,9 @@ function _renderOnlinePetCompact(role) {
         ? `<button class="bpc-toggle ${isActive ? 'bpc-toggle-off' : 'bpc-toggle-on'}"
                    onclick="toggleOnlinePetActive('${roleLC}')">${isActive ? 'TẮT' : 'BẬT'}</button>`
         : '';
+    const refreshBtn = isMyRole
+        ? `<button class="bpc-refresh" onclick="(function(){ try{ const top = (typeof getTop4CandidatesForPlayer==='function')?getTop4CandidatesForPlayer('${roleLC}'):null; if (top && top.length>0 && typeof showCandidatesOnBoard==='function') showCandidatesOnBoard(top); else if (typeof clearCandidatesFromBoard==='function') clearCandidatesFromBoard(); }catch(e){console.warn(e);} })()">GỢI Ý</button>`
+        : '';
 
     row.style.display = '';
     row.innerHTML = `
@@ -303,6 +321,7 @@ function _renderOnlinePetCompact(role) {
             <span class="bpc-status ${isActive ? 'bpc-on' : 'bpc-off'}">${isActive ? '● BẬT' : '○ TẮT'}</span>
         </div>
         ${toggleBtn}
+        ${refreshBtn}
     `;
 
     if (window.DEBUG_BOT_RUNTIME) {
@@ -320,6 +339,25 @@ function toggleOnlinePetActive(role) {
     _onlinePetState[roleLC].active = !_onlinePetState[roleLC].active;
     // runtimeProfile luôn null trong Online PvP — đảm bảo không bị set
     _renderOnlinePetCompact(roleLC);
+
+    // If toggled for local player, trigger candidates refresh (UI-only)
+    try {
+        const myRoleVal = (typeof myRole !== 'undefined') ? (myRole || '').toLowerCase() : (window.myOnlineRole || null);
+        const isLocal = myRoleVal && myRoleVal === roleLC;
+        if (isLocal) {
+            if (_onlinePetState[roleLC].active) {
+                if (typeof refreshBotPetCandidatesForCurrentTurn === 'function') {
+                    // calculate candidates (BotPetCandidates will accept online active state)
+                    refreshBotPetCandidatesForCurrentTurn();
+                } else if (typeof getTop4CandidatesForPlayer === 'function' && typeof showCandidatesOnBoard === 'function') {
+                    const top4 = getTop4CandidatesForPlayer(roleLC);
+                    showCandidatesOnBoard(top4);
+                }
+            } else {
+                if (typeof clearCandidatesFromBoard === 'function') clearCandidatesFromBoard();
+            }
+        }
+    } catch (e) { console.warn('[OnlinePetUI] toggleOnlinePetActive refresh failed', e); }
 }
 window.toggleOnlinePetActive = toggleOnlinePetActive;
 
@@ -341,15 +379,23 @@ function mountOnlineBotPets() {
         o: { equippedPetId: null, active: false }
     };
 
-    // Lấy pet của chính mình từ currentUserData
-    const myEquipped = (typeof getEquippedBotPet === 'function') ? getEquippedBotPet() : null;
-    const myRoleVal  = (typeof myRole !== 'undefined') ? (myRole || '').toLowerCase() : null;
-
-    if (myRoleVal && myEquipped) {
-        _onlinePetState[myRoleVal] = {
-            equippedPetId: myEquipped.id,
-            active: false  // bắt đầu ở OFF
+    // Lấy pet của chính mình từ currentUserData — có retry nếu dữ liệu Firebase chưa load
+    const myRoleVal  = (typeof myRole !== 'undefined') ? (myRole || '').toLowerCase() : (window.myOnlineRole || null);
+    if (myRoleVal) {
+        let _attempts = 0;
+        const _trySetEquipped = () => {
+            try {
+                const eq = (typeof getEquippedBotPet === 'function') ? getEquippedBotPet() : null;
+                if (eq && eq.id) {
+                    _onlinePetState[myRoleVal] = { equippedPetId: eq.id, active: false };
+                    if (window.DEBUG_BOT_RUNTIME) console.log('[OnlinePetUI] equipped pet set for role', myRoleVal, '->', eq.id);
+                    return;
+                }
+            } catch (e) { /* ignore */ }
+            _attempts++;
+            if (_attempts <= 6) setTimeout(_trySetEquipped, 300); // retry up to ~1.8s
         };
+        _trySetEquipped();
     }
 
     // Render sau khi DOM sẵn sàng
@@ -358,14 +404,77 @@ function mountOnlineBotPets() {
             _renderOnlinePetCompact('x');
             _renderOnlinePetCompact('o');
             if (window.DEBUG_BOT_RUNTIME) console.log('[OnlinePetUI] mountOnlineBotPets done', _onlinePetState);
+            // UI-only: render TOP-4 visual hints for local player in Online mode
+            try {
+                const roleForTop4 = (typeof window.myOnlineRole !== 'undefined') ? window.myOnlineRole : (typeof myRole !== 'undefined' ? myRole : null);
+                if (roleForTop4 && typeof getTop4CandidatesForPlayer === 'function' && typeof showCandidatesOnBoard === 'function') {
+                    const top4 = getTop4CandidatesForPlayer(roleForTop4);
+                    if (Array.isArray(top4) && top4.length > 0) {
+                        // Show as visual-only candidates on board (does not change runtime/profile)
+                        showCandidatesOnBoard(top4);
+                    }
+                }
+            } catch (err) {
+                console.warn('[OnlinePetUI] render TOP-4 failed', err);
+            }
         } else {
             setTimeout(() => {
                 _renderOnlinePetCompact('x');
                 _renderOnlinePetCompact('o');
+                // Repeat attempt when host becomes available
+                try {
+                    const roleForTop4 = (typeof window.myOnlineRole !== 'undefined') ? window.myOnlineRole : (typeof myRole !== 'undefined' ? myRole : null);
+                    if (roleForTop4 && typeof getTop4CandidatesForPlayer === 'function' && typeof showCandidatesOnBoard === 'function') {
+                        const top4 = getTop4CandidatesForPlayer(roleForTop4);
+                        if (Array.isArray(top4) && top4.length > 0) showCandidatesOnBoard(top4);
+                    }
+                } catch (err) {
+                    console.warn('[OnlinePetUI] render TOP-4 failed (delayed)', err);
+                }
             }, 400);
         }
     };
     setTimeout(_doRender, 100);
+    // Auto-refresh hook: wrap refreshBotPetCandidatesForCurrentTurn to update visual TOP-4 on online
+    try {
+        if (typeof window !== 'undefined' && typeof window.refreshBotPetCandidatesForCurrentTurn === 'function' && !window._botpet_refresh_wrapped_online) {
+            const _origRefresh = window.refreshBotPetCandidatesForCurrentTurn;
+            // Save original so we can restore on unmount
+            window._botpet_refresh_orig = _origRefresh;
+            window.refreshBotPetCandidatesForCurrentTurn = function(...args) {
+                const res = window._botpet_refresh_orig.apply(this, args);
+                try {
+                    const c = (typeof getCurrentCandidates === 'function') ? getCurrentCandidates() : null;
+                    if (Array.isArray(c) && c.length > 0 && typeof showCandidatesOnBoard === 'function') {
+                        showCandidatesOnBoard(c);
+                    } else if (typeof clearCandidatesFromBoard === 'function') {
+                        clearCandidatesFromBoard();
+                    }
+                } catch (err) {
+                    console.warn('[OnlinePetUI] auto-refresh candidates failed', err);
+                }
+                return res;
+            };
+            window._botpet_refresh_wrapped_online = true;
+            // Install a beforeunload restore to avoid leaving wrapper if page unloads unexpectedly
+            try {
+                window._botpet_beforeunload_restore = function() {
+                    try {
+                        if (window._botpet_refresh_orig) {
+                            window.refreshBotPetCandidatesForCurrentTurn = window._botpet_refresh_orig;
+                        }
+                    } catch (e) { /* ignore */ }
+                };
+                window.addEventListener('beforeunload', window._botpet_beforeunload_restore);
+                // Watchdog: warn if wrapper remains active for too long
+                window._botpet_watchdog_timer = setTimeout(() => {
+                    if (window._botpet_refresh_wrapped_online) {
+                        console.warn('[OnlinePetUI] WARNING: botpet refresh wrapper still active after 5 minutes');
+                    }
+                }, 5 * 60 * 1000);
+            } catch (e) { /* ignore */ }
+        }
+    } catch (e) { console.warn('[OnlinePetUI] wrap refresh failed', e); }
 }
 window.mountOnlineBotPets = mountOnlineBotPets;
 
@@ -420,6 +529,28 @@ function unmountOnlineBotPets() {
         x: { equippedPetId: null, active: false },
         o: { equippedPetId: null, active: false }
     };
+    // Restore wrapped refresh function if we overrode it
+    try {
+        if (window._botpet_refresh_wrapped_online && window._botpet_refresh_orig) {
+            window.refreshBotPetCandidatesForCurrentTurn = window._botpet_refresh_orig;
+            delete window._botpet_refresh_orig;
+            delete window._botpet_refresh_wrapped_online;
+            if (window.DEBUG_BOT_RUNTIME) console.log('[OnlinePetUI] restored original refreshBotPetCandidatesForCurrentTurn');
+        }
+    } catch (e) { console.warn('[OnlinePetUI] failed to restore refresh wrapper', e); }
+
+    // Clear watchdog timer and remove beforeunload listener if present
+    try {
+        if (window._botpet_watchdog_timer) {
+            clearTimeout(window._botpet_watchdog_timer);
+            delete window._botpet_watchdog_timer;
+        }
+        if (window._botpet_beforeunload_restore) {
+            window.removeEventListener('beforeunload', window._botpet_beforeunload_restore);
+            delete window._botpet_beforeunload_restore;
+        }
+    } catch (e) { /* ignore */ }
+
     if (window.DEBUG_BOT_RUNTIME) console.log('[OnlinePetUI] unmountOnlineBotPets: cleaned up');
 }
 window.unmountOnlineBotPets = unmountOnlineBotPets;

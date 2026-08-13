@@ -4119,8 +4119,8 @@ async function xuLyKetThucVan(room) {
         if (thangThucSu) {
             await db.ref(`users/${winnerId}/winSolo`).transaction(c => (c || 0) + 1);
             capNhatBXH(winName, winnerId);
-            // Thưởng xu thắng Solo Online (có giới hạn ngày) - chỉ khi KHÔNG có cược
-            if (!hasBet && typeof onWinSoloXu === 'function') await onWinSoloXu();
+            // Thay đổi: chỉ gọi onWinSoloXu khi phòng có betAmount > 0 (không thưởng khi bet = 0)
+            if (hasBet && typeof onWinSoloXu === 'function') await onWinSoloXu();
             // Broadcast kết quả lên ticker toàn server
             const _roomNum = room.roomNumber || (currentRoomId ? currentRoomId.replace('phong_', '') : '?');
             db.ref('match_results').push({

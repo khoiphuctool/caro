@@ -119,8 +119,29 @@ function refreshBotPetCandidatesForCurrentTurn() {
     const myRole    = online ? (window.myOnlineRole || null) : null;
     const turn      = typeof currentTurn !== 'undefined' ? currentTurn : null;
     const localTurn = _isMyTurn();
-    const petActive = typeof isBotPetActive === 'function' ? isBotPetActive() : false;
-    const equipped  = (() => { try { const s = getMatchBotPetState(); return s ? s.equippedBotPet : null; } catch (_) { return null; } })();
+    // Determine if BotPet is considered active for this client:
+    // - Offline: rely on matchBotPetState (isBotPetActive())
+    // - Online: allow online companion active state (per-role) as a visual-only active flag
+    let petActive = typeof isBotPetActive === 'function' ? isBotPetActive() : false;
+    let equipped  = (() => { try { const s = getMatchBotPetState(); return s ? s.equippedBotPet : null; } catch (_) { return null; } })();
+    if (online) {
+        try {
+            const myRoleVal = window.myOnlineRole || (typeof myRole !== 'undefined' ? myRole : null);
+            if (myRoleVal && typeof window.isOnlinePetActive === 'function') {
+                petActive = petActive || !!window.isOnlinePetActive(myRoleVal);
+            }
+            // Prefer equipped bot from getEquippedBotPet() for the local online player
+            if (typeof getEquippedBotPet === 'function') {
+                const eq = getEquippedBotPet();
+                if (eq && eq.id) equipped = eq.id;
+            } else if (myRoleVal && typeof window.getOnlinePetEquippedId === 'function') {
+                const onlineEq = window.getOnlinePetEquippedId(myRoleVal);
+                if (onlineEq) equipped = onlineEq;
+            }
+        } catch (e) {
+            console.warn('[BotPetCandidates] online pet state read failed', e);
+        }
+    }
     const gameOn    = _isGameOn();
 
     console.log('[PET-ONLINE-TRACE]', {

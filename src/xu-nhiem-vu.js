@@ -1052,6 +1052,11 @@ window.dongBxhDaiGia = dongBxhDaiGia;
 function onWinBotXu(modeName, winCount) {
     const uid = _getUid();
     if (!uid) return;
+    // Safety: do NOT treat Online Solo matches as Bot matches — skip if in online mode
+    if (typeof window !== 'undefined' && typeof window.isOnlineModeActive === 'function' && window.isOnlineModeActive()) {
+        console.log('[onWinBotXu] Running in Online mode — skip bot reward');
+        return;
+    }
     
     // Chỉ tính nhiệm vụ khi winCount >= 5
     if (typeof winCount === 'number' && winCount < 5) {
