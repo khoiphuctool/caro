@@ -2186,7 +2186,22 @@ function godEngineMove(bp, hp, validCands, isGod) {
         }
     }
 
-    // 1b. Block Win
+    // 1b. Chặn live threat có đầu mở: ưu tiên đúng đầu sống trước khi chặn một threat tổng quát.
+    // Nếu không có nước thắng ngay tức thời, hãy xem chuỗi đối thủ có còn đầu mở hay không để tránh
+    // chặn sai đầu như O_OXXXX thay vì O__XXXX, làm chuỗi còn sống và thua sau đó.
+    if (typeof BlockBothEndsAnalyzer !== 'undefined') {
+        const tacticalBlock = BlockBothEndsAnalyzer.getPriorityTacticalMove(bp, hp, wc);
+        if (tacticalBlock) {
+            const isImmediateWin = tacticalBlock.reason === 'immediate_win';
+            const isOpenEnd = tacticalBlock.reason === 'open_end_block';
+            const isImmediateBlock = tacticalBlock.reason === 'immediate_block';
+            if (isImmediateWin || isOpenEnd || isImmediateBlock) {
+                return { move: { r: tacticalBlock.r, c: tacticalBlock.c }, reason: tacticalBlock.reason };
+            }
+        }
+    }
+
+    // 1c. Block Win
     for (const {r,c} of allEmpty) {
         if (getCell(r,c)!=='') continue;
         if (ThreatDetector.blocksWinningThreat(r,c,hp,wc)) {
@@ -2195,7 +2210,7 @@ function godEngineMove(bp, hp, validCands, isGod) {
         }
     }
 
-    // 1c. Kiểm tra địch có FOUR_OPEN/FOUR nguy hiểm TRƯỚC KHI bot tấn công
+    // 1d. Kiểm tra địch có FOUR_OPEN/FOUR nguy hiểm TRƯỚC KHI bot tấn công
     // Nếu địch có chuỗi FOUR (winCount-1) chưa chết → PHẢI chặn TRƯỚC, không được tấn công
     {
         let enemyHasCriticalFour = false;

@@ -296,39 +296,151 @@ const BlockBothEndsAnalyzer = {
         ];
 
         for (const { dr, dc } of directions) {
-            let left = 0;
+            let leftCount = 0;
             let rr = r - dr;
             let cc = c - dc;
             while (this._getCell(rr, cc) === player) {
+                leftCount += 1;
+                rr -= dr;
+                cc -= dc;
+            }
+
+            let rightCount = 0;
+            rr = r + dr;
+            cc = c + dc;
+            while (this._getCell(rr, cc) === player) {
+                rightCount += 1;
+                rr += dr;
+                cc += dc;
+            }
+
+            const total = leftCount + rightCount + 1;
+            const leftOuter = this._getCell(r - dr * (leftCount + 1), c - dc * (leftCount + 1));
+            const rightOuter = this._getCell(r + dr * (rightCount + 1), c + dc * (rightCount + 1));
+            const leftOpen = leftCount > 0 && leftOuter === '';
+            const rightOpen = rightCount > 0 && rightOuter === '';
+            const hasRealOpenEnd = leftOpen || rightOpen;
+            const hasDoubleOpen = leftOpen && rightOpen;
+
+            if (total >= winCount - 1 && hasRealOpenEnd) return true;
+            if (total >= 3 && hasDoubleOpen) return true;
+        }
+
+        return false;
+    },
+
+    _hasAnyLiveThreat(player, winCount) {
+        const tacticalCells = this._getTacticalCells();
+        for (const cell of tacticalCells) {
+            if (this._getCell(cell.r, cell.c) !== '') continue;
+            if (this._isLiveThreatCell(cell.r, cell.c, player, winCount)) return true;
+        }
+        return false;
+    },
+
+    _simulateBlockKillsThreat(cell, player, opponent, effectiveWinCount) {
+        const board = this._getBoard();
+        const key = `${cell.r},${cell.c}`;
+        const oldValue = board.get(key) || '';
+        board.set(key, player);
+        const stillThreat = this._hasAnyLiveThreat(opponent, effectiveWinCount);
+        board.set(key, oldValue || '');
+        if (oldValue === '') board.delete(key);
+        return !stillThreat;
+    },
+
+    _isEffectiveBlock(cell, player, opponent, effectiveWinCount) {
+        if (!cell || !cell.r || !cell.c) return false;
+        if (this._getCell(cell.r, cell.c) !== '') return false;
+        const board = this._getBoard();
+        const key = `${cell.r},${cell.c}`;
+        const oldValue = board.get(key) || '';
+        board.set(key, player);
+        const resolved = !this._hasAnyLiveThreat(opponent, effectiveWinCount);
+        board.set(key, oldValue || '');
+        if (oldValue === '') board.delete(key);
+        return resolved;
+    },
+
+    _evaluateThreatDanger(cell, opponent, effectiveWinCount) {
+        let best = null;
+        const directions = [
+            { dr: 0, dc: 1 },
+            { dr: 1, dc: 0 },
+            { dr: 1, dc: 1 },
+            { dr: 1, dc: -1 }
+        ];
+
+        for (const { dr, dc } of directions) {
+            let left = 0;
+            let rr = cell.r - dr;
+            let cc = cell.c - dc;
+            while (this._getCell(rr, cc) === opponent) {
                 left += 1;
                 rr -= dr;
                 cc -= dc;
             }
 
             let right = 0;
-            rr = r + dr;
-            cc = c + dc;
-            while (this._getCell(rr, cc) === player) {
+            rr = cell.r + dr;
+            cc = cell.c + dc;
+            while (this._getCell(rr, cc) === opponent) {
                 right += 1;
                 rr += dr;
                 cc += dc;
             }
 
             const total = left + right + 1;
-            if (total < winCount - 1) continue;
+            if (total < 3) continue;
 
-            const leftSideOpen = this._getCell(rr, cc) === '';
-            const rightSideOpen = this._getCell(r - dr * (left + 1), c - dc * (left + 1)) === '';
-            const liveThreat = leftSideOpen || rightSideOpen;
+            const leftOpen = this._getCell(cell.r - dr * (left + 1), cell.c - dc * (left + 1)) === '';
+            const rightOpen = this._getCell(cell.r + dr * (right + 1), cell.c + dc * (right + 1)) === '';
+            const openEnds = (leftOpen ? 1 : 0) + (rightOpen ? 1 : 0);
+            if (openEnds <= 0) continue;
 
-            // Nếu cả 2 đầu đều bị khóa/đã chặn, coi như threat đã chết.
-            // Ví dụ: O__XXXX_O => không còn cần block thêm ô trống trong line nữa.
-            if (liveThreat && !(leftSideOpen === false && rightSideOpen === false)) {
-                return true;
+            const doubleOpen = leftOpen && rightOpen;
+            const score = (doubleOpen ? 1000000 : 0)
+                + (total >= effectiveWinCount ? 500000 : 0)
+                + (total * 10000)
+                + (openEnds * 1000)
+                + (leftOpen && rightOpen ? 5000 : 0)
+                + 1;
+
+            if (!best || score > best.score) {
+                best = {
+                    score,
+                    runLength: total,
+                    openEnds,
+                    doubleOpen,
+                    isImmediate: total >= effectiveWinCount - 1
+                };
             }
         }
 
-        return false;
+        return best;
+    },
+
+    _bestLiveThreatBlock(player, opponent, effectiveWinCount) {
+        const tacticalCells = this._getTacticalCells();
+        let best = null;
+        let bestPriority = -Infinity;
+
+        for (const cell of tacticalCells) {
+            if (this._getCell(cell.r, cell.c) !== '') continue;
+            if (!this._isLiveThreatCell(cell.r, cell.c, opponent, effectiveWinCount)) continue;
+            if (!this._isEffectiveBlock(cell, player, opponent, effectiveWinCount)) continue;
+
+            const danger = this._evaluateThreatDanger(cell, opponent, effectiveWinCount);
+            if (!danger) continue;
+
+            const priority = danger.score + (danger.doubleOpen ? 10000 : 0) + (danger.runLength * 10);
+            if (priority > bestPriority) {
+                bestPriority = priority;
+                best = { r: cell.r, c: cell.c, reason: 'open_end_block', openEnds: danger.openEnds, runLength: danger.runLength };
+            }
+        }
+
+        return best;
     },
 
     getPriorityTacticalMove(player, opponent, winCount) {
@@ -344,11 +456,16 @@ const BlockBothEndsAnalyzer = {
             }
         }
 
-        // 2) Nước đối thủ thắng ngay: chỉ chặn khi threat còn sống.
+        // 2) Chặn threat sống có đầu mở: ưu tiên đúng đầu mở trước khi xét chặn thắng ngay thông thường.
+        // Nếu chuỗi đang ở dạng O_XXXX / O__XXXX / O___XXXX, phải chặn đúng ô đầu mở để kill threat.
+        if (chan2Dau) {
+            const bestOpenEnd = this._bestLiveThreatBlock(player, opponent, effectiveWinCount);
+            if (bestOpenEnd) return bestOpenEnd;
+        }
+
+        // 3) Nước đối thủ thắng ngay: chỉ chặn khi threat còn sống.
         for (const cell of tacticalCells) {
             if (this._isWinningMoveAt(cell.r, cell.c, opponent, effectiveWinCount, chan2Dau)) {
-                // Nếu cả 2 đầu đã đóng lại, threat đã chết => không block thêm ô trống thừa.
-                // Ví dụ: O__XXXX_O là đã bị khóa, không cần block nữa.
                 const nextMoveIsSealed = !this._isLiveThreatCell(cell.r, cell.c, opponent, effectiveWinCount);
                 if (!nextMoveIsSealed) {
                     return { r: cell.r, c: cell.c, reason: 'immediate_block' };
@@ -366,15 +483,25 @@ const BlockBothEndsAnalyzer = {
         if (!chan2Dau) return null;
 
         const tacticalCells = this._getTacticalCells(effectiveWinCount);
+        let best = null;
+        let bestScore = -Infinity;
 
         for (const cell of tacticalCells) {
             if (this._getCell(cell.r, cell.c) !== '') continue;
-            if (this._isLiveThreatCell(cell.r, cell.c, opponent, effectiveWinCount)) {
-                return { r: cell.r, c: cell.c, reason: 'open_end_block' };
+            if (!this._isLiveThreatCell(cell.r, cell.c, opponent, effectiveWinCount)) continue;
+            if (!this._isEffectiveBlock(cell, player, opponent, effectiveWinCount)) continue;
+
+            const danger = this._evaluateThreatDanger(cell, opponent, effectiveWinCount);
+            if (!danger) continue;
+
+            const score = danger.score;
+            if (score > bestScore) {
+                bestScore = score;
+                best = { r: cell.r, c: cell.c, reason: 'open_end_block', openEnds: danger.openEnds, runLength: danger.runLength };
             }
         }
 
-        return null;
+        return best;
     },
 
     getBestBlockMoves(player, opponent, winCount, targetChain) {
