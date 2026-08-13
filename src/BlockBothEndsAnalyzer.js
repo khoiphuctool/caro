@@ -296,6 +296,7 @@ const BlockBothEndsAnalyzer = {
         ];
 
         for (const { dr, dc } of directions) {
+            // ── Đếm liên tiếp (gap = 0) ──
             let leftCount = 0;
             let rr = r - dr;
             let cc = c - dc;
@@ -315,15 +316,47 @@ const BlockBothEndsAnalyzer = {
             }
 
             const total = leftCount + rightCount + 1;
+            // FIX Bug 1: bỏ điều kiện "leftCount > 0" / "rightCount > 0".
+            // Ô (r,c) là đầu mở nếu ô ngoài cùng phía đó trống, bất kể có quân kề hay không.
             const leftOuter = this._getCell(r - dr * (leftCount + 1), c - dc * (leftCount + 1));
             const rightOuter = this._getCell(r + dr * (rightCount + 1), c + dc * (rightCount + 1));
-            const leftOpen = leftCount > 0 && leftOuter === '';
-            const rightOpen = rightCount > 0 && rightOuter === '';
+            const leftOpen = leftOuter === '';
+            const rightOpen = rightOuter === '';
             const hasRealOpenEnd = leftOpen || rightOpen;
             const hasDoubleOpen = leftOpen && rightOpen;
 
+            // FOUR hoặc lớn hơn với ít nhất 1 đầu mở → live threat
             if (total >= winCount - 1 && hasRealOpenEnd) return true;
-            if (total >= 3 && hasDoubleOpen) return true;
+            // THREE mở 2 đầu → nguy hiểm (sẽ thắng sau 2 nước nếu không chặn)
+            // Chỉ tính khi total >= winCount-2 để tránh overdetect với winCount nhỏ
+            if (total >= winCount - 2 && total >= 3 && hasDoubleOpen) return true;
+
+            // ── Đếm với gap = 1 (broken chain) ──
+            // Thế O_XX_XX hay O__XXX_X: đặt vào ô gap là thắng → phải coi là live threat.
+            // Quét cửa sổ winCount ô quanh (r,c) theo hướng này, đếm quân player + ô trống.
+            const opp = player === 'X' ? 'O' : 'X';
+            for (let start = -(winCount - 1); start <= 0; start++) {
+                let pCount = 0, emptyCount = 0, hasOpp = false;
+                for (let k = 0; k < winCount; k++) {
+                    const nr2 = r + dr * (start + k);
+                    const nc2 = c + dc * (start + k);
+                    const cell2 = this._getCell(nr2, nc2);
+                    if (cell2 === player) pCount++;
+                    else if (cell2 === opp) { hasOpp = true; break; }
+                    else emptyCount++;
+                }
+                if (hasOpp) continue;
+                if (pCount < winCount - 1) continue; // cần ít nhất winCount-1 quân trong cửa sổ
+                // Kiểm tra 2 đầu ngoài cửa sổ
+                const headR = r + dr * (start - 1), headC = c + dc * (start - 1);
+                const tailR = r + dr * (start + winCount), tailC = c + dc * (start + winCount);
+                const headCell = this._getCell(headR, headC);
+                const tailCell = this._getCell(tailR, tailC);
+                const headBlocked = headCell !== '' && headCell !== player;
+                const tailBlocked = tailCell !== '' && tailCell !== player;
+                if (headBlocked && tailBlocked) continue; // chuỗi chết
+                return true; // broken chain còn sống
+            }
         }
 
         return false;
@@ -350,16 +383,68 @@ const BlockBothEndsAnalyzer = {
     },
 
     _isEffectiveBlock(cell, player, opponent, effectiveWinCount) {
-        if (!cell || !cell.r || !cell.c) return false;
+        // Kiểm tra xem cell có phải là đầu mở / lỗ của chuỗi opponent nguy hiểm không.
+        // Ngưỡng: chuỗi có >= effectiveWinCount-2 quân trong cửa sổ winCount (bắt cả THREE mở 2 đầu).
+        if (!cell || cell.r == null || cell.c == null) return false;
         if (this._getCell(cell.r, cell.c) !== '') return false;
-        const board = this._getBoard();
-        const key = `${cell.r},${cell.c}`;
-        const oldValue = board.get(key) || '';
-        board.set(key, player);
-        const resolved = !this._hasAnyLiveThreat(opponent, effectiveWinCount);
-        board.set(key, oldValue || '');
-        if (oldValue === '') board.delete(key);
-        return resolved;
+
+        const directions = [
+            { dr: 0, dc: 1 },
+            { dr: 1, dc: 0 },
+            { dr: 1, dc: 1 },
+            { dr: 1, dc: -1 }
+        ];
+
+        for (const { dr, dc } of directions) {
+            for (let start = -(effectiveWinCount - 1); start <= 0; start++) {
+                let pCount = 0, hasEnemy = false, includesCell = false;
+                for (let k = 0; k < effectiveWinCount; k++) {
+                    const nr2 = cell.r + dr * (start + k);
+                    const nc2 = cell.c + dc * (start + k);
+                    if (nr2 === cell.r && nc2 === cell.c) {
+                        includesCell = true;
+                        continue; // cell trống, chưa đặt
+                    }
+                    const v = this._getCell(nr2, nc2);
+                    if (v === opponent) pCount++;
+                    else if (v !== '') { hasEnemy = true; break; }
+                }
+                if (!includesCell || hasEnemy) continue;
+                // Ngưỡng linh hoạt:
+                // - >= winCount-1 quân: FOUR → phải chặn
+                // - >= winCount-2 quân: THREE mở 2 đầu → nguy hiểm, cần chặn sớm
+                if (pCount < effectiveWinCount - 2) continue;
+
+                // Nếu chỉ có winCount-2 quân (THREE), yêu cầu PHẢI mở 2 đầu
+                if (pCount === effectiveWinCount - 2) {
+                    // Kiểm tra 2 đầu ngoài cửa sổ đều mở
+                    const hR = cell.r + dr * (start - 1), hC = cell.c + dc * (start - 1);
+                    const tR = cell.r + dr * (start + effectiveWinCount), tC = cell.c + dc * (start + effectiveWinCount);
+                    const hV = this._getCell(hR, hC);
+                    const tV = this._getCell(tR, tC);
+                    const hBlocked = hV !== '' && hV !== opponent;
+                    const tBlocked = tV !== '' && tV !== opponent;
+                    if (hBlocked || tBlocked) continue; // THREE chỉ nguy hiểm khi mở 2 đầu
+                    // Thêm: chuỗi phải liên tiếp (không phải scattered), kiểm tra cell kề quân
+                    const adjLeft = this._getCell(cell.r - dr, cell.c - dc);
+                    const adjRight = this._getCell(cell.r + dr, cell.c + dc);
+                    if (adjLeft !== opponent && adjRight !== opponent) continue; // cell không kề quân
+                    return true;
+                }
+
+                // FOUR (>= winCount-1 quân): kiểm tra chuỗi chưa chết
+                const hR = cell.r + dr * (start - 1), hC = cell.c + dc * (start - 1);
+                const tR = cell.r + dr * (start + effectiveWinCount), tC = cell.c + dc * (start + effectiveWinCount);
+                const hV = this._getCell(hR, hC);
+                const tV = this._getCell(tR, tC);
+                const hBlocked = hV !== '' && hV !== opponent;
+                const tBlocked = tV !== '' && tV !== opponent;
+                if (hBlocked && tBlocked) continue;
+                return true;
+            }
+        }
+
+        return false;
     },
 
     _evaluateThreatDanger(cell, opponent, effectiveWinCount) {
@@ -372,6 +457,7 @@ const BlockBothEndsAnalyzer = {
         ];
 
         for (const { dr, dc } of directions) {
+            // ── Đếm chuỗi liên tiếp ──
             let left = 0;
             let rr = cell.r - dr;
             let cc = cell.c - dc;
@@ -390,8 +476,58 @@ const BlockBothEndsAnalyzer = {
                 cc += dc;
             }
 
-            const total = left + right + 1;
-            if (total < 3) continue;
+            let total = left + right + 1;
+
+            // ── Nếu total < 3, thử tìm broken chain (gap=1) ──
+            // Quét cửa sổ winCount bao gồm cell, đếm quân opponent và ô trống
+            if (total < 3) {
+                const opp2 = opponent; // alias
+                let brokenTotal = 0;
+                let brokenLeftOpen = false, brokenRightOpen = false;
+                let found = false;
+                for (let start = -(effectiveWinCount - 1); start <= 0; start++) {
+                    let pCount = 0, hasEnemy = false;
+                    let includesCell = false;
+                    for (let k = 0; k < effectiveWinCount; k++) {
+                        const nr2 = cell.r + dr * (start + k);
+                        const nc2 = cell.c + dc * (start + k);
+                        const v = this._getCell(nr2, nc2);
+                        if (nr2 === cell.r && nc2 === cell.c) { includesCell = true; }
+                        if (v === opp2) pCount++;
+                        else if (v !== '') { hasEnemy = true; break; }
+                    }
+                    if (hasEnemy || !includesCell) continue;
+                    if (pCount < effectiveWinCount - 2) continue;
+                    // Kiểm tra 2 đầu ngoài cửa sổ
+                    const hR = cell.r + dr * (start - 1), hC = cell.c + dc * (start - 1);
+                    const tR = cell.r + dr * (start + effectiveWinCount), tC = cell.c + dc * (start + effectiveWinCount);
+                    const hCell = this._getCell(hR, hC);
+                    const tCell = this._getCell(tR, tC);
+                    const hBlk = hCell !== '' && hCell !== opponent;
+                    const tBlk = tCell !== '' && tCell !== opponent;
+                    if (hBlk && tBlk) continue;
+                    brokenTotal = pCount + 1; // +1 cho cell
+                    brokenLeftOpen = !hBlk;
+                    brokenRightOpen = !tBlk;
+                    found = true;
+                    break;
+                }
+                if (!found) continue;
+                total = brokenTotal;
+                const openEnds2 = (brokenLeftOpen ? 1 : 0) + (brokenRightOpen ? 1 : 0);
+                if (openEnds2 <= 0) continue;
+                const doubleOpen2 = brokenLeftOpen && brokenRightOpen;
+                const score2 = (doubleOpen2 ? 1000000 : 0)
+                    + (total >= effectiveWinCount ? 500000 : 0)
+                    + (total * 10000)
+                    + (openEnds2 * 1000)
+                    + (doubleOpen2 ? 5000 : 0)
+                    + 1;
+                if (!best || score2 > best.score) {
+                    best = { score: score2, runLength: total, openEnds: openEnds2, doubleOpen: doubleOpen2, isImmediate: total >= effectiveWinCount - 1 };
+                }
+                continue;
+            }
 
             const leftOpen = this._getCell(cell.r - dr * (left + 1), cell.c - dc * (left + 1)) === '';
             const rightOpen = this._getCell(cell.r + dr * (right + 1), cell.c + dc * (right + 1)) === '';
@@ -457,19 +593,27 @@ const BlockBothEndsAnalyzer = {
         }
 
         // 2) Chặn threat sống có đầu mở: ưu tiên đúng đầu mở trước khi xét chặn thắng ngay thông thường.
-        // Nếu chuỗi đang ở dạng O_XXXX / O__XXXX / O___XXXX, phải chặn đúng ô đầu mở để kill threat.
-        if (chan2Dau) {
+        // Bắt các thế: O_XXXX, O__XXXX (gap>=0) — phải chặn đầu mở để kill threat.
+        // Chạy kể cả khi chan2Dau = false vì đây là chặn threat, không phụ thuộc luật chặn 2 đầu.
+        {
             const bestOpenEnd = this._bestLiveThreatBlock(player, opponent, effectiveWinCount);
             if (bestOpenEnd) return bestOpenEnd;
         }
 
         // 3) Nước đối thủ thắng ngay: chỉ chặn khi threat còn sống.
+        // Dùng _isLiveThreatCell để filter — tránh chặn chuỗi chết (đã sealed 2 đầu).
+        // FIX: bỏ điều kiện nextMoveIsSealed dựa trên _isLiveThreatCell vì nó có thể
+        // trả false giả khi chan2Dau=false và chuỗi không có đầu mở theo định nghĩa cũ.
+        // Thay bằng: chặn bất cứ nước nào địch sẽ thắng ngay, trừ khi chan2Dau=true
+        // và chuỗi đó thực sự chết (cả 2 đầu bị seal kể cả sau khi địch đặt).
         for (const cell of tacticalCells) {
             if (this._isWinningMoveAt(cell.r, cell.c, opponent, effectiveWinCount, chan2Dau)) {
-                const nextMoveIsSealed = !this._isLiveThreatCell(cell.r, cell.c, opponent, effectiveWinCount);
-                if (!nextMoveIsSealed) {
-                    return { r: cell.r, c: cell.c, reason: 'immediate_block' };
+                if (chan2Dau) {
+                    // Chặn 2 đầu mode: chỉ chặn nếu chuỗi còn live (chưa dead)
+                    const isThreatDead = !this._isLiveThreatCell(cell.r, cell.c, opponent, effectiveWinCount);
+                    if (isThreatDead) continue; // chuỗi đã chết, không cần chặn
                 }
+                return { r: cell.r, c: cell.c, reason: 'immediate_block' };
             }
         }
 
@@ -479,8 +623,8 @@ const BlockBothEndsAnalyzer = {
     getOpenEndBlockMove(player, opponent, winCount) {
         const rules = this.resolveRoomRules(winCount);
         const effectiveWinCount = Number.isFinite(rules.winCount) ? rules.winCount : 5;
-        const chan2Dau = !!rules.chan2Dau;
-        if (!chan2Dau) return null;
+        // Bỏ guard chan2Dau: THREE mở 2 đầu là threat thực, không phụ thuộc luật chặn 2 đầu.
+        // Hàm này bổ sung cho getPriorityTacticalMove — bắt các threat tầm trung (THREE+).
 
         const tacticalCells = this._getTacticalCells(effectiveWinCount);
         let best = null;

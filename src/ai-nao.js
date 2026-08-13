@@ -2187,19 +2187,10 @@ function godEngineMove(bp, hp, validCands, isGod) {
     }
 
     // 1b. Chặn live threat có đầu mở: ưu tiên đúng đầu sống trước khi chặn một threat tổng quát.
-    // Nếu không có nước thắng ngay tức thời, hãy xem chuỗi đối thủ có còn đầu mở hay không để tránh
-    // chặn sai đầu như O_OXXXX thay vì O__XXXX, làm chuỗi còn sống và thua sau đó.
-    if (typeof BlockBothEndsAnalyzer !== 'undefined') {
-        const tacticalBlock = BlockBothEndsAnalyzer.getPriorityTacticalMove(bp, hp, wc);
-        if (tacticalBlock) {
-            const isImmediateWin = tacticalBlock.reason === 'immediate_win';
-            const isOpenEnd = tacticalBlock.reason === 'open_end_block';
-            const isImmediateBlock = tacticalBlock.reason === 'immediate_block';
-            if (isImmediateWin || isOpenEnd || isImmediateBlock) {
-                return { move: { r: tacticalBlock.r, c: tacticalBlock.c }, reason: tacticalBlock.reason };
-            }
-        }
-    }
+    // SKIP: getBotMove Shared Preflight (P1/P2/P3) đã gọi getPriorityTacticalMove trước khi
+    // vào godEngineMove — không gọi lại để tránh double-call tốn CPU và side-effect.
+    // godEngineMove chỉ chạy khi tất cả Shared Preflight đã trả null.
+    // (Layer 1a win_now ở trên vẫn cần vì nó dùng ThreatDetector thay vì checkWinSilent)
 
     // 1c. Block Win
     for (const {r,c} of allEmpty) {
@@ -2502,14 +2493,28 @@ function getBotMove(options = {}) {
 
     if (typeof BlockBothEndsAnalyzer !== 'undefined') {
         const blockRules = { winCount, chan2Dau: blockBothEnds };
+        // getPriorityTacticalMove xử lý tất cả: immediate_win, open_end_block, immediate_block
+        // Dùng 1 lần duy nhất ở đây, không gọi lại ở godEngineMove/BotTiaChop/BotSuperV2
         const rankedBlock = BlockBothEndsAnalyzer.getPriorityTacticalMove(bp, hp, blockRules);
-        if (rankedBlock && rankedBlock.reason === 'immediate_block') {
-            updateBotThinking('Chặn kịp! 😤');
-            return { r: rankedBlock.r, c: rankedBlock.c };
+        if (rankedBlock) {
+            if (rankedBlock.reason === 'immediate_win') {
+                updateBotThinking('TÌM THẤY NƯỚC THẮNG (Analyzer)! 🎯');
+                return { r: rankedBlock.r, c: rankedBlock.c };
+            }
+            if (rankedBlock.reason === 'open_end_block') {
+                updateBotThinking('Chặn đầu mở! 🔒');
+                return { r: rankedBlock.r, c: rankedBlock.c };
+            }
+            if (rankedBlock.reason === 'immediate_block') {
+                updateBotThinking('Chặn kịp! 😤');
+                return { r: rankedBlock.r, c: rankedBlock.c };
+            }
         }
+        // getOpenEndBlockMove: bắt thêm THREE mở 2 đầu nguy hiểm khi chan2Dau=true
+        // (getPriorityTacticalMove chỉ bắt FOUR+ và immediate threats)
         const openEndBlock = BlockBothEndsAnalyzer.getOpenEndBlockMove(bp, hp, blockRules);
         if (openEndBlock) {
-            updateBotThinking('Chặn đầu mở! 🔒');
+            updateBotThinking('Chặn đầu mở (THREE+)! 🔒');
             return { r: openEndBlock.r, c: openEndBlock.c };
         }
     }
