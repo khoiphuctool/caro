@@ -2895,7 +2895,7 @@ function getBotMove(options = {}) {
     return scored[0] || validCands[0];
 
     } catch (e) {
-        console.error('getBotMove error:', e);
+        console.error('getBotMove error:', e instanceof Error ? e.stack || e.message : e);
         return validCands?.[0] || { r: 0, c: 0 };
     }
 }

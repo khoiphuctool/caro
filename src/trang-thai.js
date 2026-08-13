@@ -109,7 +109,7 @@ let winCount  = 5;
 let boardState   = [];
 // Reference to GameState.board.infiniteMap - single source of truth
 let infiniteMap  = new Map();  // Placeholder, will be synced with GameState.board.infiniteMap
-let isInfinite   = false;
+let isInfinite   = true;   // Default true — game dùng bàn vô hạn; sync với GameState khi initializeBoardState chạy
 let isBotMove    = false;
 
 let lastMoveR = null, lastMoveC = null;

@@ -380,15 +380,17 @@ function makeMove(r, c) {
         return;
     }
 
-    console.log('[DEBUG-BOARD] makeMove called:', {
-        r, c,
-        isGameActive,
-        currentPlayer,
-        gameMode,
-        isOnlineMode: window.isOnlineModeActive ? window.isOnlineModeActive() : false,
-        myOnlineRole: window.myOnlineRole,
-        currentTurn: typeof currentTurn !== 'undefined' ? currentTurn : 'undefined'
-    });
+    if (!window._autoBotFastMode) {
+        console.log('[DEBUG-BOARD] makeMove called:', {
+            r, c,
+            isGameActive,
+            currentPlayer,
+            gameMode,
+            isOnlineMode: window.isOnlineModeActive ? window.isOnlineModeActive() : false,
+            myOnlineRole: window.myOnlineRole,
+            currentTurn: typeof currentTurn !== 'undefined' ? currentTurn : 'undefined'
+        });
+    }
 
     // NẾU ĐANG CHƠI ONLINE
     if (typeof GameModeManager !== 'undefined' && GameModeManager.isReplay && GameModeManager.isReplay()) {
@@ -523,16 +525,20 @@ function makeMove(r, c) {
     }
     // --- GIỮ NGUYÊN LOGIC ĐẤU BOT TỰ ĐỘNG CŨ CỦA ANH Ở DƯỚI ĐÂY ---
 
-    console.log('[makeMove] makeMove(' + r + ',' + c + ')');
-    const sizeBefore = typeof infiniteMap !== 'undefined' ? infiniteMap.size : 'undefined';
-    console.log('[makeMove] infiniteMap.size before=' + sizeBefore);
+    if (!window._autoBotFastMode) {
+        console.log('[makeMove] makeMove(' + r + ',' + c + ')');
+        const sizeBefore = typeof infiniteMap !== 'undefined' ? infiniteMap.size : 'undefined';
+        console.log('[makeMove] infiniteMap.size before=' + sizeBefore);
+    }
 
     moveCount++;
     setCell(r, c, currentPlayer);
     moveHistory.push({ r, c, player: currentPlayer });
 
-    const sizeAfter = typeof infiniteMap !== 'undefined' ? infiniteMap.size : 'undefined';
-    console.log('[makeMove] infiniteMap.size after=' + sizeAfter);
+    if (!window._autoBotFastMode) {
+        const sizeAfter = typeof infiniteMap !== 'undefined' ? infiniteMap.size : 'undefined';
+        console.log('[makeMove] infiniteMap.size after=' + sizeAfter);
+    }
 
     // Invalidate neural cache khi board state thay đổi
     if (typeof neuralEvaluator !== 'undefined' && neuralEvaluator.invalidateCache) {
@@ -555,11 +561,12 @@ function makeMove(r, c) {
             vRowF = r - rows / 2;
             vColF = c - cols / 2;
         }
-        renderInfiniteBoard();
+        // Skip render trong fast mode — tiết kiệm ~80% thời gian mỗi nước
+        if (!window._autoBotFastMode) renderInfiniteBoard();
     } else {
         if (lastMoveCell) lastMoveCell.classList.remove('last-move');
         let cell = document.querySelector(`[data-row='${r}'][data-col='${c}']`);
-        if (cell) { cell.classList.add(currentPlayer); cell.classList.add('last-move'); lastMoveCell = cell; }
+        if (cell && !window._autoBotFastMode) { cell.classList.add(currentPlayer); cell.classList.add('last-move'); lastMoveCell = cell; }
     }
 
     // Update Bot Pet TOP-4 candidates sau mỗi nước đi (offline)
@@ -572,15 +579,19 @@ function makeMove(r, c) {
         const isBotWin   = isBotMode() && currentPlayer === botPiece;
         const boardLabel = '♾️ Vô Hạn';
 
-        // Lưu kết quả cho autoplay
+        // Lưu kết quả cho autoplay và auto bot
         if (typeof autoplayLastWinner !== 'undefined') {
             autoplayLastWinner = currentPlayer;
         }
 
-        // Nếu đang autoplay thì bỏ qua phần UI popup
-        if (isAutoplayRunning) {
-            // autoplayLastWinner đã được set ở trên
-            // KHÔNG gọi onBotLoss ở đây — autoplayMove sẽ xử lý learning sau ván
+        // Nếu đang autoplay HOẶC auto bot thì bỏ qua phần UI popup
+        const isAutoBotRunning = typeof BotRoomManager !== 'undefined'
+            && BotRoomManager.autoBotState
+            && BotRoomManager.autoBotState.isRunning
+            && !BotRoomManager.autoBotState.isPaused;
+
+        if (isAutoplayRunning || isAutoBotRunning) {
+            // winner đã được lưu vào autoplayLastWinner ở trên
             return;
         }
 
@@ -673,7 +684,9 @@ function makeMove(r, c) {
         currentPlayer = currentPlayer === "X" ? "O" : "X";
     }
     updateCursorByTurn();
-    console.log('[makeMove] nextPlayer=', currentPlayer, 'botPiece=', botPiece, 'humanPiece=', humanPiece, 'isBotMode=', isBotMode(), 'isBotVsBotMode=', window.isBotVsBotMode);
+    if (!window._autoBotFastMode) {
+        console.log('[makeMove] nextPlayer=', currentPlayer, 'botPiece=', botPiece, 'humanPiece=', humanPiece, 'isBotMode=', isBotMode(), 'isBotVsBotMode=', window.isBotVsBotMode);
+    }
 
     if (isBotMode() && !isBotMove && !window.isBotVsBotMode) evaluatePlayerMove(r, c);
     if (isGameActive && isBotMode() && currentPlayer === humanPiece && !window.isBotVsBotMode) startPlayerTurnTimer();

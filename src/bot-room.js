@@ -531,8 +531,17 @@ const BotRoomManager = {
                             <span>Đi trước</span>
                             <select id="auto-bot-first-move"
                                     style="padding:8px;border-radius:8px;border:1px solid #fbcfe8;background:#fff;font-size:14px;">
-                                <option value="X" selected>X (Bot X)</option>
+                                <option value="random" selected>🎲 Ngẫu nhiên (chuẩn nhất)</option>
+                                <option value="X">X (Bot X)</option>
                                 <option value="O">O (Bot O)</option>
+                            </select>
+                        </label>
+                        <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;flex:1;min-width:150px;">
+                            <span>Tốc độ</span>
+                            <select id="auto-bot-speed"
+                                    style="padding:8px;border-radius:8px;border:1px solid #fbcfe8;background:#fff;font-size:14px;">
+                                <option value="fast" selected>⚡ Nhanh (engine nhẹ ~ms/ván)</option>
+                                <option value="visual">👁️ Hiển thị từng nước (engine thật)</option>
                             </select>
                         </label>
                         <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;flex:1;min-width:150px;">
@@ -1526,11 +1535,18 @@ const BotRoomManager = {
         const botOMode = document.getElementById('auto-bot-o-mode').value;
         const firstMove = document.getElementById('auto-bot-first-move').value;
         const totalGames = parseInt(document.getElementById('auto-bot-games').value) || 100;
-        const winCount = parseInt(document.getElementById('auto-bot-win-count').value) || 5;
+        const wc = parseInt(document.getElementById('auto-bot-win-count').value) || 5;
         const blockBoth = document.getElementById('auto-bot-block-both').checked;
+        const speedEl = document.getElementById('auto-bot-speed');
+        const speedMode = speedEl ? speedEl.value : 'fast'; // 'fast' | 'visual'
 
         const botXMeta = this.resolveBotMetaByMode(botXMode);
         const botOMeta = this.resolveBotMetaByMode(botOMode);
+
+        // Backup roomRules gốc để restore sau khi xong
+        const originalRoomRules = (typeof GameState !== 'undefined' && GameState.roomRules)
+            ? { ...GameState.roomRules }
+            : (typeof window !== 'undefined' && window.roomRules ? { ...window.roomRules } : null);
 
         // Khởi tạo state
         this.autoBotState = {
@@ -1538,13 +1554,17 @@ const BotRoomManager = {
             botOMode,
             botXLabel: botXMeta.name,
             botOLabel: botOMeta.name,
-            firstMove,
+            // 'random' = randomize X/O mỗi ván để tránh bias cờ đầu
+            firstMove: firstMove === 'random' ? 'random' : firstMove,
             totalGames,
             currentGame: 0,
-            winCount,
+            winCount: wc,
             blockBoth,
+            speedMode,  // 'fast' = synchronous loop, 'visual' = setTimeout per move
             isRunning: true,
-            isPaused: false
+            isPaused: false,
+            originalRoomRules,
+            _startTime: Date.now(),
         };
 
         // Khởi tạo stats nếu chưa có
@@ -1572,8 +1592,8 @@ const BotRoomManager = {
         // Hiển thị bảng xếp hạng
         this.renderAutoBotLeaderboard();
 
-        // Bắt đầu vòng lặp
-        this.runAutoBotLoop();
+        // Delay nhỏ để browser paint UI trước khi batch đầu tiên chạy
+        setTimeout(() => this.runAutoBotLoop(), 50);
     },
 
     runAutoBotLoop: function() {
@@ -1586,8 +1606,222 @@ const BotRoomManager = {
             return;
         }
 
-        // Chạy visual simulation với bot implementations thật
-        this.runSingleAutoBotGameVisual();
+        if (this.autoBotState.speedMode === 'fast') {
+            // Fast mode: chạy nhiều ván synchronous trong 1 batch, yield UI sau mỗi batch
+            this._runFastBatch();
+        } else {
+            // Visual mode: chạy từng nước với delay để thấy bàn cờ
+            this.runSingleAutoBotGameVisual();
+        }
+    },
+
+    // Chạy batch synchronous, yield UI mỗi 50ms để không block browser
+    _runFastBatch: function() {
+        const BATCH_TIME_MS = 50; // Tối đa 50ms CPU mỗi batch rồi yield
+        const startTime = Date.now();
+
+        while (
+            this.autoBotState &&
+            this.autoBotState.isRunning &&
+            !this.autoBotState.isPaused &&
+            this.autoBotState.currentGame < this.autoBotState.totalGames
+        ) {
+            this._runOneFastGame();
+
+            // Yield UI sau mỗi 50ms để browser không bị đơ, stats được update
+            if (Date.now() - startTime > BATCH_TIME_MS) {
+                this.renderAutoBotStats();
+                setTimeout(() => this._runFastBatch(), 0);
+                return;
+            }
+        }
+
+        // Hết trận hoặc dừng
+        if (this.autoBotState && this.autoBotState.currentGame >= this.autoBotState.totalGames) {
+            this.stopAutoBot();
+        } else {
+            this.renderAutoBotStats();
+        }
+    },
+
+    // Chạy 1 ván hoàn toàn synchronous — không setTimeout, không render
+    // ── Engine nhẹ cho fast mode ──────────────────────────────────────────────
+    // 3 tier theo độ mạnh bot:
+    //   tier 0 (easy):        random từ top-3 quickScore
+    //   tier 1 (medium/tia):  quickScore thuần + win/block
+    //   tier 2 (hard/god):    quickScore + tactical preflight đầy đủ (BlockBothEndsAnalyzer)
+    // Đủ phân biệt sức mạnh tương đối mà nhanh gấp 50-200x getBotMove thật
+    _getBotTier: function(botMode) {
+        if (botMode === 'ai-easy')                        return 0;
+        if (botMode === 'ai-medium' || botMode === 'bot-tia-chop') return 1;
+        return 2; // ai-hard, bot-toi-thuong, bot-than-co
+    },
+
+    _fastPickMove: function(player, opponent, wc, chan2Dau, roomRules, botMode) {
+        const tier = this._getBotTier(botMode);
+
+        // Lấy candidates xung quanh quân đã đặt (margin 2)
+        const cands = [];
+        const seen = new Set();
+        if (typeof infiniteMap !== 'undefined') {
+            infiniteMap.forEach((_, key) => {
+                const [r, c] = key.split(',').map(Number);
+                for (let dr = -2; dr <= 2; dr++) {
+                    for (let dc = -2; dc <= 2; dc++) {
+                        if (!dr && !dc) continue;
+                        const k2 = `${r+dr},${c+dc}`;
+                        if (!seen.has(k2) && (typeof getCell !== 'function' || getCell(r+dr, c+dc) === '')) {
+                            seen.add(k2);
+                            cands.push({ r: r+dr, c: c+dc });
+                        }
+                    }
+                }
+            });
+        }
+        if (cands.length === 0) return null;
+
+        // ── Tier 2: tactical preflight (BlockBothEndsAnalyzer) ──
+        if (tier >= 2 && typeof BlockBothEndsAnalyzer !== 'undefined') {
+            const tactical = BlockBothEndsAnalyzer.getPriorityTacticalMove(player, opponent, roomRules);
+            if (tactical) return { r: tactical.r, c: tactical.c };
+            const openEndBlock = BlockBothEndsAnalyzer.getOpenEndBlockMove(player, opponent, roomRules);
+            if (openEndBlock) return { r: openEndBlock.r, c: openEndBlock.c };
+        }
+
+        // ── Tất cả tier: thắng ngay ──
+        for (const { r, c } of cands) {
+            if (typeof setCell === 'function' && typeof checkWinSilent === 'function') {
+                setCell(r, c, player);
+                const win = checkWinSilent(r, c, roomRules);
+                setCell(r, c, '');
+                if (win) return { r, c };
+            }
+        }
+
+        // ── Tất cả tier: chặn địch thắng ngay ──
+        for (const { r, c } of cands) {
+            if (typeof setCell === 'function' && typeof checkWinSilent === 'function') {
+                setCell(r, c, opponent);
+                const win = checkWinSilent(r, c, roomRules);
+                setCell(r, c, '');
+                if (win) return { r, c };
+            }
+        }
+
+        // ── Tier 0 (Easy): random từ top-3 (bắt chước sai lầm của bot Dễ) ──
+        if (tier === 0) {
+            const scored = cands
+                .map(c => ({ ...c, s: (typeof quickScore === 'function' ? quickScore(c.r, c.c, player) : 0) }))
+                .sort((a, b) => b.s - a.s)
+                .slice(0, 3);
+            return scored[Math.floor(Math.random() * scored.length)];
+        }
+
+        // ── Tier 1-2: quickScore chọn tốt nhất ──
+        let best = null, bestScore = -Infinity;
+        for (const { r, c } of cands) {
+            const s = typeof quickScore === 'function' ? quickScore(r, c, player) : 0;
+            if (s > bestScore) { bestScore = s; best = { r, c }; }
+        }
+        return best || cands[0];
+    },
+
+    _runOneFastGame: function() {
+        const state = this.autoBotState;
+
+        // Bật fast mode flag — tắt console.log và renderInfiniteBoard trong makeMove
+        window._autoBotFastMode = true;
+
+        // Setup
+        if (typeof isInfinite !== 'undefined') isInfinite = true;
+        if (typeof GameState !== 'undefined') {
+            if (!GameState.board) GameState.board = {};
+            GameState.board.isInfinite = true;
+        }
+        if (typeof winCount !== 'undefined') winCount = state.winCount;
+        if (typeof isSolo !== 'undefined') isSolo = false;
+
+        const autoBotRoomRules = { winCount: state.winCount, chan2Dau: !!state.blockBoth };
+        if (typeof GameState !== 'undefined') GameState.roomRules = autoBotRoomRules;
+        if (typeof window !== 'undefined') window.roomRules = autoBotRoomRules;
+        if (typeof invalidateBlockBothEndsCache === 'function') invalidateBlockBothEndsCache();
+
+        // Randomize first move
+        const actualFirst = state.firstMove === 'random'
+            ? (Math.random() < 0.5 ? 'X' : 'O')
+            : state.firstMove;
+
+        // Reset board — dùng infiniteMap trực tiếp, không qua makeMove để nhanh hơn
+        if (typeof infiniteMap !== 'undefined') infiniteMap.clear();
+        if (typeof GameState !== 'undefined' && GameState.board) {
+            GameState.board.infiniteMap = typeof infiniteMap !== 'undefined' ? infiniteMap : new Map();
+        }
+        if (typeof moveHistory !== 'undefined') moveHistory.length = 0;
+        if (typeof currentPlayer !== 'undefined') currentPlayer = actualFirst;
+        if (typeof isGameActive !== 'undefined') isGameActive = true;
+        if (typeof moveCount !== 'undefined') moveCount = 0;
+        if (typeof autoplayLastWinner !== 'undefined') autoplayLastWinner = null;
+
+        let winner = null;
+        let moves = 0;
+        const MAX_MOVES = 300;
+        const wc = state.winCount;
+        const chan2Dau = !!state.blockBoth;
+
+        try {
+            // Nước đầu: đặt quân trung tâm
+            const firstPlayer = actualFirst;
+            if (typeof setCell === 'function') {
+                setCell(0, 0, firstPlayer);
+                if (typeof moveHistory !== 'undefined') moveHistory.push({ r: 0, c: 0, player: firstPlayer });
+                if (typeof moveCount !== 'undefined') moveCount++;
+                currentPlayer = firstPlayer === 'X' ? 'O' : 'X';
+            }
+            moves++;
+
+            while (moves < MAX_MOVES) {
+                const cp = typeof currentPlayer !== 'undefined' ? currentPlayer : 'X';
+                const opp = cp === 'X' ? 'O' : 'X';
+                const botMode = cp === 'X' ? state.botXMode : state.botOMode;
+
+                const move = this._fastPickMove(cp, opp, wc, chan2Dau, autoBotRoomRules, botMode);
+                if (!move) break;
+
+                // Đặt quân trực tiếp vào infiniteMap — không qua makeMove (nhanh hơn nhiều)
+                if (typeof setCell === 'function') setCell(move.r, move.c, cp);
+                if (typeof moveHistory !== 'undefined') moveHistory.push({ r: move.r, c: move.c, player: cp });
+                if (typeof moveCount !== 'undefined') moveCount++;
+
+                // Kiểm tra thắng
+                if (typeof checkWinSilent === 'function' && checkWinSilent(move.r, move.c, autoBotRoomRules)) {
+                    winner = cp;
+                    break;
+                }
+
+                currentPlayer = opp;
+                moves++;
+            }
+        } finally {
+            window._autoBotFastMode = false;
+        }
+
+        // Cập nhật stats
+        const statsKey = `${state.botXMode}_vs_${state.botOMode}`;
+        if (!this.autoBotStats) this.autoBotStats = {};
+        if (!this.autoBotStats[statsKey]) {
+            this.autoBotStats[statsKey] = { winsX: 0, winsO: 0, draws: 0, totalMatches: 0 };
+        }
+        const stats = this.autoBotStats[statsKey];
+        if (winner === 'X') stats.winsX++;
+        else if (winner === 'O') stats.winsO++;
+        else stats.draws++;
+        stats.totalMatches++;
+        state.currentGame++;
+
+        // Lưu localStorage mỗi 10 ván
+        if (state.currentGame % 10 === 0) {
+            localStorage.setItem('autoBotStats', JSON.stringify(this.autoBotStats));
+        }
     },
 
     runSingleAutoBotGameVisual: function() {
@@ -1600,24 +1834,56 @@ const BotRoomManager = {
         const originalIsSolo = typeof isSolo !== 'undefined' ? isSolo : null;
         const originalWinCount = typeof winCount !== 'undefined' ? winCount : null;
         const originalBlockBoth = typeof getBlockBothEnds === 'function' ? getBlockBothEnds() : null;
+        // FIX: backup isInfinite để restore đúng sau khi auto bot kết thúc
+        const originalIsInfinite = typeof isInfinite !== 'undefined' ? isInfinite : null;
         
         // Setup game cho Auto Bot
-        if (typeof gameMode !== 'undefined') gameMode = state.botXMode; // Start with bot X mode
-        if (typeof botPiece !== 'undefined') botPiece = state.firstMove === 'X' ? 'X' : 'O';
-        if (typeof humanPiece !== 'undefined') humanPiece = state.firstMove === 'X' ? 'O' : 'X';
+        // QUAN TRỌNG: Set isInfinite = true TRƯỚC TIÊN để getCell/setCell dùng cùng infiniteMap
+        // Nếu isInfinite=false: setCell fallback infiniteMap nhưng getCell đọc boardState → mất đồng bộ → infinite loop
+        if (typeof isInfinite !== 'undefined') isInfinite = true;
+        if (typeof GameState !== 'undefined') {
+            if (!GameState.board) GameState.board = {};
+            GameState.board.isInfinite = true;
+        }
+
+        if (typeof gameMode !== 'undefined') gameMode = state.botXMode;
         if (typeof isSolo !== 'undefined') isSolo = false;
         if (typeof winCount !== 'undefined') winCount = state.winCount;
         if (typeof setBlockBothEnds === 'function') setBlockBothEnds(state.blockBoth);
-        
+
+        // FIX: Set roomRules để BlockBothEndsAnalyzer và checkWinSilent dùng đúng luật
+        const autoBotRoomRules = { winCount: state.winCount, chan2Dau: !!state.blockBoth };
+        if (typeof GameState !== 'undefined') GameState.roomRules = autoBotRoomRules;
+        if (typeof window !== 'undefined') window.roomRules = autoBotRoomRules;
+        if (typeof invalidateBlockBothEndsCache === 'function') invalidateBlockBothEndsCache();
+
+        // FIX: Randomize người đi trước mỗi ván để tránh bias cờ đầu
+        const flipFirst = state.firstMove === 'random' ? Math.random() < 0.5 : false;
+        const actualFirst = flipFirst ? (state.firstMove === 'X' ? 'O' : 'X')
+            : (state.firstMove === 'random' ? (Math.random() < 0.5 ? 'X' : 'O') : state.firstMove);
+
+        // Khi random: botPiece/humanPiece không còn ý nghĩa cố định —
+        // mỗi nước runAutoBotMove sẽ set lại theo currentPlayer
+        if (typeof botPiece !== 'undefined') botPiece = actualFirst;
+        if (typeof humanPiece !== 'undefined') humanPiece = actualFirst === 'X' ? 'O' : 'X';
+
         // Reset bàn cờ
         if (typeof infiniteMap !== 'undefined') {
             infiniteMap.clear();
+        }
+        // Sync GameState.board.infiniteMap với global infiniteMap
+        if (typeof GameState !== 'undefined' && GameState.board) {
+            if (typeof infiniteMap !== 'undefined') {
+                GameState.board.infiniteMap = infiniteMap;
+            } else if (!GameState.board.infiniteMap) {
+                GameState.board.infiniteMap = new Map();
+            }
         }
         if (typeof moveHistory !== 'undefined') {
             moveHistory.length = 0;
         }
         if (typeof currentPlayer !== 'undefined') {
-            currentPlayer = state.firstMove;
+            currentPlayer = actualFirst;
         }
         if (typeof isGameActive !== 'undefined') {
             isGameActive = true;
@@ -1626,8 +1892,8 @@ const BotRoomManager = {
             moveCount = 0;
         }
         
-        // Render bàn cờ trống
-        if (typeof renderInfiniteBoard === 'function') {
+        // Render bàn cờ trống — chỉ trong visual mode
+        if (typeof renderInfiniteBoard === 'function' && state.speedMode === 'visual') {
             renderInfiniteBoard();
         }
         
@@ -1639,6 +1905,7 @@ const BotRoomManager = {
         this.autoBotState.originalIsSolo = originalIsSolo;
         this.autoBotState.originalWinCount = originalWinCount;
         this.autoBotState.originalBlockBoth = originalBlockBoth;
+        this.autoBotState.originalIsInfinite = originalIsInfinite;
         
         // Bắt đầu chạy bot moves
         setTimeout(() => this.runAutoBotMove(), 10);
@@ -1674,23 +1941,80 @@ const BotRoomManager = {
         if (typeof gameMode !== 'undefined') {
             gameMode = currentBotMode;
         }
+
+        // Set botPiece/humanPiece đúng cho bot hiện tại
+        const activeBotPiece = (typeof currentPlayer !== 'undefined') ? currentPlayer : 'X';
+        const activeHumanPiece = activeBotPiece === 'X' ? 'O' : 'X';
+        if (typeof botPiece !== 'undefined') botPiece = activeBotPiece;
+        if (typeof humanPiece !== 'undefined') humanPiece = activeHumanPiece;
+
+        // Đảm bảo roomRules đúng cho mỗi nước đi
+        const autoBotRoomRules = { winCount: state.winCount, chan2Dau: !!state.blockBoth };
+        if (typeof GameState !== 'undefined') GameState.roomRules = autoBotRoomRules;
+        if (typeof window !== 'undefined') window.roomRules = autoBotRoomRules;
         
-        // Gọi makeAIMove để bot đi
-        if (typeof makeAIMove === 'function') {
-            makeAIMove();
+        // Gọi getBotMove trực tiếp (không qua makeAIMove để tránh side effect UI/online)
+        // rồi dùng makeMove để cập nhật board + check win
+        try {
+            const move = (typeof getBotMove === 'function')
+                ? getBotMove({ gameMode: currentBotMode, roomRules: autoBotRoomRules })
+                : null;
+
+            // Guard: move phải là ô trống hợp lệ — tránh infinite loop khi bot crash trả ô cũ
+            const moveIsValid = move
+                && typeof move.r === 'number'
+                && typeof move.c === 'number'
+                && (typeof getCell !== 'function' || getCell(move.r, move.c) === '');
+
+            if (moveIsValid && typeof makeMove === 'function') {
+                const originalIsBotMove = typeof isBotMove !== 'undefined' ? isBotMove : false;
+                if (typeof isBotMove !== 'undefined') isBotMove = true;
+                makeMove(move.r, move.c);
+                if (typeof isBotMove !== 'undefined') isBotMove = originalIsBotMove;
+            } else {
+                // Không có nước đi hợp lệ → hòa (tránh vòng lặp vô tận)
+                console.warn('[AutoBot] No valid move, forcing draw. move=', move);
+                this.autoBotState.currentGameResult = 'draw';
+                if (typeof isGameActive !== 'undefined') isGameActive = false;
+            }
+        } catch (e) {
+            console.error('[AutoBot] getBotMove error:', e instanceof Error ? e.stack || e.message : e);
+            this.autoBotState.currentGameResult = 'draw';
+            if (typeof isGameActive !== 'undefined') isGameActive = false;
         }
-        
+
         // Check kết quả sau khi bot đi
         setTimeout(() => {
             if (typeof isGameActive !== 'undefined' && !isGameActive) {
-                // Game đã kết thúc, xác định winner
-                if (typeof lastMoveR !== 'undefined' && typeof lastMoveC !== 'undefined' && lastMoveR !== null) {
-                    const cell = typeof infiniteMap !== 'undefined' ? infiniteMap.get(`${lastMoveR},${lastMoveC}`) : null;
-                    const lastPlayer = cell ? (cell.player || cell) : null;
-                    this.autoBotState.currentGameResult = (lastPlayer === 'X' || lastPlayer === 'O') ? lastPlayer : 'draw';
-                } else {
-                    this.autoBotState.currentGameResult = 'draw';
+                // FIX: Đọc winner từ moveHistory (tin cậy hơn infiniteMap + lastMoveR/C)
+                // makeMove() ghi winner vào autoplayLastWinner hoặc ta đọc từ moveHistory
+                let winner = null;
+                if (typeof autoplayLastWinner !== 'undefined' && autoplayLastWinner !== null) {
+                    winner = autoplayLastWinner;
+                    autoplayLastWinner = null;
+                } else if (typeof moveHistory !== 'undefined' && moveHistory.length > 0) {
+                    // Fallback: nước cuối trong moveHistory là người thắng (nếu game kết thúc)
+                    const lastMove = moveHistory[moveHistory.length - 1];
+                    if (lastMove && (lastMove.player === 'X' || lastMove.player === 'O')) {
+                        // Verify bằng checkWinSilent
+                        if (typeof checkWinSilent === 'function') {
+                            const rr = (typeof GameState !== 'undefined' && GameState.roomRules)
+                                ? GameState.roomRules : autoBotRoomRules;
+                            if (checkWinSilent(lastMove.r, lastMove.c, rr)) {
+                                winner = lastMove.player;
+                            }
+                        } else {
+                            // Không có checkWinSilent: đọc từ lastMoveR/C + infiniteMap
+                            if (typeof lastMoveR !== 'undefined' && lastMoveR !== null) {
+                                const cellVal = typeof infiniteMap !== 'undefined'
+                                    ? infiniteMap.get(`${lastMoveR},${lastMoveC}`) : null;
+                                // infiniteMap lưu string 'X'/'O' trực tiếp
+                                winner = (cellVal === 'X' || cellVal === 'O') ? cellVal : null;
+                            }
+                        }
+                    }
                 }
+                this.autoBotState.currentGameResult = winner || 'draw';
                 this.finishAutoBotGame();
             } else {
                 // Tiếp tục nước tiếp theo với delay rất ngắn
@@ -1732,6 +2056,17 @@ const BotRoomManager = {
         if (state.originalIsSolo !== null && typeof isSolo !== 'undefined') isSolo = state.originalIsSolo;
         if (state.originalWinCount !== null && typeof winCount !== 'undefined') winCount = state.originalWinCount;
         if (state.originalBlockBoth !== null && typeof setBlockBothEnds === 'function') setBlockBothEnds(state.originalBlockBoth);
+        // Restore isInfinite về giá trị ban đầu
+        if (state.originalIsInfinite !== null && typeof isInfinite !== 'undefined') isInfinite = state.originalIsInfinite;
+        if (state.originalIsInfinite !== null && typeof GameState !== 'undefined' && GameState.board) {
+            GameState.board.isInfinite = state.originalIsInfinite;
+        }
+        // FIX: Restore roomRules để không ảnh hưởng game thường sau khi auto bot kết thúc
+        if (state.originalRoomRules !== undefined) {
+            if (typeof GameState !== 'undefined') GameState.roomRules = state.originalRoomRules;
+            if (typeof window !== 'undefined') window.roomRules = state.originalRoomRules;
+            if (typeof invalidateBlockBothEndsCache === 'function') invalidateBlockBothEndsCache();
+        }
         
         // Update UI
         this.renderAutoBotStats();
@@ -1768,67 +2103,82 @@ const BotRoomManager = {
         const state = this.autoBotState;
         if (!state) return;
 
+        const container = document.getElementById('auto-bot-stats-container');
+        if (!container) return;
+
         const statsKey = `${state.botXMode}_vs_${state.botOMode}`;
-        const stats = this.autoBotStats[statsKey];
-        
-        if (!stats) return;
+        // Nếu chưa có stats (0 trận), dùng object mặc định thay vì return sớm
+        const stats = (this.autoBotStats && this.autoBotStats[statsKey])
+            ? this.autoBotStats[statsKey]
+            : { winsX: 0, winsO: 0, draws: 0, totalMatches: 0 };
 
         // Tính tỷ lệ
-        const winRateX = stats.totalMatches > 0 ? ((stats.winsX / stats.totalMatches) * 100).toFixed(1) : 0;
-        const winRateO = stats.totalMatches > 0 ? ((stats.winsO / stats.totalMatches) * 100).toFixed(1) : 0;
-        const drawRate = stats.totalMatches > 0 ? ((stats.draws / stats.totalMatches) * 100).toFixed(1) : 0;
-        const progress = ((state.currentGame / state.totalGames) * 100).toFixed(1);
+        const winRateX = stats.totalMatches > 0 ? ((stats.winsX / stats.totalMatches) * 100).toFixed(1) : '0.0';
+        const winRateO = stats.totalMatches > 0 ? ((stats.winsO / stats.totalMatches) * 100).toFixed(1) : '0.0';
+        const drawRate = stats.totalMatches > 0 ? ((stats.draws / stats.totalMatches) * 100).toFixed(1) : '0.0';
+        const progress = state.totalGames > 0 ? ((state.currentGame / state.totalGames) * 100).toFixed(1) : '0.0';
+        const isRunning = state.isRunning && !state.isPaused;
 
-        const container = document.getElementById('auto-bot-stats-container');
-        if (container) {
-            container.innerHTML = `
-                <div style="background:#f8fafc;border-radius:8px;padding:16px;margin-top:12px;font-size:14px;">
-                    <div style="font-weight:bold;margin-bottom:12px;color:#831843;">📊 Thống kê Auto Bot</div>
-                    
-                    <!-- Progress Bar -->
-                    <div style="margin-bottom:16px;">
-                        <div style="display:flex;justify-content:space-between;margin-bottom:4px;color:#64748b;">
-                            <span>Tiến độ: ${state.currentGame}/${state.totalGames} trận</span>
-                            <span>${progress}%</span>
-                        </div>
-                        <div style="width:100%;height:20px;background:#e5e7eb;border-radius:10px;overflow:hidden;">
-                            <div style="width:${progress}%;height:100%;background:linear-gradient(90deg,#ec4899,#db2777);transition:width 0.3s;"></div>
-                        </div>
+        // Tính ETA
+        let etaStr = '';
+        if (state._startTime && state.currentGame > 0) {
+            const elapsed = (Date.now() - state._startTime) / 1000;
+            const rate = state.currentGame / elapsed;
+            const remaining = state.totalGames - state.currentGame;
+            const eta = rate > 0 ? Math.round(remaining / rate) : 0;
+            etaStr = eta > 60
+                ? `~${Math.floor(eta/60)}p${eta%60}s`
+                : `~${eta}s`;
+        }
+        const rateStr = (state._startTime && state.currentGame > 0)
+            ? `${((state.currentGame / ((Date.now() - state._startTime) / 1000)) || 0).toFixed(1)} ván/s`
+            : '—';
+
+        const statusColor = isRunning ? '#10b981' : state.isPaused ? '#f59e0b' : '#6b7280';
+        const statusText  = isRunning ? '▶️ Đang chạy...' : state.isPaused ? '⏸️ Tạm dừng' : '⏹️ Hoàn tất';
+
+        container.innerHTML = `
+            <div style="background:#f8fafc;border-radius:8px;padding:16px;margin-top:12px;font-size:14px;border:1px solid #fce7f3;">
+                <div style="font-weight:bold;margin-bottom:12px;color:#831843;font-size:15px;">📊 Thống kê Auto Bot</div>
+
+                <!-- Progress Bar -->
+                <div style="margin-bottom:14px;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;color:#64748b;font-size:13px;">
+                        <span>Tiến độ: <b>${state.currentGame}</b>/${state.totalGames} trận</span>
+                        <span>${progress}% ${etaStr ? '| ETA ' + etaStr : ''} | ${rateStr}</span>
                     </div>
-
-                    <!-- Bot Stats -->
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                        <div style="background:#e0f2fe;padding:12px;border-radius:8px;border:2px solid #0284c7;">
-                            <div style="font-weight:bold;color:#0284c7;font-size:16px;">${state.botXLabel} (X)</div>
-                            <div style="color:#0369a1;margin-top:4px;">Thắng: ${stats.winsX} (${winRateX}%)</div>
-                            <div style="width:100%;height:8px;background:#bae6fd;border-radius:4px;margin-top:6px;overflow:hidden;">
-                                <div style="width:${winRateX}%;height:100%;background:#0284c7;"></div>
-                            </div>
-                        </div>
-                        <div style="background:#fce7f3;padding:12px;border-radius:8px;border:2px solid #be185d;">
-                            <div style="font-weight:bold;color:#be185d;font-size:16px;">${state.botOLabel} (O)</div>
-                            <div style="color:#9d174d;margin-top:4px;">Thắng: ${stats.winsO} (${winRateO}%)</div>
-                            <div style="width:100%;height:8px;background:#fbcfe8;border-radius:4px;margin-top:6px;overflow:hidden;">
-                                <div style="width:${winRateO}%;height:100%;background:#be185d;"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Total Stats -->
-                    <div style="margin-top:12px;padding:10px;background:#f1f5f9;border-radius:6px;color:#475569;">
-                        <div style="display:flex;justify-content:space-between;">
-                            <span>Tổng trận: ${stats.totalMatches}</span>
-                            <span>Hòa: ${stats.draws} (${drawRate}%)</span>
-                        </div>
-                    </div>
-
-                    <!-- Status -->
-                    <div style="margin-top:12px;text-align:center;font-weight:bold;color:${state.isRunning && !state.isPaused ? '#10b981' : '#f59e0b'};">
-                        ${state.isRunning && !state.isPaused ? '▶️ Đang chạy...' : state.isPaused ? '⏸️ Đã tạm dừng' : '⏹️ Đã dừng'}
+                    <div style="width:100%;height:18px;background:#e5e7eb;border-radius:9px;overflow:hidden;">
+                        <div style="width:${progress}%;height:100%;background:linear-gradient(90deg,#ec4899,#db2777);transition:width 0.2s;"></div>
                     </div>
                 </div>
-            `;
-        }
+
+                <!-- Bot Stats -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                    <div style="background:#e0f2fe;padding:12px;border-radius:8px;border:2px solid #0284c7;">
+                        <div style="font-weight:bold;color:#0284c7;font-size:14px;">${state.botXLabel} (X)</div>
+                        <div style="font-size:22px;font-weight:bold;color:#0369a1;margin:4px 0;">${winRateX}%</div>
+                        <div style="color:#0369a1;font-size:12px;">Thắng: ${stats.winsX} / ${stats.totalMatches}</div>
+                        <div style="width:100%;height:6px;background:#bae6fd;border-radius:3px;margin-top:6px;overflow:hidden;">
+                            <div style="width:${winRateX}%;height:100%;background:#0284c7;transition:width 0.3s;"></div>
+                        </div>
+                    </div>
+                    <div style="background:#fce7f3;padding:12px;border-radius:8px;border:2px solid #be185d;">
+                        <div style="font-weight:bold;color:#be185d;font-size:14px;">${state.botOLabel} (O)</div>
+                        <div style="font-size:22px;font-weight:bold;color:#9d174d;margin:4px 0;">${winRateO}%</div>
+                        <div style="color:#9d174d;font-size:12px;">Thắng: ${stats.winsO} / ${stats.totalMatches}</div>
+                        <div style="width:100%;height:6px;background:#fbcfe8;border-radius:3px;margin-top:6px;overflow:hidden;">
+                            <div style="width:${winRateO}%;height:100%;background:#be185d;transition:width 0.3s;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hòa + Status -->
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#f1f5f9;border-radius:6px;">
+                    <span style="color:#475569;">Hòa: ${stats.draws} (${drawRate}%)</span>
+                    <span style="font-weight:bold;color:${statusColor};">${statusText}</span>
+                </div>
+            </div>
+        `;
     },
 
     stopAutoBot: function() {
@@ -1837,9 +2187,17 @@ const BotRoomManager = {
             this.autoBotInterval = null;
         }
 
+        // Luôn tắt fast mode khi dừng
+        window._autoBotFastMode = false;
+
         if (this.autoBotState) {
             this.autoBotState.isRunning = false;
-            this.autoBotState.isPaused = true; // Set to paused instead of false to allow resume
+            this.autoBotState.isPaused = true;
+        }
+
+        // Lưu stats lần cuối
+        if (this.autoBotStats) {
+            localStorage.setItem('autoBotStats', JSON.stringify(this.autoBotStats));
         }
 
         // Update UI buttons
@@ -1848,6 +2206,7 @@ const BotRoomManager = {
         document.getElementById('btn-auto-bot-resume').disabled = false;
 
         this.renderAutoBotStats();
+        this.renderAutoBotLeaderboard();
     },
 
     resumeAutoBot: function() {

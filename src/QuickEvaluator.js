@@ -61,18 +61,13 @@ const QuickEvaluator = {
             return { move: fourOpen, reason: 'FOUR_OPEN' };
         }
         
-        // 7. Smart Blocking
+        // 7+8. Smart Blocking + Gap open-end block — đều qua BlockBothEndsAnalyzer
+        // getPriorityTacticalMove đã chạy ở ai-nao.js / BotSuperV2 trước khi vào đây,
+        // nhưng QuickEvaluator được dùng độc lập trong ContextBuilder nên gọi lại an toàn.
         const smartBlock = this.checkSmartBlock(allEmpty, opponent, winCount, chan2Dau);
         if (smartBlock) {
-            console.log('[QuickEvaluator] Smart block:', smartBlock);
+            console.log('[QuickEvaluator] Smart block (open-end):', smartBlock);
             return { move: smartBlock, reason: 'Smart Block' };
-        }
-
-        // 8. Chặn đầu mở cách 1 ô (quan trọng cho luật chặn 2 đầu)
-        const gap1Block = this.checkGap1Block(allEmpty, opponent, winCount, chan2Dau);
-        if (gap1Block) {
-            console.log('[QuickEvaluator] Blocking open end gap 1:', gap1Block);
-            return { move: gap1Block, reason: 'Block Open End Gap 1' };
         }
         
         // Không tìm được tactical move rõ ràng -> cần Deep Path
@@ -339,248 +334,34 @@ const QuickEvaluator = {
     },
 
     // ===== CHECK SMART BLOCK =====
+    // Dùng BlockBothEndsAnalyzer làm single source of truth cho mọi loại chặn:
+    // - getPriorityTacticalMove: FIVE / open_end_block (FOUR+) / immediate_block
+    // - getOpenEndBlockMove: THREE mở 2 đầu và broken chain gap>=1
+    // - getBestBlockMoves: fallback cho chuỗi tầm trung >= winCount-2
     checkSmartBlock(allEmpty, opponent, winCount, chan2Dau) {
-        // Dùng BlockBothEndsAnalyzer thay analyzeBlockPositions cũ
-        if (typeof BlockBothEndsAnalyzer !== 'undefined') {
-            const player = opponent === 'X' ? 'O' : 'X';
-            const openEnd = BlockBothEndsAnalyzer.getOpenEndBlockMove(opponent, player, { winCount, chan2Dau });
-            if (openEnd) return openEnd;
-            const blockMoves = BlockBothEndsAnalyzer.getBestBlockMoves(opponent, player, { winCount, chan2Dau }, winCount - 2);
-            if (blockMoves.length > 0) return blockMoves[0];
-        }
+        if (typeof BlockBothEndsAnalyzer === 'undefined') return null;
+        const player = opponent === 'X' ? 'O' : 'X';
+        const rules = { winCount, chan2Dau };
+
+        // Ưu tiên 1: priority tactical (win ngay / chặn FOUR+ / chặn đầu mở)
+        const priority = BlockBothEndsAnalyzer.getPriorityTacticalMove(player, opponent, rules);
+        if (priority) return { r: priority.r, c: priority.c };
+
+        // Ưu tiên 2: open-end block (THREE+ với gap>=1)
+        const openEnd = BlockBothEndsAnalyzer.getOpenEndBlockMove(player, opponent, rules);
+        if (openEnd) return { r: openEnd.r, c: openEnd.c };
+
+        // Ưu tiên 3: best block moves cho chuỗi tầm trung
+        const blockMoves = BlockBothEndsAnalyzer.getBestBlockMoves(player, opponent, rules, winCount - 2);
+        if (blockMoves.length > 0) return { r: blockMoves[0].r, c: blockMoves[0].c };
+
         return null;
     },
 
-    // ===== CHECK GAP 1-5 BLOCK =====
-    // Kiểm tra chặn đầu mở cách 1-5 ô (quan trọng cho luật chặn 2 đầu)
-    // Với luật chặn 2 đầu, nếu đầu bị chặn cách 1-5 ô trống, nên chặn đầu kia
-    // ƯU TIÊN: Chặn tạo thế cờ có lợi (tạo đòn tấn công, vị trí chiến lược)
+    // ===== CHECK GAP 1-5 BLOCK (deprecated — đã gộp vào checkSmartBlock) =====
+    // Giữ lại stub để không lỗi nếu có code cũ còn gọi
     checkGap1Block(allEmpty, opponent, winCount, chan2Dau) {
-        if (!chan2Dau) return null; // Chỉ áp dụng khi luật chặn 2 đầu bật
-        
-        const board = typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : infiniteMap;
-        const player = opponent === 'X' ? 'O' : 'X';
-        const directions = [
-            { dr: 0, dc: 1 },
-            { dr: 1, dc: 0 },
-            { dr: 1, dc: 1 },
-            { dr: 1, dc: -1 }
-        ];
-        
-        let bestBlock = null;
-        let bestScore = 0;
-        
-        for (const { r, c } of allEmpty) {
-            if (this.getCell(board, r, c) !== '') continue;
-            
-            // Check xem ô này có phải là đầu mở cách 1-5 ô không
-            let isGapOpen = false;
-            let bestGapScore = 0;
-            
-            for (const { dr, dc } of directions) {
-                // Check forward
-                const nr1 = r + dr;
-                const nc1 = c + dc;
-                const cell1 = this.getCell(board, nr1, nc1);
-                
-                if (cell1 === opponent) {
-                    // Ô ngay cạnh có quân đối thủ → check xem có chuỗi nguy hiểm không
-                    let count = 1;
-                    let nr = nr1 + dr;
-                    let nc = nc1 + dc;
-                    
-                    while (this.getCell(board, nr, nc) === opponent) {
-                        count++;
-                        nr += dr;
-                        nc += dc;
-                    }
-                    
-                    // Nếu có chuỗi đủ dài (winCount - 1 hoặc winCount - 2)
-                    if (count >= winCount - 2) {
-                        // Check ô cách 1-5 ô (đầu mở)
-                        for (let gap = 1; gap <= 5; gap++) {
-                            const gapR = r - dr * gap;
-                            const gapC = c - dc * gap;
-                            const gapCell = this.getCell(board, gapR, gapC);
-                            
-                            if (gapCell === '') {
-                                // Đây là đầu mở cách gap ô → nên chặn
-                                // Càng gần (gap nhỏ) càng quan trọng
-                                const gapScore = (6 - gap) * 1000; // gap=1: 5000, gap=5: 1000
-                                if (gapScore > bestGapScore) {
-                                    bestGapScore = gapScore;
-                                    isGapOpen = true;
-                                }
-                                break; // Chỉ cần tìm 1 đầu mở là đủ
-                            } else if (gapCell !== '' && gapCell !== opponent) {
-                                // Ô bị chặn bởi quân khác → vẫn là đầu mở (đối thủ không thể đánh vào đó)
-                                const gapScore = (6 - gap) * 500;
-                                if (gapScore > bestGapScore) {
-                                    bestGapScore = gapScore;
-                                    isGapOpen = true;
-                                }
-                                break;
-                            } else {
-                                // Ô có quân đối thủ → không phải đầu mở
-                                break;
-                            }
-                        }
-                    }
-                }
-                
-                // Check backward
-                const br1 = r - dr;
-                const bc1 = c - dc;
-                const bcell1 = this.getCell(board, br1, bc1);
-                
-                if (bcell1 === opponent) {
-                    let count = 1;
-                    let br = br1 - dr;
-                    let bc = bc1 - dc;
-                    
-                    while (this.getCell(board, br, bc) === opponent) {
-                        count++;
-                        br -= dr;
-                        bc -= dc;
-                    }
-                    
-                    if (count >= winCount - 2) {
-                        for (let gap = 1; gap <= 5; gap++) {
-                            const gapR = r + dr * gap;
-                            const gapC = c + dc * gap;
-                            const gapCell = this.getCell(board, gapR, gapC);
-                            
-                            if (gapCell === '') {
-                                const gapScore = (6 - gap) * 1000;
-                                if (gapScore > bestGapScore) {
-                                    bestGapScore = gapScore;
-                                    isGapOpen = true;
-                                }
-                                break;
-                            } else if (gapCell !== '' && gapCell !== opponent) {
-                                const gapScore = (6 - gap) * 500;
-                                if (gapScore > bestGapScore) {
-                                    bestGapScore = gapScore;
-                                    isGapOpen = true;
-                                }
-                                break;
-                            } else {
-                                break;
-                            }
-                        }
-                    }
-                }
-                
-                if (isGapOpen && bestGapScore >= 3000) break; // gap <= 3 là đủ quan trọng
-            }
-            
-            if (isGapOpen) {
-                // ══════════════════════════════════════════════════════════════════
-                // ĐÁNH GIÁ THẾ CỜ SAU KHI CHẶN (ưu tiên thế cờ có lợi)
-                // ══════════════════════════════════════════════════════════════════
-                let advantageScore = bestGapScore;
-                
-                // Simulate chặn
-                this.setCell(board, r, c, player);
-                
-                // Check xem chặn có tạo đòn tấn công không
-                let createsAttack = false;
-                let attackBonus = 0;
-                
-                for (const { dr, dc } of directions) {
-                    // Check THREE_OPEN
-                    let count = 1;
-                    let nr = r + dr;
-                    let nc = c + dc;
-                    while (this.getCell(board, nr, nc) === player) {
-                        count++;
-                        nr += dr;
-                        nc += dc;
-                    }
-                    let br = r - dr;
-                    let bc = c - dc;
-                    while (this.getCell(board, br, bc) === player) {
-                        count++;
-                        br -= dr;
-                        bc -= dc;
-                    }
-                    
-                    if (count === winCount - 2) {
-                        // Check xem có mở không
-                        const headOpen = this.getCell(board, nr, nc) === '';
-                        const tailOpen = this.getCell(board, br, bc) === '';
-                        if (headOpen || tailOpen) {
-                            createsAttack = true;
-                            attackBonus += 5000; // Tạo THREE_OPEN
-                        }
-                    }
-                    
-                    if (count === winCount - 1) {
-                        const headOpen = this.getCell(board, nr, nc) === '';
-                        const tailOpen = this.getCell(board, br, bc) === '';
-                        if (headOpen || tailOpen) {
-                            createsAttack = true;
-                            attackBonus += 15000; // Tạo FOUR_OPEN
-                        }
-                    }
-                }
-                
-                // Check fork (nhiều đe dọa)
-                let threatCount = 0;
-                for (const { dr, dc } of directions) {
-                    let count = 1;
-                    let nr = r + dr;
-                    let nc = c + dc;
-                    while (this.getCell(board, nr, nc) === player) {
-                        count++;
-                        nr += dr;
-                        nc += dc;
-                    }
-                    let br = r - dr;
-                    let bc = c - dc;
-                    while (this.getCell(board, br, bc) === player) {
-                        count++;
-                        br -= dr;
-                        bc -= dc;
-                    }
-                    if (count >= winCount - 2) threatCount++;
-                }
-                if (threatCount >= 2) {
-                    createsAttack = true;
-                    attackBonus += 10000; // Tạo fork
-                }
-                
-                // Check vị trí chiến lược (gần trung tâm)
-                let strategicBonus = 0;
-                if (board.size > 0) {
-                    let sr = 0, sc = 0, n = 0;
-                    for (const key of board.keys()) {
-                        const [kr, kc] = key.split(',').map(Number);
-                        sr += kr;
-                        sc += kc;
-                        n++;
-                    }
-                    const cr = sr / n, cc = sc / n;
-                    const dist = Math.abs(r - cr) + Math.abs(c - cc);
-                    if (dist < 3) strategicBonus += 3000;
-                    else if (dist < 5) strategicBonus += 2000;
-                    else if (dist < 8) strategicBonus += 1000;
-                }
-                
-                // Undo simulate
-                this.setCell(board, r, c, '');
-                
-                // Tổng điểm
-                const totalScore = advantageScore + attackBonus + strategicBonus;
-                
-                if (totalScore > bestScore) {
-                    bestScore = totalScore;
-                    bestBlock = { r, c };
-                }
-            }
-        }
-        
-        return bestBlock;
+        return null; // Logic đã được BlockBothEndsAnalyzer trong checkSmartBlock xử lý
     }
 };
 

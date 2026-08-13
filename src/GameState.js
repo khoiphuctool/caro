@@ -9,7 +9,7 @@ const GameState = {
         winCount: 5,
         state: [],           // For fixed board
         infiniteMap: new Map(),  // For infinite board (Map)
-        isInfinite: false,
+        isInfinite: true,    // Game luôn dùng bàn vô hạn; false chỉ khi legacy fixed board
     },
 
     // ===== GAME STATUS =====
