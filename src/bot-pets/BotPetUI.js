@@ -174,8 +174,8 @@ function updateBotPetUI() {
     `;
 
     if (window.DEBUG_BOT_RUNTIME) {
-        console.log('[BotPetUI] compact mounted in', row.parentElement?.className,
-            '| pet =', state.equippedBotPet, '| active =', state.active);
+        // console.log('[BotPetUI] compact mounted in', row.parentElement?.className,
+            // '| pet =', state.equippedBotPet, '| active =', state.active);
     }
 }
 window.updateBotPetUI = updateBotPetUI;
@@ -325,7 +325,7 @@ function _renderOnlinePetCompact(role) {
     `;
 
     if (window.DEBUG_BOT_RUNTIME) {
-        console.log(`[OnlinePetUI] rendered role=${roleLC} pet=${state.equippedPetId} active=${isActive}`);
+        // console.log(`[OnlinePetUI] rendered role=${roleLC} pet=${state.equippedPetId} active=${isActive}`);
     }
 }
 
@@ -415,7 +415,7 @@ function mountOnlineBotPets() {
                     }
                 }
             } catch (err) {
-                console.warn('[OnlinePetUI] render TOP-4 failed', err);
+                // console.warn('[OnlinePetUI] render TOP-4 failed', err);
             }
         } else {
             setTimeout(() => {
@@ -429,7 +429,7 @@ function mountOnlineBotPets() {
                         if (Array.isArray(top4) && top4.length > 0) showCandidatesOnBoard(top4);
                     }
                 } catch (err) {
-                    console.warn('[OnlinePetUI] render TOP-4 failed (delayed)', err);
+                    // console.warn('[OnlinePetUI] render TOP-4 failed (delayed)', err);
                 }
             }, 400);
         }
@@ -451,7 +451,7 @@ function mountOnlineBotPets() {
                         clearCandidatesFromBoard();
                     }
                 } catch (err) {
-                    console.warn('[OnlinePetUI] auto-refresh candidates failed', err);
+                    // console.warn('[OnlinePetUI] auto-refresh candidates failed', err);
                 }
                 return res;
             };
@@ -469,7 +469,7 @@ function mountOnlineBotPets() {
                 // Watchdog: warn if wrapper remains active for too long
                 window._botpet_watchdog_timer = setTimeout(() => {
                     if (window._botpet_refresh_wrapped_online) {
-                        console.warn('[OnlinePetUI] WARNING: botpet refresh wrapper still active after 5 minutes');
+                        // console.warn('[OnlinePetUI] WARNING: botpet refresh wrapper still active after 5 minutes');
                     }
                 }, 5 * 60 * 1000);
             } catch (e) { /* ignore */ }

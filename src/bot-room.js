@@ -314,11 +314,11 @@ const BotRoomManager = {
         const winRateO = stats.totalMatches > 0 ? ((stats.winsO / stats.totalMatches) * 100).toFixed(1) : 0;
         const drawRate = stats.totalMatches > 0 ? ((stats.draws / stats.totalMatches) * 100).toFixed(1) : 0;
         
-        console.log(`[BotVsBot] ${stats.botXLabel} vs ${stats.botOLabel}:`);
-        console.log(`  Tổng trận: ${stats.totalMatches}`);
-        console.log(`  ${stats.botXLabel} thắng: ${stats.winsX} (${winRateX}%)`);
-        console.log(`  ${stats.botOLabel} thắng: ${stats.winsO} (${winRateO}%)`);
-        console.log(`  Hòa: ${stats.draws} (${drawRate}%)`);
+        // console.log(`[BotVsBot] ${stats.botXLabel} vs ${stats.botOLabel}:`);
+        // console.log(`  Tổng trận: ${stats.totalMatches}`);
+        // console.log(`  ${stats.botXLabel} thắng: ${stats.winsX} (${winRateX}%)`);
+        // console.log(`  ${stats.botOLabel} thắng: ${stats.winsO} (${winRateO}%)`);
+        // console.log(`  Hòa: ${stats.draws} (${drawRate}%)`);
         
         // Hiển thị UI thống kê (nếu có container)
         const statsContainer = document.getElementById('bot-vs-bot-stats');
@@ -706,7 +706,7 @@ const BotRoomManager = {
                 checkboxBBE.addEventListener('change', function() {
                     if (typeof invalidateBlockBothEndsCache === 'function') {
                         invalidateBlockBothEndsCache();
-                        console.log('[bot-vs-bot-block-both] checkbox toggled, cache invalidated');
+                        // console.log('[bot-vs-bot-block-both] checkbox toggled, cache invalidated');
                     }
                 });
             }
@@ -750,23 +750,23 @@ const BotRoomManager = {
             if (this.currentBotRoom.gameMode === 'bot-vs-bot') {
                 const wxEl = document.getElementById('bot-vs-bot-x-mode');
                 modeEl.value = wxEl && wxEl.value ? wxEl.value : 'bot-toi-thuong';
-                console.log('[BotRoom] bot-vs-bot initial gameMode set to', modeEl.value);
+                // console.log('[BotRoom] bot-vs-bot initial gameMode set to', modeEl.value);
             } else {
                 modeEl.value = this.currentBotRoom.gameMode;
-                console.log('[BotRoom] startBotBattle initial room gameMode:', this.currentBotRoom.gameMode);
+                // console.log('[BotRoom] startBotBattle initial room gameMode:', this.currentBotRoom.gameMode);
                 if (typeof getEquippedBotPetProfile === 'function' && typeof isBotPetActive === 'function') {
                     const botPetProfile = getEquippedBotPetProfile();
                     const botPetActive = isBotPetActive();
-                    console.log('[BotRoom] Equipped Bot Pet runtime check:', { botPetProfile, botPetActive });
+                    // console.log('[BotRoom] Equipped Bot Pet runtime check:', { botPetProfile, botPetActive });
                     if (botPetActive && botPetProfile && typeof isValidBotPetRuntimeMode === 'function' && isValidBotPetRuntimeMode(this.currentBotRoom.gameMode)) {
                         modeEl.value = botPetProfile.gameMode;
-                        console.log('[BotRoom] Overriding room gameMode with equipped Bot Pet:', modeEl.value);
+                        // console.log('[BotRoom] Overriding room gameMode with equipped Bot Pet:', modeEl.value);
                     } else if (botPetProfile) {
-                        console.warn('[BotRoom] Equipped Bot Pet profile exists but room gameMode is not valid runtime mode for override or pet inactive:', this.currentBotRoom.gameMode);
+                        // console.warn('[BotRoom] Equipped Bot Pet profile exists but room gameMode is not valid runtime mode for override or pet inactive:', this.currentBotRoom.gameMode);
                     }
                 }
                 if (window.DEBUG_BOT_RUNTIME) {
-                    console.log('[BotRoom] startBotBattle final gameMode set to', modeEl.value);
+                    // console.log('[BotRoom] startBotBattle final gameMode set to', modeEl.value);
                     if (typeof window.logBotPetRuntimeAudit === 'function') {
                         window.logBotPetRuntimeAudit();
                     }
@@ -815,12 +815,12 @@ const BotRoomManager = {
         this.initBotRoomCanvas();
 
         // YC.TXT FIX: Log infCanvas.id after initBotRoomCanvas
-        console.log('[BOT ROOM] enterBotRoom - infCanvas.id:', typeof infCanvas !== 'undefined' && infCanvas ? infCanvas.id : 'null');
+        // console.log('[BOT ROOM] enterBotRoom - infCanvas.id:', typeof infCanvas !== 'undefined' && infCanvas ? infCanvas.id : 'null');
 
         // Initialize GameState before initGame - ensures single source of truth is ready
         if (typeof GameState !== 'undefined' && typeof GameState.initialize === 'function') {
             GameState.initialize();
-            console.log('[BOT ROOM] GameState initialized');
+            // console.log('[BOT ROOM] GameState initialized');
         }
 
         // Khởi tạo game
@@ -841,7 +841,7 @@ const BotRoomManager = {
 
     // ══ Initialize canvas for BOT ROOM (YC.TXT - SharedBoardUI Migration) ═════════════════════
     initBotRoomCanvas: function() {
-        console.log('[BOT ROOM] initBotRoomCanvas - Using SharedBoardUI');
+        // console.log('[BOT ROOM] initBotRoomCanvas - Using SharedBoardUI');
 
         // Use SharedBoardUI for unified canvas initialization
         if (typeof SharedBoardUI !== 'undefined') {
@@ -851,7 +851,7 @@ const BotRoomManager = {
                 this.initBotRoomCanvasFallback();
             }
         } else {
-            console.warn('[BOT ROOM] SharedBoardUI not loaded, using fallback logic');
+            // console.warn('[BOT ROOM] SharedBoardUI not loaded, using fallback logic');
             this.initBotRoomCanvasFallback();
         }
 
@@ -865,12 +865,12 @@ const BotRoomManager = {
         const canvas = document.getElementById('inf-canvas-bot');
         const botContainer = document.getElementById('shared-board-bot');
 
-        console.log('[BOT ROOM] initBotRoomCanvasFallback - canvas element:', {
-            canvasId: canvas ? canvas.id : 'null',
-            canvasWidth: canvas ? canvas.width : 'null',
-            canvasHeight: canvas ? canvas.height : 'null',
-            botContainerId: botContainer ? botContainer.id : 'null'
-        });
+        // console.log('[BOT ROOM] initBotRoomCanvasFallback - canvas element:', {
+            // canvasId: canvas ? canvas.id : 'null',
+            // canvasWidth: canvas ? canvas.width : 'null',
+            // canvasHeight: canvas ? canvas.height : 'null',
+            // botContainerId: botContainer ? botContainer.id : 'null'
+        // });
 
         if (canvas && botContainer) {
             // YC.TXT FIX: Use container dimensions instead of window dimensions
@@ -885,12 +885,12 @@ const BotRoomManager = {
             canvas.style.width = '100%';
             canvas.style.height = '100%';
 
-            console.log('[BOT ROOM] initBotRoomCanvasFallback dimensions:', {
-                containerWidth: containerRect.width,
-                containerHeight: containerRect.height,
-                canvasWidth: canvas.width,
-                canvasHeight: canvas.height
-            });
+            // console.log('[BOT ROOM] initBotRoomCanvasFallback dimensions:', {
+                // containerWidth: containerRect.width,
+                // containerHeight: containerRect.height,
+                // canvasWidth: canvas.width,
+                // canvasHeight: canvas.height
+            // });
         }
 
         // Update infCanvasW/infCanvasH BEFORE calling initInfCanvas
@@ -1016,7 +1016,7 @@ const BotRoomManager = {
             try {
                 this.botVsBotStats = JSON.parse(savedStats);
             } catch (e) {
-                console.warn('[BotVsBot] Failed to load stats from localStorage:', e);
+                // console.warn('[BotVsBot] Failed to load stats from localStorage:', e);
                 this.botVsBotStats = {};
             }
         } else {
@@ -1096,11 +1096,11 @@ const BotRoomManager = {
                 isSolo = originalIsSolo;
                 return;
             }
-            console.log('[performBotVsBotMove] BEFORE getBotMove - currentPlayer=', state.currentPlayer, 'botMode=', botMode, 'gameMode=', gameMode, 'botPiece=', botPiece, 'humanPiece=', humanPiece);
+            // console.log('[performBotVsBotMove] BEFORE getBotMove - currentPlayer=', state.currentPlayer, 'botMode=', botMode, 'gameMode=', gameMode, 'botPiece=', botPiece, 'humanPiece=', humanPiece);
             // Truyền roomRules vào getBotMove để đảm bảo bot áp dụng đúng luật chặn 2 đầu
             const roomRules = (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : (typeof window !== 'undefined' && window.roomRules) ? window.roomRules : { winCount: 5, chan2Dau: true };
             const move = getBotMove({ roomRules });
-            console.log('[performBotVsBotMove] move=', move);
+            // console.log('[performBotVsBotMove] move=', move);
             if (move) {
                 const originalIsBotMove = isBotMove;
                 const originalCurrentPlayer = currentPlayer;
@@ -1110,7 +1110,7 @@ const BotRoomManager = {
                 makeMove(move.r, move.c);
                 currentPlayer = originalCurrentPlayer;
                 isBotMove = originalIsBotMove;
-                console.log('[performBotVsBotMove] AFTER makeMove - currentPlayer (global):', currentPlayer, 'state.currentPlayer:', state.currentPlayer);
+                // console.log('[performBotVsBotMove] AFTER makeMove - currentPlayer (global):', currentPlayer, 'state.currentPlayer:', state.currentPlayer);
             }
 
             // Restore SAU KHI đã dùng xong — tránh restore trước khi makeMove đọc botPiece
@@ -1121,9 +1121,9 @@ const BotRoomManager = {
             isSolo = originalIsSolo;
 
             // Chuyển lượt cho bot tiếp theo
-            console.log('[performBotVsBotMove] BEFORE SWITCH - state.currentPlayer:', state.currentPlayer);
+            // console.log('[performBotVsBotMove] BEFORE SWITCH - state.currentPlayer:', state.currentPlayer);
             state.currentPlayer = state.currentPlayer === 'X' ? 'O' : 'X';
-            console.log('[performBotVsBotMove] AFTER SWITCH - state.currentPlayer:', state.currentPlayer);
+            // console.log('[performBotVsBotMove] AFTER SWITCH - state.currentPlayer:', state.currentPlayer);
 
             if (isGameActive) {
                 setTimeout(() => this.performBotVsBotMove(), 180);
@@ -1401,21 +1401,21 @@ const BotRoomManager = {
     // ══ Thoát phòng bot (YC.TXT - Updated for new view) ═════════════════════
     exitBotRoom: function() {
         if (!this.isBotRoomMode) {
-            console.warn('[BotRoom] Exit called but not in bot room');
+            // console.warn('[BotRoom] Exit called but not in bot room');
             return;
         }
 
         const shouldReload = confirm('Bạn đang thoát phòng BOT offline. Trang sẽ tải lại để xóa trạng thái phòng ma và trở về chế độ chính.\n\nBấm OK để thoát và load lại trang, Cancel để hủy và ở lại phòng.');
-        console.log('[BotRoom] Exit - User choice:', shouldReload);
+        // console.log('[BotRoom] Exit - User choice:', shouldReload);
 
         // Nếu user bấm Cancel, không làm gì cả - vẫn ở lại phòng
         if (!shouldReload) {
-            console.log('[BotRoom] Exit cancelled by user - staying in bot room');
+            // console.log('[BotRoom] Exit cancelled by user - staying in bot room');
             return;
         }
 
         // Chỉ thực hiện cleanup khi user bấm OK
-        console.log('[BotRoom] Exit Start - Full cleanup');
+        // console.log('[BotRoom] Exit Start - Full cleanup');
 
         // Cleanup editor mode nếu đang dựng thế
         if (typeof PositionEditor !== 'undefined' && (PositionEditor.active || PositionEditor.enabled)) {
@@ -1437,7 +1437,7 @@ const BotRoomManager = {
 
         // YC.TXT FIX: Destroy SharedBoardUI FIRST (same as Online Room)
         if (typeof SharedBoardUI !== 'undefined') {
-            console.log('[BotRoom] Destroying SharedBoardUI');
+            // console.log('[BotRoom] Destroying SharedBoardUI');
             SharedBoardUI.destroy();
         }
 
@@ -1448,7 +1448,7 @@ const BotRoomManager = {
 
         // YC.TXT FIX: Clear mode from GameModeManager (same as Online Room)
         if (typeof GameModeManager !== 'undefined') {
-            console.log('[BotRoom] Clearing GameModeManager');
+            // console.log('[BotRoom] Clearing GameModeManager');
             GameModeManager.clearMode();
         }
 
@@ -1463,7 +1463,7 @@ const BotRoomManager = {
         // Xóa currentRoomId khỏi Firebase khi thoát bot room
         const myId = localStorage.getItem('current_user_id');
         if (myId && typeof db !== 'undefined') {
-            console.log('[BotRoom] Removing user currentRoomId from Firebase');
+            // console.log('[BotRoom] Removing user currentRoomId from Firebase');
             db.ref(`users/${myId}/currentRoomId`).remove();
         }
 
@@ -1496,7 +1496,7 @@ const BotRoomManager = {
 
         // switchView('home') sẽ gọi returnBoardToTraining() và restore shared-board-online
         if (typeof switchView === 'function') {
-            console.log('[BotRoom] Switching to home view');
+            // console.log('[BotRoom] Switching to home view');
             switchView('home');
         } else {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -1508,7 +1508,7 @@ const BotRoomManager = {
         // Để user tự chọn tab (Bot/Normal/VIP) sau khi thoát
         // if (typeof switchRoomTab === 'function') switchRoomTab('bot');
 
-        console.log('[BotRoom] Exit Complete - Full cleanup done, reloading page');
+        // console.log('[BotRoom] Exit Complete - Full cleanup done, reloading page');
         window.location.reload();
     },
 
@@ -1973,7 +1973,7 @@ const BotRoomManager = {
                 if (typeof isBotMove !== 'undefined') isBotMove = originalIsBotMove;
             } else {
                 // Không có nước đi hợp lệ → hòa (tránh vòng lặp vô tận)
-                console.warn('[AutoBot] No valid move, forcing draw. move=', move);
+                // console.warn('[AutoBot] No valid move, forcing draw. move=', move);
                 this.autoBotState.currentGameResult = 'draw';
                 if (typeof isGameActive !== 'undefined') isGameActive = false;
             }
@@ -2367,11 +2367,11 @@ const BotRoomManager = {
         if (checkbox.checked) {
             btnStart.style.display = 'none';
             btnEditor.style.display = 'block';
-            console.log('[BotRoom] Position editor mode enabled');
+            // console.log('[BotRoom] Position editor mode enabled');
         } else {
             btnStart.style.display = 'block';
             btnEditor.style.display = 'none';
-            console.log('[BotRoom] Position editor mode disabled');
+            // console.log('[BotRoom] Position editor mode disabled');
         }
     },
 
@@ -2581,7 +2581,7 @@ const BotRoomManager = {
                 toolbar.style.bottom = Math.max(80, safeBottom) + 'px';
             }
         });
-        console.log('[BotRoom] Position editor toolbar rendered');
+        // console.log('[BotRoom] Position editor toolbar rendered');
     },
 
     // ══ Update Editor Tool Buttons ══════════════════════════════════════════════════════════════════
@@ -2624,21 +2624,21 @@ const BotRoomManager = {
 
     // ══ Handle Cell Scores Checkbox Change ═══════════════════════════════════════════════════
     onCellScoresCheckboxChange: function() {
-        console.log('[BotRoomManager] onCellScoresCheckboxChange called');
+        // console.log('[BotRoomManager] onCellScoresCheckboxChange called');
         const checkbox = document.getElementById('show-cell-scores-bot');
         if (!checkbox) {
-            console.warn('[BotRoomManager] show-cell-scores-bot checkbox not found');
+            // console.warn('[BotRoomManager] show-cell-scores-bot checkbox not found');
             return;
         }
 
-        console.log('[BotRoomManager] Checkbox checked:', checkbox.checked);
+        // console.log('[BotRoomManager] Checkbox checked:', checkbox.checked);
         window._cellScoresEnabled = checkbox.checked;
 
         if (checkbox.checked) {
             window._cellScoresEnabled = true;
             window.cellScores = {};
-            console.log('[BotRoomManager] infiniteMap available:', typeof infiniteMap !== 'undefined');
-            console.log('[BotRoomManager] quickScore available:', typeof quickScore !== 'undefined');
+            // console.log('[BotRoomManager] infiniteMap available:', typeof infiniteMap !== 'undefined');
+            // console.log('[BotRoomManager] quickScore available:', typeof quickScore !== 'undefined');
 
             if (typeof infiniteMap !== 'undefined' && typeof quickScore === 'function') {
                 const map = infiniteMap;
@@ -2679,7 +2679,7 @@ const BotRoomManager = {
                 }
 
                 const currentPlayer = typeof window.currentPlayer !== 'undefined' ? window.currentPlayer : 'X';
-                console.log('[BotRoomManager] Current player:', currentPlayer, 'candidateCount:', candidates.length);
+                // console.log('[BotRoomManager] Current player:', currentPlayer, 'candidateCount:', candidates.length);
 
                 const scoredCandidates = [];
                 for (const { r, c } of candidates) {
@@ -2715,22 +2715,22 @@ const BotRoomManager = {
                     }
                 }
 
-                console.log('[BotRoomManager] cellScores populated:', Object.keys(window.cellScores).length);
-                console.log('[BotRoomManager] Top scores:', topCandidates);
+                // console.log('[BotRoomManager] cellScores populated:', Object.keys(window.cellScores).length);
+                // console.log('[BotRoomManager] Top scores:', topCandidates);
             } else {
-                console.warn('[BotRoomManager] Cannot calculate scores - infiniteMap or quickScore not available');
+                // console.warn('[BotRoomManager] Cannot calculate scores - infiniteMap or quickScore not available');
             }
         } else {
             window.cellScores = {};
             window._cellScoresEnabled = false;
-            console.log('[BotRoomManager] cellScores cleared, flag disabled');
+            // console.log('[BotRoomManager] cellScores cleared, flag disabled');
         }
 
-        console.log('[BotRoomManager] Calling renderInfiniteBoard');
+        // console.log('[BotRoomManager] Calling renderInfiniteBoard');
         if (typeof renderInfiniteBoard === 'function') {
             renderInfiniteBoard();
         } else {
-            console.warn('[BotRoomManager] renderInfiniteBoard not available');
+            // console.warn('[BotRoomManager] renderInfiniteBoard not available');
         }
     },
 
@@ -2789,7 +2789,7 @@ const BotRoomManager = {
 
         canvas._editorClickHooked = true;
         canvas._editorTouchHooked = true;
-        console.log('[BotRoom] Editor hooks attached (click + touch)');
+        // console.log('[BotRoom] Editor hooks attached (click + touch)');
     },
 
 };
@@ -2826,7 +2826,7 @@ class AutoBotGameHeadless {
             const key = `${move.r},${move.c}`;
             if (this.board.has(key)) {
                 invalidMoveCount++;
-                console.warn('[AutoBotGameHeadless] Invalid occupied move', { move, invalidMoveCount });
+                // console.warn('[AutoBotGameHeadless] Invalid occupied move', { move, invalidMoveCount });
                 if (invalidMoveCount >= maxInvalidRetries) return 'error';
                 continue;
             }
@@ -2847,7 +2847,7 @@ class AutoBotGameHeadless {
     }
 
     getBotMove(botMode, player) {
-        console.log('[AutoBotGameHeadless] getBotMove called:', { botMode, player, boardSize: this.board.size });
+        // console.log('[AutoBotGameHeadless] getBotMove called:', { botMode, player, boardSize: this.board.size });
 
         if (botMode === 'bot-than-co') {
             const opponent = player === 'X' ? 'O' : 'X';
@@ -2898,7 +2898,7 @@ class AutoBotGameHeadless {
             }
         }
 
-        console.log('[AutoBotGameHeadless] Shared tactical scan found no forced move; using fallback minimax');
+        // console.log('[AutoBotGameHeadless] Shared tactical scan found no forced move; using fallback minimax');
         return this.getBotMoveFallback(botMode, player);
         
         /* 
@@ -2937,41 +2937,41 @@ class AutoBotGameHeadless {
         try {
             // Route đến đúng bot implementation
             if (botMode === 'bot-tia-chop') {
-                console.log('[AutoBotGameHeadless] Using BotTiaChop, available:', typeof BotTiaChop !== 'undefined');
+                // console.log('[AutoBotGameHeadless] Using BotTiaChop, available:', typeof BotTiaChop !== 'undefined');
                 if (typeof BotTiaChop !== 'undefined' && typeof BotTiaChop.getBotMove === 'function') {
                     const move = BotTiaChop.getBotMove({
                         player: player,
                         opponent: opponent,
                         roomRules: { winCount: this.winCount, chan2Dau: this.blockBoth }
                     });
-                    console.log('[AutoBotGameHeadless] BotTiaChop returned:', move);
+                    // console.log('[AutoBotGameHeadless] BotTiaChop returned:', move);
                     return move;
                 }
             }
             
             // Cho ai-easy, ai-medium, ai-hard dùng AIController
             if (['ai-easy', 'ai-medium', 'ai-hard'].includes(botMode)) {
-                console.log('[AutoBotGameHeadless] Using AIController, available:', typeof AIController !== 'undefined');
+                // console.log('[AutoBotGameHeadless] Using AIController, available:', typeof AIController !== 'undefined');
                 if (typeof AIController !== 'undefined' && typeof AIController.getBotMove === 'function') {
                     const move = AIController.getBotMove({
                         player: player,
                         opponent: opponent,
                         roomRules: { winCount: this.winCount, chan2Dau: this.blockBoth }
                     });
-                    console.log('[AutoBotGameHeadless] AIController returned:', move);
+                    // console.log('[AutoBotGameHeadless] AIController returned:', move);
                     return move;
                 }
             }
             
             // Fallback: dùng minimax đơn giản (cho các bot chưa implement)
-            console.warn(`[AutoBotGameHeadless] Bot mode ${botMode} not implemented, using fallback minimax`);
+            // console.warn(`[AutoBotGameHeadless] Bot mode ${botMode} not implemented, using fallback minimax`);
             return this.getBotMoveFallback(botMode, player);
             
         } catch (error) {
             console.error('[AutoBotGameHeadless] Error in getBotMove:', error);
             console.error('[AutoBotGameHeadless] Error stack:', error.stack);
             // Fallback to minimax on error
-            console.log('[AutoBotGameHeadless] Falling back to minimax');
+            // console.log('[AutoBotGameHeadless] Falling back to minimax');
             return this.getBotMoveFallback(botMode, player);
         } finally {
             // Restore tất cả global variables

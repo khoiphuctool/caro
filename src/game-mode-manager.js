@@ -95,14 +95,14 @@
             
             // If switching from one mode to another, cleanup first
             if (currentMode !== GameModes.NONE && currentMode !== mode) {
-                console.warn('[GameModeManager] Switching from', currentMode, 'to', mode, '- cleanup required');
+                // console.warn('[GameModeManager] Switching from', currentMode, 'to', mode, '- cleanup required');
             }
 
             currentMode = mode;
             modeContext = context;
             saveModeToStorage();
             
-            console.log('[GameModeManager] Mode set to:', mode, 'with context:', context);
+            // console.log('[GameModeManager] Mode set to:', mode, 'with context:', context);
             
             // Trigger mode change callbacks
             modeChangeCallbacks.forEach(callback => {
@@ -139,7 +139,7 @@
         onModeChange: function(callback) {
             if (typeof callback === 'function') {
                 modeChangeCallbacks.push(callback);
-                console.log('[GameModeManager] Mode change callback registered');
+                // console.log('[GameModeManager] Mode change callback registered');
             }
         },
 
@@ -180,6 +180,6 @@
     window.GameModeManager = GameModeManager;
     window.GameModes = GameModes;
 
-    console.log('[GameModeManager] Initialized');
+    // console.log('[GameModeManager] Initialized');
 
 })();

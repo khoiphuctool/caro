@@ -157,8 +157,8 @@ function startPlayerTurnTimer() {
 
 // ===== INIT GAME =====
 function initGame() {
-    console.log('[initGame] START - timestamp:', performance.now());
-    console.trace();
+    // console.log('[initGame] START - timestamp:', performance.now());
+    // console.trace();
 
     // Chặn restart khi đang chơi online (ngoại trừ bot room mode)
     if (window.isOnlineModeActive && window.isOnlineModeActive() && !window.isBotRoomMode) {
@@ -201,7 +201,7 @@ function initGame() {
         }
         console.warn('[initGame] fallback gameMode from bot room config:', gameMode);
     }
-    console.log('[initGame] final selected gameMode:', gameMode);
+    // console.log('[initGame] final selected gameMode:', gameMode);
     const groupPiece = document.getElementById('group-piece');
     const groupFirst = document.getElementById('group-first');
     if (groupPiece) groupPiece.style.display = isSolo ? 'none' : 'flex';
@@ -252,15 +252,7 @@ function initGame() {
     lastMoveR         = null;
     lastMoveC         = null;
 
-    console.log('[DEBUG-BOARD] initGame called:', {
-        gameMode,
-        playerPiece,
-        firstMove,
-        currentPlayer,
-        isGameActive,
-        boardSize,
-        isInfinite
-    });
+    // console.log('[DEBUG-BOARD] initGame called:', { gameMode, playerPiece, firstMove, currentPlayer, isGameActive, boardSize, isInfinite });
     winningCellCoords = [];
     moveCount         = 0;
     moveHistory       = [];
@@ -304,12 +296,7 @@ function initGame() {
         }
     }
 
-    console.log('[initGame] infiniteMap identity check:', {
-        GameState: typeof GameState !== 'undefined' ? 'exists' : 'undefined',
-        GameStateMap: typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : 'N/A',
-        trangThaiMap: infiniteMap,
-        same: typeof GameState !== 'undefined' && GameState.board ? Object.is(GameState.board.infiniteMap, infiniteMap) : 'N/A'
-    });
+    // console.log('[initGame] infiniteMap identity check:', { ... });
     // YC.TXT FIX: KHÔNG reset infCanvas về null trong bất kỳ mode nào
     // Board First architecture: canvas được inject và giữ nguyên
     // Chỉ reset khi thực sự cần thay đổi canvas (không phải trong initGame)
@@ -327,20 +314,7 @@ function initGame() {
 
     zobristHash = 0;
 
-    // Log state before AI scheduling
-    console.log('[initGame] State before AI scheduling - timestamp:', performance.now(), {
-        currentPlayer,
-        botPiece,
-        isGameActive,
-        isSolo,
-        isBotMode: isBotMode(),
-        gameMode,
-        GameState: typeof GameState !== 'undefined' ? 'exists' : 'undefined',
-        GameStateMap: typeof GameState !== 'undefined' && GameState.board ? GameState.board.infiniteMap : 'N/A',
-        trangThaiMap: infiniteMap,
-        same: typeof GameState !== 'undefined' && GameState.board ? Object.is(GameState.board.infiniteMap, infiniteMap) : 'N/A',
-        infiniteMapSize: infiniteMap ? infiniteMap.size : 'undefined'
-    });
+    // console.log('[initGame] State before AI scheduling - timestamp:', performance.now());
 
     // Sử dụng requestAnimationFrame để render mượt hơn
     requestAnimationFrame(() => {
@@ -352,13 +326,13 @@ function initGame() {
                             gameMode === 'bot-tia-chop' ? 200 :
                             gameMode === 'ai-hard' ? 300 : 180;
             statusPanel.innerHTML = `🤖 <span style="opacity:0.7">Đang tính toán</span> <span class="think-dots">...</span>`;
-            console.log('[initGame] Scheduling AI move in', thinkTime, 'ms - timestamp:', performance.now());
+            // console.log('[initGame] Scheduling AI move in', thinkTime, 'ms');
             setTimeout(makeAIMove, thinkTime);
         }
     });
 
-    console.log('[initGame] END - timestamp:', performance.now());
-    console.trace();
+    // console.log('[initGame] END - timestamp:', performance.now());
+    // console.trace();
 }
 
 // ===== STATUS =====
@@ -381,15 +355,11 @@ function makeMove(r, c) {
     }
 
     if (!window._autoBotFastMode) {
-        console.log('[DEBUG-BOARD] makeMove called:', {
-            r, c,
-            isGameActive,
-            currentPlayer,
-            gameMode,
-            isOnlineMode: window.isOnlineModeActive ? window.isOnlineModeActive() : false,
-            myOnlineRole: window.myOnlineRole,
-            currentTurn: typeof currentTurn !== 'undefined' ? currentTurn : 'undefined'
-        });
+        // console.log('[DEBUG-BOARD] makeMove called:', { r, c, isGameActive, currentPlayer, gameMode,
+        //     isOnlineMode: window.isOnlineModeActive ? window.isOnlineModeActive() : false,
+        //     myOnlineRole: window.myOnlineRole,
+        //     currentTurn: typeof currentTurn !== 'undefined' ? currentTurn : 'undefined'
+        // });
     }
 
     // NẾU ĐANG CHƠI ONLINE
@@ -526,9 +496,8 @@ function makeMove(r, c) {
     // --- GIỮ NGUYÊN LOGIC ĐẤU BOT TỰ ĐỘNG CŨ CỦA ANH Ở DƯỚI ĐÂY ---
 
     if (!window._autoBotFastMode) {
-        console.log('[makeMove] makeMove(' + r + ',' + c + ')');
-        const sizeBefore = typeof infiniteMap !== 'undefined' ? infiniteMap.size : 'undefined';
-        console.log('[makeMove] infiniteMap.size before=' + sizeBefore);
+        // console.log('[makeMove] makeMove(' + r + ',' + c + ')');
+        // console.log('[makeMove] infiniteMap.size before=' + sizeBefore);
     }
 
     moveCount++;
@@ -536,8 +505,7 @@ function makeMove(r, c) {
     moveHistory.push({ r, c, player: currentPlayer });
 
     if (!window._autoBotFastMode) {
-        const sizeAfter = typeof infiniteMap !== 'undefined' ? infiniteMap.size : 'undefined';
-        console.log('[makeMove] infiniteMap.size after=' + sizeAfter);
+        // console.log('[makeMove] infiniteMap.size after=' + sizeAfter);
     }
 
     // Invalidate neural cache khi board state thay đổi
@@ -656,7 +624,7 @@ function makeMove(r, c) {
                 if (typeof window.updateUserStats === 'function' && winCount >= 5) {
                     window.updateUserStats('winBot', 1);
                 } else if (winCount < 5) {
-                    console.log("Trận thắng Bot ở chế độ dưới 5 quân không được tính vào điểm Rank!");
+                    // console.log("Trận thắng Bot ở chế độ dưới 5 quân không được tính vào điểm Rank!");
                 }
                 // Cộng Xu khi thắng bot (có giới hạn ngày)
                 if (typeof window.onWinBotXu === 'function') {
@@ -685,7 +653,7 @@ function makeMove(r, c) {
     }
     updateCursorByTurn();
     if (!window._autoBotFastMode) {
-        console.log('[makeMove] nextPlayer=', currentPlayer, 'botPiece=', botPiece, 'humanPiece=', humanPiece, 'isBotMode=', isBotMode(), 'isBotVsBotMode=', window.isBotVsBotMode);
+        // console.log('[makeMove] nextPlayer=', currentPlayer, 'botPiece=', botPiece);
     }
 
     if (isBotMode() && !isBotMove && !window.isBotVsBotMode) evaluatePlayerMove(r, c);
@@ -747,13 +715,9 @@ function getWinningLine(row, col, player, winCount, blockBothEndsEnabled) {
         const headBlocked = PatternDetector.isBlocked(headR, headC, dr, dc, player);
         const tailBlocked = PatternDetector.isBlocked(tailR, tailC, -dr, -dc, player);
 
-        // DEBUG: Log để kiểm tra case O__XXXXX_O
+        // DEBUG log tắt để giảm spam console
         if (line.length >= winCount && blockBothEndsEnabled) {
-            console.log(`[getWinningLine] player=${player}, lineCount=${line.length}, dir=(${dr},${dc}), headCell=${headCell}, tailCell=${tailCell}, headBlocked=${headBlocked}, tailBlocked=${tailBlocked}, bothBlocked=${headBlocked && tailBlocked}`);
-            console.log('[BOARD-CELL-COMPARE]', {
-                head: { r: headR, c: headC, getCell: headCell, patternCell: headCellPattern, same: headCell === headCellPattern },
-                tail: { r: tailR, c: tailC, getCell: tailCell, patternCell: tailCellPattern, same: tailCell === tailCellPattern }
-            });
+            // console.log(`[getWinningLine] player=${player}, lineCount=${line.length}, dir=(${dr},${dc}), bothBlocked=${headBlocked && tailBlocked}`);
         }
 
         // Nếu cả 2 đầu bị chặn → không thắng
@@ -769,28 +733,28 @@ function getWinningLine(row, col, player, winCount, blockBothEndsEnabled) {
 
 // Resolve room rules from parameter, GameState.roomRules, or fallback
 function _resolveRoomRules(passedRules) {
-    console.log('[RULE-AUDIT] _resolveRoomRules called with passedRules:', passedRules);
+    // console.log('[RULE-AUDIT] _resolveRoomRules called with passedRules:', passedRules);
 
     if (typeof BlockBothEndsAnalyzer !== 'undefined' && typeof BlockBothEndsAnalyzer.resolveRoomRules === 'function') {
         const sharedRules = BlockBothEndsAnalyzer.resolveRoomRules(
             passedRules && typeof passedRules.winCount === 'number' ? passedRules.winCount : undefined
         );
         if (sharedRules && typeof sharedRules.winCount === 'number') {
-            console.log('[RULE-AUDIT] using shared analyzer rules:', sharedRules);
+            // console.log('[RULE-AUDIT] using shared analyzer rules:', sharedRules);
             return { ...sharedRules, firstTurn: (typeof window !== 'undefined' && window.firstTurn) ? window.firstTurn : 'X' };
         }
     }
 
     if (passedRules && typeof passedRules.winCount === 'number') {
-        console.log(`[RULE-AUDIT] using passed rules:`, passedRules);
+        // console.log(`[RULE-AUDIT] using passed rules:`, passedRules);
         return passedRules;
     }
     if (typeof GameState !== 'undefined' && GameState.roomRules) {
-        console.log(`[RULE-AUDIT] using GameState.roomRules:`, GameState.roomRules);
+        // console.log(`[RULE-AUDIT] using GameState.roomRules:`, GameState.roomRules);
         return GameState.roomRules;
     }
     if (typeof window !== 'undefined' && window.roomRules && typeof window.roomRules.winCount === 'number') {
-        console.log(`[RULE-AUDIT] using window.roomRules:`, window.roomRules);
+        // console.log(`[RULE-AUDIT] using window.roomRules:`, window.roomRules);
         return window.roomRules;
     }
 
@@ -809,21 +773,21 @@ function _resolveRoomRules(passedRules) {
             : null;
         if (lastRoom) {
             fallbackChan = typeof lastRoom.chan2Dau === 'boolean' ? lastRoom.chan2Dau : (lastRoom.chan2Dau ?? true);
-            console.log(`[RULE-AUDIT] Online mode: using Firebase snapshot chan2Dau=${fallbackChan}`);
+            // console.log(`[RULE-AUDIT] Online mode: using Firebase snapshot chan2Dau=${fallbackChan}`);
         } else {
             fallbackChan = true;
             console.warn(`[RULE-AUDIT] Online mode: Firebase snapshot unavailable, using safe default chan2Dau=${fallbackChan}`);
         }
     } else {
         fallbackChan = (typeof document !== 'undefined') ? !!document.getElementById('block-both-ends')?.checked : true;
-        console.log(`[RULE-AUDIT] Offline mode: using checkbox chan2Dau=${fallbackChan}`);
+        // console.log(`[RULE-AUDIT] Offline mode: using checkbox chan2Dau=${fallbackChan}`);
     }
 
     if (typeof fallbackWin === 'undefined') {
         console.warn('[checkWin] roomRules missing; unable to determine winCount reliably');
     }
 
-    console.log(`[RULE-AUDIT] using fallback: winCount=${fallbackWin}, chan2Dau=${fallbackChan}, mode=${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+    // console.log(`[RULE-AUDIT] using fallback: winCount=${fallbackWin}, chan2Dau=${fallbackChan}`);
     return { winCount: fallbackWin, chan2Dau: fallbackChan, firstTurn: (typeof window !== 'undefined' && window.firstTurn) ? window.firstTurn : 'X' };
 }
 
@@ -834,18 +798,7 @@ function checkWin(r, c, roomRules) {
     const blockBothEndsEnabled = !!rules.chan2Dau;
     const countRequired = rules.winCount;
     
-    console.log('[RULE-WIN-TRACE]', {
-        mode: (typeof window !== 'undefined' && typeof window.isOnlineModeActive === 'function' && window.isOnlineModeActive()) ? 'ONLINE' : 'OFFLINE',
-        action: 'checkWin',
-        player,
-        row: r, col: c,
-        winCount: countRequired,
-        chan2Dau: rules.chan2Dau,
-        blockedTwoEnds: blockBothEndsEnabled,
-        roomRulesProvided: !!roomRules,
-        roomRules: rules,
-        source: 'checkWin'
-    });
+    // console.log('[RULE-WIN-TRACE]', { action: 'checkWin', player, row: r, col: c, winCount: countRequired, chan2Dau: rules.chan2Dau });
     
     const winningLine = getWinningLine(r, c, player, countRequired, blockBothEndsEnabled);
     if (!winningLine) return false;
@@ -860,9 +813,9 @@ function checkWinSilent(r, c, roomRules) {
     const rules = _resolveRoomRules(roomRules);
     const blockBothEndsEnabled = !!rules.chan2Dau;
     const countRequired = rules.winCount;
-    console.log(`[checkWinSilent] player=${player}, pos=(${r},${c}), blockBothEnds=${blockBothEndsEnabled}, winCount=${countRequired}, roomRules=${roomRules ? 'provided' : 'resolved'}`);
+    // console.log(`[checkWinSilent] player=${player}, pos=(${r},${c}), blockBothEnds=${blockBothEndsEnabled}, winCount=${countRequired}`);
     const result = !!getWinningLine(r, c, player, countRequired, blockBothEndsEnabled);
-    console.log(`[checkWinSilent] result=${result}`);
+    // console.log(`[checkWinSilent] result=${result}`);
     return result;
 }
 
@@ -903,10 +856,7 @@ window.xoaBanCoCu = function() {
 
 // ===== UNDO MOVE FOR SOLO BOT MODE =====
 window.undoSoloBotMove = function() {
-    console.log({
-        gameMode:typeof gameMode !== 'undefined' ? gameMode : 'undefined',
-        moveHistory:typeof moveHistory !== 'undefined' ? moveHistory.length : 'undefined'
-    });
+    // console.log({ gameMode, moveHistory: moveHistory?.length });
     if (typeof gameMode === 'undefined' || (!gameMode.startsWith('ai') && gameMode !== 'solo')) {
         alert('Chỉ có thể undo trong chế độ đấu Bot!');
         return;

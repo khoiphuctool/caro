@@ -62,7 +62,7 @@ function refreshMatchBotPetRuntimeProfile() {
 
     matchBotPetState.runtimeProfile = (typeof resolveBotPetProfile === 'function') ? resolveBotPetProfile(matchBotPetState.equippedBotPet) : null;
     if (!matchBotPetState.runtimeProfile) {
-        console.warn('[BotPetState] Runtime profile not available for current Bot Pet or game mode');
+        // console.warn('[BotPetState] Runtime profile not available for current Bot Pet or game mode');
         matchBotPetState.runtimeProfile = null;
     }
     return matchBotPetState.runtimeProfile;
@@ -82,7 +82,7 @@ function initMatchBotPetState() {
         } : null,
         runtimeProfile: null
     };
-    console.log('[BotPetState] Initialized:', matchBotPetState);
+    // console.log('[BotPetState] Initialized:', matchBotPetState);
     return matchBotPetState;
 }
 window.initMatchBotPetState = initMatchBotPetState;
@@ -109,14 +109,14 @@ window.logBotPetRuntimeAudit = function() {
     const equippedBotPet = (typeof getEquippedBotPet === 'function') ? getEquippedBotPet() : null;
     const equippedBotPetProfile = (typeof getEquippedBotPetProfile === 'function') ? getEquippedBotPetProfile() : null;
     const selectedMode = document.getElementById('game-mode')?.value || (typeof modeSelect !== 'undefined' ? modeSelect.value : undefined);
-    console.log('[BotPetAudit] currentUserData.equippedBotPet:', typeof currentUserData !== 'undefined' ? currentUserData?.equippedBotPet : undefined,
-                'equippedBotPet:', equippedBotPet,
-                'equippedBotPetProfile:', equippedBotPetProfile,
-                'matchBotPetState:', matchBotPetState,
-                'gameModeSelect:', selectedMode,
-                'globalGameMode:', typeof gameMode !== 'undefined' ? gameMode : undefined,
-                'isBotRoomMode:', window.isBotRoomMode,
-                'roomRules:', typeof GameState !== 'undefined' ? GameState.roomRules : window.roomRules);
+    // console.log('[BotPetAudit] currentUserData.equippedBotPet:', typeof currentUserData !== 'undefined' ? currentUserData?.equippedBotPet : undefined,
+                // 'equippedBotPet:', equippedBotPet,
+                // 'equippedBotPetProfile:', equippedBotPetProfile,
+                // 'matchBotPetState:', matchBotPetState,
+                // 'gameModeSelect:', selectedMode,
+                // 'globalGameMode:', typeof gameMode !== 'undefined' ? gameMode : undefined,
+                // 'isBotRoomMode:', window.isBotRoomMode,
+                // 'roomRules:', typeof GameState !== 'undefined' ? GameState.roomRules : window.roomRules);
 };
 
 window.auditBotPetRuntimeSelection = function() {
@@ -125,13 +125,13 @@ window.auditBotPetRuntimeSelection = function() {
     const botPetActive = (typeof isBotPetActive === 'function') ? isBotPetActive() : false;
     const useBotPetRuntime = botPetActive && botPetProfile && typeof isValidBotPetRuntimeMode === 'function' && isValidBotPetRuntimeMode(selectedMode);
     const resolvedMode = useBotPetRuntime ? botPetProfile.gameMode : selectedMode;
-    console.log('[BotPetAudit] runtime selection', {
-        selectedMode,
-        botPetProfile,
-        botPetActive,
-        useBotPetRuntime,
-        resolvedMode
-    });
+    // console.log('[BotPetAudit] runtime selection', {
+        // selectedMode,
+        // botPetProfile,
+        // botPetActive,
+        // useBotPetRuntime,
+        // resolvedMode
+    // });
     return {
         selectedMode,
         botPetProfile,
@@ -159,7 +159,7 @@ function toggleBotPetActive() {
     const prev = matchBotPetState.active;
     setBotPetActive(!prev);
     if (window.DEBUG_BOT_RUNTIME) {
-        console.log('[BotPetUI] toggle | active:', prev, '->', matchBotPetState.active);
+        // console.log('[BotPetUI] toggle | active:', prev, '->', matchBotPetState.active);
     }
 }
 window.toggleBotPetActive = toggleBotPetActive;
@@ -169,7 +169,7 @@ window.toggleBotPetActive = toggleBotPetActive;
 // ──────────────────────────────────────────────
 function setBotPetActive(active) {
     if (matchBotPetState.equippedBotPet === null) {
-        console.warn('[BotPetState] Cannot set active, no equipped Bot Pet');
+        // console.warn('[BotPetState] Cannot set active, no equipped Bot Pet');
         return;
     }
 
@@ -178,7 +178,7 @@ function setBotPetActive(active) {
         matchBotPetState.active = false;
         matchBotPetState.visual = null;
         matchBotPetState.runtimeProfile = null;
-        console.warn('[BotPetState] Equipped Bot Pet ID invalid; disabling Bot Pet');
+        // console.warn('[BotPetState] Equipped Bot Pet ID invalid; disabling Bot Pet');
     } else {
         matchBotPetState.active = active;
         matchBotPetState.visual = {
@@ -190,7 +190,7 @@ function setBotPetActive(active) {
         refreshMatchBotPetRuntimeProfile();
     }
 
-    console.log('[BotPetState] Set active:', active, 'state:', matchBotPetState);
+    // console.log('[BotPetState] Set active:', active, 'state:', matchBotPetState);
     
     // Toggle candidates (Top-4 moves)
     if (typeof toggleCandidates === 'function') {
@@ -207,14 +207,14 @@ window.setBotPetActive = setBotPetActive;
 // CLEANUP BOT PET STATE KHI RỜI TRẬN
 // ──────────────────────────────────────────────
 function cleanupMatchBotPetState() {
-    console.log('[BotPetState] Cleanup before:', matchBotPetState);
+    // console.log('[BotPetState] Cleanup before:', matchBotPetState);
     matchBotPetState = {
         equippedBotPet: null,
         active: false,
         visual: null,
         runtimeProfile: null
     };
-    console.log('[BotPetState] Cleanup after:', matchBotPetState);
+    // console.log('[BotPetState] Cleanup after:', matchBotPetState);
 }
 window.cleanupMatchBotPetState = cleanupMatchBotPetState;
 

@@ -11,7 +11,7 @@ admin.initializeApp({
 
 async function main() {
   try {
-    console.log("Downloading Cloud Database...");
+    // console.log("Downloading Cloud Database...");
 
     const snap = await admin.database().ref("/").get();
     const data = snap.val() || {};
@@ -22,7 +22,7 @@ async function main() {
       "utf8"
     );
 
-    console.log("✓ Downloaded Cloud Database.");
+    // console.log("✓ Downloaded Cloud Database.");
 
     const body = JSON.stringify(data);
 
@@ -39,8 +39,8 @@ async function main() {
       let out = "";
       res.on("data", c => out += c);
       res.on("end", () => {
-        console.log("✓ Emulator response:", out);
-        console.log("✓ Cloud -> Emulator sync complete.");
+        // console.log("✓ Emulator response:", out);
+        // console.log("✓ Cloud -> Emulator sync complete.");
       });
     });
 

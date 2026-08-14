@@ -49,7 +49,7 @@ const script = `
 
 try {
   const res = vm.runInContext(script, sandbox);
-  console.log('Scenario result:', res);
+  // console.log('Scenario result:', res);
 } catch (e) {
   console.error('Error running scenario:', e);
   process.exit(1);

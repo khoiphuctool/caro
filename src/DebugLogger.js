@@ -214,13 +214,13 @@ const DebugLogger = {
                 console.error(message, logEntry.data || '');
                 break;
             case this.LEVEL.WARN:
-                console.warn(message, logEntry.data || '');
+                // console.warn(message, logEntry.data || '');
                 break;
             case this.LEVEL.DEBUG:
                 console.debug(message, logEntry.data || '');
                 break;
             default:
-                console.log(message, logEntry.data || '');
+                // console.log(message, logEntry.data || '');
         }
     },
 

@@ -11,11 +11,11 @@
         const registryKey = `${makeKey(scope, key)}:${event || 'default'}`;
         const existing = listenerRegistry.get(registryKey);
         if (existing && existing.callback === callback) {
-            console.warn(`[RuntimeGuard] Duplicate listener ignored for ${registryKey}`);
+            // console.warn(`[RuntimeGuard] Duplicate listener ignored for ${registryKey}`);
             return existing;
         }
         if (existing) {
-            console.warn(`[RuntimeGuard] Duplicate listener replaced for ${registryKey}`);
+            // console.warn(`[RuntimeGuard] Duplicate listener replaced for ${registryKey}`);
             try { existing.ref.off(existing.event, existing.callback); } catch (err) {}
         }
         listenerRegistry.set(registryKey, { ref, event, callback });
@@ -41,7 +41,7 @@
         const count = (callbackRegistry.get(registryKey) || 0) + 1;
         callbackRegistry.set(registryKey, count);
         if (count > 1) {
-            console.warn(`[RuntimeGuard] Duplicate callback for ${registryKey}`);
+            // console.warn(`[RuntimeGuard] Duplicate callback for ${registryKey}`);
         }
         return count;
     }
@@ -50,7 +50,7 @@
         const registryKey = makeKey(scope, key);
         const existing = timerRegistry.get(registryKey);
         if (existing) {
-            console.warn(`[RuntimeGuard] Timer leak detected for ${registryKey}${description ? ' [' + description + ']' : ''}`);
+            // console.warn(`[RuntimeGuard] Timer leak detected for ${registryKey}${description ? ' [' + description + ']' : ''}`);
             try { clearTimeout(existing); } catch (err) {}
             try { clearInterval(existing); } catch (err) {}
         }

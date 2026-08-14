@@ -41,7 +41,7 @@ function hasBotPet(botPetId) {
         const owned = Array.isArray(currentUserData.ownedBotPets) ? currentUserData.ownedBotPets : [];
         return owned.includes(botPetId);
     }
-    console.warn('[BotPetService] hasBotPet: currentUserData unavailable, returning false until Firebase data loads');
+    // console.warn('[BotPetService] hasBotPet: currentUserData unavailable, returning false until Firebase data loads');
     return false;
 }
 window.hasBotPet = hasBotPet;
@@ -54,11 +54,11 @@ function getEquippedBotPet() {
     if (typeof currentUserData !== 'undefined' && currentUserData) {
         const equippedId = currentUserData.equippedBotPet || null;
         if (!equippedId) {
-            console.log('[BotPetService] getEquippedBotPet: no equippedBotPet in currentUserData');
+            // console.log('[BotPetService] getEquippedBotPet: no equippedBotPet in currentUserData');
             return null;
         }
         const botPet = getBotPetById(equippedId);
-        console.log('[BotPetService] getEquippedBotPet from currentUserData:', botPet);
+        // console.log('[BotPetService] getEquippedBotPet from currentUserData:', botPet);
         return botPet;
     }
     
@@ -67,9 +67,9 @@ function getEquippedBotPet() {
     const uid = (typeof _botPetGetUid === 'function') ? _botPetGetUid() : null;
     const database = (typeof _botPetGetDb === 'function') ? _botPetGetDb() : null;
     if (uid && database) {
-        console.warn('[BotPetService] getEquippedBotPet: currentUserData unavailable, returning null; consider waiting for Firebase listener');
+        // console.warn('[BotPetService] getEquippedBotPet: currentUserData unavailable, returning null; consider waiting for Firebase listener');
     } else {
-        console.warn('[BotPetService] getEquippedBotPet: no uid/db available');
+        // console.warn('[BotPetService] getEquippedBotPet: no uid/db available');
     }
     return null;
 }
@@ -262,7 +262,7 @@ function validateEquippedBotPet() {
             if (typeof currentUserData !== 'undefined') {
                 currentUserData.equippedBotPet = null;
             }
-            console.warn('[BotPet] Invalid equipped bot pet removed:', equippedId);
+            // console.warn('[BotPet] Invalid equipped bot pet removed:', equippedId);
         }
     }
 }

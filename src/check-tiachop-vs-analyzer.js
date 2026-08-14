@@ -46,7 +46,7 @@ for(const r of results){
   const a = r.analyzer ? `${r.analyzer.r},${r.analyzer.c}` : 'null';
   const b = r.bot ? `${r.bot.r},${r.bot.c}` : 'null';
   const ok = (a===b) ? 'OK' : 'MISMATCH';
-  console.log(r.case, 'analyzer=',a,'bot=',b, ok);
+  // console.log(r.case, 'analyzer=',a,'bot=',b, ok);
 }
 
 // Also test some gap/open patterns

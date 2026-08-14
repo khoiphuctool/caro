@@ -10,7 +10,7 @@ const ResponseOptimizer = {
     // Input: move {r, c}, context, reason
     // Output: {r, c} (validated and formatted)
     optimize(move, context, reason) {
-        console.log('[ResponseOptimizer] Optimizing response:', { move, reason });
+        // console.log('[ResponseOptimizer] Optimizing response:', { move, reason });
         
         // 1. Validate move
         const validated = this.validateMove(move, context);
@@ -28,7 +28,7 @@ const ResponseOptimizer = {
         // 4. Update memory
         this.updateMemory(context, move);
         
-        console.log('[ResponseOptimizer] Response optimized:', formatted);
+        // console.log('[ResponseOptimizer] Response optimized:', formatted);
         return formatted;
     },
 

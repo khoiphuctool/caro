@@ -182,7 +182,7 @@ window.debugGameState = function() {
     console.log('[DEBUG-BOARD] Game State Snapshot:', info);
     return info;
 };
-console.log('[DEBUG-BOARD] trang-thai.js loaded — call window.debugGameState() in console to inspect state');
+// console.log('[DEBUG-BOARD] trang-thai.js loaded — call window.debugGameState() in console to inspect state');
 
 // ===== GETTER / SETTER THỐNG NHẤT =====
 function getCell(r, c) {
@@ -233,12 +233,7 @@ function initializeBoardState() {
         isInfinite = GameState.board.isInfinite;
         boardSize = GameState.board.size;
         winCount = GameState.board.winCount;
-        console.log('[trang-thai] Synced with GameState:', {
-            infiniteMap: infiniteMap ? 'synced' : 'null',
-            isInfinite,
-            boardSize,
-            winCount
-        });
+        // console.log('[trang-thai] Synced with GameState:', { infiniteMap: infiniteMap ? 'synced' : 'null', isInfinite, boardSize, winCount });
     } else {
         // Fallback if GameState not available
         infiniteMap = new Map();

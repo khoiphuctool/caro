@@ -27,7 +27,7 @@ function randomColor() {
 
 function spawnConfetti(count = 160) {
     if (!confettiCanvas || !ctx) {
-        console.warn('Confetti canvas not initialized, skipping spawnConfetti');
+        // console.warn('Confetti canvas not initialized, skipping spawnConfetti');
         return;
     }
     for (let i = 0; i < count; i++) {
@@ -214,7 +214,7 @@ function showWinOverlay(winner, isBotWin, tauntMessage = '', tauntEmoji = '') {
                 // Lưu vào localStorage
                 localStorage.setItem('botVsBotStats', JSON.stringify(window.BotRoomManager.botVsBotStats));
                 
-                console.log('[BotVsBot] Stats updated:', stats);
+                // console.log('[BotVsBot] Stats updated:', stats);
                 
                 // Hiển thị thống kê
                 window.BotRoomManager.displayBotVsBotStats();

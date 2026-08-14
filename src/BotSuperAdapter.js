@@ -14,7 +14,7 @@ const BotSuperAdapter = {
 
         if (typeof BotSuperV2 === 'undefined' || typeof BotSuperV2.getBotMove !== 'function') {
             this.stats.v2Invalid++;
-            console.warn('[BotSuperAdapter] Canonical BotSuperV2 is unavailable.');
+            // console.warn('[BotSuperAdapter] Canonical BotSuperV2 is unavailable.');
             return null;
         }
 
@@ -29,7 +29,7 @@ const BotSuperAdapter = {
             return null;
         } catch (error) {
             this.stats.v2Exception++;
-            console.warn('[BotSuperAdapter] Canonical BotSuperV2 exception:', error);
+            // console.warn('[BotSuperAdapter] Canonical BotSuperV2 exception:', error);
             return null;
         }
     },

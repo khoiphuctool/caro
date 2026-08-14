@@ -501,24 +501,24 @@ function getBlockBothEnds() {
         if (typeof BlockBothEndsAnalyzer !== 'undefined' && typeof BlockBothEndsAnalyzer.resolveRoomRules === 'function') {
             const rules = BlockBothEndsAnalyzer.resolveRoomRules();
             checked = !!rules.chan2Dau;
-            console.log(`[getBlockBothEnds] shared analyzer: ${checked}`);
+            // console.log(`[getBlockBothEnds] shared analyzer: ${checked}`);
         } else {
             // Fallback legacy resolution: GameState -> window -> DOM checkbox
             if (typeof GameState !== 'undefined' && GameState.roomRules && typeof GameState.roomRules.chan2Dau === 'boolean') {
                 checked = GameState.roomRules.chan2Dau;
-                console.log(`[getBlockBothEnds] PRIORITY 1: from GameState.roomRules = ${checked}`);
+                // console.log(`[getBlockBothEnds] PRIORITY 1: from GameState.roomRules = ${checked}`);
             } else if (typeof window !== 'undefined' && window.roomRules && typeof window.roomRules.chan2Dau === 'boolean') {
                 checked = window.roomRules.chan2Dau;
-                console.log(`[getBlockBothEnds] PRIORITY 2: from window.roomRules = ${checked}`);
+                // console.log(`[getBlockBothEnds] PRIORITY 2: from window.roomRules = ${checked}`);
             } else {
                 if (window.isBotVsBotMode) {
                     const el = document.getElementById('bot-vs-bot-block-both');
                     checked = el ? el.checked : false;
-                    console.log(`[getBlockBothEnds] PRIORITY 3a: from bot-vs-bot-block-both = ${checked}`);
+                    // console.log(`[getBlockBothEnds] PRIORITY 3a: from bot-vs-bot-block-both = ${checked}`);
                 } else {
                     const el = document.getElementById('block-both-ends');
                     checked = el ? el.checked : false;
-                    console.log(`[getBlockBothEnds] PRIORITY 3b: from block-both-ends = ${checked}`);
+                    // console.log(`[getBlockBothEnds] PRIORITY 3b: from block-both-ends = ${checked}`);
                 }
             }
         }
@@ -1152,7 +1152,7 @@ class NeuralEvaluator {
             }
             
             if (epoch % 5 === 0) {
-                console.log(`🧠 Neural Training - Epoch ${epoch}, Error: ${(totalError / this.trainingData.length).toFixed(4)}`);
+                // console.log(`🧠 Neural Training - Epoch ${epoch}, Error: ${(totalError / this.trainingData.length).toFixed(4)}`);
             }
         }
     }
@@ -1444,7 +1444,7 @@ function getBestMoveWithMinimax(depth, player) {
     window.isMinimaxRunning = false;
     const ttTotal = ttHits + ttMisses;
     const ttHitRate = ttTotal > 0 ? ((ttHits / ttTotal) * 100).toFixed(1) : 0;
-    console.log(`[Minimax d=${depth}] best=(${bestMove?.r},${bestMove?.c}) score=${bestScore} TT=${ttHitRate}% hit time=${Date.now()-startTime}ms`);
+    // console.log(`[Minimax d=${depth}] best=(${bestMove?.r},${bestMove?.c}) score=${bestScore} TT=${ttHitRate}% hit time=${Date.now()-startTime}ms`);
     return bestMove;
 }
 
@@ -1864,7 +1864,7 @@ function assessThreats(cands, bp, hp) {
 
         // Debug log để xem double threat
         if ((threeOpenCount >= 2 || fourOpenCount >= 1) && Math.random() < 0.1) {
-            console.log(`[Double Threat] r=${r}, c=${c}, THREE_OPEN=${threeOpenCount}, FOUR_OPEN=${fourOpenCount}, dVal=${dVal}`);
+            // console.log(`[Double Threat] r=${r}, c=${c}, THREE_OPEN=${threeOpenCount}, FOUR_OPEN=${fourOpenCount}, dVal=${dVal}`);
         }
 
         // Thêm random noise chỉ ở đầu game (1-2 quân đầu) để tránh trùng thế cờ
@@ -1893,17 +1893,17 @@ function assessThreats(cands, bp, hp) {
 
     // Debug log để xem randomization có hoạt động không
     if (Math.random() < 0.05) { // chỉ log 5% để tránh spam
-        console.log(`[Random] bestAttackMoves: ${bestAttackMoves.length}, bestDefendMoves: ${bestDefendMoves.length}`);
-        console.log(`[Random] bestAttackMove:`, bestAttackMove, 'bestDefendMove:', bestDefendMove);
+        // console.log(`[Random] bestAttackMoves: ${bestAttackMoves.length}, bestDefendMoves: ${bestDefendMoves.length}`);
+        // console.log(`[Random] bestAttackMove:`, bestAttackMove, 'bestDefendMove:', bestDefendMove);
     }
 
     return { attackScore, defendScore, bestAttackMove, bestDefendMove };
 }
 
 function makeAIMove() {
-    console.log('[makeAIMove] called', { gameMode, currentPlayer, botPiece, humanPiece, isBotMode: isBotMode(), isBotVsBotMode: window.isBotVsBotMode, isGameActive });
+    // console.log('[makeAIMove] called', { gameMode, currentPlayer, botPiece, humanPiece, isBotMode: isBotMode(), isBotVsBotMode: window.isBotVsBotMode, isGameActive });
     if (typeof AIController !== 'undefined' && AIController.config.useNewArchitecture) {
-        console.log('[makeAIMove] Delegating to AIController new architecture', { gameMode, useNewArch: AIController.config.useNewArchitecture });
+        // console.log('[makeAIMove] Delegating to AIController new architecture', { gameMode, useNewArch: AIController.config.useNewArchitecture });
         return AIController.makeAIMove({
             player: botPiece,
             opponent: humanPiece,
@@ -1912,9 +1912,9 @@ function makeAIMove() {
             blockBothEnds: getBlockBothEnds()
         });
     }
-    console.log('[makeAIMove] Using legacy ai-nao getBotMove path', { gameMode });
+    // console.log('[makeAIMove] Using legacy ai-nao getBotMove path', { gameMode });
     if (!isGameActive) {
-        console.log('[makeAIMove] aborted because game is not active');
+        // console.log('[makeAIMove] aborted because game is not active');
         return;
     }
     isBotMove = true;
@@ -1926,11 +1926,11 @@ function makeAIMove() {
     // Nếu có cellScores từ trước (được bật trong position editor), tiếp tục recalculate
     const showScores = document.getElementById('show-cell-scores') || document.getElementById('show-cell-scores-bot');
     const hadCellScores = window._cellScoresEnabled === true; // Flag từ position editor
-    console.log('[makeAIMove] showScores:', showScores, 'checked:', showScores ? showScores.checked : 'N/A', 'hadCellScores:', hadCellScores);
+    // console.log('[makeAIMove] showScores:', showScores, 'checked:', showScores ? showScores.checked : 'N/A', 'hadCellScores:', hadCellScores);
     
     if ((showScores && showScores.checked) || hadCellScores) {
         const cands2 = getSearchCandidates().filter(({r,c}) => getCell(r,c) === '');
-        console.log('[makeAIMove] Recalculating cellScores for', cands2.length, 'candidates');
+        // console.log('[makeAIMove] Recalculating cellScores for', cands2.length, 'candidates');
         
         // Calculate scores for all candidates
         const scoredCandidates = [];
@@ -1956,10 +1956,10 @@ function makeAIMove() {
             window.cellScores[key] = score;
         }
         
-        console.log('[makeAIMove] cellScores populated (top 8):', Object.keys(window.cellScores).length);
-        console.log('[makeAIMove] Top scores:', topCandidates);
+        // console.log('[makeAIMove] cellScores populated (top 8):', Object.keys(window.cellScores).length);
+        // console.log('[makeAIMove] Top scores:', topCandidates);
     } else {
-        console.log('[makeAIMove] showScores not checked and no cellScores flag, skipping calculation');
+        // console.log('[makeAIMove] showScores not checked and no cellScores flag, skipping calculation');
     }
 
     if (move) makeMove(move.r, move.c);
@@ -2432,7 +2432,7 @@ function getBotMove(options = {}) {
     const originalGameMode = typeof gameMode !== 'undefined' ? gameMode : undefined;
     const requestedGameMode = options.gameMode || originalGameMode;
     if (requestedGameMode && requestedGameMode !== originalGameMode) {
-        console.log('[ai-nao] getBotMove overriding global gameMode from options:', { originalGameMode, requestedGameMode });
+        // console.log('[ai-nao] getBotMove overriding global gameMode from options:', { originalGameMode, requestedGameMode });
         gameMode = requestedGameMode;
     }
     try {
@@ -2456,7 +2456,7 @@ function getBotMove(options = {}) {
     const requestedGameMode = options.gameMode || gameMode;
     const runtimeGameMode = botPetActive && botPetProfile ? botPetProfile.gameMode : requestedGameMode;
     if (window.DEBUG_BOT_RUNTIME) {
-        console.log('[ai-nao] getBotMove runtime check', { requestedGameMode, runtimeGameMode, botPetActive, botPetProfile });
+        // console.log('[ai-nao] getBotMove runtime check', { requestedGameMode, runtimeGameMode, botPetActive, botPetProfile });
     }
     const activeGameMode = runtimeGameMode;
     // Ưu tiên options.roomRules nếu được truyền vào, cung cấp chan2Dau cho checkWinSilent
@@ -2526,7 +2526,7 @@ function getBotMove(options = {}) {
         const moveCount = moveHistory.length;
         const useFastPath = moveCount <= 10 || (moveCount <= 18 && typeof BotTiaChop !== 'undefined');
         if (useFastPath && typeof BotTiaChop !== 'undefined' && typeof BotTiaChop.getBotMove === 'function') {
-            console.log('[ai-nao] Bot Thần Cơ using fast hybrid path (Tia Chớp)');
+            // console.log('[ai-nao] Bot Thần Cơ using fast hybrid path (Tia Chớp)');
             const move = BotTiaChop.getBotMove({
                 player: bp,
                 opponent: hp,
@@ -2562,21 +2562,21 @@ function getBotMove(options = {}) {
     // BOT TIA CHỚP - Dùng logic riêng từ BotTiaChop
     // ════════════════════════════════════════════════════════════════════════════
     if (isTiaChop) {
-        console.log('[ai-nao] Bot Tia Chớp mode detected');
+        // console.log('[ai-nao] Bot Tia Chớp mode detected');
         if (typeof BotTiaChop !== 'undefined' && typeof BotTiaChop.getBotMove === 'function') {
-            console.log('[ai-nao] BotTiaChop available, calling getBotMove');
+            // console.log('[ai-nao] BotTiaChop available, calling getBotMove');
             const move = BotTiaChop.getBotMove({
                 player: bp,
                 opponent: hp,
                 roomRules: { winCount: winCount, chan2Dau: getBlockBothEnds() }
             });
-            console.log('[ai-nao] BotTiaChop returned move:', move);
+            // console.log('[ai-nao] BotTiaChop returned move:', move);
             if (move) {
                 updateBotThinking('Tia Chớp! ⚡');
                 return move;
             }
         }
-        console.warn('[ai-nao] BotTiaChop not available or returned null, using fallback');
+        // console.warn('[ai-nao] BotTiaChop not available or returned null, using fallback');
     }
 
     // ══ 1. BOT THẮNG NGAY (đã xử lý ở P1) ══

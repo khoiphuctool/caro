@@ -193,11 +193,11 @@ function _skinGetUserData() {
 // ──────────────────────────────────────────────
 function getEquippedBoardSkin() {
     const userData = (typeof _skinGetUserData === 'function') ? _skinGetUserData() : {};
-    console.log('[DEBUG-BOARD-SKIN] getEquippedBoardSkin - userData:', userData);
+    // console.log('[DEBUG-BOARD-SKIN] getEquippedBoardSkin - userData:', userData);
     const equippedId = userData.equippedBoardSkin || 'board_default';
-    console.log('[DEBUG-BOARD-SKIN] getEquippedBoardSkin - equippedId:', equippedId);
+    // console.log('[DEBUG-BOARD-SKIN] getEquippedBoardSkin - equippedId:', equippedId);
     const skin = getBoardSkinById(equippedId) || SHOP_BOARD_SKIN_LIST[0];
-    console.log('[DEBUG-BOARD-SKIN] getEquippedBoardSkin - returned skin:', skin);
+    // console.log('[DEBUG-BOARD-SKIN] getEquippedBoardSkin - returned skin:', skin);
     return skin;
 }
 window.getEquippedBoardSkin = getEquippedBoardSkin;
@@ -348,7 +348,7 @@ window.equipBoardSkin = equipBoardSkin;
 // ──────────────────────────────────────────────
 function applyBoardSkinToEngine() {
     const skin = getEquippedBoardSkin();
-    console.log('[DEBUG-BOARD-SKIN] applyBoardSkinToEngine - skin:', skin);
+    // console.log('[DEBUG-BOARD-SKIN] applyBoardSkinToEngine - skin:', skin);
     
     // Áp dụng cho SharedBoardEngine (nếu có và đã khởi tạo)
     if (typeof SharedBoardEngine !== 'undefined' && SharedBoardEngine.Renderer) {
@@ -357,7 +357,7 @@ function applyBoardSkinToEngine() {
             SharedBoardEngine.Renderer.setBoardSkin(skin);
             SharedBoardEngine.Renderer.render();
         } else {
-            console.log('[DEBUG-BOARD-SKIN] SharedBoardEngine.Renderer not initialized, skipping');
+            // console.log('[DEBUG-BOARD-SKIN] SharedBoardEngine.Renderer not initialized, skipping');
         }
     }
     

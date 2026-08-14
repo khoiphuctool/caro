@@ -242,7 +242,7 @@ function autoplayMove(originalWinCount) {
                     const totalPlayed = autoplayWins + autoplayLosses + autoplayDraws;
                     if (totalPlayed % 10 === 0) {
                         neuralEvaluator.train(5); // Train 5 epochs
-                        console.log(`🧠 Neural Training - Epoch 5, Total games: ${totalPlayed}`);
+                        // console.log(`🧠 Neural Training - Epoch 5, Total games: ${totalPlayed}`);
                     }
                 }
             }

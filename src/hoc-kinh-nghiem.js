@@ -34,9 +34,9 @@ function loadBotMemory() {
         }
         if (migrated) {
             localStorage.setItem(MEMORY_KEY, JSON.stringify(data));
-            console.log('[Memory] Migrated: xóa pattern tuyệt đối cũ');
+            // console.log('[Memory] Migrated: xóa pattern tuyệt đối cũ');
         }
-        console.log(`[Memory] Loaded ${Object.keys(data).length} patterns`);
+        // console.log(`[Memory] Loaded ${Object.keys(data).length} patterns`);
         return data;
     } catch(e) {
         console.error('[Memory] Failed to load:', e);
@@ -126,7 +126,7 @@ function rememberLoss(history, enemyPiece) {
     }
 
     saveBotMemory();
-    console.log(`🧠 Bot đã học! Tổng pattern: ${Object.keys(botMemory).length}`);
+    // console.log(`🧠 Bot đã học! Tổng pattern: ${Object.keys(botMemory).length}`);
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -337,7 +337,7 @@ function getMemoryStats() {
 function clearBotMemory() {
     botMemory = {};
     localStorage.removeItem(MEMORY_KEY);
-    console.log('🗑️ Đã xóa bộ nhớ bot');
+    // console.log('🗑️ Đã xóa bộ nhớ bot');
 }
 
 // Reset bộ nhớ - gọi từ UI
@@ -345,7 +345,7 @@ function resetMemory() {
     clearBotMemory();
     if (typeof BatchLearning !== 'undefined') BatchLearning.reset();
     updateMemoryDisplay();
-    console.log('🗑️ Đã reset bộ nhớ bot');
+    // console.log('🗑️ Đã reset bộ nhớ bot');
 }
 
 // ===== BỎ DECAY - Không còn tính decay factor =====
@@ -418,7 +418,7 @@ function exportBotMemory() {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
 
-        console.log('📤 Đã xuất bộ nhớ bot:', stats.patterns, 'patterns');
+        // console.log('📤 Đã xuất bộ nhớ bot:', stats.patterns, 'patterns');
     } catch(e) {
         console.error('❌ Lỗi khi xuất bộ nhớ:', e);
         alert('❌ Lỗi khi xuất bộ nhớ!');
@@ -494,7 +494,7 @@ function importBotMemory(input) {
                     updateMemoryDisplay();
                     
                     const finalStats = getMemoryStats();
-                    console.log('📥 Đã merge bộ nhớ:', mergedCount, 'mới,', updatedCount, 'cập nhật');
+                    // console.log('📥 Đã merge bộ nhớ:', mergedCount, 'mới,', updatedCount, 'cập nhật');
                     alert(`✅ Đã merge thành công!\n\n+ ${mergedCount} pattern mới\n+ ${updatedCount} pattern cập nhật\n→ Tổng: ${finalStats.patterns} patterns`);
                 } else {
                     // GHI ĐÈ - thay thế hoàn toàn
@@ -502,7 +502,7 @@ function importBotMemory(input) {
                     saveBotMemory();
                     updateMemoryDisplay();
                     
-                    console.log('📥 Đã ghi đè bộ nhớ bot:', importStats.patterns, 'patterns');
+                    // console.log('📥 Đã ghi đè bộ nhớ bot:', importStats.patterns, 'patterns');
                     alert(`✅ Đã ghi đè thành công ${importStats.patterns} patterns!`);
                 }
             } catch(err) {

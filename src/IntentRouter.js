@@ -26,12 +26,12 @@ const IntentRouter = {
         const isEarlyGame = this.isEarlyGame(context);
         const hasObviousTactical = this.hasObviousTacticalMove(context);
 
-        console.log('[IntentRouter] Routing decision:', {
-            complexity,
-            isEarlyGame,
-            hasObviousTactical,
-            decision: isEarlyGame || hasObviousTactical || complexity < this.config.COMPLEXITY_THRESHOLD ? 'FAST' : 'DEEP'
-        });
+        // console.log('[IntentRouter] Routing decision:', {
+            // complexity,
+            // isEarlyGame,
+            // hasObviousTactical,
+            // decision: isEarlyGame || hasObviousTactical || complexity < this.config.COMPLEXITY_THRESHOLD ? 'FAST' : 'DEEP'
+        // });
 
         // Fast Path conditions
         if (isEarlyGame) return 'FAST';

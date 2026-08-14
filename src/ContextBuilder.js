@@ -10,7 +10,7 @@ const ContextBuilder = {
     // Input: options { player, opponent, roomRules, ... }
     // Output: context { board, rules, memory, cacheHit, ... }
     build(options = {}) {
-        console.log('[ContextBuilder] Building context...');
+        // console.log('[ContextBuilder] Building context...');
 
         const context = {
             // Board state
@@ -41,15 +41,10 @@ const ContextBuilder = {
         const cacheResult = this.checkCache(context);
         if (cacheResult) {
             context.cacheHit = cacheResult;
-            console.log('[ContextBuilder] Cache hit:', cacheResult);
+            // console.log('[ContextBuilder] Cache hit:', cacheResult);
         }
 
-        console.log('[ContextBuilder] Context built:', {
-            boardSize: context.board.size,
-            winCount: context.rules.winCount,
-            moveCount: context.moveHistory.length,
-            cacheHit: !!context.cacheHit
-        });
+        // console.log('[ContextBuilder] Context built:', { boardSize, winCount, moveCount });
 
         return context;
     },

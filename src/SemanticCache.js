@@ -34,7 +34,7 @@ const SemanticCache = {
             return null;
         }
         
-        console.log('[SemanticCache] Cache hit for hash:', hash);
+        // console.log('[SemanticCache] Cache hit for hash:', hash);
         return entry;
     },
 
@@ -51,7 +51,7 @@ const SemanticCache = {
             timestamp: Date.now()
         });
         
-        console.log('[SemanticCache] Cache set for hash:', hash);
+        // console.log('[SemanticCache] Cache set for hash:', hash);
     },
 
     // ===== EVICT OLDEST =====
@@ -69,7 +69,7 @@ const SemanticCache = {
         
         if (oldestHash) {
             this.cache.delete(oldestHash);
-            console.log('[SemanticCache] Evicted oldest entry:', oldestHash);
+            // console.log('[SemanticCache] Evicted oldest entry:', oldestHash);
         }
     },
 
@@ -89,11 +89,7 @@ const SemanticCache = {
             const similarity = this.calculateSimilarity(boardHash, hash, context);
             
             if (similarity >= this.config.SIMILARITY_THRESHOLD) {
-                console.log('[SemanticCache] Found similar cache:', {
-                    originalHash: hash,
-                    similarity,
-                    move: entry.move
-                });
+                // console.log('[SemanticCache] Found similar cache:', { originalHash: hash, similarity, move: entry.move });
                 return entry;
             }
         }
@@ -147,7 +143,7 @@ const SemanticCache = {
     // Xóa toàn bộ cache
     clear() {
         this.cache.clear();
-        console.log('[SemanticCache] Cache cleared');
+        // console.log('[SemanticCache] Cache cleared');
     },
 
     // ===== CLEANUP =====
@@ -164,7 +160,7 @@ const SemanticCache = {
         }
         
         if (cleaned > 0) {
-            console.log('[SemanticCache] Cleaned up', cleaned, 'expired entries');
+            // console.log('[SemanticCache] Cleaned up', cleaned, 'expired entries');
         }
     },
 

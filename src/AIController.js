@@ -22,7 +22,7 @@ const AIController = {
         const useBotPetRuntime = botPetActive && equippedBotPetProfile && typeof isValidBotPetRuntimeMode === 'function' && isValidBotPetRuntimeMode(rawGameMode);
         const gameMode = useBotPetRuntime ? equippedBotPetProfile.gameMode : rawGameMode;
         if (window.DEBUG_BOT_RUNTIME) {
-            console.log('[AIController] getBotMove options:', options, 'rawGameMode:', rawGameMode, 'botPetActive:', botPetActive, 'useBotPetRuntime:', useBotPetRuntime, 'equippedBotPetProfile:', equippedBotPetProfile, 'resolvedGameMode:', gameMode);
+            // console.log('[AIController] getBotMove options:', options, 'rawGameMode:', rawGameMode, 'botPetActive:', botPetActive, 'useBotPetRuntime:', useBotPetRuntime, 'equippedBotPetProfile:', equippedBotPetProfile, 'resolvedGameMode:', gameMode);
         }
         // Resolve room rules: prefer explicit options.roomRules, then GameState.roomRules, then window.roomRules
         const resolvedRules = options.roomRules ?? (typeof GameState !== 'undefined' ? GameState.roomRules : undefined) ?? (typeof window !== 'undefined' ? window.roomRules : undefined);
@@ -40,7 +40,7 @@ const AIController = {
                 winCount = GameState.board.winCount;
             }
             blockBothEnds = (typeof options.blockBothEnds === 'boolean') ? options.blockBothEnds : (typeof document !== 'undefined' ? !!document.getElementById('block-both-ends')?.checked : true);
-            console.warn('[AIController] roomRules not found in options/GameState/window — using fallback values; prefer passing roomRules to getBotMove()');
+            // console.warn('[AIController] roomRules not found in options/GameState/window — using fallback values; prefer passing roomRules to getBotMove()');
         }
 
         // Sử dụng kiến trúc mới nếu được bật
@@ -153,7 +153,7 @@ const AIController = {
             const blockMoves = BlockBothEndsAnalyzer.getBestBlockMoves(opponent, player, winCount, winCount - 1);
             if (blockMoves.length > 0 && blockMoves[0].chainCount >= winCount - 1) {
                 const best = blockMoves[0];
-                console.log('[AIController] BlockBothEndsAnalyzer block:', best);
+                // console.log('[AIController] BlockBothEndsAnalyzer block:', best);
                 if (typeof updateBotThinking === 'function') updateBotThinking('Chặn đúng đầu mở! 🛡️');
                 return { r: best.r, c: best.c };
             }

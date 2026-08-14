@@ -54,14 +54,14 @@ const CouncilAI = {
                (typeof winCount !== 'undefined' ? winCount : 5));
         const depth = options.depth || 5;
 
-        console.log('[CouncilAI] Starting decision with', candidates.length, 'candidates');
+        // console.log('[CouncilAI] Starting decision with', candidates.length, 'candidates');
 
         // ══════════════════════════════════════════════════════════════════
         // BƯỚC 1: Loại candidate trùng
         // ══════════════════════════════════════════════════════════════════
         const uniqueCandidates = this.deduplicateCandidates(candidates);
         if (uniqueCandidates.length === 1) {
-            console.log('[CouncilAI] Only 1 unique candidate, returning immediately');
+            // console.log('[CouncilAI] Only 1 unique candidate, returning immediately');
             return this.buildFinalMove(uniqueCandidates[0], 100, 'Single candidate');
         }
 
@@ -111,7 +111,7 @@ const CouncilAI = {
             const scoreDiff = Math.abs(top1.evaluation.finalScore - top2.evaluation.finalScore);
 
             if (scoreDiff < this.config.tieBreakThreshold) {
-                console.log('[CouncilAI] Tie break needed, score diff:', scoreDiff);
+                // console.log('[CouncilAI] Tie break needed, score diff:', scoreDiff);
                 const tieBreakResult = this.tieBreak([top1, top2], player, opponent, wc);
                 if (tieBreakResult) {
                     // Re-sort sau tie-break
@@ -129,7 +129,7 @@ const CouncilAI = {
         const verified = this.verifyMove(bestCandidate.move, player, opponent, wc, this.config.verifyDepth);
         
         if (!verified.safe) {
-            console.log('[CouncilAI] Best candidate failed verification, trying next');
+            // console.log('[CouncilAI] Best candidate failed verification, trying next');
             // Try next candidate
             for (let i = 1; i < evaluatedCandidates.length; i++) {
                 const nextVerified = this.verifyMove(evaluatedCandidates[i].move, player, opponent, wc, this.config.verifyDepth);
@@ -142,7 +142,7 @@ const CouncilAI = {
                 }
             }
             // All failed, return best anyway with warning
-            console.warn('[CouncilAI] All candidates failed verification, returning best with warning');
+            // console.warn('[CouncilAI] All candidates failed verification, returning best with warning');
             return this.buildFinalMove(bestCandidate, 50, 'Verification failed - best effort');
         }
 
@@ -183,7 +183,7 @@ const CouncilAI = {
                 const searchResult = this.quickSearch(player, opponent, winCount, Math.min(depth, 5));
                 searchScore = searchResult;
             } catch (e) {
-                console.warn('[CouncilAI] Quick search failed:', e);
+                // console.warn('[CouncilAI] Quick search failed:', e);
             }
             setCell(r, c, '');
         }
@@ -219,7 +219,7 @@ const CouncilAI = {
                     return quickScore(move.r, move.c, player);
                 }
             } catch (e) {
-                console.warn('[CouncilAI] Quick search error:', e);
+                // console.warn('[CouncilAI] Quick search error:', e);
             }
         }
         return 0;
@@ -242,7 +242,7 @@ const CouncilAI = {
 
     // ===== HELPER: Tie break =====
     tieBreak(candidates, player, opponent, winCount) {
-        console.log('[CouncilAI] Tie break with depth', this.config.tieBreakDepth);
+        // console.log('[CouncilAI] Tie break with depth', this.config.tieBreakDepth);
         
         let bestCandidate = null;
         let bestScore = -Infinity;
@@ -259,7 +259,7 @@ const CouncilAI = {
                         score = quickScore(move.r, move.c, player);
                     }
                 } catch (e) {
-                    console.warn('[CouncilAI] Tie break search error:', e);
+                    // console.warn('[CouncilAI] Tie break search error:', e);
                 }
             }
             

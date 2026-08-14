@@ -37,7 +37,7 @@ function fitCanvasToContainer() {
         const availW = Math.max(200, rect.width - 4);
         const availH = Math.max(150, rect.height - 4);
         if (availW < 100) return;
-        console.log('[DEBUG-BOARD] fitCanvasToContainer (online):', { availW, availH, currentW: infCanvasW, currentH: infCanvasH });
+        // console.log('[DEBUG-BOARD] fitCanvasToContainer (online):', { availW, availH });
         // Chỉ resize khi lệch đáng kể (> 1 ô) để tránh loop từ room-health ping
         const diffW = Math.abs(infCanvasW - availW);
         const diffH = Math.abs(infCanvasH - availH);
@@ -258,7 +258,7 @@ function initInfCanvas(canvasElement) {
 
     // Reset flag when switching to a different canvas
     if (previousCanvas && previousCanvas !== infCanvas) {
-        console.log('[DEBUG-BOARD] Canvas mode switched from', previousCanvas.id, 'to', infCanvas.id, '— re-initializing');
+        // console.log('[DEBUG-BOARD] Canvas mode switched from', previousCanvas.id, 'to', infCanvas.id, '— re-initializing');
         infCanvasInitialized = false;
     }
 
@@ -551,7 +551,7 @@ function autoResizeInfCanvas() {
         const rect = sbOnline.getBoundingClientRect();
         const availW = Math.max(200, rect.width - 4);
         const availH = Math.max(150, rect.height - 4);
-        console.log('[DEBUG-BOARD] autoResizeInfCanvas (online):', { availW, availH });
+        // console.log('[DEBUG-BOARD] autoResizeInfCanvas (online):', { availW, availH });
         if (availW > 50 && availH > 50) {
             // Chỉ resize khi lệch đáng kể để tránh loop từ room-health ping
             if (Math.abs(infCanvasW - availW) > INF_CS || Math.abs(infCanvasH - availH) > INF_CS) {
@@ -648,15 +648,7 @@ function renderInfiniteBoard() {
     const logCols = Math.ceil(canvasW / INF_CS) + 1;
     const logRows = Math.ceil(canvasH / INF_CS) + 1;
     
-    console.log('[DEBUG-BOARD] renderInfiniteBoard START - DIAGNOSTIC LOG', {
-        canvasW,
-        canvasH,
-        INF_CS,
-        cols: logCols,
-        rows: logRows,
-        scale: window.devicePixelRatio,
-        infCanvasId: infCanvas?.id
-    });
+    // console.log('[DEBUG-BOARD] renderInfiniteBoard START - DIAGNOSTIC LOG', { canvasW, canvasH, INF_CS, cols: logCols, rows: logRows });
 
     // REMOVED GUARD: Allow old system to render in Online mode
     // SharedBoardEngine is not initialized for Online mode, so old system must handle it
@@ -682,7 +674,7 @@ function renderInfiniteBoard() {
                 infCanvasW = cw; infCanvasH = ch;
                 infCanvas.width = cw; infCanvas.height = ch;
                 infCanvas.style.width = cw + 'px'; infCanvas.style.height = ch + 'px';
-                console.log('[DEBUG-BOARD] Canvas size fixed from container:', { infCanvasW, infCanvasH });
+                // console.log('[DEBUG-BOARD] Canvas size fixed from container:', { infCanvasW, infCanvasH });
             }
         }
         if (infCanvasW === 0) return; // Vẫn 0 thì bỏ qua
@@ -695,18 +687,7 @@ function renderInfiniteBoard() {
     const cols = Math.ceil(W / CS) + 1;
     const rows = Math.ceil(H / CS) + 1;
 
-    console.log('[Viewport]', {
-        canvasWidth: infCanvas.width,
-        canvasHeight: infCanvas.height,
-        clientWidth: infCanvas.clientWidth,
-        clientHeight: infCanvas.clientHeight,
-        infCanvasW,
-        infCanvasH,
-        INF_CS,
-        cols,
-        rows,
-        DPR: window.devicePixelRatio
-    });
+    // console.log('[Viewport]', { canvasWidth: infCanvas.width, infCanvasW, infCanvasH, INF_CS, cols, rows });
 
     const theme = document.getElementById('theme-select').value;
     const themeColors = {
@@ -720,7 +701,6 @@ function renderInfiniteBoard() {
     // Override với board skin từ shop nếu đã equip
     if (typeof getEquippedBoardSkin === 'function') {
         const boardSkin = getEquippedBoardSkin();
-        console.log('[DEBUG-BOARD] Board skin from getEquippedBoardSkin:', boardSkin);
         if (boardSkin) {
             col = {
                 ...col,
@@ -729,7 +709,6 @@ function renderInfiniteBoard() {
                 win: boardSkin.win,
                 lastMove: boardSkin.lastMove
             };
-            console.log('[DEBUG-BOARD] Applied board skin colors:', { bg: col.bg, grid: col.grid, win: col.win, lastMove: col.lastMove });
         }
     }
 

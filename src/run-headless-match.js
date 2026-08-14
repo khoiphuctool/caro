@@ -28,7 +28,7 @@ for (const f of loadFiles) {
   const code = fs.readFileSync(path.join(__dirname, f), 'utf8');
   try {
     vm.runInContext(code, sandbox, { filename: f });
-    console.log('Loaded', f);
+    // console.log('Loaded', f);
   } catch (e) {
     console.error('Error loading', f, e);
     process.exit(1);
@@ -46,7 +46,7 @@ const script = `
 
 try {
   const res = vm.runInContext(script, sandbox);
-  console.log('Match result:', res);
+  // console.log('Match result:', res);
 } catch (e) {
   console.error('Error running match:', e);
   process.exit(1);

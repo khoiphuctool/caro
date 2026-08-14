@@ -58,8 +58,7 @@ const BatchLearning = {
             // Lần đầu: dùng botMemory hiện tại làm Best Model
             this.bestModel = this._cloneMemory();
         }
-        console.log('[BatchLearning] Initialized. Buffer:', this.replayBuffer.length,
-                    'Elo:', this.elo.current);
+        // console.log('[BatchLearning] Initialized. Buffer:', this.replayBuffer.length, 'Elo:', this.elo.current);
     },
 
     // ===== THÊM VÁN VÀO REPLAY BUFFER =====
@@ -95,14 +94,13 @@ const BatchLearning = {
 
     // ===== CHẠY BATCH LEARNING =====
     _runBatch() {
-        console.log('[BatchLearning] Running batch on', this.replayBuffer.length, 'games...');
+        // console.log('[BatchLearning] Running batch on', this.replayBuffer.length, 'games...');
 
         // Tính win rate trong batch để tracking Elo
         const total = this.batchStats.wins + this.batchStats.losses + this.batchStats.draws;
         const winRate = total > 0 ? this.batchStats.wins / total : 0.5;
 
-        console.log(`[BatchLearning] Batch WinRate: ${(winRate * 100).toFixed(1)}%`,
-                    `Wins: ${this.batchStats.wins}, Losses: ${this.batchStats.losses}`);
+        // console.log(`[BatchLearning] Batch WinRate: ${(winRate * 100).toFixed(1)}% Wins: ${this.batchStats.wins}, Losses: ${this.batchStats.losses}`);
 
         // BatchLearning chỉ tracking Elo — không đụng vào botMemory
         // botMemory được quản lý hoàn toàn bởi hoc-kinh-nghiem.js (rememberLoss/rememberWinPattern)
@@ -174,7 +172,7 @@ const BatchLearning = {
         // Không dùng nữa — botMemory do hoc-kinh-nghiem.js quản lý
         this.elo.best = Math.max(this.elo.best, newElo);
         if (typeof saveBotMemory === 'function') saveBotMemory();
-        console.log(`[BatchLearning] Elo updated: ${newElo}`);
+        // console.log(`[BatchLearning] Elo updated: ${newElo}`);
     },
 
     // ===== ROLLBACK VỀ BEST MODEL =====
@@ -182,7 +180,7 @@ const BatchLearning = {
         // Không rollback botMemory nữa — tránh xung đột với hoc-kinh-nghiem.js
         // Chỉ reset Elo về best
         this.elo.current = this.elo.best;
-        console.log('[BatchLearning] Elo reset to best:', this.elo.best);
+        // console.log('[BatchLearning] Elo reset to best:', this.elo.best);
     },
 
     // ===== CẬP NHẬT ELO =====
@@ -231,7 +229,7 @@ const BatchLearning = {
             };
             localStorage.setItem(this.config.storageKey, JSON.stringify(data));
         } catch (e) {
-            console.warn('[BatchLearning] Save failed:', e.message);
+            // console.warn('[BatchLearning] Save failed:', e.message);
         }
     },
 
@@ -244,7 +242,7 @@ const BatchLearning = {
             if (data.bestModel)    this.bestModel    = data.bestModel;
             if (data.elo)          this.elo          = data.elo;
         } catch (e) {
-            console.warn('[BatchLearning] Load failed:', e.message);
+            // console.warn('[BatchLearning] Load failed:', e.message);
         }
     },
 
@@ -257,7 +255,7 @@ const BatchLearning = {
         this.batchStats = { gamesInBatch: 0, wins: 0, losses: 0, draws: 0, startTime: null };
         this.evaluation = { active: false, games: 0, wins: 0, pendingMemory: null, pendingElo: 1500 };
         localStorage.removeItem(this.config.storageKey);
-        console.log('[BatchLearning] Reset done.');
+        // console.log('[BatchLearning] Reset done.');
     }
 };
 

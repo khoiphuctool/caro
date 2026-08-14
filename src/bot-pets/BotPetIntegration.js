@@ -20,7 +20,7 @@ function _patchPracticeMode() {
                 }, 500);
                 return result;
             };
-            console.log('[BotPet] PracticeMode.startWithBot patched');
+            // console.log('[BotPet] PracticeMode.startWithBot patched');
         }
     }, 300);
 }
@@ -46,7 +46,7 @@ function _patchOnlineRoomStart() {
                 }, 600);
                 return result;
             };
-            console.log('[BotPet] batDauGiaoDienOnline patched for Online Pet UI');
+            // console.log('[BotPet] batDauGiaoDienOnline patched for Online Pet UI');
         }
     }, 300);
 
@@ -64,7 +64,7 @@ function _patchOnlineRoomStart() {
                 }, 600);
                 return result;
             };
-            console.log('[BotPet] chuPhongBatDauGame patched for Online Pet UI');
+            // console.log('[BotPet] chuPhongBatDauGame patched for Online Pet UI');
         }
     }, 300);
 }
@@ -87,7 +87,7 @@ function _patchBotRoom() {
                 }, 500);
                 return result;
             };
-            console.log('[BotPet] BotRoomManager.startBotBattle patched');
+            // console.log('[BotPet] BotRoomManager.startBotBattle patched');
         }
     }, 300);
 }
@@ -107,7 +107,7 @@ function _patchMatchExit() {
                 }
                 return _origExit.apply(this, args);
             };
-            console.log('[BotPet] PracticeMode.exit patched');
+            // console.log('[BotPet] PracticeMode.exit patched');
         }
     }, 300);
 
@@ -126,7 +126,7 @@ function _patchMatchExit() {
                 }
                 return _origExit.apply(this, args);
             };
-            console.log('[BotPet] xuLyThoatPhong patched');
+            // console.log('[BotPet] xuLyThoatPhong patched');
         }
     }, 300);
 
@@ -141,7 +141,7 @@ function _patchMatchExit() {
                 }
                 return _origExit.apply(this, args);
             };
-            console.log('[BotPet] BotRoomManager.exitBotRoom patched');
+            // console.log('[BotPet] BotRoomManager.exitBotRoom patched');
         }
     }, 300);
 }
@@ -178,7 +178,7 @@ function _patchLoadPlayerInfo() {
                 }, 200);
                 return result;
             };
-            console.log('[BotPet] loadPlayerInfo patched for Online Pet UI');
+            // console.log('[BotPet] loadPlayerInfo patched for Online Pet UI');
         }
     }, 500);
 }
@@ -207,7 +207,7 @@ function _patchMakeAIMove() {
                 }, 0);
                 return result;
             };
-            console.log('[BotPet] makeAIMove patched for post-bot TOP-4 refresh');
+            // console.log('[BotPet] makeAIMove patched for post-bot TOP-4 refresh');
         }
     }, 300);
 }
@@ -247,7 +247,7 @@ function _patchPositionEditor() {
                     };
                 }
             });
-            console.log('[BotPet] PositionEditor.placePiece/undo/redo/clear patched for TOP-4 refresh');
+            // console.log('[BotPet] PositionEditor.placePiece/undo/redo/clear patched for TOP-4 refresh');
         }
     }, 500);
 }
@@ -263,4 +263,4 @@ window.addEventListener('load', () => {
     }, 1000);
 });
 
-console.log('[BotPet] Integration loaded');
+// console.log('[BotPet] Integration loaded');

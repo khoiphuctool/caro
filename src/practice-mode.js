@@ -362,11 +362,11 @@ const PracticeMode = (function() {
 
     // ── UNDO MOVE ───────────────────────────────────────────────────
     function undoPracticeMove() {
-        console.log({
-            active:_state.active,
-            phase:_state.phase,
-            moveHistory:typeof moveHistory !== 'undefined' ? moveHistory.length : 'undefined'
-        });
+        // console.log({
+            // active:_state.active,
+            // phase:_state.phase,
+            // moveHistory:typeof moveHistory !== 'undefined' ? moveHistory.length : 'undefined'
+        // });
         if (!_state.active || _state.phase !== 'playing') {
             alert('Chỉ có thể undo khi đang chơi!');
             return;

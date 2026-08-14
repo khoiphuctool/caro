@@ -211,7 +211,7 @@ const GameState = {
         // Console output based on log level
         const shouldLog = this.shouldLog(level);
         if (shouldLog) {
-            console.log(`[${level.toUpperCase()}] ${message}`, data || '');
+            // console.log(`[${level.toUpperCase()}] ${message}`, data || '');
         }
     },
 

@@ -253,7 +253,7 @@ const Cache = {
         if (typeof DebugLogger !== 'undefined') {
             DebugLogger.log('cache', 'info', 'Cache statistics', stats);
         } else {
-            console.log('Cache Statistics:', stats);
+            // console.log('Cache Statistics:', stats);
         }
     }
 };

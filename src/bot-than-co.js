@@ -21,7 +21,7 @@ const BotSuperV2 = {
         const player = options.player || botPiece || 'O';
         const opponent = options.opponent || humanPiece || 'X';
         
-        console.log('[BotSuperV2] getBotMove called', { player, opponent });
+        // console.log('[BotSuperV2] getBotMove called', { player, opponent });
 
         // ══════════════════════════════════════════════════════════════════
         // NEW ARCHITECTURE: Intent Router → Context Builder → ...
@@ -52,7 +52,7 @@ const BotSuperV2 = {
 
     // ===== NEW ARCHITECTURE =====
     getBotMoveNewArchitecture(options) {
-        console.log('[BotSuperV2] Using new architecture');
+        // console.log('[BotSuperV2] Using new architecture');
 
         // Direct callers (for example bot-room) can enter this path without
         // passing through ai-nao.js P1/P2. Use the shared tactical preflight.
@@ -64,12 +64,12 @@ const BotSuperV2 = {
             const blockRules = { winCount, chan2Dau: !!(rules && rules.chan2Dau) };
             const immediate = BlockBothEndsAnalyzer.getPriorityTacticalMove(player, opponent, blockRules);
             if (immediate) {
-                console.log('[BotSuperV2] Shared immediate tactical move:', immediate);
+                // console.log('[BotSuperV2] Shared immediate tactical move:', immediate);
                 return { r: immediate.r, c: immediate.c, reason: immediate.reason };
             }
             const openEndBlock = BlockBothEndsAnalyzer.getOpenEndBlockMove(player, opponent, blockRules);
             if (openEndBlock) {
-                console.log('[BotSuperV2] Shared open-end block move:', openEndBlock);
+                // console.log('[BotSuperV2] Shared open-end block move:', openEndBlock);
                 return { r: openEndBlock.r, c: openEndBlock.c, reason: openEndBlock.reason };
             }
         }
@@ -79,7 +79,7 @@ const BotSuperV2 = {
         
         // Check cache hit
         if (context.cacheHit) {
-            console.log('[BotSuperV2] Cache hit, returning cached move');
+            // console.log('[BotSuperV2] Cache hit, returning cached move');
             SemanticCache.recordHit();
             return context.cacheHit.move;
         }
@@ -87,7 +87,7 @@ const BotSuperV2 = {
 
         // Step 2: Intent Router
         const pipeline = IntentRouter.route(context);
-        console.log('[BotSuperV2] Pipeline selected:', pipeline);
+        // console.log('[BotSuperV2] Pipeline selected:', pipeline);
 
         // Step 3: Execute based on pipeline
         let result;
@@ -106,30 +106,30 @@ const BotSuperV2 = {
         }
 
         // Fallback
-        console.warn('[BotSuperV2] New architecture failed, using fallback');
+        // console.warn('[BotSuperV2] New architecture failed, using fallback');
         return this.getBotMoveOldArchitecture(options);
     },
 
     // ===== FAST PATH =====
     executeFastPath(context) {
-        console.log('[BotSuperV2] Executing Fast Path');
+        // console.log('[BotSuperV2] Executing Fast Path');
 
         // Quick Evaluator
         const result = QuickEvaluator.evaluate(context);
         
         if (result) {
-            console.log('[BotSuperV2] Fast Path found move:', result);
+            // console.log('[BotSuperV2] Fast Path found move:', result);
             return result;
         }
 
         // Fast Path không tìm được move -> cần Deep Path
-        console.log('[BotSuperV2] Fast Path no move, switching to Deep Path');
+        // console.log('[BotSuperV2] Fast Path no move, switching to Deep Path');
         return null;
     },
 
     // ===== DEEP PATH =====
     executeDeepPath(context, options) {
-        console.log('[BotSuperV2] Executing Deep Path');
+        // console.log('[BotSuperV2] Executing Deep Path');
 
         const { player, opponent, rules } = context;
         const depth = options.depth || this.config.searchDepth;
@@ -148,11 +148,11 @@ const BotSuperV2 = {
             try {
                 const godMove = godEngineMove(player, opponent, validCands, true);
                 if (godMove && godMove.move && getCell(godMove.move.r, godMove.move.c) === '') {
-                    console.log('[BotSuperV2] Selected high-end tactical move from godEngine:', godMove);
+                    // console.log('[BotSuperV2] Selected high-end tactical move from godEngine:', godMove);
                     return { move: { r: godMove.move.r, c: godMove.move.c }, reason: godMove.reason || 'God Engine Tactical' };
                 }
             } catch (e) {
-                console.warn('[BotSuperV2] godEngineMove failed:', e);
+                // console.warn('[BotSuperV2] godEngineMove failed:', e);
             }
         }
 
@@ -166,11 +166,11 @@ const BotSuperV2 = {
                     roomRules: { winCount: rules && typeof rules.winCount === 'number' ? rules.winCount : 5, chan2Dau: !!(rules && rules.chan2Dau) }
                 });
                 if (tiaMove && Number.isInteger(tiaMove.r) && Number.isInteger(tiaMove.c) && getCell(tiaMove.r, tiaMove.c) === '') {
-                    console.log('[BotSuperV2] Selected Lightning tactical move:', tiaMove);
+                    // console.log('[BotSuperV2] Selected Lightning tactical move:', tiaMove);
                     return { move: { r: tiaMove.r, c: tiaMove.c }, reason: 'BotTiaChop tactical' };
                 }
             } catch (e) {
-                console.warn('[BotSuperV2] BotTiaChop tactical generator failed:', e);
+                // console.warn('[BotSuperV2] BotTiaChop tactical generator failed:', e);
             }
         }
 
@@ -187,7 +187,7 @@ const BotSuperV2 = {
                     ultimateReason = 'PVS Deep Search';
                 }
             } catch (e) {
-                console.warn('[BotSuperV2] Minimax failed:', e);
+                // console.warn('[BotSuperV2] Minimax failed:', e);
             }
         }
 
@@ -215,7 +215,7 @@ const BotSuperV2 = {
 
     // ===== OLD ARCHITECTURE (Fallback) =====
     getBotMoveOldArchitecture(options) {
-        console.log('[BotSuperV2] Using old architecture (fallback)');
+        // console.log('[BotSuperV2] Using old architecture (fallback)');
 
         const player = options.player || botPiece || 'O';
         const opponent = options.opponent || humanPiece || 'X';
@@ -225,7 +225,7 @@ const BotSuperV2 = {
         else if (typeof options.winCount === 'number') wc = options.winCount;
         else if (typeof GameState !== 'undefined' && GameState.board && typeof GameState.board.winCount === 'number') wc = GameState.board.winCount;
         else {
-            console.warn('[BotSuperV2] winCount not found in roomRules/options/GameState; bot may behave unexpectedly. Pass roomRules to getBotMove.');
+            // console.warn('[BotSuperV2] winCount not found in roomRules/options/GameState; bot may behave unexpectedly. Pass roomRules to getBotMove.');
             wc = typeof winCount !== 'undefined' ? winCount : undefined;
         }
         const depth = options.depth || this.config.searchDepth;
@@ -234,12 +234,12 @@ const BotSuperV2 = {
             const blockRules = { winCount: wc, chan2Dau: !!(resolved && resolved.chan2Dau) };
             const immediate = BlockBothEndsAnalyzer.getPriorityTacticalMove(player, opponent, blockRules);
             if (immediate) {
-                console.log('[BotSuperV2 Old] Shared immediate tactical move:', immediate);
+                // console.log('[BotSuperV2 Old] Shared immediate tactical move:', immediate);
                 return immediate;
             }
         }
 
-        console.log('[BotSuperV2 Old] getBotMove', { player, opponent, winCount: wc, depth });
+        // console.log('[BotSuperV2 Old] getBotMove', { player, opponent, winCount: wc, depth });
 
         // Layer 0: Nước đầu - random trung tâm
         const moveCount = typeof moveHistory !== 'undefined' ? moveHistory.length : 0;
@@ -248,7 +248,7 @@ const BotSuperV2 = {
             if (allCands.length > 0) {
                 const pool = allCands.slice(0, Math.max(1, Math.ceil(allCands.length / 2)));
                 const randomMove = pool[Math.floor(Math.random() * pool.length)];
-                console.log('[BotSuperV2 Old] Early random move:', randomMove);
+                // console.log('[BotSuperV2 Old] Early random move:', randomMove);
                 return randomMove;
             }
         }
@@ -263,7 +263,7 @@ const BotSuperV2 = {
             const win = checkWinSilent(r, c, (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : window.roomRules);
             setCell(r, c, '');
             if (win) {
-                console.log('[BotSuperV2 Old] Win now:', { r, c });
+                // console.log('[BotSuperV2 Old] Win now:', { r, c });
                 return { r, c };
             }
         }
@@ -275,7 +275,7 @@ const BotSuperV2 = {
             const win = checkWinSilent(r, c, (typeof GameState !== 'undefined' && GameState.roomRules) ? GameState.roomRules : window.roomRules);
             setCell(r, c, '');
             if (win) {
-                console.log('[BotSuperV2 Old] Block win:', { r, c });
+                // console.log('[BotSuperV2 Old] Block win:', { r, c });
                 return { r, c };
             }
         }
@@ -288,7 +288,7 @@ const BotSuperV2 = {
             if (blockMoves.length > 0) {
                 const best = blockMoves[0];
                 if (best.chainCount >= wc - 2) {
-                    console.log('[BotSuperV2 Old] BlockBothEndsAnalyzer block open end:', best);
+                    // console.log('[BotSuperV2 Old] BlockBothEndsAnalyzer block open end:', best);
                     return { r: best.r, c: best.c };
                 }
             }
@@ -317,7 +317,7 @@ const BotSuperV2 = {
             }
         }
         if (bestForced) {
-            console.log('[BotSuperV2 Old] Win opportunity - Forced four:', bestForced);
+            // console.log('[BotSuperV2 Old] Win opportunity - Forced four:', bestForced);
             return bestForced;
         }
 
@@ -333,7 +333,7 @@ const BotSuperV2 = {
                         }
                     }
                     if (threatCount >= 2) {
-                        console.log('[BotSuperV2 Old] Win opportunity - Fork:', { r, c });
+                        // console.log('[BotSuperV2 Old] Win opportunity - Fork:', { r, c });
                         return { r, c };
                     }
                 }
@@ -348,7 +348,7 @@ const BotSuperV2 = {
                     p.pattern === PatternDetector.PATTERN.FOUR_OPEN
                 );
                 if (hasFourOpen) {
-                    console.log('[BotSuperV2 Old] Win opportunity - FOUR_OPEN:', { r, c });
+                    // console.log('[BotSuperV2 Old] Win opportunity - FOUR_OPEN:', { r, c });
                     return { r, c };
                 }
             }
@@ -379,7 +379,7 @@ const BotSuperV2 = {
                     }
                 }
             } catch (e) {
-                console.warn('[BotSuperV2 Old] BotTiaChop failed:', e);
+                // console.warn('[BotSuperV2 Old] BotTiaChop failed:', e);
             }
         }
 
@@ -399,7 +399,7 @@ const BotSuperV2 = {
                         ultimateReason = 'PVS Deep Search';
                     }
                 } catch (e) {
-                    console.warn('[BotSuperV2 Old] Minimax failed:', e);
+                    // console.warn('[BotSuperV2 Old] Minimax failed:', e);
                 }
             }
 
@@ -433,7 +433,7 @@ const BotSuperV2 = {
         if (candidates.length > 0) {
             // Sort by score
             candidates.sort((a, b) => b.score - a.score);
-            console.log('[BotSuperV2 Old] Selected best candidate:', candidates[0]);
+            // console.log('[BotSuperV2 Old] Selected best candidate:', candidates[0]);
             return candidates[0].move;
         }
 
@@ -442,7 +442,7 @@ const BotSuperV2 = {
             return candidates[0].move;
         }
 
-        console.warn('[BotSuperV2 Old] No candidates found, returning null');
+        // console.warn('[BotSuperV2 Old] No candidates found, returning null');
         return null;
     }
 };

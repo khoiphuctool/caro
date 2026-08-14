@@ -198,7 +198,7 @@ function processWinBot(modeDiff, winCount) {
     const validKeys = ['easy', 'medium', 'hard', 'god', 'lightning', 'super'];
     let limitKey = modeDiff;
     if (!validKeys.includes(limitKey)) {
-        console.warn('[processWinBot] unknown modeDiff, falling back to easy:', modeDiff);
+        // console.warn('[processWinBot] unknown modeDiff, falling back to easy:', modeDiff);
         limitKey = 'easy';
     }
 
@@ -213,7 +213,7 @@ function processWinBot(modeDiff, winCount) {
     const maxAllowed = limitConfig[limitKey] || 5;
     const reward = rewardConfig[limitKey] || 300;
     const bonusReward = bonusConfig[limitKey] || 0;
-    console.log('[processWinBot] limitKey=', limitKey, 'winCount=', wc, 'used/max=', maxAllowed, 'reward=', reward, 'bonus=', bonusReward);
+    // console.log('[processWinBot] limitKey=', limitKey, 'winCount=', wc, 'used/max=', maxAllowed, 'reward=', reward, 'bonus=', bonusReward);
 
     const limitsRef = database.ref(`users/${uid}/botDailyLimits_${wc}`);
     return resetBotLimitsIfNeeded(limitsRef, wc).then(() => {
@@ -582,7 +582,7 @@ async function ketThucCuoc(roomId, winnerRole, isDraw) {
     const now = Date.now();
     const guardKey = `${roomId}_${myId}`;
     if (_lastProcessedBetEndRoom === guardKey && (now - _lastProcessedBetEndTime) < 5000) {
-        console.log('[BetSystem] Skipping duplicate bet settlement for user:', myId, 'room:', roomId);
+        // console.log('[BetSystem] Skipping duplicate bet settlement for user:', myId, 'room:', roomId);
         return;
     }
     
@@ -1054,13 +1054,13 @@ function onWinBotXu(modeName, winCount) {
     if (!uid) return;
     // Safety: do NOT treat Online Solo matches as Bot matches — skip if in online mode
     if (typeof window !== 'undefined' && typeof window.isOnlineModeActive === 'function' && window.isOnlineModeActive()) {
-        console.log('[onWinBotXu] Running in Online mode — skip bot reward');
+        // console.log('[onWinBotXu] Running in Online mode — skip bot reward');
         return;
     }
     
     // Chỉ tính nhiệm vụ khi winCount >= 5
     if (typeof winCount === 'number' && winCount < 5) {
-        console.log('[onWinBotXu] winCount < 5, không tính nhiệm vụ. winCount=', winCount);
+        // console.log('[onWinBotXu] winCount < 5, không tính nhiệm vụ. winCount=', winCount);
         return;
     }
     
@@ -1072,17 +1072,17 @@ function onWinBotXu(modeName, winCount) {
     else diff = 'easy';
 
     if (modeName === 'bot-than-co' && diff !== 'super') {
-        console.warn('[onWinBotXu] Bot-than-co should resolve to super reward; current diff=', diff);
+        // console.warn('[onWinBotXu] Bot-than-co should resolve to super reward; current diff=', diff);
         diff = 'super';
     }
-    console.log('[onWinBotXu] modeName=', modeName, 'winCount=', winCount, 'resolvedDiff=', diff);
+    // console.log('[onWinBotXu] modeName=', modeName, 'winCount=', winCount, 'resolvedDiff=', diff);
     
     // Xác định winCount (5, 6, 7)
     const validWinCounts = [5, 6, 7];
     const wc = validWinCounts.includes(winCount) ? winCount : 5;
     
     processWinBot(diff, wc).then(earned => {
-        console.log('[onWinBotXu] earned=', earned, 'for diff=', diff, 'winCount=', wc);
+        // console.log('[onWinBotXu] earned=', earned, 'for diff=', diff, 'winCount=', wc);
         if (earned > 0) {
             playCoinBurst(earned, `Thắng ${wc} quân! �`);
             if (typeof enqueueNotification === 'function') {
@@ -1116,7 +1116,7 @@ function onWinSoloXu() {
     const now = Date.now();
     const roomId = (typeof currentRoomId !== 'undefined') ? currentRoomId : null;
     if (roomId && _lastProcessedSoloWinRoom === roomId && (now - _lastProcessedSoloWinTime) < 5000) {
-        console.log('[SoloXu] Skipping duplicate solo win reward for room:', roomId);
+        // console.log('[SoloXu] Skipping duplicate solo win reward for room:', roomId);
         return Promise.resolve();
     }
 
@@ -1125,7 +1125,7 @@ function onWinSoloXu() {
         return database.ref(`rooms/${roomId}/betAmount`).once('value').then(snap => {
             const betAmount = snap.val();
             if (betAmount && betAmount > 0) {
-                console.log('[SoloXu] Room has bet, skipping solo reward. betAmount=', betAmount);
+                // console.log('[SoloXu] Room has bet, skipping solo reward. betAmount=', betAmount);
                 return; // có cược → skip solo reward
             }
             _lastProcessedSoloWinRoom = roomId || '';

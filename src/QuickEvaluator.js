@@ -10,7 +10,7 @@ const QuickEvaluator = {
     // Input: context { board, rules, player, opponent, ... }
     // Output: { move, reason } hoặc null (nếu cần Deep Path)
     evaluate(context) {
-        console.log('[QuickEvaluator] Starting quick evaluation...');
+        // console.log('[QuickEvaluator] Starting quick evaluation...');
         
         const { board, rules, player, opponent } = context;
         const winCount = rules.winCount || 5;
@@ -22,42 +22,42 @@ const QuickEvaluator = {
         // 1. Win Now Check
         const winMove = this.checkWinNow(allEmpty, player, winCount);
         if (winMove) {
-            console.log('[QuickEvaluator] Win now:', winMove);
+            // console.log('[QuickEvaluator] Win now:', winMove);
             return { move: winMove, reason: 'Win Now' };
         }
         
         // 2. Block Win Check
         const blockMove = this.checkWinNow(allEmpty, opponent, winCount);
         if (blockMove) {
-            console.log('[QuickEvaluator] Block win:', blockMove);
+            // console.log('[QuickEvaluator] Block win:', blockMove);
             return { move: blockMove, reason: 'Block Win' };
         }
         
         // 3. Check THREE_OPEN (dangerous) - phải chặn ngay
         const threeOpenBlock = this.checkThreeOpen(allEmpty, opponent, winCount, chan2Dau);
         if (threeOpenBlock) {
-            console.log('[QuickEvaluator] Blocking THREE_OPEN:', threeOpenBlock);
+            // console.log('[QuickEvaluator] Blocking THREE_OPEN:', threeOpenBlock);
             return { move: threeOpenBlock, reason: 'Block THREE_OPEN' };
         }
         
         // 4. Check Forced Four (bot) - FOUR không thể chặn
         const forcedFour = this.checkForcedFour(allEmpty, player, winCount, chan2Dau);
         if (forcedFour) {
-            console.log('[QuickEvaluator] Forced four:', forcedFour);
+            // console.log('[QuickEvaluator] Forced four:', forcedFour);
             return { move: forcedFour, reason: 'Forced Four' };
         }
         
         // 5. Check Fork/Double Threat (bot)
         const forkMove = this.checkFork(allEmpty, player, winCount, chan2Dau);
         if (forkMove) {
-            console.log('[QuickEvaluator] Fork:', forkMove);
+            // console.log('[QuickEvaluator] Fork:', forkMove);
             return { move: forkMove, reason: 'Fork' };
         }
         
         // 6. Check FOUR_OPEN (bot)
         const fourOpen = this.checkFourOpen(allEmpty, player, winCount, chan2Dau);
         if (fourOpen) {
-            console.log('[QuickEvaluator] FOUR_OPEN:', fourOpen);
+            // console.log('[QuickEvaluator] FOUR_OPEN:', fourOpen);
             return { move: fourOpen, reason: 'FOUR_OPEN' };
         }
         
@@ -66,12 +66,12 @@ const QuickEvaluator = {
         // nhưng QuickEvaluator được dùng độc lập trong ContextBuilder nên gọi lại an toàn.
         const smartBlock = this.checkSmartBlock(allEmpty, opponent, winCount, chan2Dau);
         if (smartBlock) {
-            console.log('[QuickEvaluator] Smart block (open-end):', smartBlock);
+            // console.log('[QuickEvaluator] Smart block (open-end):', smartBlock);
             return { move: smartBlock, reason: 'Smart Block' };
         }
         
         // Không tìm được tactical move rõ ràng -> cần Deep Path
-        console.log('[QuickEvaluator] No obvious tactical move, need Deep Path');
+        // console.log('[QuickEvaluator] No obvious tactical move, need Deep Path');
         return null;
     },
 

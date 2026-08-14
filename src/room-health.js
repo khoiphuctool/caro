@@ -30,7 +30,7 @@ window.addEventListener('load', () => {
         if (typeof db !== 'undefined' && db) {
             _db = db;
             clearInterval(waitDb);
-            console.log('[RoomHealth] Firebase ready, khởi động health system');
+            // console.log('[RoomHealth] Firebase ready, khởi động health system');
         }
     }, 500);
 
@@ -290,7 +290,7 @@ function _checkAfk() {
     }
 
     if (idle >= AFK_KICK_MS) {
-        console.log('[RoomHealth] AFK timeout → xử thua do AFK');
+        // console.log('[RoomHealth] AFK timeout → xử thua do AFK');
         _hideAfkWarning();
         _afkWarned = false;
 
@@ -444,7 +444,7 @@ function _patchRoomListRender() {
         try { roomsListListener = newListener; } catch(e) {}
     };
 
-    console.log('[RoomHealth] hienDanhSachPhong patched — dùng deriveRoomStatus');
+    // console.log('[RoomHealth] hienDanhSachPhong patched — dùng deriveRoomStatus');
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -494,7 +494,7 @@ function _patchNgoimVaoPhong() {
                     cleanUpdates.playerXConfirmed = null;
                     cleanUpdates.playerOConfirmed = null;
                 }
-                console.log(`[RoomHealth] Dọn ghost trong phòng ${roomId} trước khi vào`);
+                // console.log(`[RoomHealth] Dọn ghost trong phòng ${roomId} trước khi vào`);
                 _db.ref(`rooms/${roomId}`).update(cleanUpdates).then(() => {
                     _origNgoi.apply(window, args);
                 }).catch(() => { _origNgoi.apply(window, args); });
@@ -504,7 +504,7 @@ function _patchNgoimVaoPhong() {
             }
         }).catch(() => { _origNgoi.apply(window, args); });
     };
-    console.log('[RoomHealth] ngoimVaoPhong patched — tự dọn ghost trước khi vào');
+    // console.log('[RoomHealth] ngoimVaoPhong patched — tự dọn ghost trước khi vào');
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -550,7 +550,7 @@ function _hookOnlineEvents() {
         }
     }, 1000);
 
-    console.log('[RoomHealth] Hooks gắn thành công');
+    // console.log('[RoomHealth] Hooks gắn thành công');
 }
 
 // Ghi dấu activity khi đánh cờ (makeMove)

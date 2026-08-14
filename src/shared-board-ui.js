@@ -11,7 +11,7 @@ const SharedBoardUI = (function() {
         currentMode: null,
         
         setState(newState) {
-            console.log('[SharedBoardUI] Lifecycle state:', this.state, '->', newState);
+            // console.log('[SharedBoardUI] Lifecycle state:', this.state, '->', newState);
             this.state = newState;
         },
         
@@ -54,7 +54,7 @@ const SharedBoardUI = (function() {
             if (this.modes[mode]) {
                 this.currentMode = mode;
                 Lifecycle.currentMode = mode;
-                console.log('[SharedBoardUI] Mode set to:', mode);
+                // console.log('[SharedBoardUI] Mode set to:', mode);
             }
         },
         
@@ -93,7 +93,7 @@ const SharedBoardUI = (function() {
             });
             
             this.resizeObserver.observe(container);
-            console.log('[SharedBoardUI] LayoutManager initialized for mode:', mode);
+            // console.log('[SharedBoardUI] LayoutManager initialized for mode:', mode);
         },
         
         updateBreakpoint() {
@@ -111,7 +111,7 @@ const SharedBoardUI = (function() {
             }
             
             if (newBreakpoint !== this.currentBreakpoint) {
-                console.log('[SharedBoardUI] Breakpoint changed:', this.currentBreakpoint, '->', newBreakpoint);
+                // console.log('[SharedBoardUI] Breakpoint changed:', this.currentBreakpoint, '->', newBreakpoint);
                 this.currentBreakpoint = newBreakpoint;
                 this.applyLayout();
             }
@@ -143,7 +143,7 @@ const SharedBoardUI = (function() {
                 boardContainer.style.height = '100dvh';
                 boardContainer.style.zIndex = '1';
             }
-            console.log('[SharedBoardUI] Applied fullscreen layout for mode:', Lifecycle.currentMode);
+            // console.log('[SharedBoardUI] Applied fullscreen layout for mode:', Lifecycle.currentMode);
         },
         
         destroy() {
@@ -171,7 +171,7 @@ const SharedBoardUI = (function() {
         init(mode) {
             // Prevent re-initialization if already running for same mode
             if (this.initialized && Lifecycle.currentMode === mode) {
-                console.log('[SharedBoardUI] Canvas already initialized for mode:', mode);
+                // console.log('[SharedBoardUI] Canvas already initialized for mode:', mode);
                 return true;
             }
             
@@ -195,13 +195,13 @@ const SharedBoardUI = (function() {
             // Set canvas dimensions to match container
             const hasContainerSize = this.resizeToContainer();
             if (!hasContainerSize) {
-                console.warn('[SharedBoardUI] Canvas container has no measurable size yet; continuing init and waiting for resize events');
+                // console.warn('[SharedBoardUI] Canvas container has no measurable size yet; continuing init and waiting for resize events');
                 this.needsViewportResetAfterResize = true;
             }
             
             // YC.TXT FIX: Do not fail initialization when the canvas is initially hidden.
             if (this.canvas.width === 0 || this.canvas.height === 0) {
-                console.warn('[SharedBoardUI] Canvas has zero dimensions after resize, continuing initialization');
+                // console.warn('[SharedBoardUI] Canvas has zero dimensions after resize, continuing initialization');
             }
             
             // Update global variables for renderer
@@ -209,12 +209,12 @@ const SharedBoardUI = (function() {
             if (typeof infCanvasH !== 'undefined') infCanvasH = this.canvas.height;
             
             this.initialized = true;
-            console.log('[SharedBoardUI] Canvas initialized:', {
-                mode,
-                canvasId: this.canvas.id,
-                width: this.canvas.width,
-                height: this.canvas.height
-            });
+            // console.log('[SharedBoardUI] Canvas initialized:', {
+                // mode,
+                // canvasId: this.canvas.id,
+                // width: this.canvas.width,
+                // height: this.canvas.height
+            // });
             
             return true;
         },
@@ -227,11 +227,11 @@ const SharedBoardUI = (function() {
             const containerHeight = containerRect.height;
             
             if (containerWidth <= 0 || containerHeight <= 0) {
-                console.warn('[SharedBoardUI] resizeToContainer skipped because container has no size yet:', {
-                    containerId: this.container.id,
-                    width: containerWidth,
-                    height: containerHeight
-                });
+                // console.warn('[SharedBoardUI] resizeToContainer skipped because container has no size yet:', {
+                    // containerId: this.container.id,
+                    // width: containerWidth,
+                    // height: containerHeight
+                // });
                 return false;
             }
             
@@ -246,10 +246,10 @@ const SharedBoardUI = (function() {
                 if (typeof infCanvasW !== 'undefined') infCanvasW = this.canvas.width;
                 if (typeof infCanvasH !== 'undefined') infCanvasH = this.canvas.height;
                 
-                console.log('[SharedBoardUI] Canvas resized:', { width: containerWidth, height: containerHeight });
+                // console.log('[SharedBoardUI] Canvas resized:', { width: containerWidth, height: containerHeight });
 
                 if (this.needsViewportResetAfterResize && typeof ViewportManager !== 'undefined' && typeof ViewportManager.resetToCenter === 'function') {
-                    console.log('[SharedBoardUI] Resetting viewport after late canvas resize');
+                    // console.log('[SharedBoardUI] Resetting viewport after late canvas resize');
                     ViewportManager.resetToCenter();
                     this.needsViewportResetAfterResize = false;
                 }
@@ -276,13 +276,13 @@ const SharedBoardUI = (function() {
                 typeof INF_CS !== 'undefined') {
                 vRowF = -Math.floor(infCanvasH / INF_CS / 2);
                 vColF = -Math.floor(infCanvasW / INF_CS / 2);
-                console.log('[SharedBoardUI] Viewport reset to center:', { vRowF, vColF, infCanvasW, infCanvasH, INF_CS });
+                // console.log('[SharedBoardUI] Viewport reset to center:', { vRowF, vColF, infCanvasW, infCanvasH, INF_CS });
                 
                 // YC.TXT FIX: Trigger render after viewport reset to ensure canvas renders immediately
                 if (typeof renderInfiniteBoard === 'function') {
                     requestAnimationFrame(() => {
                         renderInfiniteBoard();
-                        console.log('[SharedBoardUI] renderInfiniteBoard called after viewport reset');
+                        // console.log('[SharedBoardUI] renderInfiniteBoard called after viewport reset');
                     });
                 }
             }
@@ -312,7 +312,7 @@ const SharedBoardUI = (function() {
                 INF_CS = config.defaultCellSize;
             }
             
-            console.log('[SharedBoardUI] Zoom initialized:', { mode, INF_CS });
+            // console.log('[SharedBoardUI] Zoom initialized:', { mode, INF_CS });
         },
         
         saveZoom(mode) {
@@ -364,7 +364,7 @@ const SharedBoardUI = (function() {
             };
             
             window.addEventListener('resize', this.handler);
-            console.log('[SharedBoardUI] Resize listener added for mode:', mode);
+            // console.log('[SharedBoardUI] Resize listener added for mode:', mode);
         },
         
         destroy() {
@@ -429,7 +429,7 @@ const SharedBoardUI = (function() {
             document.addEventListener('keydown', infOnKeyDown);
             
             this.bound = true;
-            console.log('[SharedBoardUI] Events bound to canvas:', canvas.id);
+            // console.log('[SharedBoardUI] Events bound to canvas:', canvas.id);
         },
         
         unbind(canvas) {
@@ -447,7 +447,7 @@ const SharedBoardUI = (function() {
             canvas.removeEventListener('wheel', infOnWheel);
             
             this.bound = false;
-            console.log('[SharedBoardUI] Events unbound from canvas:', canvas.id);
+            // console.log('[SharedBoardUI] Events unbound from canvas:', canvas.id);
         }
     };
  
@@ -462,7 +462,7 @@ const SharedBoardUI = (function() {
             if (typeof setupDpadControls === 'function') {
                 setupDpadControls();
             }
-            console.log('[SharedBoardUI] UI controls setup');
+            // console.log('[SharedBoardUI] UI controls setup');
         }
     };
  
@@ -482,22 +482,22 @@ const SharedBoardUI = (function() {
         
         // Main initialization function
         init(mode) {
-            console.log('[SharedBoardUI] init() called for mode:', mode, 'current state:', Lifecycle.state, 'currentMode:', Lifecycle.currentMode);
+            // console.log('[SharedBoardUI] init() called for mode:', mode, 'current state:', Lifecycle.state, 'currentMode:', Lifecycle.currentMode);
             
             // Prevent multiple initialization
             if (!Lifecycle.canInit()) {
-                console.warn('[SharedBoardUI] Cannot init - current state:', Lifecycle.state, 'requested mode:', mode);
+                // console.warn('[SharedBoardUI] Cannot init - current state:', Lifecycle.state, 'requested mode:', mode);
                 return false;
             }
             
             // If already running for same mode, skip
             if (Lifecycle.isRunning() && Lifecycle.currentMode === mode) {
-                console.log('[SharedBoardUI] Already initialized for mode:', mode);
+                // console.log('[SharedBoardUI] Already initialized for mode:', mode);
                 return true;
             }
             
             Lifecycle.setState('initializing');
-            console.log('[SharedBoardUI] Initializing for mode:', mode);
+            // console.log('[SharedBoardUI] Initializing for mode:', mode);
             
             Config.setMode(mode);
             
@@ -544,22 +544,22 @@ const SharedBoardUI = (function() {
             }
             
             Lifecycle.setState('running');
-            console.log('[SharedBoardUI] Initialization complete for mode:', mode);
+            // console.log('[SharedBoardUI] Initialization complete for mode:', mode);
             return true;
         },
         
         // Cleanup function
         destroy() {
-            console.log('[SharedBoardUI] destroy() called, current state:', Lifecycle.state, 'currentMode:', Lifecycle.currentMode);
+            // console.log('[SharedBoardUI] destroy() called, current state:', Lifecycle.state, 'currentMode:', Lifecycle.currentMode);
             
             // Prevent double destroy
             if (Lifecycle.state === 'idle') {
-                console.log('[SharedBoardUI] Already idle, skipping destroy');
+                // console.log('[SharedBoardUI] Already idle, skipping destroy');
                 return;
             }
             
             Lifecycle.setState('destroying');
-            console.log('[SharedBoardUI] Destroying...');
+            // console.log('[SharedBoardUI] Destroying...');
             
             ResizeManager.destroy();
             LayoutManager.destroy();
@@ -568,7 +568,7 @@ const SharedBoardUI = (function() {
             
             Lifecycle.setState('idle');
             Lifecycle.currentMode = null;
-            console.log('[SharedBoardUI] Destroyed, state:', Lifecycle.state);
+            // console.log('[SharedBoardUI] Destroyed, state:', Lifecycle.state);
         },
         
         // Get current canvas
