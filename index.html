@@ -786,7 +786,8 @@ body.game-playing #app-header {
   /* Ensure both side blocks stack into the second column */
   /* Place main lobby into the first column and side panels into the second column */
   .lobby-main { grid-column: 1; }
-  .lobby-side-rank, .lobby-side-social { grid-column: 2; }
+  .lobby-side-rank { grid-column: 2; }
+  .lobby-side-social { grid-column: 2; }
   .lobby-main, .lobby-side { gap: var(--space-3); }
   /* Give the room list more vertical room so it doesn't get pushed down */
   /* Use viewport-based max-height so the room list fills available screen space */
@@ -814,7 +815,8 @@ body.game-playing #app-header {
 /* Tablet: gộp BXH + Social thành 1 cột */
 @media (max-width: 1023px) and (min-width: 769px) {
   .home-layout { grid-template-columns: 1fr 300px; }
-  .lobby-side-rank, .lobby-side-social { grid-column: 2; }
+  .lobby-side-rank { grid-column: 2; }
+  .lobby-side-social { grid-column: 2; }
   
   /* Tablet scroll containers */
   .lobby-side-rank, .lobby-side-social {
@@ -2392,7 +2394,25 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
         <button class="lobby-tab-btn"        data-tab="community" onclick="switchLobbyTab('community')"><span class="tab-icon">🌍</span><span class="tab-label">Cộng đồng</span></button>
     </div>
     <div class="home-layout">
-        <!-- CỘT PHỤ: BXH (đưa lên cột thứ 1) -->
+        <!-- CỘT CHÍNH: Danh sách phòng (đưa lên cột thứ 1) -->
+        <div class="lobby-main">
+            <div class="card">
+                <div class="card-header">🎮 Thách Đấu</div>
+                <div class="card-body">
+                    <p class="text-muted" style="margin-bottom:12px;">Chọn phòng để tham gia. Người vào trước là chủ phòng (X), người sau là khách (O).</p>
+                    <div class="room-tab-row" style="display:flex;gap:10px;margin-bottom:12px;">
+                        <button id="tab-bot" onclick="switchRoomTab('bot')" style="flex:1;padding:8px;background:#10b981;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">🤖 Phòng Bot</button>
+                        <button id="tab-normal" onclick="switchRoomTab('normal')" style="flex:1;padding:8px;background:#e5e7eb;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">🎮 Kênh Thường</button>
+                        <button id="tab-vip" onclick="switchRoomTab('vip')" style="flex:1;padding:8px;background:#e5e7eb;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💎 Kênh VIP</button>
+                    </div>
+                    <div class="room-list" id="room-list" style="position:relative;">
+                        <div class="text-muted" style="text-align:center; padding:24px;">Đang tải danh sách phòng...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CỘT PHỤ: BXH (xuống cột thứ 2) -->
         <div class="lobby-side lobby-side-rank">
             <!-- BXH -->
             <div class="card">
@@ -2417,24 +2437,6 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                 <div class="card-body">
                     <div class="online-users-list" id="danh-sach-online">
                         <span class="text-muted">Đang tải...</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- CỘT CHÍNH: Danh sách phòng -->
-        <div class="lobby-main">
-            <div class="card">
-                <div class="card-header">🎮 Thách Đấu</div>
-                <div class="card-body">
-                    <p class="text-muted" style="margin-bottom:12px;">Chọn phòng để tham gia. Người vào trước là chủ phòng (X), người sau là khách (O).</p>
-                    <div class="room-tab-row" style="display:flex;gap:10px;margin-bottom:12px;">
-                        <button id="tab-bot" onclick="switchRoomTab('bot')" style="flex:1;padding:8px;background:#10b981;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">🤖 Phòng Bot</button>
-                        <button id="tab-normal" onclick="switchRoomTab('normal')" style="flex:1;padding:8px;background:#e5e7eb;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">🎮 Kênh Thường</button>
-                        <button id="tab-vip" onclick="switchRoomTab('vip')" style="flex:1;padding:8px;background:#e5e7eb;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💎 Kênh VIP</button>
-                    </div>
-                    <div class="room-list" id="room-list" style="position:relative;">
-                        <div class="text-muted" style="text-align:center; padding:24px;">Đang tải danh sách phòng...</div>
                     </div>
                 </div>
             </div>
@@ -4104,9 +4106,9 @@ function resetScoreTableToDefaults() {
 })();
 </script>
 
+<script src="src/bot-room.js"></script>
 <script src="src/practice-mode.js"></script>
 <script src="src/position-editor.js"></script>
-<script src="src/bot-room.js"></script>
 <script src="src/online-room-flow.js"></script>
 <script src="src/runtime-guard.js"></script>
 <script src="src/firebase-online.js"></script>
