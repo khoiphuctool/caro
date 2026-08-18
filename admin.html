@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Caro Project</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; margin: 0; padding: 0; color: #eee; }
+        h1 { color: #eee; text-align: center; margin: 20px 0; font-size: 24px; }
+        
+        .main-layout { display: flex; min-height: 100vh; }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: #16213e;
+            padding: 20px 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        .sidebar-menu { list-style: none; padding: 0; margin: 0; }
+        
+        .sidebar-menu li {
+            padding: 12px 20px;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            transition: all 0.3s;
+            color: #aaa;
+        }
+        
+        .sidebar-menu li:hover {
+            background: #0f3460;
+            color: #fff;
+        }
+        
+        .sidebar-menu li.active {
+            background: #0f3460;
+            border-left-color: #e94560;
+            color: #fff;
+        }
+        
+        .sidebar-menu li i { margin-right: 10px; }
+        
+        /* Content Area */
+        .content {
+            margin-left: 250px;
+            flex: 1;
+            padding: 20px;
+        }
+        
+        .section { display: none; }
+        .section.active { display: block; }
+        
+        .card {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        
+        .card h2 {
+            margin-top: 0;
+            color: #e94560;
+            border-bottom: 1px solid #0f3460;
+            padding-bottom: 10px;
+            font-size: 18px;
+        }
+        
+        .card h3 {
+            color: #eee;
+            font-size: 16px;
+            margin-top: 15px;
+            margin-bottom: 10px;
+        }
+        
+        label {
+            display: block;
+            margin: 10px 0 5px;
+            font-weight: 500;
+            color: #aaa;
+            font-size: 13px;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #0f3460;
+            border-radius: 5px;
+            background: #0f3460;
+            color: #eee;
+            font-size: 14px;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #e94560;
+        }
+        
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 8px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        
+        button.primary { background: #e94560; color: white; }
+        button.primary:hover { background: #ff6b6b; }
+        
+        button.danger { background: #dc3545; color: white; }
+        button.danger:hover { background: #c82333; }
+        
+        button.warning { background: #ffc107; color: #333; }
+        button.warning:hover { background: #e0a800; }
+        
+        button.success { background: #28a745; color: white; }
+        button.success:hover { background: #218838; }
+        
+        button.secondary { background: #6c757d; color: white; }
+        button.secondary:hover { background: #5a6268; }
+        
+        .button-group {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+        
+        .button-group-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        
+        #chat-box {
+            height: 150px;
+            border: 1px solid #0f3460;
+            overflow-y: scroll;
+            padding: 10px;
+            background: #0f3460;
+            font-size: 13px;
+            border-radius: 5px;
+        }
+        
+        .log-box {
+            background: #0f3460;
+            color: #2ecc71;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            height: 100px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .info-item {
+            background: #0f3460;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            color: #aaa;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        
+        .info-value {
+            color: #eee;
+            margin-top: 3px;
+            font-size: 14px;
+        }
+        
+        .tab-container { margin-top: 15px; }
+        .tab-buttons { display: flex; gap: 5px; margin-bottom: 10px; }
+        .tab-btn {
+            flex: 1;
+            padding: 8px;
+            background: #0f3460;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            color: #aaa;
+            font-size: 13px;
+        }
+        .tab-btn.active { background: #e94560; color: white; }
+        .tab-content { display: none; padding: 15px; background: #0f3460; border-radius: 5px; }
+        .tab-content.active { display: block; }
+        
+        .history-item {
+            padding: 8px;
+            border-bottom: 1px solid #1a1a2e;
+            font-size: 13px;
+            color: #ccc;
+        }
+        
+        .audit-log {
+            background: #0f3460;
+            color: #ffc107;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-size: 12px;
+            border-left: 3px solid #ffc107;
+        }
+        
+        .row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .col {
+            flex: 1;
+        }
+        
+        .col-2 { flex: 2; }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+            .content {
+                margin-left: 0;
+            }
+            .button-group, .button-group-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+
+    <!-- Tải các thư viện Firebase SDK phiên bản Web -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body>
+    <div class="main-layout">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <ul class="sidebar-menu">
+                <li class="active" onclick="showSection('players')">👥 Quản lý người chơi</li>
+                <li onclick="showSection('giftcode')">🎁 Phát Giftcode</li>
+                <li onclick="showSection('notification')">📢 Thông báo Server</li>
+                <li onclick="showSection('bonus')">💰 Quà chào mừng</li>
+                <li onclick="showSection('chat')">💬 Quản lý Chat</li>
+                <li onclick="showSection('audit')">📋 Audit Logs</li>
+            </ul>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="content">
+            <h1>HỆ THỐNG QUẢN LÝ ADMIN</h1>
+            
+            <!-- Players Section -->
+            <div id="section-players" class="section active">
+        
+            <div class="card">
+                <h2>🔍 Tìm kiếm người chơi</h2>
+                <div class="row">
+                    <div class="col-2">
+                        <input type="text" id="user-name" placeholder="Nhập UID, Username hoặc Email">
+                    </div>
+                    <div class="col">
+                        <select id="search-type">
+                            <option value="username">Username</option>
+                            <option value="uid">UID</option>
+                            <option value="email">Email</option>
+                        </select>
+                    </div>
+                    <div class="col">
+                        <button class="primary" onclick="searchUser()">Tìm kiếm</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>👥 Danh sách tất cả người chơi</h2>
+                <div class="row">
+                    <div class="col-2">
+                        <input type="text" id="search-player" placeholder="Tìm trong danh sách..." onkeyup="searchPlayers()">
+                    </div>
+                    <div class="col">
+                        <button class="primary" onclick="loadAllPlayers()">📥 Tải danh sách</button>
+                    </div>
+                </div>
+                <div id="players-list" style="margin-top: 10px; max-height: 400px; overflow-y: auto; background: #0f3460; padding: 10px; border-radius: 5px;">
+                    <p style="color: #aaa; text-align: center;">Bấm "Tải danh sách" để xem tất cả người chơi</p>
+                </div>
+            </div>
+            
+            <div id="user-info-display" class="card" style="display: none;">
+                <h2>👤 Thông tin người chơi</h2>
+                <div class="info-grid" id="user-info-content"></div>
+                
+                <div class="tab-container">
+                    <div class="tab-buttons">
+                        <button class="tab-btn active" onclick="showTab('currency')">💰 Tiền tệ</button>
+                        <button class="tab-btn" onclick="showTab('account')">🔐 Tài khoản</button>
+                        <button class="tab-btn" onclick="showTab('items')">🎮 Vật phẩm</button>
+                        <button class="tab-btn" onclick="showTab('history')">📜 Lịch sử</button>
+                    </div>
+                    
+                    <div id="tab-currency" class="tab-content active">
+                        <h3>Quản lý Xu</h3>
+                        <div class="row">
+                            <div class="col-2">
+                                <input type="number" id="buff-amount" placeholder="Số xu (âm để trừ)">
+                            </div>
+                            <div class="col">
+                                <button class="primary" onclick="buffXu()">Thực hiện</button>
+                            </div>
+                        </div>
+                        <button class="warning" onclick="resetCurrency('coins')">Reset Xu</button>
+                        
+                        <h3>Quản lý Kim cương</h3>
+                        <div class="row">
+                            <div class="col-2">
+                                <input type="number" id="diamond-amount" placeholder="Số kim cương (âm để trừ)">
+                            </div>
+                            <div class="col">
+                                <button class="primary" onclick="manageDiamonds()">Thực hiện</button>
+                            </div>
+                        </div>
+                        <button class="warning" onclick="resetCurrency('diamonds')">Reset Kim cương</button>
+                    </div>
+                    
+                    <div id="tab-account" class="tab-content">
+                        <h3>Quản lý tài khoản</h3>
+                        <div class="button-group">
+                            <button class="danger" onclick="manageStatus(0)">🔒 Khóa TK</button>
+                            <button class="success" onclick="manageStatus(1)">🔓 Mở TK</button>
+                            <button class="warning" onclick="manageChatBan(true)">🚫 Khóa Chat</button>
+                            <button class="success" onclick="manageChatBan(false)">💬 Mở Chat</button>
+                            <button class="danger" onclick="manageMatchBan(true)">⚔️ Khóa Đấu</button>
+                            <button class="success" onclick="manageMatchBan(false)">🎮 Mở Đấu</button>
+                        </div>
+                        
+                        <h3>Reset dữ liệu</h3>
+                        <div class="button-group">
+                            <button class="warning" onclick="resetDataType('elo')">Reset ELO</button>
+                            <button class="warning" onclick="resetDataType('level')">Reset Level</button>
+                            <button class="warning" onclick="resetDataType('missions')">Reset Nhiệm vụ</button>
+                            <button class="warning" onclick="resetDataType('rewards')">Reset Phần thưởng</button>
+                        </div>
+                        <button class="danger" onclick="resetDataType('all')">⚠️ Reset Tất Cả</button>
+                        
+                        <h3>Chỉnh thông tin</h3>
+                        <div class="row">
+                            <div class="col">
+                                <label>Tên hiển thị</label>
+                                <input type="text" id="edit-displayname" placeholder="Tên mới">
+                            </div>
+                            <div class="col">
+                                <label>Rank</label>
+                                <input type="number" id="edit-rank" placeholder="Rank">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col">
+                                <label>ELO</label>
+                                <input type="number" id="edit-elo" placeholder="ELO">
+                            </div>
+                            <div class="col">
+                                <label>Level</label>
+                                <input type="number" id="edit-level" placeholder="Level">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col">
+                                <label>EXP</label>
+                                <input type="number" id="edit-exp" placeholder="EXP">
+                            </div>
+                            <div class="col">
+                                <label>Clan</label>
+                                <input type="text" id="edit-clan" placeholder="Clan">
+                            </div>
+                        </div>
+                        <button class="primary" onclick="updateUserInfo()">💾 Cập nhật</button>
+                    </div>
+                    
+                    <div id="tab-items" class="tab-content">
+                        <h3>Quản lý vật phẩm</h3>
+                        <label>Mở khóa Skin</label>
+                        <div class="row">
+                            <div class="col-2">
+                                <input type="text" id="unlock-skin" placeholder="Tên skin">
+                            </div>
+                            <div class="col">
+                                <button class="success" onclick="unlockItem('skin')">Mở khóa</button>
+                            </div>
+                        </div>
+                        <label>Thu hồi Skin</label>
+                        <div class="row">
+                            <div class="col-2">
+                                <input type="text" id="revoke-skin" placeholder="Tên skin">
+                            </div>
+                            <div class="col">
+                                <button class="danger" onclick="revokeItem('skin')">Thu hồi</button>
+                            </div>
+                        </div>
+                        <label>Skin đang dùng</label>
+                        <div class="row">
+                            <div class="col-2">
+                                <input type="text" id="active-skin" placeholder="Tên skin">
+                            </div>
+                            <div class="col">
+                                <button class="primary" onclick="setActiveItem('skin')">Đặt active</button>
+                            </div>
+                        </div>
+                        
+                        <h3>Mở khóa vật phẩm khác</h3>
+                        <div class="button-group">
+                            <div>
+                                <label>Avatar</label>
+                                <input type="text" id="unlock-avatar" placeholder="Tên avatar">
+                                <button class="success" onclick="unlockItem('avatar')">Mở khóa</button>
+                            </div>
+                            <div>
+                                <label>Khung</label>
+                                <input type="text" id="unlock-frame" placeholder="Tên khung">
+                                <button class="success" onclick="unlockItem('frame')">Mở khóa</button>
+                            </div>
+                        </div>
+                        <label>Hiệu ứng</label>
+                        <div class="row">
+                            <div class="col-2">
+                                <input type="text" id="unlock-effect" placeholder="Tên hiệu ứng">
+                            </div>
+                            <div class="col">
+                                <button class="success" onclick="unlockItem('effect')">Mở khóa</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="tab-history" class="tab-content">
+                        <h3>Lịch sử hoạt động</h3>
+                        <div class="button-group">
+                            <button onclick="loadUserHistory('login')">📅 Đăng nhập</button>
+                            <button onclick="loadUserHistory('matches')">⚔️ Đấu</button>
+                            <button onclick="loadUserHistory('coins')">💰 Xu</button>
+                            <button onclick="loadUserHistory('admin')">👮 Admin</button>
+                        </div>
+                        <div id="history-display" style="margin-top: 10px; max-height: 200px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Giftcode Section -->
+        <div id="section-giftcode" class="section">
+            <div class="card">
+                <h2>🎁 Phát Giftcode</h2>
+                <label>Mã Code</label>
+                <input type="text" id="code-str" placeholder="Ví dụ: CARO2026">
+                <label>Phần thưởng Xu</label>
+                <input type="number" id="code-xu" value="0">
+                <label>Phần thưởng Vật phẩm</label>
+                <input type="text" id="code-item" placeholder="Tên món đồ">
+                <label>Số lượt sử dụng</label>
+                <input type="number" id="code-max" value="1">
+                <button class="primary" onclick="createGiftcode()">🎫 Phát hành Code</button>
+            </div>
+        </div>
+        
+        <!-- Notification Section -->
+        <div id="section-notification" class="section">
+            <div class="card">
+                <h2>📢 Gửi thông báo toàn server</h2>
+                <label>Nội dung thông báo</label>
+                <input type="text" id="notify-message" placeholder="Nội dung thông báo">
+                <label>Loại thông báo</label>
+                <select id="notify-type">
+                    <option value="info">ℹ️ Thông tin</option>
+                    <option value="win">🎉 Thắng/Thưởng</option>
+                    <option value="warning">⚠️ Cảnh báo</option>
+                </select>
+                <button class="primary" onclick="sendServerNotification()">📤 Gửi thông báo</button>
+            </div>
+        </div>
+        
+        <!-- Bonus Section -->
+        <div id="section-bonus" class="section">
+            <div class="card">
+                <h2>💰 Reset quà chào mừng</h2>
+                <p style="color: #aaa; font-size: 14px;">Reset và tự động cộng xu cho tất cả người chơi (coi như mới đăng ký)</p>
+                <label>Số xu muốn cộng</label>
+                <input type="number" id="welcome-bonus-amount" value="50000" placeholder="Ví dụ: 50000">
+                <button class="danger" onclick="resetAndGrantWelcomeBonus()">⚠️ Reset & Cộng xu cho tất cả</button>
+            </div>
+        </div>
+        
+        <!-- Chat Section -->
+        <div id="section-chat" class="section">
+            <div class="card">
+                <h2>💬 Quản lý Chat Server</h2>
+                <div id="chat-box">Đang tải lịch sử chat...</div>
+                <button class="danger" onclick="clearChat()">🗑️ Xóa sạch chat</button>
+            </div>
+        </div>
+        
+        <!-- Audit Section -->
+        <div id="section-audit" class="section">
+            <div class="card">
+                <h2>📋 Nhật ký Admin (Audit Log)</h2>
+                <button class="primary" onclick="loadAuditLogs()">📥 Tải Audit Logs</button>
+                <div id="audit-log-display" style="margin-top: 10px; max-height: 400px; overflow-y: auto;"></div>
+            </div>
+        </div>
+        
+        <!-- Log Box (Fixed at bottom) -->
+        <div class="card">
+            <h2>📝 Nhật ký hoạt động</h2>
+            <div class="log-box" id="log-box">Hệ thống sẵn sàng...</div>
+        </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // CẤU HÌNH KẾT NỐI FIREBASE CỦA ANH TRẦN
+        // (Anh thay thế các thông tin bên dưới bằng cấu hình từ Firebase Settings nhé)
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyAM2qB0WixXi-QEPKEvfrpcVPbBqL7FVeU",
+            authDomain: "caro-fa824.firebaseapp.com",
+            databaseURL: "https://caro-fa824-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "caro-fa824",
+            storageBucket: "caro-fa824.firebasestorage.app",
+            messagingSenderId: "809520185498",
+            appId: "1:809520185498:web:..."
+        };
+
+        // Khởi tạo Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        
+        // Admin role configuration
+        const ADMIN_ROLES = {
+            SUPER_ADMIN: 'super_admin',
+            ADMIN: 'admin',
+            MODERATOR: 'moderator'
+        };
+        
+        // Set current admin role (change this based on your authentication)
+        let currentAdminRole = ADMIN_ROLES.SUPER_ADMIN;
+        let currentAdminId = 'admin01';
+        let selectedUserUid = null;
+        let selectedUserData = null;
+
+        // Hàm in nhật ký ra màn hình admin
+        function writeLog(text) {
+            const logBox = document.getElementById('log-box');
+            logBox.innerHTML += `<br>[${new Date().toLocaleTimeString()}] ${text}`;
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+        
+        // Hàm ghi audit log
+        function writeAuditLog(action, targetUid, details) {
+            const auditRef = database.ref('admin_audit_logs').push();
+            auditRef.set({
+                adminId: currentAdminId,
+                adminRole: currentAdminRole,
+                action: action,
+                targetUid: targetUid,
+                details: details,
+                timestamp: Date.now(),
+                timeString: new Date().toLocaleString('vi-VN')
+            }).then(() => {
+                writeLog(`📝 Audit log: ${action}`);
+            }).catch(err => {
+                writeLog(`❌ Lỗi audit log: ${err}`);
+            });
+        }
+        
+        // Hàm kiểm tra quyền
+        function hasPermission(requiredRole) {
+            const roleHierarchy = {
+                [ADMIN_ROLES.SUPER_ADMIN]: 3,
+                [ADMIN_ROLES.ADMIN]: 2,
+                [ADMIN_ROLES.MODERATOR]: 1
+            };
+            return roleHierarchy[currentAdminRole] >= roleHierarchy[requiredRole];
+        }
+        
+        // Hàm xác nhận thao tác quan trọng
+        function confirmAction(message) {
+            return confirm(message);
+        }
+        
+        // Hàm kiểm tra dữ liệu hợp lệ
+        function validateData(value, type) {
+            if (value === null || value === undefined || value === '') {
+                return false;
+            }
+            
+            switch(type) {
+                case 'number':
+                    return !isNaN(value);
+                case 'positive':
+                    return !isNaN(value) && value >= 0;
+                case 'string':
+                    return typeof value === 'string' && value.length > 0;
+                default:
+                    return true;
+            }
+        }
+        
+        // Tab switching
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        // Section switching (sidebar navigation)
+        function showSection(sectionName) {
+            document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
+            document.querySelectorAll('.sidebar-menu li').forEach(li => li.classList.remove('active'));
+            document.getElementById(`section-${sectionName}`).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // ==========================================
+        // 1. TÌM KIẾM NGƯỜI CHƠI (UID/USERNAME/EMAIL)
+        // ==========================================
+        function searchUser() {
+            const searchValue = document.getElementById('user-name').value.trim();
+            const searchType = document.getElementById('search-type').value;
+            
+            if(!searchValue) {
+                alert("Vui lòng nhập thông tin tìm kiếm!");
+                return;
+            }
+            
+            if(!validateData(searchValue, 'string')) {
+                alert("Dữ liệu không hợp lệ!");
+                return;
+            }
+            
+            writeLog(`Đang tìm kiếm theo ${searchType}: ${searchValue}...`);
+            
+            let query;
+            if (searchType === 'uid') {
+                query = database.ref('users').child(searchValue).once('value');
+            } else if (searchType === 'username') {
+                query = database.ref('users').orderByChild('username').equalTo(searchValue).once('value');
+            } else if (searchType === 'email') {
+                query = database.ref('users').orderByChild('email').equalTo(searchValue).once('value');
+            }
+            
+            query.then(snapshot => {
+                if (!snapshot.exists()) {
+                    writeLog(`❌ Không tìm thấy tài khoản!`);
+                    alert("Không tìm thấy tài khoản này!");
+                    return;
+                }
+                
+                let userData, uid;
+                if (searchType === 'uid') {
+                    uid = searchValue;
+                    userData = snapshot.val();
+                } else {
+                    uid = Object.keys(snapshot.val())[0];
+                    userData = snapshot.val()[uid];
+                }
+                
+                selectedUserUid = uid;
+                selectedUserData = userData;
+                displayUserInfo(uid, userData);
+                writeLog(`✅ Đã tìm thấy tài khoản: ${userData.username || 'N/A'}`);
+            }).catch(err => {
+                writeLog("❌ Lỗi tìm kiếm: " + err);
+            });
+        }
+        
+        // ==========================================
+        // 2. HIỂN THỊ THÔNG TIN NGƯỜI CHƠI ĐẦY ĐỦ
+        // ==========================================
+        function displayUserInfo(uid, userData) {
+            const display = document.getElementById('user-info-display');
+            const content = document.getElementById('user-info-content');
+            
+            content.innerHTML = `
+                <div class="info-item">
+                    <div class="info-label">UID</div>
+                    <div class="info-value">${uid}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Username</div>
+                    <div class="info-value">${userData.username || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Tên hiển thị</div>
+                    <div class="info-value">${userData.displayName || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Email</div>
+                    <div class="info-value">${userData.email || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Xu</div>
+                    <div class="info-value">${(userData.coins || 0).toLocaleString('vi-VN')}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Kim cương</div>
+                    <div class="info-value">${(userData.diamonds || 0).toLocaleString('vi-VN')}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Rank</div>
+                    <div class="info-value">${userData.rank || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">ELO</div>
+                    <div class="info-value">${userData.elo || 0}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Level</div>
+                    <div class="info-value">${userData.level || 1}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">EXP</div>
+                    <div class="info-value">${userData.exp || 0}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Win Bot</div>
+                    <div class="info-value">${userData.winBot || 0}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Win Solo</div>
+                    <div class="info-value">${userData.winSolo || 0}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Lose Solo</div>
+                    <div class="info-value">${userData.loseSolo || 0}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Clan</div>
+                    <div class="info-value">${userData.clan || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Avatar</div>
+                    <div class="info-value">${userData.avatar || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Khung</div>
+                    <div class="info-value">${userData.frame || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Skin</div>
+                    <div class="info-value">${userData.skin || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Trạng thái</div>
+                    <div class="info-value">${userData.status === 0 ? '🔒 Đã khóa' : '✅ Hoạt động'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Online</div>
+                    <div class="info-value">${userData.isOnline ? '🟢 Online' : '⚫ Offline'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Ngày tạo</div>
+                    <div class="info-value">${userData.createdAt ? new Date(userData.createdAt).toLocaleDateString('vi-VN') : 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Đăng nhập cuối</div>
+                    <div class="info-value">${userData.lastLogin ? new Date(userData.lastLogin).toLocaleString('vi-VN') : 'N/A'}</div>
+                </div>
+            `;
+            
+            // Pre-fill edit inputs
+            document.getElementById('edit-displayname').value = userData.displayName || '';
+            document.getElementById('edit-rank').value = userData.rank || '';
+            document.getElementById('edit-elo').value = userData.elo || '';
+            document.getElementById('edit-level').value = userData.level || '';
+            document.getElementById('edit-exp').value = userData.exp || '';
+            document.getElementById('edit-clan').value = userData.clan || '';
+            
+            display.style.display = 'block';
+        }
+        
+        // ==========================================
+        // 3. CHỨC NĂNG BUFF XU (CÓ XÁC NHẬN & VALIDATE)
+        // ==========================================
+        function buffXu() {
+            if (!selectedUserUid) {
+                alert("Vui lòng tìm kiếm người chơi trước!");
+                return;
+            }
+            
+            const amount = parseInt(document.getElementById('buff-amount').value);
+            
+            if(!validateData(amount, 'number')) {
+                alert("Vui lòng nhập số xu hợp lệ!");
+                return;
+            }
+            
+            if (!confirmAction(`Bạn có chắc chắn muốn ${amount > 0 ? 'cộng' : 'trừ'} ${Math.abs(amount)} xu cho người chơi này?`)) {
+                return;
+            }
+            
+            writeLog(`Đang ${amount > 0 ? 'cộng' : 'trừ'} ${amount} xu...`);
+            
+            const userXuRef = database.ref(`users/${selectedUserUid}/coins`);
+            
+            userXuRef.transaction((currentXu) => {
+                const newXu = (currentXu || 0) + amount;
+                if (newXu < 0 && !confirmAction(`Số xu sẽ bị âm (${newXu}). Bạn có chắc chắn muốn tiếp tục?`)) {
+                    return; // Cancel transaction
+                }
+                return newXu;
+            }, (error, committed, snapshot) => {
+                if (error || !committed) {
+                    writeLog("❌ Lỗi buff xu: " + error);
+                } else {
+                    writeLog(`✅ Đã ${amount > 0 ? 'cộng' : 'trừ'} ${amount} xu. Tổng hiện tại: ${snapshot.val()}`);
+                    writeAuditLog('buff_xu', selectedUserUid, `amount: ${amount}`);
+                    displayUserInfo(selectedUserUid, selectedUserData); // Refresh display
+                }
+            });
+        }
+        
+        // ==========================================
+        // 4. QUẢN LÝ KIM CƯƠNG
+        // ==========================================
+        function manageDiamonds() {
+            if (!selectedUserUid) {
+                alert("Vui lòng tìm kiếm người chơi trước!");
+                return;
+            }
+            
+            const amount = parseInt(document.getElementById('diamond-amount').value);
+            
+            if(!validateData(amount, 'number')) {
+                alert("Vui lòng nhập số kim cương hợp lệ!");
+                return;
+            }
+            
+            if (!confirmAction(`Bạn có chắc chắn muốn ${amount > 0 ? 'cộng' : 'trừ'} ${Math.abs(amount)} kim cương?`)) {
+                return;
+            }
+            
+            writeLog(`Đang ${amount > 0 ? 'cộng' : 'trừ'} ${amount} kim cương...`);
+            
+            const userDiamondRef = database.ref(`users/${selectedUserUid}/diamonds`);
+            
+            userDiamondRef.transaction((currentDiamonds) => {
+                const newDiamonds = (currentDiamonds || 0) + amount;
+                if (newDiamonds < 0 && !confirmAction(`Số kim cương sẽ bị âm (${newDiamonds}). Bạn có chắc chắn muốn tiếp tục?`)) {
+                    return;
+                }
+                return newDiamonds;
+            }, (error, committed, snapshot) => {
+                if (error || !committed) {
+                    writeLog("❌ Lỗi quản lý kim cương: " + error);
+                } else {
+                    writeLog(`✅ Đã ${amount > 0 ? 'cộng' : 'trừ'} ${amount} kim cương. Tổng hiện tại: ${snapshot.val()}`);
+                    writeAuditLog('manage_diamonds', selectedUserUid, `amount: ${amount}`);
+                    displayUserInfo(selectedUserUid, selectedUserData);
+                }
+            });
+        }
+        
+        // ==========================================
+        // 5. RESET TIỀN TỆ
+        // ==========================================
+        function resetCurrency(type) {
+            if (!selectedUserUid) {
+                alert("Vui lòng tìm kiếm người chơi trước!");
+                return;
+            }
+            
+            if (!confirmAction(`Bạn có chắc chắn muốn reset ${type === 'coins' ? 'xu' : 'kim cương'} về 0?`)) {
+                return;
+            }
+            
+            writeLog(`Đang reset ${type === 'coins' ? 'xu' : 'kim cương'}...`);
+            
+            database.ref(`users/${selectedUserUid}/${type}`).set(0).then(() => {
+                writeLog(`✅ Đã reset ${type === 'coins' ? 'xu' : 'kim cương'} về 0`);
+                writeAuditLog(`reset_${type}`, selectedUserUid, 'reset to 0');
+                displayUserInfo(selectedUserUid, selectedUserData);
+            }).catch(err => writeLog("❌ Lỗi reset: " + err));
+        }
+
+        // ==========================================
+        // 6. QUẢN LÝ TRẠNG THÁI TÀI KHOẢN
+        // ==========================================
+        function manageStatus(statusValue) {
+            if (!selectedUserUid) {
+                alert("Vui lòng tìm kiếm người chơi trước!");
+                return;
+            }
+            
+            const action = statusValue === 0 ? 'KHÓA' : 'MỞ KHÓA';
+            if (!confirmAction(`Bạn có chắc chắn muốn ${action} tài khoản này?`)) {
+                return;
+            }
+            
+            writeLog(`Đang ${action} tài khoản...`);
+            
+            database.ref(`users/${selectedUserUid}/status`).set(statusValue)
+            .then(() => {
+                writeLog(`✅ Đã ${action} tài khoản`);
+                writeAuditLog('manage_status', selectedUserUid, `status: ${statusValue}`);
+                displayUserInfo(selectedUserUid, selectedUserData);
+            }).catch(err => writeLog("❌ Lỗi: " + err));
+        }
+        
+        // ==========================================
+        // 7. QUẢN LÝ KHÓA CHAT
+        // ==========================================
+        function manageChatBan(isBanned) {
+            if (!selectedUserUid) {
+                alert("Vui lòng tìm kiếm người chơi trước!");
+                return;
+            }
+            
+            const action = isBanned ? 'KHÓA' : 'MỞ';
+            if (!confirmAction(`Bạn có chắc chắn muốn ${action} chat của người chơi này?`)) {
+                return;
+            }
+            
+            writeLog(`Đang ${action} chat...`);
+            
+            database.ref(`users/${selectedUserUid}/chatBanned`).set(isBanned)
+            .then(() => {
+                writeLog(`✅ Đã ${action} chat`);
+                writeAuditLog('manage_chat_ban', selectedUserUid, `chatBanned: ${isBanned}`);
+            }).catch(err => writeLog("❌ Lỗi: " + err));
+        }
+        
+        // ==========================================
+        // 8. QUẢN LÝ KHÓA ĐẤU
+        // ==========================================
+        function manageMatchBan(isBanned) {
+            if (!selectedUserUid) {
+                alert("Vui lòng tìm kiếm người chơi trước!");
+                return;
+            }
+            
+            const action = isBanned ? 'KHÓA' : 'MỞ';
+            if (!confirmAction(`Bạn có chắc chắn muốn ${action} đấu của người chơi này?`)) {
+                return;
+            }
+            
+            writeLog(`Đang ${action} đấu...`);
+            
+            database.ref(`users/${selectedUserUid}/matchBanned`).set(isBanned)
+            .then(() => {
+                writeLog(`✅ Đã ${action} đấu`);
+                writeAuditLog('manage_match_ban', selectedUserUid, `matchBanned: ${isBanned}`);
+            }).catch(err => writeLog("❌ Lỗi: " + err));
+        }
+        
+        // ==========================================
+        // 9. RESET DỮ LIỆU NGƯỜI CHƠI
+        // ==========================================
+        function resetDataType(dataType) {
+            if (!selectedUserUid) {
+                alert("Vui lòng tìm kiếm người chơi trước!");
+                return;
+            }
+            
+            let confirmMsg = '';
+            let field = '';
+            
+            switch(dataType) {
+                case 'elo':
+                    confirmMsg = 'reset ELO về 0';
+                    field = 'elo';
+                    break;
+                case 'level':
+                    confirmMsg = 'reset Level về 1';
+                    field = 'level';
+                    break;
+                case 'missions':
+                    confirmMsg = 'reset nhiệm vụ';
+                    field = 'missions';
+                    break;
+                case 'rewards':
+                    confirmMsg = 'reset phần thưởng';
+                    field = 'rewards';
+                    break;
+                case 'all':
+                    confirmMsg = 'reset TẤT CẢ dữ liệu';
+                    break;
+            }
+            
+            if (!confirmAction(`Bạn có chắc chắn muốn ${confirmMsg}?`)) {
+                return;
+            }
+            
+            writeLog(`Đang ${confirmMsg}...`);
+            
+            if (dataType === 'all') {
+                const updates = {
+                    elo: 0,
+                    level: 1,
+                    exp: 0,
+                    winBot: 0,
+                    winSolo: 0,
+                    loseSolo: 0
+                };
+                database.ref(`users/${selectedUserUid}`).update(updates).then(() => {
+                    writeLog(`✅ Đã reset tất cả dữ liệu`);
+                    writeAuditLog('reset_all', selectedUserUid, 'reset all data');
+                    displayUserInfo(selectedUserUid, selectedUserData);
+                }).catch(err => writeLog("❌ Lỗi: " + err));
+            } else {
+                const value = dataType === 'level' ? 1 : 0;
+                database.ref(`users/${selectedUserUid}/${field}`).set(value).then(() => {
+                    writeLog(`✅ Đã reset ${field}`);
+                    writeAuditLog(`reset_${field}`, selectedUserUid, `reset to ${value}`);
+                    displayUserInfo(selectedUserUid, selectedUserData);
+                }).catch(err => writeLog("❌ Lỗi: " + err));
+            }
+        }
+        
+        // ==========================================
+        // 10. CẬP NHẬT THÔNG TIN NGƯỜI CHƠI
+        // ==========================================
+        function updateUserInfo() {
+            if (!selectedUserUid) {
+                alert("Vui lòng tìm kiếm người chơi trước!");
+                return;
+            }
+            
+            const displayName = document.getElementById('edit-displayname').value.trim();
+            const rank = document.getElementById('edit-rank').value;
+            const elo = document.getElementById('edit-elo').value;
+            const level = document.getElementById('edit-level').value;
+            const exp = document.getElementById('edit-exp').value;
+            const clan = document.getElementById('edit-clan').value.trim();
+            
+            const updates = {};
+            if (displayName) updates.displayName = displayName;
+            if (rank) updates.rank = parseInt(rank);
+            if (elo) updates.elo = parseInt(elo);
+            if (level) updates.level = parseInt(level);
+            if (exp) updates.exp = parseInt(exp);
+            if (clan) updates.clan = clan;
+            
+            if (Object.keys(updates).length === 0) {
+                alert("Vui lòng nhập ít nhất một trường để cập nhật!");
+                return;
+            }
+            
+            if (!confirmAction("Bạn có chắc chắn muốn cập nhật thông tin này?")) {
+                return;
+            }
+            
+            writeLog("Đang cập nhật thông tin...");
+            
+            database.ref(`users/${selectedUserUid}`).update(updates).then(() => {
+                writeLog("✅ Đã cập nhật thông tin người chơi");
+                writeAuditLog('update_user_info', selectedUserUid, JSON.stringify(updates));
+                // Refresh user data
+                database.ref(`users/${selectedUserUid}`).once('value').then(snapshot => {
+                    selectedUserData = snapshot.val();
+                    displayUserInfo(selectedUserUid, selectedUserData);
+                });
+            }).catch(err => writeLog("❌ Lỗi cập nhật: " + err));
+        }
+        
+        // ==========================================
+        // 11. QUẢN LÝ VẬT PHẨM - MỞ KHÓA
+        // ==========================================
+        function unlockItem(itemType) {
+            if (!selectedUserUid) {
+                alert("Vui lòng tìm kiếm người chơi trước!");
+                return;
+            }
+            
+            const inputId = `unlock-${itemType}`;
+            const itemName = document.getElementById(inputId).value.trim();
+            
+            if (!itemName) {
+                alert("Vui lòng nhập tên vật phẩm!");
+                return;
+            }
+            
+            if (!confirmAction(`Bạn có chắc chắn muốn mở khóa ${itemType}: ${itemName}?`)) {
+                return;
+            }
+            
+            writeLog(`Đang mở khóa ${itemType}: ${itemName}...`);
+            
+            const itemRef = database.ref(`users/${selectedUserUid}/${itemType}s`);
+            itemRef.transaction((currentItems) => {
+                const items = currentItems || [];
+                if (!items.includes(itemName)) {
+                    items.push(itemName);
+                }
+                return items;
+            }).then(() => {
+                writeLog(`✅ Đã mở khóa ${itemType}: ${itemName}`);
+                writeAuditLog(`unlock_${itemType}`, selectedUserUid, `item: ${itemName}`);
+            }).catch(err => writeLog("❌ Lỗi mở khóa: " + err));
+        }
+        
+        // ==========================================
+        // 12. QUẢN LÝ VẬT PHẨM - THU HỒI
+        // ==========================================
+        function revokeItem(itemType) {
+            if (!selectedUserUid) {
+                alert("Vui lòng tìm kiếm người chơi trước!");
+                return;
+            }
+            
+            const inputId = `revoke-${itemType}`;
+            const itemName = document.getElementById(inputId).value.trim();
+            
+            if (!itemName) {
+                alert("Vui lòng nhập tên vật phẩm!");
+                return;
+            }
+            
+            if (!confirmAction(`Bạn có chắc chắn muốn thu hồi ${itemType}: ${itemName}?`)) {
+                return;
+            }
+            
+            writeLog(`Đang thu hồi ${itemType}: ${itemName}...`);
+            
+            const itemRef = database.ref(`users/${selectedUserUid}/${itemType}s`);
+            itemRef.transaction((currentItems) => {
+                const items = currentItems || [];
+                const index = items.indexOf(itemName);
+                if (index > -1) {
+                    items.splice(index, 1);
+                }
+                return items;
+            }).then(() => {
+                writeLog(`✅ Đã thu hồi ${itemType}: ${itemName}`);
+                writeAuditLog(`revoke_${itemType}`, selectedUserUid, `item: ${itemName}`);
+            }).catch(err => writeLog("❌ Lỗi thu hồi: " + err));
+        }
+        
+        // ==========================================
+        // 13. ĐẶT VẬT PHẨM ĐANG DÙNG
+        // ==========================================
+        function setActiveItem(itemType) {
+            if (!selectedUserUid) {
+                alert("Vui lòng tìm kiếm người chơi trước!");
+                return;
+            }
+            
+            const inputId = `active-${itemType}`;
+            const itemName = document.getElementById(inputId).value.trim();
+            
+            if (!itemName) {
+                alert("Vui lòng nhập tên vật phẩm!");
+                return;
+            }
+            
+            if (!confirmAction(`Bạn có chắc chắn muốn đặt ${itemType} đang dùng: ${itemName}?`)) {
+                return;
+            }
+            
+            writeLog(`Đang đặt ${itemType} đang dùng: ${itemName}...`);
+            
+            database.ref(`users/${selectedUserUid}/${itemType}`).set(itemName).then(() => {
+                writeLog(`✅ Đã đặt ${itemType} đang dùng: ${itemName}`);
+                writeAuditLog(`set_active_${itemType}`, selectedUserUid, `item: ${itemName}`);
+                displayUserInfo(selectedUserUid, selectedUserData);
+            }).catch(err => writeLog("❌ Lỗi đặt active: " + err));
+        }
+        
+        // ==========================================
+        // 14. TẢI LỊCH SỬ NGƯỜI CHƠI
+        // ==========================================
+        function loadUserHistory(historyType) {
+            if (!selectedUserUid) {
+                alert("Vui lòng tìm kiếm người chơi trước!");
+                return;
+            }
+            
+            const historyDisplay = document.getElementById('history-display');
+            historyDisplay.innerHTML = '<p style="color: #666;">Đang tải...</p>';
+            
+            let historyRef;
+            switch(historyType) {
+                case 'login':
+                    historyRef = database.ref(`users/${selectedUserUid}/loginHistory`).limitToLast(20);
+                    break;
+                case 'matches':
+                    historyRef = database.ref(`users/${selectedUserUid}/matchHistory`).limitToLast(20);
+                    break;
+                case 'coins':
+                    historyRef = database.ref(`users/${selectedUserUid}/coinsHistory`).limitToLast(20);
+                    break;
+                case 'admin':
+                    historyRef = database.ref('admin_audit_logs').orderByChild('targetUid').equalTo(selectedUserUid).limitToLast(20);
+                    break;
+            }
+            
+            historyRef.once('value').then(snapshot => {
+                const data = snapshot.val();
+                if (!data) {
+                    historyDisplay.innerHTML = '<p style="color: #999;">Không có dữ liệu.</p>';
+                    return;
+                }
+                
+                let html = '';
+                Object.keys(data).reverse().forEach(key => {
+                    const item = data[key];
+                    const time = item.timestamp ? new Date(item.timestamp).toLocaleString('vi-VN') : 'N/A';
+                    
+                    if (historyType === 'login') {
+                        html += `<div class="history-item">📅 ${time} - IP: ${item.ip || 'N/A'}</div>`;
+                    } else if (historyType === 'matches') {
+                        html += `<div class="history-item">⚔️ ${time} - ${item.result || 'N/A'} vs ${item.opponent || 'N/A'}</div>`;
+                    } else if (historyType === 'coins') {
+                        html += `<div class="history-item">💰 ${time} - ${item.action || 'N/A'}: ${item.amount || 0}</div>`;
+                    } else if (historyType === 'admin') {
+                        html += `<div class="history-item">👮 ${time} - Admin: ${item.adminId} - ${item.action} - ${item.details}</div>`;
+                    }
+                });
+                
+                historyDisplay.innerHTML = html;
+                writeLog(`✅ Đã tải lịch sử ${historyType}`);
+            }).catch(err => {
+                writeLog("❌ Lỗi tải lịch sử: " + err);
+                historyDisplay.innerHTML = '<p style="color: red;">Lỗi tải lịch sử!</p>';
+            });
+        }
+
+
+        // ==========================================
+        // 15. TẢI AUDIT LOGS
+        // ==========================================
+        function loadAuditLogs() {
+            writeLog("Đang tải audit logs...");
+            const auditDisplay = document.getElementById('audit-log-display');
+            auditDisplay.innerHTML = '<p style="color: #666;">Đang tải...</p>';
+            
+            database.ref('admin_audit_logs').orderByChild('timestamp').limitToLast(50).once('value').then(snapshot => {
+                const data = snapshot.val();
+                if (!data) {
+                    auditDisplay.innerHTML = '<p style="color: #999;">Không có audit logs.</p>';
+                    return;
+                }
+                
+                let html = '';
+                Object.keys(data).reverse().forEach(key => {
+                    const log = data[key];
+                    const time = log.timeString || new Date(log.timestamp).toLocaleString('vi-VN');
+                    html += `
+                        <div class="audit-log">
+                            <strong>👮 Admin:</strong> ${log.adminId} (${log.adminRole})<br>
+                            <strong>⏰ Thời gian:</strong> ${time}<br>
+                            <strong>🎯 Hành động:</strong> ${log.action}<br>
+                            <strong>📋 Chi tiết:</strong> ${log.details}<br>
+                            <strong>🆔 Target UID:</strong> ${log.targetUid}
+                        </div>
+                    `;
+                });
+                
+                auditDisplay.innerHTML = html;
+                writeLog(`✅ Đã tải audit logs`);
+            }).catch(err => {
+                writeLog("❌ Lỗi tải audit logs: " + err);
+                auditDisplay.innerHTML = '<p style="color: red;">Lỗi tải audit logs!</p>';
+            });
+        }
+
+        // ==========================================
+        // 16. CHỨC NĂNG GỬI THÔNG BÁO TOÀN SERVER
+        // ==========================================
+        function sendServerNotification() {
+            const message = document.getElementById('notify-message').value.trim();
+            const type = document.getElementById('notify-type').value;
+            
+            if(!message) { alert("Vui lòng nhập nội dung thông báo!"); return; }
+
+            if (!confirmAction("Bạn có chắc chắn muốn gửi thông báo này đến toàn server?")) {
+                return;
+            }
+
+            writeLog(`Đang gửi thông báo toàn server: ${message}`);
+            
+            const notificationRef = database.ref('server_notifications').push();
+            notificationRef.set({
+                message: message,
+                type: type,
+                timestamp: Date.now(),
+                sentBy: currentAdminId
+            }).then(() => {
+                writeLog(`✅ Đã gửi thông báo toàn server!`);
+                writeAuditLog('send_notification', 'all', `message: ${message}, type: ${type}`);
+                document.getElementById('notify-message').value = '';
+            }).catch(err => writeLog("❌ Lỗi gửi thông báo: " + err));
+        }
+
+
+        // ==========================================
+        // CHỨC NĂNG TẢI DANH SÁCH NGƯỜI CHƠI
+        // ==========================================
+        let allPlayersCache = [];
+
+        function loadAllPlayers() {
+            writeLog("Đang tải danh sách người chơi...");
+            const listDiv = document.getElementById('players-list');
+            listDiv.innerHTML = '<p style="color: #aaa; text-align: center;">Đang tải...</p>';
+            
+            database.ref('users').once('value').then(snapshot => {
+                const users = snapshot.val();
+                if (!users) {
+                    listDiv.innerHTML = '<p style="color: #aaa; text-align: center;">Không có người chơi nào.</p>';
+                    return;
+                }
+                
+                allPlayersCache = Object.entries(users).map(([uid, data]) => ({
+                    uid,
+                    username: data.username || 'N/A',
+                    displayName: data.displayName || 'N/A',
+                    coins: data.coins || 0,
+                    diamonds: data.diamonds || 0,
+                    status: data.status === 0 ? '🔒' : '✅'
+                }));
+                
+                renderPlayersList(allPlayersCache);
+                writeLog(`✅ Đã tải ${allPlayersCache.length} người chơi`);
+            }).catch(err => {
+                writeLog("❌ Lỗi tải danh sách: " + err);
+                listDiv.innerHTML = '<p style="color: #ff6b6b; text-align: center;">Lỗi tải danh sách!</p>';
+            });
+        }
+
+        function renderPlayersList(players) {
+            const listDiv = document.getElementById('players-list');
+            if (players.length === 0) {
+                listDiv.innerHTML = '<p style="color: #aaa; text-align: center;">Không tìm thấy người chơi.</p>';
+                return;
+            }
+            
+            listDiv.innerHTML = players.map(p => `
+                <div style="padding: 10px; border-bottom: 1px solid #1a1a2e; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="selectPlayer('${p.username}')">
+                    <div>
+                        <strong style="color: #e94560;">${p.username}</strong> 
+                        <span style="color: #aaa; font-size: 12px;">(${p.displayName || 'N/A'})</span>
+                    </div>
+                    <div style="text-align: right; font-size: 13px;">
+                        <div>💰 ${(p.coins || 0).toLocaleString('vi-VN')} Xu</div>
+                        <div>💎 ${(p.diamonds || 0).toLocaleString('vi-VN')} KC</div>
+                    </div>
+                    <div style="margin-left: 10px; font-size: 18px;">${p.status}</div>
+                </div>
+            `).join('');
+        }
+
+        function searchPlayers() {
+            const query = document.getElementById('search-player').value.trim().toLowerCase();
+            if (!query) {
+                renderPlayersList(allPlayersCache);
+                return;
+            }
+            
+            const filtered = allPlayersCache.filter(p => 
+                p.username.toLowerCase().includes(query) || 
+                (p.displayName && p.displayName.toLowerCase().includes(query))
+            );
+            renderPlayersList(filtered);
+        }
+
+        function selectPlayer(username) {
+            document.getElementById('user-name').value = username;
+            document.getElementById('search-type').value = 'username';
+            writeLog(`Đã chọn: ${username}`);
+            searchUser();
+        }
+
+        // ==========================================
+        // 17. CHỨC NĂNG PHÁT GIFTCODE
+        // ==========================================
+        function createGiftcode() {
+            const code = document.getElementById('code-str').value.trim().toUpperCase();
+            const rewardXu = parseInt(document.getElementById('code-xu').value) || 0;
+            const rewardItem = document.getElementById('code-item').value.trim();
+            const maxUses = parseInt(document.getElementById('code-max').value) || 1;
+
+            if(!code) { alert("Chưa nhập mã Code!"); return; }
+            if(!validateData(rewardXu, 'positive')) { alert("Số xu không hợp lệ!"); return; }
+            if(!validateData(maxUses, 'positive')) { alert("Số lượt không hợp lệ!"); return; }
+
+            if (!confirmAction(`Bạn có chắc chắn muốn phát giftcode: ${code}?`)) {
+                return;
+            }
+
+            writeLog(`Đang phát giftcode [${code}]...`);
+
+            database.ref('gift_codes/' + code).set({
+                reward_xu: rewardXu,
+                reward_item: rewardItem ? rewardItem : null,
+                max_uses: maxUses,
+                used_count: 0,
+                status: 1,
+                createdBy: currentAdminId,
+                createdAt: Date.now()
+            }).then(() => {
+                writeLog(`✅ Phát code [${code}] thành công lên Server.`);
+                writeAuditLog('create_giftcode', 'all', `code: ${code}, reward_xu: ${rewardXu}, max_uses: ${maxUses}`);
+            }).catch(err => writeLog("❌ Lỗi phát code: " + err));
+        }
+
+        // ==========================================
+        // 4. LẮNG NGHE CHAT THỜI GIAN THỰC & XÓA CHAT (WORLD_CHAT)
+        // ==========================================
+        const chatRef = database.ref('world_chat');
+        chatRef.orderByKey().limitToLast(100).on('value', (snapshot) => {
+            const chatBox = document.getElementById('chat-box');
+            chatBox.innerHTML = "";
+            const data = snapshot.val();
+            if (!data) {
+                chatBox.innerHTML = "Lịch sử chat trống.";
+                return;
+            }
+            // Duyệt qua danh sách chat và hiển thị (có nút xóa từng tin)
+            Object.keys(data).reverse().forEach(key => {
+                const chatMsg = data[key];
+                const time = new Date(chatMsg.ts || Date.now()).toLocaleTimeString('vi-VN');
+                const inRoomBadge = chatMsg.inRoom ? '⚔️ ' : '';
+                chatBox.innerHTML += `
+                    <div style="padding: 5px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <b style="color: ${chatMsg.inRoom ? '#dc2626' : '#6366f1'};">${inRoomBadge}${chatMsg.sender}:</b> 
+                            ${chatMsg.message} 
+                            <span style="color:#999; font-size:10px;">(${time})</span>
+                        </div>
+                        <button onclick="deleteChatMessage('${key}')" style="background: #dc2626; color: white; border: none; padding: 2px 8px; cursor: pointer; font-size: 11px; margin-left: 10px;">Xóa</button>
+                    </div>
+                `;
+            });
+            chatBox.scrollTop = chatBox.scrollHeight;
+        });
+
+        function clearChat() {
+            if(confirmAction("Bạn có chắc chắn muốn xóa sạch TOÀN BỘ chat thế giới?")) {
+                chatRef.remove().then(() => {
+                    writeLog("✅ Đã xóa sạch toàn bộ chat thế giới.");
+                    writeAuditLog('clear_chat', 'all', 'cleared all world chat');
+                });
+            }
+        }
+
+        function deleteChatMessage(key) {
+            if(confirmAction("Bạn có chắc chắn muốn xóa tin nhắn này?")) {
+                chatRef.child(key).remove().then(() => {
+                    writeLog("✅ Đã xóa tin nhắn.");
+                    writeAuditLog('delete_chat_message', 'unknown', `message_key: ${key}`);
+                });
+            }
+        }
+
+        // ==========================================
+        // 18. CHỨC NĂNG RESET QUÀ CHÀO MỪNG & CỘNG XU
+        // ==========================================
+        function resetAndGrantWelcomeBonus() {
+            const bonusAmount = parseInt(document.getElementById('welcome-bonus-amount').value) || 50000;
+            
+            if(!validateData(bonusAmount, 'positive')) {
+                alert("Số xu không hợp lệ!");
+                return;
+            }
+            
+            if(!confirmAction(`Bạn có chắc chắn muốn reset và TỰ ĐỘNG CỘNG ${bonusAmount.toLocaleString('vi-VN')} Xu cho TẤT CẢ người chơi?\n\nTất cả người chơi sẽ nhận ngay ${bonusAmount.toLocaleString('vi-VN')} Xu (coi như mới đăng ký).`)) {
+                return;
+            }
+
+            writeLog(`Đang reset và cộng ${bonusAmount.toLocaleString('vi-VN')} Xu cho tất cả người chơi...`);
+            
+            database.ref('users').once('value').then(snapshot => {
+                const users = snapshot.val();
+                if (!users) {
+                    writeLog("Không có người chơi nào trong database.");
+                    return;
+                }
+
+                let count = 0;
+                const promises = [];
+
+                Object.keys(users).forEach(uid => {
+                    // Reset claimedWelcome
+                    promises.push(
+                        database.ref(`users/${uid}/claimedWelcome`).remove()
+                    );
+                    // Cộng xu theo số lượng nhập
+                    promises.push(
+                        database.ref(`users/${uid}/coins`).transaction(cur => (cur || 0) + bonusAmount)
+                    );
+                    count++;
+                });
+
+                Promise.all(promises).then(() => {
+                    writeLog(`✅ Đã reset và cộng ${bonusAmount.toLocaleString('vi-VN')} Xu cho ${count} người chơi thành công!`);
+                    writeAuditLog('reset_welcome_bonus', 'all', `affected_users: ${count}, bonus: ${bonusAmount}`);
+                }).catch(err => {
+                    writeLog("❌ Lỗi reset/cộng xu: " + err);
+                });
+            }).catch(err => {
+                writeLog("❌ Lỗi đọc danh sách người chơi: " + err);
+            });
+        }
+    </script>
+</body>
+</html>

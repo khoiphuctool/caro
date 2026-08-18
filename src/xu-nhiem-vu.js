@@ -245,6 +245,16 @@ function processWinBot(modeDiff, winCount) {
                                     enqueueNotification('system_events', { type: 'win', message: `🎉 Chúc mừng! Hoàn thành ${maxAllowed} trận ${wc} quân, thưởng thêm ${bonusReward} Xu!` });
                                 }
                             }
+                            
+                            // Gửi tin hệ thống thông báo nhận xu khi thắng bot
+                            if (typeof sendSystemMail === 'function') {
+                                const botName = getBotDisplayName(limitKey);
+                                const message = newUsed === maxAllowed && bonusReward > 0
+                                    ? `🎉 Thắng ${botName} ${wc} quân! Nhận ${totalReward.toLocaleString('vi-VN')} Xu (bao gồm thưởng ${bonusReward} Xu).`
+                                    : `🏆 Thắng ${botName} ${wc} quân! Nhận ${totalReward.toLocaleString('vi-VN')} Xu.`;
+                                sendSystemMail(uid, message, 'system');
+                            }
+                            
                             return totalReward;
                         }
                         return 0;
@@ -254,6 +264,21 @@ function processWinBot(modeDiff, winCount) {
     });
 }
 window.processWinBot = processWinBot;
+
+// ──────────────────────────────────────────────
+// HELPER: Lấy tên hiển thị của bot
+// ──────────────────────────────────────────────
+function getBotDisplayName(limitKey) {
+    const botNames = {
+        'easy': 'Bot Dễ',
+        'medium': 'Bot Trung Bình',
+        'hard': 'Bot Khó',
+        'god': 'Bot Thần',
+        'lightning': 'Bot Tia Chớp',
+        'super': 'Bot Thần Cơ'
+    };
+    return botNames[limitKey] || 'Bot';
+}
 
 // ──────────────────────────────────────────────
 // GIỚI HẠN NHIỆM VỤ THEO SỐ QUÂN THẮNG HÀNG NGÀY
@@ -504,30 +529,6 @@ function oHuySanSang() {
 }
 window.oHuySanSang = oHuySanSang;
 
-function thietLapCuoc(roomId, betAmount) {
-    const database = _getDb();
-    if (!database) return Promise.resolve(false);
-    betAmount = parseInt(betAmount);
-    
-    // Kiểm tra room có phải VIP không để dùng giới hạn cược phù hợp
-    return database.ref(`rooms/${roomId}/isVip`).once('value').then(snap => {
-        const isVip = snap.val() === true;
-        const minBet = isVip ? XU_CONFIG.VIP_BET_MIN : XU_CONFIG.BET_MIN;
-        const maxBet = isVip ? XU_CONFIG.VIP_BET_MAX : XU_CONFIG.BET_MAX;
-        
-        if (isNaN(betAmount) || betAmount < minBet || betAmount > maxBet) {
-            alert(`Mức cược phải từ ${minBet.toLocaleString('vi-VN')} đến ${maxBet.toLocaleString('vi-VN')} Xu!`);
-            return Promise.resolve(false);
-        }
-        
-        return database.ref(`rooms/${roomId}/betAmount`).set(betAmount).then(() => {
-            currentBetAmount = betAmount;
-            return true;
-        });
-    });
-}
-window.thietLapCuoc = thietLapCuoc;
-
 // Gọi khi game bắt đầu — chỉ lưu thông tin cược, không trừ xu
 // Xu sẽ được trừ/cộng khi kết thúc trận
 function batDauCuoc(roomId, playerXId, playerOId) {
@@ -608,6 +609,11 @@ async function ketThucCuoc(roomId, winnerRole, isDraw) {
                         playCoinBurst(bet, 'Thắng cược! 🏆💰');
                     }, 500); // Delay để bàn cờ kịp render nước cuối
                 }
+                
+                // Gửi tin hệ thống cho người thắng
+                if (typeof sendSystemMail === 'function') {
+                    sendSystemMail(winnerId, `⚔️ Thắng Solo Online! Nhận ${bet.toLocaleString('vi-VN')} Xu từ đối thủ.`, 'system');
+                }
             });
         
         // Loser -bet
@@ -621,6 +627,11 @@ async function ketThucCuoc(roomId, winnerRole, isDraw) {
                     // BUG 2 Fix: Add coin loss animation for loser
                     playCoinBurst(-bet, 'Thua cược -Xu 😔');
                 }, 500); // Delay để bàn cờ kịp render nước cuối
+            }
+            
+            // Gửi tin hệ thống cho người thua
+            if (typeof sendSystemMail === 'function') {
+                sendSystemMail(loserId, `😔 Thua Solo Online! Mất ${bet.toLocaleString('vi-VN')} Xu cho đối thủ.`, 'system');
             }
         });
         
