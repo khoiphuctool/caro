@@ -147,6 +147,12 @@ function muaBotPet(botPetId) {
             if (typeof enqueueNotification === 'function') {
                 enqueueNotification('system_events', { type: 'win', message: `🛍️ Mua thành công "${botPet.name}"!` });
             }
+            
+            // Gửi tin hệ thống thông báo mua bot pet
+            if (typeof sendSystemMail === 'function') {
+                sendSystemMail(uid, `🛍️ Bạn đã mua "${botPet.name}" ${botPet.avatar} với giá ${price.toLocaleString('vi-VN')} Xu.`, 'system');
+            }
+            
             alert(`Đã mua "${botPet.name}" thành công!`);
             // Render UI trực tiếp với dữ liệu mới
             if (typeof renderShopBotPet === 'function') renderShopBotPet();

@@ -436,6 +436,228 @@ a { text-decoration: none; transition: color var(--transition-fast); }
 .user-xu:hover {
   transform: scale(1.05);
 }
+/* Mailbox icon với badge */
+.user-mailbox {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  transition: all var(--transition-fast);
+}
+.user-mailbox:hover {
+  background: var(--bg-panel);
+  border-color: var(--color-primary);
+  transform: scale(1.05);
+}
+.mailbox-icon {
+  font-size: 18px;
+}
+.mailbox-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: var(--color-danger);
+  color: #fff;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+/* Mailbox Modal Styles */
+.mailbox-tabs {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+.mailbox-tab {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.mailbox-tab:hover {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+.mailbox-tab.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+.mailbox-tab-write {
+  margin-left: auto;
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: #fff;
+}
+.mailbox-tab-write:hover {
+  background: var(--color-success-hover);
+}
+.mailbox-messages {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: var(--space-3);
+}
+.mailbox-message {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  margin-bottom: var(--space-2);
+  transition: background var(--transition-fast);
+}
+.mailbox-message:hover {
+  background: var(--bg-panel);
+}
+.mailbox-unread {
+  border-left: 3px solid var(--color-danger);
+  background: linear-gradient(90deg, var(--color-danger-light), var(--bg-card));
+}
+.mailbox-system {
+  border-left: 3px solid var(--color-warning);
+  background: linear-gradient(90deg, var(--color-warning-light), var(--bg-card));
+}
+.mailbox-message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+.mailbox-sender {
+  font-weight: 700;
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+}
+.mailbox-time {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+.mailbox-unread-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--color-danger);
+  border-radius: 50%;
+  margin-left: var(--space-2);
+}
+.mailbox-content {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+  line-height: 1.5;
+}
+.mailbox-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+.mailbox-btn {
+  padding: 4px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.mailbox-btn-read {
+  background: var(--color-info);
+  color: #fff;
+}
+.mailbox-btn-read:hover {
+  background: var(--color-info-hover);
+}
+.mailbox-btn-delete {
+  background: var(--color-danger);
+  color: #fff;
+}
+.mailbox-btn-delete:hover {
+  background: var(--color-danger-hover);
+}
+.mailbox-loading,
+.mailbox-empty {
+  text-align: center;
+  padding: var(--space-6);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+/* Mailbox Form Styles */
+.mailbox-form {
+  padding: var(--space-4);
+}
+.mailbox-label {
+  display: block;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+.mailbox-select,
+.mailbox-textarea {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  margin-bottom: var(--space-3);
+  transition: border-color var(--transition-fast);
+}
+.mailbox-select:focus,
+.mailbox-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+.mailbox-textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+.mailbox-char-count {
+  text-align: right;
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  margin-bottom: var(--space-3);
+}
+.mailbox-form-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+.mailbox-btn-cancel {
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.mailbox-btn-cancel:hover {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+.mailbox-btn-send {
+  background: var(--color-success);
+  color: #fff;
+}
+.mailbox-btn-send:hover {
+  background: var(--color-success-hover);
+}
 /* Nút action buttons */
 .btn-settings, .btn-logout {
   padding: 6px 12px;
@@ -2141,6 +2363,10 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
                 </div>
             </div>
             <span class="user-xu" id="xu-balance" onclick="moNhiemVu()">💰 0 Xu</span>
+            <div class="user-mailbox" onclick="moHopThu()">
+                <span class="mailbox-icon">📧</span>
+                <span class="mailbox-badge" id="mailbox-badge" style="display:none;">0</span>
+            </div>
             <button class="btn-settings" onclick="moCapNhatTaiKhoan()">⚙️ <span>Cài đặt</span></button>
             <button class="btn-logout" id="btn-logout">🚪 <span>Đăng xuất</span></button>
         </div>
@@ -3076,6 +3302,43 @@ body.in-game-active:not(.ticker-on) { padding-top: 0; }
         <div id="shop-bot-pet-grid" class="shop-bot-pet-grid"></div>
     </div>
 </div>
+
+<!-- Mailbox Modal -->
+<div id="mailbox-modal" class="xu-modal-overlay">
+    <div class="xu-modal-box" style="max-width:600px;">
+        <div class="xu-modal-header">
+            <h2 class="xu-modal-title">📧 Hộp Thư</h2>
+            <button class="xu-modal-close" onclick="dongHopThu()">&times;</button>
+        </div>
+        <div class="mailbox-tabs">
+            <button id="mailbox-tab-inbox" class="mailbox-tab active" onclick="switchMailboxTab('inbox')">📥 Tin nhận</button>
+            <button id="mailbox-tab-outbox" class="mailbox-tab" onclick="switchMailboxTab('outbox')">📤 Tin gửi</button>
+            <button class="mailbox-tab mailbox-tab-write" onclick="moVietThu()">✏️ Viết thư</button>
+        </div>
+        <div id="mailbox-messages" class="mailbox-messages"></div>
+    </div>
+</div>
+
+<!-- Write Mail Form -->
+<div id="mailbox-write-form" class="xu-modal-overlay">
+    <div class="xu-modal-box" style="max-width:500px;">
+        <div class="xu-modal-header">
+            <h2 class="xu-modal-title">✏️ Viết Thư</h2>
+            <button class="xu-modal-close" onclick="dongVietThu()">&times;</button>
+        </div>
+        <div class="mailbox-form">
+            <label class="mailbox-label">Người nhận:</label>
+            <select id="mail-recipient" class="mailbox-select"></select>
+            <label class="mailbox-label">Nội dung:</label>
+            <textarea id="mail-content" class="mailbox-textarea" maxlength="500" placeholder="Nhập nội dung tin nhắn (tối đa 500 ký tự)..."></textarea>
+            <div class="mailbox-char-count"><span id="mail-char-count">0</span>/500</div>
+            <div class="mailbox-form-actions">
+                <button class="mailbox-btn mailbox-btn-cancel" onclick="dongVietThu()">Hủy</button>
+                <button class="mailbox-btn mailbox-btn-send" onclick="guiThu()">Gửi</button>
+            </div>
+        </div>
+    </div>
+</div>
         </div>
         <div id="shop-skin-grid"></div>
     </div>
@@ -3849,6 +4112,7 @@ function resetScoreTableToDefaults() {
 <script src="src/firebase-online.js"></script>
 <script src="src/thong-bao.js"></script>
 <script src="src/xu-nhiem-vu.js"></script>
+<script src="src/nap-tien.js"></script>
 <script src="src/shop-skin.js"></script>
 <script src="src/shop-board-skin.js"></script>
 <script src="src/bot-pets/BotPetCatalog.js"></script>
@@ -3857,6 +4121,8 @@ function resetScoreTableToDefaults() {
 <script src="src/bot-pets/BotPetUI.js"></script>
 <script src="src/bot-pets/BotPetCandidates.js"></script>
 <script src="src/bot-pets/BotPetIntegration.js"></script>
+<script src="src/mailbox/MailboxService.js"></script>
+<script src="src/mailbox/MailboxUI.js"></script>
 <script src="src/room-health.js"></script>
 
 

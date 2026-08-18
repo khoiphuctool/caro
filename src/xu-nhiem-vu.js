@@ -966,6 +966,17 @@ function renderNhiemVuTab() {
             <button class="wc-tab-btn" data-wc="7" style="flex:1;padding:8px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer;">7 Quân</button>
         </div>
         <div id="wincount-limit-display" style="background:#fef3c7;border-radius:8px;padding:10px;margin-top:8px;font-size:13px;"></div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid #e5e7eb;">
+            <button onclick="showNapTienModal()" style="
+                width:100%;padding:14px;border:none;border-radius:10px;
+                background:linear-gradient(135deg,#F59E0B,#D97706);
+                color:white;font-weight:bold;font-size:15px;cursor:pointer;
+                transition:all 0.2s;box-shadow:0 2px 8px rgba(245,158,11,0.3);
+            " onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(245,158,11,0.4)'"
+               onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(245,158,11,0.3)'">
+                💰 Nạp Tiền
+            </button>
+        </div>
     `;
     // Render giới hạn bot (5 quân mặc định)
     let currentWinCount = 5;

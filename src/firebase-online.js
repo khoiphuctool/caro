@@ -621,6 +621,11 @@ function dangXuat() {
         }
         currentUsername = null;
         currentUserData = null;
+        
+        // Cleanup Mailbox Service khi logout
+        if (typeof cleanupMailboxService === 'function') {
+            cleanupMailboxService();
+        }
         localStorage.removeItem('current_username');
         localStorage.removeItem('current_user_id');
         localStorage.removeItem('current_room_id');
@@ -661,6 +666,12 @@ function fetchUserData(userId) {
         
         currentUserData = data;
         localStorage.setItem('current_user_id', userId);
+        
+        // Khởi tạo Mailbox Service
+        if (typeof initMailboxService === 'function' && typeof db !== 'undefined') {
+            initMailboxService(db, userId);
+        }
+        
         const rank = getRankName(data.winBot, data.winSolo);
         document.getElementById('user-display-name').innerText = data.displayName || data.username;
         document.getElementById('my-win-bot').innerText   = data.winBot   || 0;
