@@ -660,18 +660,22 @@ function fetchUserData(userId) {
         const data = snap.val();
         if (!data) return;
         
-        // Initialize ownedBotPets and equippedBotPet if not exist
+        // KHÔNG dùng .set() trong on('value') listener - gây conflict với transaction
+        // Chỉ khởi tạo local defaults nếu chưa có
         if (!data.ownedBotPets) {
-            db.ref('users/' + userId + '/ownedBotPets').set([]);
             data.ownedBotPets = [];
         }
         if (data.equippedBotPet === undefined) {
-            db.ref('users/' + userId + '/equippedBotPet').set(null);
             data.equippedBotPet = null;
         }
         
         currentUserData = data;
         localStorage.setItem('current_user_id', userId);
+        
+        // Khởi tạo BotPet system (đảm bảo ownedBotPets/equippedBotPet tồn tại)
+        if (typeof initBotPetSystem === 'function') {
+            initBotPetSystem(userId);
+        }
         
         // Khởi tạo Mailbox Service
         if (typeof initMailboxService === 'function' && typeof db !== 'undefined') {

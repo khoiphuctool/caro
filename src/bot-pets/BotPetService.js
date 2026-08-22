@@ -37,10 +37,11 @@ function _botPetGetUserData() {
 // ──────────────────────────────────────────────
 function hasBotPet(botPetId) {
     // Kiểm tra trực tiếp từ currentUserData
-    if (typeof currentUserData !== 'undefined' && currentUserData) {
+    if (typeof currentUserData !== 'undefined' && currentUserData && currentUserData.ownedBotPets) {
         const owned = Array.isArray(currentUserData.ownedBotPets) ? currentUserData.ownedBotPets : [];
         return owned.includes(botPetId);
     }
+    // Fallback: nếu currentUserData chưa load, trả về false (caller nên load data trước)
     // console.warn('[BotPetService] hasBotPet: currentUserData unavailable, returning false until Firebase data loads');
     return false;
 }
@@ -85,11 +86,6 @@ function muaBotPet(botPetId) {
         return;
     }
     
-    if (hasBotPet(botPetId)) {
-        alert('Bạn đã sở hữu Bot Pet này rồi!');
-        return;
-    }
-    
     const uid = (typeof _botPetGetUid === 'function') ? _botPetGetUid() : null;
     const database = (typeof _botPetGetDb === 'function') ? _botPetGetDb() : null;
     if (!uid || !database) {
@@ -97,66 +93,90 @@ function muaBotPet(botPetId) {
         return;
     }
     
-    const price = botPet.price;
-    const currentXu = typeof getMyCoins === 'function' ? getMyCoins() : 0;
-    
-    if (currentXu < price) {
-        alert(`Bạn không đủ xu! Cần ${price.toLocaleString('vi-VN')} Xu, bạn có ${currentXu.toLocaleString('vi-VN')} Xu.`);
-        return;
-    }
-    
-    if (!confirm(`Mua "${botPet.name}" với giá ${price.toLocaleString('vi-VN')} Xu?`)) {
-        return;
-    }
-    
-    // Transaction Firebase để trừ xu và thêm bot pet
-    const userRef = database.ref(`users/${uid}`);
-    userRef.transaction((currentData) => {
-        if (!currentData) return null;
+    // Load dữ liệu mới nhất từ Firebase trước khi kiểm tra
+    database.ref(`users/${uid}`).once('value').then(snap => {
+        const userData = snap.val();
+        if (!userData) {
+            alert('Không tìm thấy dữ liệu người dùng!');
+            return;
+        }
         
-        // Kiểm tra lại ownership trong transaction để tránh double purchase
-        const owned = Array.isArray(currentData.ownedBotPets) ? currentData.ownedBotPets : [];
+        // Cập nhật currentUserData
+        if (typeof currentUserData !== 'undefined') {
+            Object.assign(currentUserData, userData);
+        }
+        
+        // Kiểm tra ownership với dữ liệu mới nhất
+        const owned = Array.isArray(userData.ownedBotPets) ? userData.ownedBotPets : [];
         if (owned.includes(botPetId)) {
-            return; // Abort nếu đã sở hữu
+            alert('Bạn đã sở hữu Bot Pet này rồi!');
+            return;
         }
         
-        const currentCoins = Number(currentData.coins || 0);
-        if (currentCoins < price) {
-            return; // Abort nếu không đủ xu
+        const price = botPet.price;
+        const currentXu = Number(userData.coins || 0);
+        
+        if (currentXu < price) {
+            alert(`Bạn không đủ xu! Cần ${price.toLocaleString('vi-VN')} Xu, bạn có ${currentXu.toLocaleString('vi-VN')} Xu.`);
+            return;
         }
         
-        return Object.assign({}, currentData, {
-            coins: currentCoins - price,
-            ownedBotPets: owned.concat(botPetId)
+        if (!confirm(`Mua "${botPet.name}" với giá ${price.toLocaleString('vi-VN')} Xu?`)) {
+            return;
+        }
+        
+        // Transaction Firebase để trừ xu và thêm bot pet
+        const userRef = database.ref(`users/${uid}`);
+        
+        userRef.transaction((currentData) => {
+            if (!currentData) return null;
+            
+            // Kiểm tra lại ownership trong transaction để tránh double purchase
+            const owned = Array.isArray(currentData.ownedBotPets) ? currentData.ownedBotPets : [];
+            if (owned.includes(botPetId)) {
+                return; // Abort nếu đã sở hữu
+            }
+            
+            const currentCoins = Number(currentData.coins || 0);
+            if (currentCoins < price) {
+                return; // Abort nếu không đủ xu
+            }
+            
+            return Object.assign({}, currentData, {
+                coins: currentCoins - price,
+                ownedBotPets: owned.concat(botPetId)
+            });
+        }, (error, committed, snapshot) => {
+            if (error) {
+                alert('Lỗi khi mua Bot Pet: ' + error.message);
+            } else if (!committed) {
+                alert('Không đủ xu hoặc bạn đã sở hữu Bot Pet này!');
+            } else {
+                const newData = snapshot.val();
+                if (typeof currentUserData !== 'undefined') {
+                    currentUserData.coins = newData.coins;
+                    currentUserData.ownedBotPets = newData.ownedBotPets || [];
+                }
+                if (typeof updateCoinDisplay === 'function') updateCoinDisplay();
+                if (typeof showXuPopup === 'function') {
+                    showXuPopup(-price, `Mua ${botPet.name} ${botPet.avatar}`);
+                }
+                if (typeof enqueueNotification === 'function') {
+                    enqueueNotification('system_events', { type: 'win', message: `🛍️ Mua thành công "${botPet.name}"!` });
+                }
+                
+                // Gửi tin hệ thống thông báo mua bot pet
+                if (typeof sendSystemMail === 'function') {
+                    sendSystemMail(uid, `🛍️ Bạn đã mua "${botPet.name}" ${botPet.avatar} với giá ${price.toLocaleString('vi-VN')} Xu.`, 'system');
+                }
+                
+                alert(`Đã mua "${botPet.name}" thành công!`);
+                // Render UI trực tiếp với dữ liệu mới
+                if (typeof renderShopBotPet === 'function') renderShopBotPet();
+            }
         });
-    }, (error, committed, snapshot) => {
-        if (error) {
-            alert('Lỗi khi mua Bot Pet: ' + error.message);
-        } else if (!committed) {
-            alert('Không đủ xu hoặc bạn đã sở hữu Bot Pet này!');
-        } else {
-            const newData = snapshot.val();
-            if (typeof currentUserData !== 'undefined') {
-                currentUserData.coins = newData.coins;
-                currentUserData.ownedBotPets = newData.ownedBotPets || [];
-            }
-            if (typeof updateCoinDisplay === 'function') updateCoinDisplay();
-            if (typeof showXuPopup === 'function') {
-                showXuPopup(-price, `Mua ${botPet.name} ${botPet.avatar}`);
-            }
-            if (typeof enqueueNotification === 'function') {
-                enqueueNotification('system_events', { type: 'win', message: `🛍️ Mua thành công "${botPet.name}"!` });
-            }
-            
-            // Gửi tin hệ thống thông báo mua bot pet
-            if (typeof sendSystemMail === 'function') {
-                sendSystemMail(uid, `🛍️ Bạn đã mua "${botPet.name}" ${botPet.avatar} với giá ${price.toLocaleString('vi-VN')} Xu.`, 'system');
-            }
-            
-            alert(`Đã mua "${botPet.name}" thành công!`);
-            // Render UI trực tiếp với dữ liệu mới
-            if (typeof renderShopBotPet === 'function') renderShopBotPet();
-        }
+    }).catch(err => {
+        alert('Lỗi khi tải dữ liệu người dùng: ' + err.message);
     });
 }
 window.muaBotPet = muaBotPet;
@@ -165,11 +185,6 @@ window.muaBotPet = muaBotPet;
 // TRANG BỊ BOT PET
 // ──────────────────────────────────────────────
 function trangBiBotPet(botPetId) {
-    if (!hasBotPet(botPetId)) {
-        alert('Bạn chưa sở hữu Bot Pet này!');
-        return;
-    }
-    
     const uid = (typeof _botPetGetUid === 'function') ? _botPetGetUid() : null;
     const database = (typeof _botPetGetDb === 'function') ? _botPetGetDb() : null;
     if (!uid || !database) {
@@ -177,25 +192,48 @@ function trangBiBotPet(botPetId) {
         return;
     }
     
-    const botPet = getBotPetById(botPetId);
-    
-    const userRef = database.ref(`users/${uid}`);
-    userRef.update({
-        equippedBotPet: botPetId
-    }, (error) => {
-        if (error) {
-            alert('Lỗi khi trang bị Bot Pet: ' + error.message);
-        } else {
-            if (typeof currentUserData !== 'undefined') {
-                currentUserData.equippedBotPet = botPetId;
-            }
-            if (typeof enqueueNotification === 'function') {
-                enqueueNotification('system_events', { type: 'win', message: `✅ Đã trang bị "${botPet.name}" ${botPet.avatar}` });
-            }
-            alert('Đã trang bị Bot Pet thành công!');
-            // Render UI trực tiếp
-            if (typeof renderShopBotPet === 'function') renderShopBotPet();
+    // Load dữ liệu mới nhất từ Firebase trước khi kiểm tra
+    database.ref(`users/${uid}`).once('value').then(snap => {
+        const userData = snap.val();
+        if (!userData) {
+            alert('Không tìm thấy dữ liệu người dùng!');
+            return;
         }
+        
+        // Cập nhật currentUserData
+        if (typeof currentUserData !== 'undefined') {
+            Object.assign(currentUserData, userData);
+        }
+        
+        // Kiểm tra ownership với dữ liệu mới nhất
+        const owned = Array.isArray(userData.ownedBotPets) ? userData.ownedBotPets : [];
+        if (!owned.includes(botPetId)) {
+            alert('Bạn chưa sở hữu Bot Pet này!');
+            return;
+        }
+        
+        const botPet = getBotPetById(botPetId);
+        
+        const userRef = database.ref(`users/${uid}`);
+        userRef.update({
+            equippedBotPet: botPetId
+        }, (error) => {
+            if (error) {
+                alert('Lỗi khi trang bị Bot Pet: ' + error.message);
+            } else {
+                if (typeof currentUserData !== 'undefined') {
+                    currentUserData.equippedBotPet = botPetId;
+                }
+                if (typeof enqueueNotification === 'function') {
+                    enqueueNotification('system_events', { type: 'win', message: `✅ Đã trang bị "${botPet.name}" ${botPet.avatar}` });
+                }
+                alert('Đã trang bị Bot Pet thành công!');
+                // Render UI trực tiếp
+                if (typeof renderShopBotPet === 'function') renderShopBotPet();
+            }
+        });
+    }).catch(err => {
+        alert('Lỗi khi tải dữ liệu người dùng: ' + err.message);
     });
 }
 window.trangBiBotPet = trangBiBotPet;
