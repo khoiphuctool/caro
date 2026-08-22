@@ -1479,6 +1479,13 @@ let roomsListListener = null;
 function hienDanhSachPhong() {
     const container = document.getElementById('room-list');
     if (!container) return;
+    // Tab Bot không cần Firebase — tránh ghi đè "Đang tải..." lên BotRoomManager
+    if (currentRoomTab === 'bot') {
+        if (typeof BotRoomManager !== 'undefined' && typeof BotRoomManager.openBotLobby === 'function') {
+            BotRoomManager.openBotLobby();
+        }
+        return;
+    }
     container.innerHTML = '<p style="color:#888;">Đang tải...</p>';
     // Hủy listener cũ nếu có
     if (roomsListListener) {

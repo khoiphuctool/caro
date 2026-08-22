@@ -359,6 +359,15 @@ function _patchRoomListRender() {
         const container = document.getElementById('room-list');
         if (!container) return;
 
+        // Tab Bot không cần Firebase — tránh ghi đè BotRoomManager
+        const _currentTab = (typeof currentRoomTab !== 'undefined') ? currentRoomTab : 'bot';
+        if (_currentTab === 'bot') {
+            if (typeof BotRoomManager !== 'undefined' && typeof BotRoomManager.openBotLobby === 'function') {
+                BotRoomManager.openBotLobby();
+            }
+            return;
+        }
+
         // Hủy listener cũ
         if (typeof roomsListListener !== 'undefined' && roomsListListener) {
             _db.ref('rooms').off('value', roomsListListener);
@@ -368,6 +377,10 @@ function _patchRoomListRender() {
         const newListener = _db.ref('rooms').on('value', snap => {
             if (!document.getElementById('lobby-screen') ||
                 document.getElementById('lobby-screen').style.display === 'none') return;
+
+            // Tab Bot không render trong listener này
+            const _tab = (typeof currentRoomTab !== 'undefined') ? currentRoomTab : 'bot';
+            if (_tab === 'bot') return;
 
             const rooms = snap.val();
             container.innerHTML = '';
